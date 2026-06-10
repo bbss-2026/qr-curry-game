@@ -27,6 +27,7 @@
         .btn-cook { background: #2ecc71; color: white; box-shadow: 0 4px 0 #27ae60; width: 100%; }
         .btn-rand { background: #e67e22; color: white; box-shadow: 0 4px 0 #d35400; width: 100%; margin-bottom: 15px; }
         .btn-battle { background: #9b59b6; color: white; box-shadow: 0 4px 0 #8e44ad; width: 100%; }
+        .btn-bot { background: #e67e22; color: white; box-shadow: 0 4px 0 #d35400; width: 100%; }
         .btn:active { transform: translateY(4px); box-shadow: none; }
         
         /* ショップ用デザイン */
@@ -139,7 +140,7 @@
         <button class="tab-btn" onclick="switchTab('scan')">📷 QRスキャン</button>
         <button class="tab-btn" onclick="switchTab('fridge')">📦 冷蔵庫＆図鑑</button>
         <button class="tab-btn" onclick="switchTab('cook')">🔥 調理</button>
-        <button class="tab-btn active" onclick="switchTab('battle')">⚔️ オンライン対戦</button>
+        <button class="tab-btn active" onclick="switchTab('battle')">⚔️ 対戦アリーナ</button>
     </div>
 
     <div id="pageScan" class="page">
@@ -202,6 +203,12 @@
                 <span id="readyCurryName" style="color:#c0392b; font-weight:bold;">❌ カレーがありません。調理してください</span>
             </div>
 
+            <div class="room-section" style="border-color: #e67e22;">
+                <h4 style="margin:0 0 10px 0; color:#d35400;">🤖 練習試合 (シングルBot戦)</h4>
+                <p style="font-size:12px; margin:0 0 10px 0; color:#7f8c8d;">一人で手軽に特訓したいときは、CPUのNPC料理人とすぐ戦えます。</p>
+                <button class="btn btn-bot" onclick="startBotBattle()">NPC料理人と対戦する</button>
+            </div>
+
             <div id="lobbyArea">
                 <div class="room-section">
                     <h4 style="margin:0 0 10px 0; color:#9b59b6;">🏠 新しい対戦ルームを作る</h4>
@@ -211,7 +218,7 @@
                 </div>
 
                 <div class="room-section" style="margin-top:20px; border-color:#34495e;">
-                    <h4 style="margin:0 0 10px 0; color:#34495e;">🌐 对战相手の募集一覧</h4>
+                    <h4 style="margin:0 0 10px 0; color:#34495e;">🌐 対戦相手の募集一覧</h4>
                     <div id="roomListArea" style="font-size:13px; color:#7f8c8d;">部屋を読み込み中...</div>
                 </div>
             </div>
@@ -225,7 +232,7 @@
 
         <div id="battleArena" style="display:none;">
             <div class="battle-stage" id="battleStage">
-                <div class="damage-pop" id="damagePop">99</div>
+                <div class="damage-pop" id="damagePop" style="display:none;">0</div>
 
                 <div class="hp-container enemy-hp">
                     <div style="font-size:11px; font-weight:bold;" id="oppOwnerText">相手ユーザー名</div>
@@ -263,7 +270,7 @@
 </div>
 
 <script>
-// 🤝 あなたのFirebaseアカウント情報がここに組み込まれました！
+// 🤝 あなたのFirebaseアカウント情報
 const firebaseConfig = {
     apiKey: "AIzaSyCEbiyOxye1Eo7gzyZBwGxEHcjPX5WommM",
     authDomain: "curry-battle.firebaseapp.com",
@@ -343,9 +350,18 @@ const masterSpices = {
     "チリパウダー": { mul: "atk", val: 1.6, name: "爆炎の", emoji: "❤️" }
 };
 
+// NPCの対戦相手リスト
+const botOpponents = [
+    { name: "見習い料理人タカシ", curryName: "ベジタブルマイルドカレー", visual: "🥦🧅🥔", hp: 130, atk: 25, def: 20, spd: 15 },
+    { name: "スパイスの魔術師レオン", curryName: "爆炎のW唐揚げ激辛カレー", visual: "💥💥🌶️", hp: 180, atk: 65, def: 15, spd: 35 },
+    { name: "洋食屋のガンコ親父", curryName: "極厚トンカツ重量級カレー", visual: "🐷🥩🥔", hp: 280, atk: 55, def: 45, spd: 5 },
+    { name: "宮廷カレー長 ミラ", curryName: "至高のオマール海老贅沢仕立て", visual: "🦞🦞✨", hp: 350, atk: 90, def: 60, spd: 40 }
+];
+
 let inventory = {}; let scanHistory = {}; let victoryPoints = 0;
 let currentCurry = null; let playerName = "名無しの料理人";
 let recipeBook = {}; let myRoomRef = null; let currentRoomId = null;
+let isBotMatch = false;
 
 window.onload = function() { loadGame(); updateFridgeUI(); updateCookSelects(); updateBattleUI(); refreshRecipeBookUI(); updateShopButtons(); listenToRooms(); };
 
@@ -511,10 +527,45 @@ function updateBattleUI() {
     else { ready.innerText = "❌ カレーがありません。「調理」で作成してください。"; ready.style.color = "#c0392b"; }
 }
 
+// ─── 🤖 シングルBot戦の開始ロジック ───
+function startBotBattle() {
+    if(!currentCurry) { alert("対戦に出撃させるカレーを作ってください！"); return; }
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+    isBotMatch = true; currentRoomId = null; // Bot戦フラグON
+    
+    // ランダムで対戦相手のBotを選出
+    const bot = botOpponents[Math.floor(Math.random() * botOpponents.length)];
+    const oppCurryData = { name: bot.curryName, visual: bot.visual, hp: bot.hp, atk: bot.atk, def: bot.def, spd: bot.spd };
+
+    // バグ修正：画面遷移の直前に数字ポップアップを完全に初期化して隠す
+    const pop = document.getElementById("damagePop");
+    pop.style.display = "none"; pop.style.animation = "none"; pop.innerText = "0";
+
+    const vsScreen = document.getElementById("vsCutIn");
+    const pSide = document.getElementById("vsPlayerSide"); const eSide = document.getElementById("vsEnemySide"); const badge = document.getElementById("vsBadge");
+
+    document.getElementById("vsPlayerName").innerText = playerName;
+    document.getElementById("vsPlayerVisual").innerText = currentCurry.visual || "🍛";
+    document.getElementById("vsPlayerCurry").innerText = currentCurry.name;
+    document.getElementById("vsEnemyName").innerText = bot.name;
+    document.getElementById("vsEnemyVisual").innerText = bot.visual;
+    document.getElementById("vsEnemyCurry").innerText = bot.curryName;
+
+    vsScreen.style.display = "flex"; playVsSound();
+    setTimeout(() => { pSide.style.transform = "translateX(0)"; }, 100);
+    setTimeout(() => { eSide.style.transform = "translateX(0)"; }, 400);
+    setTimeout(() => { badge.style.opacity = "1"; badge.style.scale = "1"; }, 800);
+
+    setTimeout(() => {
+        vsScreen.style.display = "none";
+        pSide.style.transform = "translateX(-100%)"; eSide.style.transform = "translateX(100%)"; badge.style.opacity = "0"; badge.style.scale = "3";
+        proceedToArena(bot.name, oppCurryData, currentCurry);
+    }, 3200);
+}
+
 // ─── 🌐 オンライン対戦・ルームロジック ───
 function checkDatabase() { if(!database) { alert("⚠️ Firebaseの初期化に失敗しています。リアルタイム対戦は利用できません。"); return false; } return true; }
 
-// ルームの常時監視（ロビー一覧の更新）
 function listenToRooms() {
     if(!database) return;
     database.ref('rooms').on('value', snapshot => {
@@ -540,10 +591,10 @@ function listenToRooms() {
     });
 }
 
-// 部屋主：ルーム作成
 function createMatchRoom() {
     if(!checkDatabase()) return;
     if(!currentCurry) { alert("対戦に出撃させるカレーを作ってください！"); return; }
+    isBotMatch = false;
     const pass = document.getElementById("createRoomPassword").value.trim();
     const roomId = 'room_' + Math.random().toString(36).substr(2, 9);
     myRoomRef = database.ref('rooms/' + roomId);
@@ -558,27 +609,25 @@ function createMatchRoom() {
     document.getElementById("lobbyArea").style.display = "none";
     document.getElementById("waitingArea").style.display = "block";
 
-    // ゲストが入室してくるのを監視
     myRoomRef.on('value', snapshot => {
         const room = snapshot.val();
         if(room && room.status === "ready") {
-            myRoomRef.off('value'); // 監視解除
+            myRoomRef.off('value');
             startOnlineBattle(room.hostName, room.hostCurry, room.guestName, room.guestCurry, "host");
         }
     });
 }
 
-// 部屋主：キャンセル
 function cancelMatchRoom() {
     if(myRoomRef) { myRoomRef.remove(); myRoomRef.off('value'); }
     document.getElementById("lobbyArea").style.display = "block";
     document.getElementById("waitingArea").style.display = "none";
 }
 
-// 挑戦者：入室
 function joinMatchRoom(roomId, hasPassword) {
     if(!checkDatabase()) return;
     if(!currentCurry) { alert("対戦に出撃させるカレーを作ってください！"); return; }
+    isBotMatch = false;
     
     if(hasPassword) {
         const inputPass = prompt("🔑 この部屋には合言葉が必要です。入力してください:");
@@ -604,13 +653,16 @@ function proceedJoin(roomId) {
     });
 }
 
-// ⚔️ オンライン戦闘シーン（同期シミュレーション）
 function startOnlineBattle(hName, hCurry, gName, gCurry, myRole) {
     if (audioCtx.state === 'suspended') audioCtx.resume();
+    
+    // バグ修正：オンライン戦でもカットイン前に数字を非表示化
+    const pop = document.getElementById("damagePop");
+    pop.style.display = "none"; pop.style.animation = "none"; pop.innerText = "0";
+
     const vsScreen = document.getElementById("vsCutIn");
     const pSide = document.getElementById("vsPlayerSide"); const eSide = document.getElementById("vsEnemySide"); const badge = document.getElementById("vsBadge");
 
-    // 自分の視点に合わせてプレイヤーと敵を配置
     const isHost = myRole === "host";
     const myName = isHost ? hName : gName; const myCurryData = isHost ? hCurry : gCurry;
     const oppName = isHost ? gName : hName; const oppCurryData = isHost ? gCurry : hCurry;
@@ -622,7 +674,6 @@ function startOnlineBattle(hName, hCurry, gName, gCurry, myRole) {
     document.getElementById("vsEnemyVisual").innerText = oppCurryData.visual || "🍛";
     document.getElementById("vsEnemyCurry").innerText = oppCurryData.name;
 
-    document.getElementById("damagePop").style.display = "none";
     vsScreen.style.display = "flex"; playVsSound();
 
     setTimeout(() => { pSide.style.transform = "translateX(0)"; }, 100);
@@ -636,6 +687,7 @@ function startOnlineBattle(hName, hCurry, gName, gCurry, myRole) {
     }, 3200);
 }
 
+// ⚔️ 共通アリーナ処理（Bot戦、対人戦共通）
 function proceedToArena(oppName, oppCurry, myCurry) {
     document.getElementById("battleSetup").style.display = "none";
     document.getElementById("battleArena").style.display = "block";
@@ -652,7 +704,7 @@ function proceedToArena(oppName, oppCurry, myCurry) {
     updateHpBars(pCurrentHp, oCurrentHp, oppCurry.hp, myCurry.hp);
     
     const log = document.getElementById("battleLog");
-    log.innerHTML = `⚔️ ${oppName} とのリアルな決闘が始まった！\n`;
+    log.innerHTML = `⚔️ ${oppName} との熱い決闘が始まった！\n`;
 
     let round = 1;
     let myTurn = myCurry.spd >= oppCurry.spd;
@@ -718,16 +770,24 @@ function determineWinner(pHp, oHp, myCurry) {
     document.getElementById("battleResultBox").style.display = "block";
 
     if (pHp > oHp) {
-        playWinSound(); verdict.innerText = "🏆 勝利 (VICTORY) !!"; verdict.style.color = "#2ecc71"; victoryPoints += 100;
+        playWinSound(); verdict.innerText = "🏆 勝利 (VICTORY) !!"; verdict.style.color = "#2ecc71";
+        
+        // 勝った場合のポイント付与（Bot戦は少し少なめの 30PT、対人戦は 100PT）
+        const addedVp = isBotMatch ? 30 : 100;
+        victoryPoints += addedVp;
+        
         const droppable = Object.keys(masterIngredients).filter(k => !masterIngredients[k].shop);
         let lootItem = droppable[Math.floor(Math.random() * droppable.length)];
         inventory[lootItem] = (inventory[lootItem] || 0) + 1; saveGame();
-        rText.innerHTML = `【決闘の戦果】<br>・勝利ポイント +100 PT<br>・戦いの中でインスピレーションを得た！ 👉 <span style="color:#e67e22; font-size:18px;">${lootItem} 1個</span> 獲得！`;
+        
+        rText.innerHTML = `【決闘の戦果】<br>・勝利ポイント +${addedVp} PT<br>・戦いの中でインスピレーションを得た！ 👉 <span style="color:#e67e22; font-size:18px;">${lootItem} 1個</span> 獲得！`;
     } else {
         verdict.innerText = "💀 敗北 (DEFEAT) ..."; verdict.style.color = "#e74c3c";
         rText.innerHTML = `ライバルの隠し味に完敗...！食材は消費されましたが、次回またリベンジしましょう。`;
     }
-    if(currentRoomId) { database.ref('rooms/' + currentRoomId).remove(); }
+    
+    // オンライン部屋の後始末
+    if(!isBotMatch && currentRoomId) { database.ref('rooms/' + currentRoomId).remove(); }
     currentCurry = null; updateBattleUI();
 }
 
