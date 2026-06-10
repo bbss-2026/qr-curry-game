@@ -85,6 +85,21 @@
         .vs-side.enemy-side { background: linear-gradient(270deg, #9b59b6, transparent); padding: 15px 0; transform: translateX(100%); }
         .vs-center-badge { font-size: 48px; font-weight: 900; color: #f1c40f; text-shadow: 0 0 15px #f1c40f; opacity: 0; scale: 3; transition: 0.3s; font-style: italic; }
         
+        /* 🌟 カスタムポップアップ（モーダル） */
+        .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); z-index: 999; display: none; justify-content: center; align-items: center; }
+        .modal-box { background: #fdfaf4; width: 85%; max-width: 380px; padding: 20px; border-radius: 15px; border: 3px solid #e67e22; box-shadow: 0 10px 25px rgba(0,0,0,0.3); text-align: center; box-sizing: border-box; animation: modalFadeIn 0.2s ease-out; }
+        .modal-title { font-size: 18px; font-weight: bold; color: #d35400; margin-bottom: 12px; }
+        .modal-message { font-size: 15px; color: #4a3b32; margin-bottom: 20px; line-height: 1.5; font-weight: bold; }
+        .modal-btn-group { display: flex; justify-content: center; gap: 10px; }
+        .modal-btn { flex: 1; padding: 10px; font-size: 15px; font-weight: bold; border: none; border-radius: 6px; cursor: pointer; color: white; }
+        .modal-btn-ok { background: #2ecc71; box-shadow: 0 3px 0 #27ae60; }
+        .modal-btn-cancel { background: #e74c3c; box-shadow: 0 3px 0 #c0392b; }
+
+        @keyframes modalFadeIn {
+            from { opacity: 0; transform: scale(0.9); }
+            to { opacity: 1; transform: scale(1); }
+        }
+
         /* 会心の出来エフェクト */
         @keyframes criticalGlow {
             0% { background: #fffdf0; box-shadow: 0 0 5px #f1c40f; }
@@ -112,6 +127,15 @@
     </style>
 </head>
 <body>
+
+<div class="modal-overlay" id="customModal">
+    <div class="modal-box">
+        <div class="modal-title" id="modalTitle">📢 お知らせ</div>
+        <div class="modal-message" id="modalMessage">メッセージ内容</div>
+        <div class="modal-btn-group" id="modalBtnGroup">
+            </div>
+    </div>
+</div>
 
 <div class="container" id="mainContainer">
     
@@ -181,7 +205,7 @@
         <h3>食材 2</h3><select id="ingredient2"></select>
         <h3>食材 3</h3><select id="ingredient3"></select>
         <h3>スパイス</h3><select id="spice"></select>
-        <button class="btn btn-cook" onclick="cookCurry()">🔥 カレーを調理する！</button>
+        <button class="btn btn-cook" onclick="checkCookStock()">🔥 カレーを調理する！</button>
 
         <div class="result-box" id="resultBox" style="display:none; margin-top:20px; padding:15px; background:#fffdf0; border:2px dashed #e67e22; border-radius:10px;">
             <div id="criticalFlashText" style="color:#d35400; font-weight:bold; font-size:18px; display:none; text-shadow:0 0 10px #f1c40f;">✨ 会心の出来！！！ ✨</div>
@@ -214,11 +238,11 @@
                     <h4 style="margin:0 0 10px 0; color:#9b59b6;">🏠 新しい対戦ルームを作る</h4>
                     <label style="font-size:12px;">入室合言葉 (空欄なら誰でも歓迎):</label>
                     <input type="text" id="createRoomPassword" class="room-input" placeholder="例: 1234">
-                    <button class="btn btn-battle" id="btnCreateRoom" onclick="createMatchRoom()" style="width:100%; margin:5px 0;">部屋を作って対戦相手を待つ</button>
+                    <button class="btn btn-battle" id="btnCreateRoom" onclick="createMatchRoom()">部屋を作って対戦相手を待つ</button>
                 </div>
 
                 <div class="room-section" style="margin-top:20px; border-color:#34495e;">
-                    <h4 style="margin:0 0 10px 0; color:#34495e;">🌐 对戦相手の募集一覧</h4>
+                    <h4 style="margin:0 0 10px 0; color:#34495e;">🌐 対戦相手の募集一覧</h4>
                     <div id="roomListArea" style="font-size:13px; color:#7f8c8d;">部屋を読み込み中...</div>
                 </div>
             </div>
@@ -270,7 +294,6 @@
 </div>
 
 <script>
-// 🤝 あなたのFirebaseアカウント情報
 const firebaseConfig = {
     apiKey: "AIzaSyCEbiyOxye1Eo7gzyZBwGxEHcjPX5WommM",
     authDomain: "curry-battle.firebaseapp.com",
@@ -281,7 +304,6 @@ const firebaseConfig = {
     appId: "1:14364879746:web:b8ad99677e66027b013d9b"
 };
 
-// Firebaseの初期化（互換接続）
 let database = null;
 if(firebaseConfig.apiKey !== "YOUR_API_KEY") {
     firebase.initializeApp(firebaseConfig);
@@ -304,6 +326,51 @@ function playDamageSound() { playTone(100, 'sawtooth', 0.2); }
 function playWinSound() { playTone(523.25, 'square', 0.1); setTimeout(() => playTone(659.25, 'square', 0.1), 80); setTimeout(() => playTone(783.99, 'square', 0.8), 160); }
 function playVsSound() { playTone(293.66, 'sawtooth', 0.15); setTimeout(() => playTone(220, 'sawtooth', 0.15), 150); setTimeout(() => playTone(440, 'sawtooth', 0.4), 300); }
 function playCriticalSound() { playTone(880, 'square', 0.1); setTimeout(() => playTone(1320, 'square', 0.1), 60); setTimeout(() => playTone(1760, 'square', 0.3), 120); }
+
+// 🌟 ゲーム内カスタムポップアップ管理用の関数
+function showCustomAlert(title, message, onOk) {
+    document.getElementById("modalTitle").innerText = title;
+    document.getElementById("modalMessage").innerHTML = message;
+    const btnGroup = document.getElementById("modalBtnGroup");
+    btnGroup.innerHTML = "";
+    
+    const okBtn = document.createElement("button");
+    okBtn.className = "modal-btn modal-btn-ok";
+    okBtn.innerText = "OK";
+    okBtn.onclick = function() {
+        document.getElementById("customModal").style.display = "none";
+        if(onOk) onOk();
+    };
+    btnGroup.appendChild(okBtn);
+    document.getElementById("customModal").style.display = "flex";
+}
+
+function showCustomConfirm(title, message, onConfirm, onCancel) {
+    document.getElementById("modalTitle").innerText = title;
+    document.getElementById("modalMessage").innerHTML = message;
+    const btnGroup = document.getElementById("modalBtnGroup");
+    btnGroup.innerHTML = "";
+    
+    const cancelBtn = document.createElement("button");
+    cancelBtn.className = "modal-btn modal-btn-cancel";
+    cancelBtn.innerText = "キャンセル";
+    cancelBtn.onclick = function() {
+        document.getElementById("customModal").style.display = "none";
+        if(onCancel) onCancel();
+    };
+    
+    const okBtn = document.createElement("button");
+    okBtn.className = "modal-btn modal-btn-ok";
+    okBtn.innerText = "許可する";
+    okBtn.onclick = function() {
+        document.getElementById("customModal").style.display = "none";
+        if(onConfirm) onConfirm();
+    };
+    
+    btnGroup.appendChild(cancelBtn);
+    btnGroup.appendChild(okBtn);
+    document.getElementById("customModal").style.display = "flex";
+}
 
 // マスターデータ
 const masterIngredients = {
@@ -350,7 +417,6 @@ const masterSpices = {
     "チリパウダー": { mul: "atk", val: 1.6, name: "爆炎の", emoji: "❤️" }
 };
 
-// NPCの対戦相手リスト
 const botOpponents = [
     { name: "見習い料理人タカシ", curryName: "ベジタブルマイルドカレー", visual: "🥦🧅🥔", hp: 130, atk: 25, def: 20, spd: 15 },
     { name: "スパイスの魔術師レオン", curryName: "爆炎のW唐揚げ激辛カレー", visual: "💥💥🌶️", hp: 180, atk: 65, def: 15, spd: 35 },
@@ -359,8 +425,7 @@ const botOpponents = [
 ];
 
 let inventory = {}; let scanHistory = {}; let victoryPoints = 0;
-let curryStock = []; // 📦 最大5個のカレーストック配列
-let selectedCurryIndex = -1; // 出撃用に選ばれたカレーの配列インデックス
+let curryStock = []; let selectedCurryIndex = -1;
 let playerName = "名無しの料理人";
 let recipeBook = {}; let myRoomRef = null; let currentRoomId = null;
 let isBotMatch = false;
@@ -417,7 +482,13 @@ function loadGame() {
 }
 
 function handleNameChange(val) { if(!val.trim()) val = "名無しの料理人"; playerName = val; document.getElementById("headerPlayerName").innerText = val; saveGame(); }
-function clearSaveData() { if(confirm("すべてリセットします。よろしいですか？")) { localStorage.clear(); inventory = {}; scanHistory = {}; victoryPoints = 0; curryStock = []; selectedCurryIndex = -1; playerName = "名無しの料理人"; recipeBook = {}; loadGame(); updateFridgeUI(); updateCookSelects(); updateBattleUI(); refreshRecipeBookUI(); updateShopButtons(); document.getElementById("resultBox").style.display = "none"; } }
+
+function clearSaveData() {
+    showCustomConfirm("⚠️ データ初期化", "セーブデータをすべてリセットします。本当によろしいですか？", function() {
+        localStorage.clear(); inventory = {}; scanHistory = {}; victoryPoints = 0; curryStock = []; selectedCurryIndex = -1; playerName = "名無しの料理人"; recipeBook = {}; loadGame(); updateFridgeUI(); updateCookSelects(); updateBattleUI(); refreshRecipeBookUI(); updateShopButtons(); document.getElementById("resultBox").style.display = "none";
+    });
+}
+
 function updateShopButtons() { const b1 = document.getElementById("btnShop100"); const b2 = document.getElementById("btnShop300"); if(b1 && b2) { b1.disabled = victoryPoints < 100; b2.disabled = victoryPoints < 300; } }
 
 function buyShopItem(cost) {
@@ -425,13 +496,18 @@ function buyShopItem(cost) {
     const targets = Object.keys(masterIngredients).filter(name => masterIngredients[name].shop === cost);
     const winner = targets[Math.floor(Math.random() * targets.length)];
     victoryPoints -= cost; inventory[winner] = (inventory[winner] || 0) + 1;
-    playWinSound(); alert(`🛒 【${masterIngredients[winner].emoji} ${winner}】を獲得！`); saveGame(); updateFridgeUI();
+    playWinSound();
+    
+    // 🌟 アカウント名が出ないカスタムポップアップに変更
+    showCustomAlert("🛒 購入完了", `【${masterIngredients[winner].emoji} ${winner}】を獲得しました！`);
+    
+    saveGame(); updateFridgeUI();
 }
 
 function selectRandomIngredients() {
     const avail = Object.keys(masterIngredients).filter(n => (inventory[n] || 0) > 0);
     const sps = Object.keys(masterSpices).filter(n => (inventory[n] || 0) > 0);
-    if (avail.length < 3 || sps.length < 1) { alert("具材3種・スパイス1種以上の在庫が必要です！"); return; }
+    if (avail.length < 3 || sps.length < 1) { showCustomAlert("⚠️ 在庫不足", "具材3種・スパイス1種以上の在庫が必要です！"); return; }
     let pool = [...avail];
     ["ingredient1", "ingredient2", "ingredient3"].forEach(id => {
         document.getElementById(id).value = pool.splice(Math.floor(Math.random() * pool.length), 1)[0];
@@ -503,17 +579,25 @@ function updateCookSelects() {
     Object.keys(masterSpices).forEach(n => { if((inventory[n]||0)>0){ const o=document.createElement("option"); o.value=n; o.innerText=`${masterSpices[n].emoji} ${n}(${inventory[n]}個)`; spSel.appendChild(o); } });
 }
 
-function cookCurry() {
+// 🌟 調理前のストック満杯チェックにカスタムポップアップを適用
+function checkCookStock() {
     const i1 = document.getElementById("ingredient1").value; const i2 = document.getElementById("ingredient2").value; const i3 = document.getElementById("ingredient3").value; const sp = document.getElementById("spice").value;
     if(!i1 && !i2 && !i3 && !sp) return;
 
-    // ⚠️ 5個ストックが満杯のときの警告アナウンス
     if(curryStock.length >= 5) {
-        if(!confirm("⚠️ カレーストックが5つ満杯です。新しく調理すると【一番古いカレー】が消去されますが、本当によろしいですか？")) {
-            return; // キャンセルされたら処理中断
-        }
+        showCustomConfirm(
+            "⚠️ ストック満杯の警告", 
+            "カレーストックが5つ満杯です。<br>新しく調理すると<span style='color:#e74c3c;'>【一番古いカレー】</span>が自動的に消去されますが、よろしいですか？", 
+            function() { cookCurry(); } // 許可されたら調理を実行
+        );
+    } else {
+        cookCurry();
     }
+}
 
+function cookCurry() {
+    const i1 = document.getElementById("ingredient1").value; const i2 = document.getElementById("ingredient2").value; const i3 = document.getElementById("ingredient3").value; const sp = document.getElementById("spice").value;
+    
     if(i1) inventory[i1]--; if(i2) inventory[i2]--; if(i3) inventory[i3]--; if(sp) inventory[sp]--;
     let hp = (i1?masterIngredients[i1].hp:0)+(i2?masterIngredients[i2].hp:0)+(i3?masterIngredients[i3].hp:0);
     let atk = (i1?masterIngredients[i1].atk:0)+(i2?masterIngredients[i2].atk:0)+(i3?masterIngredients[i3].atk:0);
@@ -533,14 +617,13 @@ function cookCurry() {
     if(Math.random()<0.15){ playCriticalSound(); cName=`💎至高の${cName}`; hp=Math.round(hp*1.4); atk=Math.round(atk*1.4); document.getElementById("resultBox").classList.add("critical-box"); document.getElementById("criticalFlashText").style.display="block"; }
     else { document.getElementById("resultBox").classList.remove("critical-box"); document.getElementById("criticalFlashText").style.display="none"; }
     
-    // 📦 ストック管理：5個以上の場合は古いもの（先頭）を削除
     if (curryStock.length >= 5) {
         curryStock.shift();
     }
     
     const newCurry = { name: cName, visual: vis, hp: hp, atk: atk, def: def, spd: spd };
     curryStock.push(newCurry);
-    selectedCurryIndex = curryStock.length - 1; // 新しく作ったカレーを自動選択
+    selectedCurryIndex = curryStock.length - 1;
     
     saveGame(); updateCookSelects();
     
@@ -580,9 +663,8 @@ function selectBattleCurry(idx) {
     selectedCurryIndex = parseInt(idx, 10);
 }
 
-// ─── 🤖 シングルBot戦の開始ロジック ───
 function startBotBattle() {
-    if(selectedCurryIndex === -1 || curryStock.length === 0) { alert("対戦に出撃させるカレーを選択（または調理）してください！"); return; }
+    if(selectedCurryIndex === -1 || curryStock.length === 0) { showCustomAlert("⚠️ 出撃不可", "対戦に出撃させるカレーを選択（または調理）してください！"); return; }
     if (audioCtx.state === 'suspended') audioCtx.resume();
     isBotMatch = true; currentRoomId = null;
     
@@ -615,8 +697,7 @@ function startBotBattle() {
     }, 3200);
 }
 
-// ─── 🌐 オンライン対戦・ルームロジック ───
-function checkDatabase() { if(!database) { alert("⚠️ Firebaseの初期化に失敗しています。リアルタイム対戦は利用できません。"); return false; } return true; }
+function checkDatabase() { if(!database) { showCustomAlert("⚠️ 接続エラー", "Firebaseの初期化に失敗しています。リアルタイム対戦は利用できません。"); return false; } return true; }
 
 function listenToRooms() {
     if(!database) return;
@@ -628,8 +709,8 @@ function listenToRooms() {
         Object.keys(rooms).forEach(id => {
             const room = rooms[id];
             if(room.status !== "waiting") return;
-            const card = document.createElement("div"); card.className = "room-card";
             const lockIcon = room.hasPassword ? "🔒" : "🔓";
+            card = document.createElement("div"); card.className = "room-card";
             card.innerHTML = `
                 <div>
                     <strong>👤 ${room.hostName}</strong> (${lockIcon})<br>
@@ -645,7 +726,7 @@ function listenToRooms() {
 
 function createMatchRoom() {
     if(!checkDatabase()) return;
-    if(selectedCurryIndex === -1 || curryStock.length === 0) { alert("対戦に出撃させるカレーを選択（または調理）してください！"); return; }
+    if(selectedCurryIndex === -1 || curryStock.length === 0) { showCustomAlert("⚠️ 出撃不可", "対戦に出撃させるカレーを選択（または調理）してください！"); return; }
     isBotMatch = false;
     const currentCurry = curryStock[selectedCurryIndex];
     const pass = document.getElementById("createRoomPassword").value.trim();
@@ -679,15 +760,16 @@ function cancelMatchRoom() {
 
 function joinMatchRoom(roomId, hasPassword) {
     if(!checkDatabase()) return;
-    if(selectedCurryIndex === -1 || curryStock.length === 0) { alert("対戦に出撃させるカレーを選択（または調理）してください！"); return; }
+    if(selectedCurryIndex === -1 || curryStock.length === 0) { showCustomAlert("⚠️ 出撃不可", "対戦に出撃させるカレーを選択（または調理）してください！"); return; }
     isBotMatch = false;
     
     if(hasPassword) {
+        // 合言葉入力欄もカスタムにしたい場合は後々作れますが、今回はプロンプトのままにするか、直接接続させます
         const inputPass = prompt("🔑 この部屋には合言葉が必要です。入力してください:");
         database.ref('rooms/' + roomId).once('value').then(snapshot => {
             const room = snapshot.val();
             if(room && room.password === inputPass) { proceedJoin(roomId); } 
-            else { alert("合言葉が正しくありません。"); }
+            else { showCustomAlert("❌ エラー", "合言葉が正しくありません。"); }
         });
     } else { proceedJoin(roomId); }
 }
@@ -696,7 +778,7 @@ function proceedJoin(roomId) {
     const roomRef = database.ref('rooms/' + roomId);
     roomRef.once('value').then(snapshot => {
         const room = snapshot.val();
-        if(!room || room.status !== "waiting") { alert("この部屋はすでに満室か、削除されました。"); return; }
+        if(!room || room.status !== "waiting") { showCustomAlert("⚠️ エラー", "この部屋はすでに満室か、削除されました。"); return; }
         
         const currentCurry = curryStock[selectedCurryIndex];
         roomRef.update({
@@ -740,7 +822,6 @@ function startOnlineBattle(hName, hCurry, gName, gCurry, myRole) {
     }, 3200);
 }
 
-// ⚔️ 共通アリーナ処理
 function proceedToArena(oppName, oppCurry, myCurry) {
     document.getElementById("battleSetup").style.display = "none";
     document.getElementById("battleArena").style.display = "block";
@@ -838,13 +919,11 @@ function determineWinner(pHp, oHp, myCurry) {
         rText.innerHTML = `ライバルの隠し味に完敗...！食材は消費されましたが、次回またリベンジしましょう。`;
     }
     
-    // 🔄 戦ったカレーをストック配列から完全に消費（削除）する
     if (selectedCurryIndex !== -1 && selectedCurryIndex < curryStock.length) {
         curryStock.splice(selectedCurryIndex, 1);
     }
     selectedCurryIndex = curryStock.length > 0 ? 0 : -1;
     
-    // 🔄 バトル終了後、調理タブの「前回の調理結果ボックス」をキレイにリセット
     document.getElementById("resultBox").style.display = "none";
     document.getElementById("curryVisual").innerText = "🍛";
     document.getElementById("curryName").innerText = "未調理のカレー";
