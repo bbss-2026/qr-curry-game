@@ -1,0 +1,788 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QRスパイスカレー・至高のレシピ図鑑</title>
+    <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
+    <style>
+        body { font-family: 'Helvetica Neue', Arial, sans-serif; background-color: #f9f5eb; color: #4a3b32; padding: 20px; text-align: center; margin: 0; }
+        .container { max-width: 500px; margin: 0 auto; background: white; padding: 20px; border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); border: 3px solid #e7a643; box-sizing: border-box; position: relative; }
+        h1 { color: #d35400; font-size: 24px; margin-bottom: 5px; }
+        
+        /* タブ */
+        .tab-menu { display: flex; justify-content: space-around; margin: 20px 0; background: #eee; border-radius: 8px; padding: 5px; }
+        .tab-btn { flex: 1; padding: 10px; border: none; background: none; font-size: 15px; font-weight: bold; cursor: pointer; border-radius: 5px; color: #7f8c8d; }
+        .tab-btn.active { background: #e67e22; color: white; }
+        .page { display: none; }
+        .page.active { display: block; }
+        #canvas { width: 100%; max-width: 300px; background: #333; border-radius: 10px; margin-bottom: 15px; display: none; }
+        
+        /* ボタン・フォーム */
+        .btn { width: 80%; padding: 12px; font-size: 16px; font-weight: bold; border: none; border-radius: 8px; cursor: pointer; margin: 8px 0; transition: 0.1s; }
+        .btn-start { background: #3498db; color: white; box-shadow: 0 4px 0 #2980b9; }
+        .btn-cancel { background: #e74c3c; color: white; box-shadow: 0 4px 0 #c0392b; }
+        .btn-cook { background: #2ecc71; color: white; box-shadow: 0 4px 0 #27ae60; width: 100%; }
+        .btn-rand { background: #e67e22; color: white; box-shadow: 0 4px 0 #d35400; width: 100%; margin-bottom: 15px; }
+        .btn-battle { background: #9b59b6; color: white; box-shadow: 0 4px 0 #8e44ad; width: 100%; }
+        .btn:active { transform: translateY(4px); box-shadow: none; }
+        
+        /* ショップ用デザイン */
+        .shop-box { background: #fff5e6; border: 2px solid #f39c12; border-radius: 10px; padding: 15px; margin: 15px 0; text-align: left; }
+        .shop-btn-container { display: flex; gap: 10px; margin-top: 10px; }
+        .btn-shop { flex: 1; padding: 10px; font-size: 13px; font-weight: bold; color: white; border: none; border-radius: 6px; cursor: pointer; }
+        .btn-shop-100 { background: #e67e22; box-shadow: 0 3px 0 #b35d10; }
+        .btn-shop-300 { background: #9b59b6; box-shadow: 0 3px 0 #732d8f; }
+        .btn-shop:disabled { background: #bdc3c7 !important; box-shadow: none !important; cursor: not-allowed; }
+        
+        .input-name { width: 80%; padding: 10px; font-size: 16px; border-radius: 8px; border: 2px solid #e67e22; text-align: center; font-weight: bold; margin-bottom: 15px; }
+        
+        /* 冷蔵庫＆図鑑 */
+        .fridge-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 15px; }
+        .fridge-item { background: #f0f0f0; padding: 10px; border-radius: 8px; font-size: 13px; border: 2px solid #ddd; color: #ccc; }
+        .fridge-item.owned { background: #fffdf0; border-color: #e67e22; color: #4a3b32; font-weight: bold; }
+        .fridge-item.shop-exclusive { border-style: double; border-width: 3px; }
+        .fridge-emoji { font-size: 32px; filter: grayscale(100%); }
+        .fridge-item.owned .fridge-emoji { filter: grayscale(0%); }
+        select { width: 100%; padding: 10px; margin-bottom: 10px; border-radius: 8px; border: 2px solid #bdc3c7; font-size: 16px; }
+        .status-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; text-align: left; max-width: 300px; margin: 0 auto; font-size: 16px; }
+        .status-item { background: #eee; padding: 8px 12px; border-radius: 5px; font-weight: bold; }
+
+        .recipe-book { text-align: left; background: #fffdf0; border: 2px solid #f39c12; border-radius: 10px; padding: 15px; margin-top: 15px; max-height: 250px; overflow-y: auto; }
+        .recipe-row { padding: 8px; border-bottom: 1px dashed #ddd; font-size: 13px; display: flex; justify-content: space-between; align-items: center; }
+        .recipe-row:last-child { border-bottom: none; }
+
+        /* ⚔️ バトル画面 */
+        .battle-monitor { background: #111; color: #00ff00; padding: 15px; border-radius: 10px; height: 90px; overflow-y: auto; text-align: left; font-family: monospace; font-size: 14px; margin-top: 15px; line-height: 1.6; border: 2px solid #333; }
+        .battle-stage { position: relative; background: #2c3e50; border: 4px solid #34495e; border-radius: 12px; height: 320px; margin-bottom: 15px; overflow: hidden; display: flex; flex-direction: column; justify-content: space-between; padding: 15px; box-sizing: border-box; }
+        .enemy-zone { text-align: center; margin-top: 30px; transition: transform 0.1s; }
+        .player-zone { display: flex; justify-content: space-between; align-items: center; background: rgba(0,0,0,0.7); padding: 8px; border-radius: 6px; color: white; font-size: 12px; }
+        
+        .char-visual { font-size: 50px; display: inline-block; text-shadow: 0 4px 0 rgba(0,0,0,0.3); }
+        .enemy-visual { font-size: 65px; }
+        .sub-name-label { font-size: 11px; color: #f1c40f; font-weight: bold; margin-top: 2px; background: rgba(0,0,0,0.4); padding: 2px 6px; border-radius: 4px; display: inline-block; }
+        
+        .hp-container { text-align: left; background: rgba(255,255,255,0.1); padding: 5px 10px; border-radius: 6px; color: white; width: 45%; box-sizing: border-box; }
+        .hp-container.enemy-hp { position: absolute; top: 15px; right: 15px; background: rgba(0,0,0,0.7); z-index: 5; width: 55%; }
+        .hp-bar-bg { background: #555; width: 100%; height: 8px; border-radius: 4px; overflow: hidden; margin-top: 4px; border: 1px solid #000; }
+        .hp-bar { background: #2ecc71; height: 100%; width: 100%; transition: width 0.4s ease-out; }
+        .hp-bar.danger { background: #e74c3c; }
+        
+        .damage-pop { position: absolute; font-family: 'Impact', Arial, sans-serif; font-size: 38px; color: #f1c40f; -webkit-text-stroke: 1.5px #000; font-weight: bold; display: none; pointer-events: none; z-index: 10; }
+        
+        /* ⚡ VS カットイン画面 */
+        .vs-cutin { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: #111; border-radius: 15px; z-index: 100; display: none; flex-direction: column; justify-content: space-around; align-items: center; color: white; overflow: hidden; box-sizing: border-box; padding: 20px; }
+        .vs-side { width: 100%; text-align: center; transform: translateX(-100%); transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+        .vs-side.player-side { background: linear-gradient(90deg, #e67e22, transparent); padding: 15px 0; }
+        .vs-side.enemy-side { background: linear-gradient(270deg, #9b59b6, transparent); padding: 15px 0; transform: translateX(100%); }
+        .vs-center-badge { font-size: 48px; font-weight: 900; color: #f1c40f; text-shadow: 0 0 15px #f1c40f; opacity: 0; scale: 3; transition: 0.3s; font-style: italic; }
+        
+        /* 会心の出来エフェクト */
+        @keyframes criticalGlow {
+            0% { background: #fffdf0; box-shadow: 0 0 5px #f1c40f; }
+            50% { background: #fff2cc; box-shadow: 0 0 25px #f1c40f; border-color: #f1c40f; }
+            100% { background: #fffdf0; box-shadow: 0 0 5px #f1c40f; }
+        }
+        .critical-box { animation: criticalGlow 1.5s infinite; border: 3px double #f1c40f !important; }
+
+        @keyframes popUp {
+            0% { opacity: 0; transform: translateY(0) scale(0.5); display: block; }
+            15% { opacity: 1; transform: translateY(-20px) scale(1.2); }
+            80% { opacity: 1; transform: translateY(-30px) scale(1.0); }
+            100% { opacity: 0; transform: translateY(-45px) scale(0.8); display: none; }
+        }
+        @keyframes shake {
+            0% { transform: translate(0, 0); }
+            20% { transform: translate(-10px, 5px); }
+            40% { transform: translate(10px, -5px); }
+            60% { transform: translate(-8px, -5px); }
+            80% { transform: translate(8px, 5px); }
+            100% { transform: translate(0, 0); }
+        }
+        .animate-shake { animation: shake 0.2s ease-in-out; }
+        .flash-red { background-color: #c0392b !important; transition: background-color 0.1s; }
+    </style>
+</head>
+<body>
+
+<div class="container" id="mainContainer">
+    
+    <div class="vs-cutin" id="vsCutIn">
+        <div class="vs-side player-side" id="vsPlayerSide">
+            <div style="font-size:14px; color:#f39c12; font-weight:bold;">CHALLENGER</div>
+            <div style="font-size:22px; font-weight:bold;" id="vsPlayerName">料理人</div>
+            <div style="font-size:40px; margin:5px 0;" id="vsPlayerVisual">🍛</div>
+            <div style="font-size:14px; color:#eee;" id="vsPlayerCurry">カレー名</div>
+        </div>
+        <div class="vs-center-badge" id="vsBadge">VS</div>
+        <div class="vs-side enemy-side" id="vsEnemySide">
+            <div style="font-size:14px; color:#9b59b6; font-weight:bold;">ARENA MASTER</div>
+            <div style="font-size:22px; font-weight:bold;" id="vsEnemyName">対戦相手</div>
+            <div style="font-size:40px; margin:5px 0;" id="vsEnemyVisual">🤖</div>
+            <div style="font-size:14px; color:#eee;" id="vsEnemyCurry">相手カレー名</div>
+        </div>
+    </div>
+
+    <h1>🍛 QRスパイスカレー 🍛</h1>
+    <div style="font-size: 12px; color: #e67e22; font-weight: bold;">
+        料理人: <span id="headerPlayerName">名無しの料理人</span> | 勝利ポイント: <span id="globalVP">0</span> PT
+    </div>
+    
+    <div class="tab-menu">
+        <button class="tab-btn" onclick="switchTab('scan')">📷 QRスキャン</button>
+        <button class="tab-btn" onclick="switchTab('fridge')">📦 冷蔵庫＆図鑑</button>
+        <button class="tab-btn active" onclick="switchTab('cook')">🔥 調理</button>
+        <button class="tab-btn" onclick="switchTab('battle')">⚔️ バトル</button>
+    </div>
+
+    <div id="pageScan" class="page">
+        <button id="btnStartCamera" class="btn btn-start" onclick="startCamera()">🎥 カメラを起動する</button>
+        <div id="statusMessage" style="font-size:14px; color:#7f8c8d; margin-bottom:15px; display:none;">🔍 QRを枠内に映してください...</div>
+        <canvas id="canvas"></canvas>
+        <button id="btnCancel" class="btn btn-cancel" onclick="cancelScanning()" style="display:none;">❌ キャンセル</button>
+
+        <div class="get-box" id="getBox" style="display:none; margin-top:20px; padding:15px; background:#fffdf0; border:2px dashed #e67e22; border-radius:10px;">
+            <div style="font-size:14px; color:#e67e22; font-weight:bold;" id="getBoxTitle">🎉 食材ゲット！</div>
+            <div style="font-size:64px;" id="getItemEmoji">🥩</div>
+            <div style="font-size:18px; font-weight:bold; color:#c0392b;" id="getItemName">牛肉</div>
+            <button class="btn btn-start" onclick="resetScanner()" style="width:100%; margin-top:15px;">🔄 もう一度スキャン</button>
+        </div>
+    </div>
+
+    <div id="pageFridge" class="page">
+        <h3>👤 プレイヤー名設定</h3>
+        <input type="text" id="playerNameInput" class="input-name" placeholder="料理人の名前を入力" onchange="handleNameChange(this.value)">
+        
+        <button class="btn btn-cancel" onclick="clearSaveData()" style="display:inline-block; width:45%; font-size:11px; padding:5px; margin-bottom:10px;">⚠️ 全初期化</button>
+        
+        <div class="shop-box">
+            <div style="font-weight: bold; color: #d35400; font-size: 14px; border-bottom: 1px solid #f39c12; padding-bottom: 4px; margin-bottom: 8px;">🛒 勝利ポイント交換ショップ</div>
+            <div style="font-size: 11px; color: #666;">バトルで集めたポイントを消費して限定の高級具材をゲット！</div>
+            <div class="shop-btn-container">
+                <button class="btn-shop btn-shop-100" id="btnShop100" onclick="buyShopItem(100)">中級食材 (100PT)<br><span style="font-size:10px;font-weight:normal;">チーズ/イカ/海老等</span></button>
+                <button class="btn-shop btn-shop-300" id="btnShop300" onclick="buyShopItem(300)">最高級食材 (300PT)<br><span style="font-size:10px;font-weight:normal;">キャビア/オマール等</span></button>
+            </div>
+        </div>
+
+        <div class="fridge-grid" id="fridgeGrid"></div>
+
+        <h3 style="margin-top:25px; color:#d35400;">📖 発見したレシピ履歴（図鑑）</h3>
+        <div class="recipe-book" id="recipeBookArea">履歴がありません。</div>
+    </div>
+
+    <div id="pageCook" class="page active">
+        <button class="btn btn-rand" onclick="selectRandomIngredients()">🎲 在庫からおまかせランダム選択</button>
+        
+        <h3>食材 1</h3><select id="ingredient1"></select>
+        <h3>食材 2</h3><select id="ingredient2"></select>
+        <h3>食材 3</h3><select id="ingredient3"></select>
+        <h3>スパイス</h3><select id="spice"></select>
+        <button class="btn btn-cook" onclick="cookCurry()">🔥 カレーを調理する！</button>
+
+        <div class="result-box" id="resultBox" style="display:none; margin-top:20px; padding:15px; background:#fffdf0; border:2px dashed #e67e22; border-radius:10px;">
+            <div id="criticalFlashText" style="color:#d35400; font-weight:bold; font-size:18px; display:none; text-shadow:0 0 10px #f1c40f;">✨ 会心の出来！！！ ✨</div>
+            <div style="font-size:64px;" id="curryVisual">🍛</div>
+            <div style="font-size:18px; font-weight:bold; color:#c0392b; margin-bottom:10px;" id="curryName">未調理のカレー</div>
+            <div class="status-grid">
+                <div class="status-item" style="background:#ffebef; color:#c0392b;">HP: <span id="statHP">0</span></div>
+                <div class="status-item" style="background:#fff2e6; color:#d35400;">ATK: <span id="statATK">0</span></div>
+                <div class="status-item" style="background:#e6f9ff; color:#2980b9;">DEF: <span id="statDEF">0</span></div>
+                <div class="status-item" style="background:#e6ffe6; color:#27ae60;">SPD: <span id="statSPD">0</span></div>
+            </div>
+        </div>
+    </div>
+
+    <div id="pageBattle" class="page">
+        <div id="battleSetup">
+            <p>作ったカレーで対戦相手を選んでバトルしよう！</p>
+            <div style="background:#fffdf0; padding:10px; border-radius:10px; border:1px solid #e67e22; margin-bottom:15px;">
+                <span style="font-weight:bold;">現在出撃可能なカレー:</span><br>
+                <span id="readyCurryName" style="color:#c0392b; font-weight:bold;">❌ カレーがありません。調理してください</span>
+            </div>
+            
+            <h3>対戦相手の選択</h3>
+            <select id="battleOpponent">
+                <option value="bot1">🤖 甘口見習いBot（弱）</option>
+                <option value="bot2">🤖 中辛中堅Bot（普通）</option>
+                <option value="bot3">🤖 辛口魔術師Bot（強）</option>
+                <option value="pvp1">👤 他の料理人：マサラマスター（非同期データ）</option>
+            </select>
+            <button class="btn btn-battle" id="btnStartBattle" onclick="startBattle()">⚔️ バトル開始！！</button>
+        </div>
+
+        <div id="battleArena" style="display:none;">
+            <div class="battle-stage" id="battleStage">
+                <div class="damage-pop" id="damagePop">99</div>
+
+                <div class="hp-container enemy-hp">
+                    <div style="font-size:11px; font-weight:bold;" id="oppOwnerText">相手ユーザー名</div>
+                    <div class="hp-bar-bg"><div id="oWeightBar" class="hp-bar"></div></div>
+                    <div id="oHpText" style="font-size:10px; text-align:right;">HP: 100/100</div>
+                </div>
+
+                <div class="enemy-zone" id="enemyZone">
+                    <div class="char-visual enemy-visual" id="oVisual">🤖</div><br>
+                    <div class="sub-name-label" id="oppCurryNameText">相手のカレー名</div>
+                </div>
+
+                <div class="player-zone">
+                    <div style="text-align:left; max-width:50%;">
+                        <div style="font-weight:bold; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" id="pOwnerText">プレイヤー名</div>
+                        <div style="font-size:22px; margin:2px 0;" id="pVisual">🍛</div>
+                        <div style="font-size:10px; color:#f1c40f; font-weight:bold;" id="playerCurryNameText">マイカレー名</div>
+                    </div>
+                    <div class="hp-container" style="width:50%; background:none; padding:0;">
+                        <div id="pHpText" style="font-size:11px; font-weight:bold; text-align:right;">HP: 100/100</div>
+                        <div class="hp-bar-bg"><div id="pWeightBar" class="hp-bar"></div></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="battle-monitor" id="battleLog"></div>
+            
+            <div id="battleResultBox" style="display:none; background:#fffdf0; padding:15px; border-radius:10px; border:2px dashed #9b59b6; margin-top:15px;">
+                <h2 id="battleVerdict" style="color:#e74c3c;">VICTORY!</h2>
+                <p id="rewardText" style="font-size:14px; font-weight:bold;"></p>
+                <button class="btn btn-start" onclick="endBattleScene()" style="width:100%;">アリーナを退場する</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// 音声機能
+const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+function playTone(freq, type, duration) {
+    try {
+        const osc = audioCtx.createOscillator(); const gain = audioCtx.createGain();
+        osc.type = type; osc.frequency.value = freq; osc.connect(gain); gain.connect(audioCtx.destination);
+        osc.start(); gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.00001, audioCtx.currentTime + duration);
+        osc.stop(audioCtx.currentTime + duration);
+    } catch(e) {}
+}
+function playAttackSound() { playTone(440, 'triangle', 0.1); setTimeout(() => playTone(659.25, 'triangle', 0.1), 50); }
+function playDamageSound() { playTone(100, 'sawtooth', 0.2); }
+function playWinSound() { playTone(523.25, 'square', 0.1); setTimeout(() => playTone(659.25, 'square', 0.1), 80); setTimeout(() => playTone(783.99, 'square', 0.8), 160); }
+function playVsSound() { playTone(293.66, 'sawtooth', 0.15); setTimeout(() => playTone(220, 'sawtooth', 0.15), 150); setTimeout(() => playTone(440, 'sawtooth', 0.4), 300); }
+function playCriticalSound() { playTone(880, 'square', 0.1); setTimeout(() => playTone(1320, 'square', 0.1), 60); setTimeout(() => playTone(1760, 'square', 0.3), 120); }
+
+// 【更新】新食材を追加＆ショップ限定食材（初期在庫0個スタート設定用）
+const masterIngredients = {
+    // 初期無料枠
+    "牛肉": { hp: 120, atk: 40, def: 30, spd: 10, emoji: "🥩", shop: 0 },
+    "牛タン": { hp: 100, atk: 35, def: 25, spd: 25, emoji: "👅", shop: 0 },
+    "牛すじ": { hp: 150, atk: 20, def: 50, spd: 5, emoji: "🍢", shop: 0 },
+    "チキン": { hp: 90, atk: 45, def: 20, spd: 30, emoji: "🍗", shop: 0 },
+    "唐揚げ": { hp: 80, atk: 60, def: 15, spd: 20, emoji: "💥", shop: 0 },
+    "トンカツ": { hp: 110, atk: 55, def: 35, spd: 10, emoji: "🐷", shop: 0 },
+    "ウインナー": { hp: 85, atk: 40, def: 25, spd: 25, emoji: "🌭", shop: 0 },
+    "ナス": { hp: 30, atk: 5, def: 15, spd: 10, emoji: "🍆", shop: 0 },
+    "トマト": { hp: 40, atk: 10, def: 5, spd: 15, emoji: "🍅", shop: 0 },
+    "レンコン": { hp: 20, atk: 10, def: 25, spd: 5, emoji: "🕸️", shop: 0 },
+    "ジャガイモ": { hp: 50, atk: 5, def: 20, spd: 2, emoji: "🥔", shop: 0 },
+    "パプリカ": { hp: 25, atk: 15, def: 10, spd: 15, emoji: "🫑", shop: 0 },
+    "レーズン": { hp: 15, atk: 20, def: 5, spd: 25, emoji: "🍇", shop: 0 },
+    
+    // 【新規追加】通常食材
+    "玉ねぎ": { hp: 45, atk: 12, def: 12, spd: 12, emoji: "🧅", shop: 0 },
+    "にんじん": { hp: 55, atk: 8, def: 18, spd: 8, emoji: "🥕", shop: 0 },
+    "サバ": { hp: 95, atk: 42, def: 22, spd: 18, emoji: "🐟", shop: 0 },
+    "オクラ": { hp: 40, atk: 15, def: 25, spd: 15, emoji: "🫛", shop: 0 },
+    "大根": { hp: 70, atk: 10, def: 35, spd: 5, emoji: "🫚", shop: 0 },
+    "マッシュルーム": { hp: 35, atk: 22, def: 8, spd: 20, emoji: "🍄", shop: 0 },
+    "ひよこ豆": { hp: 60, atk: 15, def: 20, spd: 10, emoji: "🫘", shop: 0 },
+
+    // 【新規追加】100VP消費食材
+    "チーズ": { hp: 80, atk: 25, def: 40, spd: 5, emoji: "🧀", shop: 100 },
+    "イカ": { hp: 75, atk: 45, def: 15, spd: 35, emoji: "🦑", shop: 100 },
+    "小エビ": { hp: 70, atk: 50, def: 10, spd: 40, emoji: "🦐", shop: 100 },
+    "ホタテ": { hp: 90, atk: 40, def: 30, spd: 15, emoji: "🐚", shop: 100 },
+    "ツナ": { hp: 80, atk: 35, def: 20, spd: 25, emoji: "🐟", shop: 100 },
+    "牡蠣": { hp: 110, atk: 35, def: 35, spd: 10, emoji: "🦪", shop: 100 },
+
+    // 【新規追加】300VP消費食材
+    "キャビア": { hp: 130, atk: 90, def: 50, spd: 40, emoji: "⚫", shop: 300 },
+    "オマール海老": { hp: 160, atk: 110, def: 60, spd: 30, emoji: "🦞", shop: 300 },
+    "ズワイガニ": { hp: 150, atk: 100, def: 70, spd: 20, emoji: "🦀", shop: 300 },
+    "マンゴーチャツネ": { hp: 100, atk: 80, def: 40, spd: 80, emoji: "🥭", shop: 300 }
+};
+
+const masterSpices = {
+    "ターメリック": { mul: "hp", val: 1.3, name: "黄金の", emoji: "💛" },
+    "クミン": { mul: "def", val: 1.4, name: "薫る", emoji: "🤎" },
+    "コリアンダー": { mul: "hp", val: 1.2, name: "爽やか緑の", emoji: "💚" },
+    "カルダモン": { mul: "spd", val: 1.5, name: "気高き", emoji: "🌱" },
+    "シナモン": { mul: "spd", val: 1.3, name: "甘美な", emoji: "🪵" },
+    "クローブ": { mul: "def", val: 1.3, name: "深遠なる", emoji: "📌" },
+    "ブラックペッパー": { mul: "atk", val: 1.3, name: "刺激の", emoji: "🖤" },
+    "チリパウダー": { mul: "atk", val: 1.6, name: "爆炎の", emoji: "❤️" }
+};
+
+const opponentsMaster = {
+    bot1: {
+        name: "甘口見習いBot",
+        patterns: [
+            { cName: "ほっこりポテトスープ", visual: "👶🥣", hp: 110, atk: 15, def: 15, spd: 10, recipe: ["ジャガイモ", "トマト"] },
+            { cName: "おやつレーズンカレー", visual: "👶🍇", hp: 90, atk: 25, def: 8, spd: 20, recipe: ["レーズン", "パプリカ"] },
+            { cName: "あまくちナス野菜カレー", visual: "👶🍆", hp: 130, atk: 12, def: 20, spd: 12, recipe: ["ナス", "トマト", "ジャガイモ"] }
+        ]
+    },
+    bot2: {
+        name: "中辛中堅Bot",
+        patterns: [
+            { cName: "薫る王道カツカレー", visual: "👨‍⚖️🐷", hp: 250, atk: 50, def: 35, spd: 15, recipe: ["トンカツ", "ナス", "クミン"] },
+            { cName: "ゴロゴロ牛すじコク旨カレー", visual: "👨‍⚖️🍢", hp: 320, atk: 35, def: 55, spd: 5, recipe: ["牛すじ", "レンコン", "ターメリック"] },
+            { cName: "気高きパリッとウインナーカレー", visual: "👨‍⚖️🌭", hp: 220, atk: 55, def: 25, spd: 35, recipe: ["ウインナー", "パプリカ", "カルダモン"] }
+        ]
+    },
+    bot3: {
+        name: "辛口魔術師Bot",
+        patterns: [
+            { cName: "爆炎のトリプルチキンカレー", visual: "🧙💥", hp: 380, atk: 110, def: 30, spd: 40, recipe: ["チキン", "唐揚げ", "チリパウダー"] },
+            { cName: "刺激の肉塊ビーフブラック", visual: "🧙🖤", hp: 440, atk: 90, def: 55, spd: 25, recipe: ["牛肉", "牛肉", "ブラックペッパー"] },
+            { cName: "深遠なるW牛タンカリー", visual: "🧙📌", hp: 410, atk: 95, def: 45, spd: 45, recipe: ["牛タン", "牛タン", "クローブ"] }
+        ]
+    },
+    pvp1: {
+        name: "マサラマスター",
+        patterns: [
+            { cName: "天下無双マサラスペシャル", visual: "👑🍛", hp: 400, atk: 85, def: 60, spd: 60, recipe: ["牛タン", "ウインナー", "カルダモン"] }
+        ]
+    }
+};
+
+let inventory = {}; let scanHistory = {}; let victoryPoints = 0;
+let currentCurry = null; let playerName = "名無しの料理人";
+let recipeBook = {};
+
+window.onload = function() { loadGame(); updateFridgeUI(); updateCookSelects(); updateBattleUI(); refreshRecipeBookUI(); updateShopButtons(); };
+
+function switchTab(tab) {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+    event.target.classList.add('active');
+    if(tab === 'scan') document.getElementById('pageScan').classList.add('active');
+    if(tab === 'fridge') { document.getElementById('pageFridge').classList.add('active'); updateFridgeUI(); refreshRecipeBookUI(); updateShopButtons(); }
+    if(tab === 'cook') { document.getElementById('pageCook').classList.add('active'); updateCookSelects(); }
+    if(tab === 'battle') { document.getElementById('pageBattle').classList.add('active'); updateBattleUI(); }
+    cancelScanning();
+}
+
+function saveGame() {
+    localStorage.setItem('qr_curry_inv', JSON.stringify(inventory));
+    localStorage.setItem('qr_curry_history', JSON.stringify(scanHistory));
+    localStorage.setItem('qr_curry_vp', victoryPoints);
+    localStorage.setItem('qr_curry_pname', playerName);
+    localStorage.setItem('qr_curry_recipes', JSON.stringify(recipeBook));
+    document.getElementById("globalVP").innerText = victoryPoints;
+    updateShopButtons();
+}
+
+function loadGame() {
+    const savedInv = localStorage.getItem('qr_curry_inv');
+    const savedHistory = localStorage.getItem('qr_curry_history');
+    const savedVP = localStorage.getItem('qr_curry_vp');
+    const savedName = localStorage.getItem('qr_curry_pname');
+    const savedRecipes = localStorage.getItem('qr_curry_recipes');
+    
+    if (savedInv) {
+        inventory = JSON.parse(savedInv);
+        // 新食材がセーブデータに入っていない場合の初期化処理
+        Object.keys(masterIngredients).forEach(k => {
+            if (inventory[k] === undefined) {
+                inventory[k] = masterIngredients[k].shop > 0 ? 0 : 3;
+            }
+        });
+    } else {
+        // 完全新規プレイ時の初期化
+        Object.keys(masterIngredients).forEach(k => {
+            inventory[k] = masterIngredients[k].shop > 0 ? 0 : 3; // ショップ限定食材は最初0個
+        });
+        Object.keys(masterSpices).forEach(k => inventory[k] = 3);
+    }
+    if (savedHistory) scanHistory = JSON.parse(savedHistory);
+    if (savedVP) victoryPoints = parseInt(savedVP, 10);
+    if (savedName) playerName = savedName;
+    if (savedRecipes) recipeBook = JSON.parse(savedRecipes);
+
+    document.getElementById("playerNameInput").value = playerName;
+    document.getElementById("headerPlayerName").innerText = playerName;
+    document.getElementById("globalVP").innerText = victoryPoints;
+}
+
+function handleNameChange(val) {
+    if(!val.trim()) val = "名無しの料理人";
+    playerName = val; document.getElementById("headerPlayerName").innerText = val; saveGame();
+}
+
+function clearSaveData() {
+    if(confirm("すべてリセットします。よろしいですか？")) {
+        localStorage.clear(); inventory = {}; scanHistory = {}; victoryPoints = 0; currentCurry = null; playerName = "名無しの料理人"; recipeBook = {};
+        loadGame(); updateFridgeUI(); updateCookSelects(); updateBattleUI(); refreshRecipeBookUI(); updateShopButtons();
+    }
+}
+
+// 🛍️ 【新設】VPショップボタンの有効・無効切り替え
+function updateShopButtons() {
+    const btn100 = document.getElementById("btnShop100");
+    const btn300 = document.getElementById("btnShop300");
+    if(btn100 && btn300) {
+        btn100.disabled = victoryPoints < 100;
+        btn300.disabled = victoryPoints < 300;
+    }
+}
+
+// 🛍️ 【新設】VPショップアイテム購入ロジック
+function buyShopItem(cost) {
+    if (victoryPoints < cost) { alert("ポイントが足りません！"); return; }
+    
+    // 対象コストの食材をフィルタリング抽出
+    const targets = Object.keys(masterIngredients).filter(name => masterIngredients[name].shop === cost);
+    if (targets.length === 0) return;
+
+    // ランダムで1つ抽選
+    const winner = targets[Math.floor(Math.random() * targets.length)];
+    victoryPoints -= cost;
+    inventory[winner] = (inventory[winner] || 0) + 1;
+    
+    playWinSound();
+    alert(`🛒 ポイントを消費して食材を交換しました！\n👉 【${masterIngredients[winner].emoji} ${winner}】を獲得！`);
+    
+    saveGame();
+    updateFridgeUI();
+}
+
+function selectRandomIngredients() {
+    const availableIngs = Object.keys(masterIngredients).filter(name => (inventory[name] || 0) > 0);
+    const availableSpices = Object.keys(masterSpices).filter(name => (inventory[name] || 0) > 0);
+
+    if (availableIngs.length < 3 || availableSpices.length < 1) {
+        alert("おまかせ調理には、最低でも異なる食材3つとスパイス1つの在庫が必要です！");
+        return;
+    }
+
+    const slots = [document.getElementById("ingredient1"), document.getElementById("ingredient2"), document.getElementById("ingredient3")];
+    const spiceSlot = document.getElementById("spice");
+
+    let pool = [...availableIngs];
+    
+    slots.forEach(slot => {
+        const randIndex = Math.floor(Math.random() * pool.length);
+        const picked = pool.splice(randIndex, 1)[0];
+        slot.value = picked;
+    });
+
+    const pickedSpice = availableSpices[Math.floor(Math.random() * availableSpices.length)];
+    spiceSlot.value = pickedSpice;
+}
+
+// ─── スキャン ───
+let video = document.createElement("video"); let canvasElement = document.getElementById("canvas");
+let canvas = canvasElement.getContext("2d"); let localStream = null; let animationFrameId = null;
+function startCamera() {
+    document.getElementById("getBox").style.display = "none";
+    navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } }).then(function(stream) {
+        localStream = stream; video.srcObject = stream; video.setAttribute("playsinline", true); video.play();
+        canvasElement.style.display = "inline-block"; document.getElementById("statusMessage").style.display = "block";
+        document.getElementById("btnCancel").style.display = "inline-block"; document.getElementById("btnStartCamera").style.display = "none"; tick();
+    });
+}
+function tick() {
+    if (video.readyState === video.HAVE_ENOUGH_DATA) {
+        canvasElement.height = video.videoHeight; canvasElement.width = video.videoWidth;
+        canvas.drawImage(video, 0, 0, canvasElement.width, canvasElement.height);
+        var imageData = canvas.getImageData(0, 0, canvasElement.width, canvasElement.height);
+        var code = jsQR(imageData.data, imageData.width, imageData.height, { inversionAttempts: "dontInvert" });
+        if (code) { stopCamera(); canvasElement.style.display = "none"; processQRData(code.data); return; }
+    }
+    animationFrameId = requestAnimationFrame(tick);
+}
+function stopCamera() { if (animationFrameId) cancelAnimationFrame(animationFrameId); if (localStream) localStream.getTracks().forEach(track => track.stop()); document.getElementById("statusMessage").style.none; document.getElementById("btnCancel").style.display = "none"; }
+function cancelScanning() { stopCamera(); canvasElement.style.display = "none"; document.getElementById("btnStartCamera").style.display = "inline-block"; }
+function resetScanner() { document.getElementById("getBox").style.display = "none"; document.getElementById("btnStartCamera").style.display = "inline-block"; }
+function processQRData(text) {
+    const today = new Date().toISOString().split('T')[0];
+    if (scanHistory[text] === today) { document.getElementById("getBoxTitle").innerText = "⚠️ 使用済み"; document.getElementById("getItemEmoji").innerText = "🙅"; document.getElementById("getItemName").innerText = "本日はスキャン済みです！"; document.getElementById("getBox").style.display = "block"; return; }
+    scanHistory[text] = today; 
+    
+    // スキャンで出現するのはショップ限定以外の食材
+    const normalItems = Object.keys(masterIngredients).filter(k => !masterIngredients[k].shop);
+    const allItems = [...normalItems, ...Object.keys(masterSpices)];
+    
+    let charCodeSum = 0; for (let i = 0; i < text.length; i++) charCodeSum += text.charCodeAt(i);
+    const itemName = allItems[charCodeSum % allItems.length]; inventory[itemName] = (inventory[itemName] || 0) + 1; saveGame();
+    const isSpice = masterSpices[itemName]; const emoji = isSpice ? masterSpices[itemName].emoji : masterIngredients[itemName].emoji;
+    document.getElementById("getBoxTitle").innerText = "🎉 食材ゲット！"; document.getElementById("getItemEmoji").innerText = emoji; document.getElementById("getItemName").innerText = itemName; document.getElementById("getBox").style.display = "block";
+}
+
+// ─── 冷蔵庫UI ───
+function updateFridgeUI() {
+    const grid = document.getElementById("fridgeGrid"); grid.innerHTML = "";
+    Object.keys(masterIngredients).forEach(name => {
+        const isShop = masterIngredients[name].shop > 0;
+        createFridgeCard(grid, name, masterIngredients[name].emoji, isShop);
+    });
+    Object.keys(masterSpices).forEach(name => createFridgeCard(grid, name, masterSpices[name].emoji, false));
+}
+function createFridgeCard(grid, name, emoji, isShop) {
+    const count = inventory[name] || 0; const itemDiv = document.createElement("div");
+    // ショップ限定アイテムには特別な枠線を付与
+    itemDiv.className = `fridge-item ${count > 0 ? 'owned' : ''} ${isShop ? 'shop-exclusive' : ''}`;
+    itemDiv.innerHTML = `<div class="fridge-emoji">${emoji}</div><div>${count > 0 ? name : '？？？'}</div><div class="fridge-count">${count}個</div>`;
+    grid.appendChild(itemDiv);
+}
+
+function refreshRecipeBookUI() {
+    const area = document.getElementById("recipeBookArea");
+    const keys = Object.keys(recipeBook);
+    if(keys.length === 0) {
+        area.innerHTML = "<div style='color:#7f8c8d; text-align:center;'>まだ作った履歴がありません。</div>";
+        return;
+    }
+    area.innerHTML = "";
+    keys.forEach(key => {
+        const item = recipeBook[key];
+        const row = document.createElement("div");
+        row.className = "recipe-row";
+        row.innerHTML = `<div><span style="font-size:18px;">${item.visual}</span> <strong style="color:#c0392b;">${item.name}</strong></div><div style="font-size:11px; color:#7f8c8d;">🧪 材料: ${item.materials.join(' + ')}</div>`;
+        area.appendChild(row);
+    });
+}
+
+// ─── 調理 ───
+function updateCookSelects() {
+    const ingSelects = [document.getElementById("ingredient1"), document.getElementById("ingredient2"), document.getElementById("ingredient3")];
+    const spiceSelect = document.getElementById("spice");
+    ingSelects.forEach(select => {
+        select.innerHTML = "<option value=''>❌ （なし）</option>";
+        Object.keys(masterIngredients).forEach(name => {
+            if((inventory[name] || 0) > 0) {
+                const opt = document.createElement("option"); opt.value = name; opt.innerText = `${masterIngredients[name].emoji} ${name}（${inventory[name]}個）`; select.appendChild(opt);
+            }
+        });
+    });
+    spiceSelect.innerHTML = "<option value=''>❌ （なし）</option>";
+    Object.keys(masterSpices).forEach(name => {
+        if((inventory[name] || 0) > 0) {
+            const opt = document.createElement("option"); opt.value = name; opt.innerText = `${masterSpices[name].emoji} ${name}（${inventory[name]}個）`; spiceSelect.appendChild(opt);
+        }
+    });
+}
+
+function cookCurry() {
+    const i1 = document.getElementById("ingredient1").value; const i2 = document.getElementById("ingredient2").value; const i3 = document.getElementById("ingredient3").value; const sp = document.getElementById("spice").value;
+    if(!i1 && !i2 && !i3 && !sp) { alert("具材を選んでください！"); return; }
+    let tempInv = { ...inventory };
+    if(i1) tempInv[i1]--; if(i2) tempInv[i2]--; if(i3) tempInv[i3]--; if(sp) tempInv[sp]--;
+    if((i1 && tempInv[i1] < 0) || (i2 && tempInv[i2] < 0) || (i3 && tempInv[i3] < 0) || (sp && tempInv[sp] < 0)) { alert("在庫が足りません！"); return; }
+    inventory = tempInv; saveGame(); updateCookSelects();
+
+    let hp = (i1 ? masterIngredients[i1].hp : 0) + (i2 ? masterIngredients[i2].hp : 0) + (i3 ? masterIngredients[i3].hp : 0);
+    let atk = (i1 ? masterIngredients[i1].atk : 0) + (i2 ? masterIngredients[i2].atk : 0) + (i3 ? masterIngredients[i3].atk : 0);
+    let def = (i1 ? masterIngredients[i1].def : 0) + (i2 ? masterIngredients[i2].def : 0) + (i3 ? masterIngredients[i3].def : 0);
+    let spd = (i1 ? masterIngredients[i1].spd : 0) + (i2 ? masterIngredients[i2].spd : 0) + (i3 ? masterIngredients[i3].spd : 0);
+
+    let spicePrefix = "";
+    if (sp) {
+        const spiceEffect = masterSpices[sp]; spicePrefix = spiceEffect.name;
+        if (spiceEffect.mul === "hp") hp = Math.round(hp * spiceEffect.val);
+        if (spiceEffect.mul === "atk") atk = Math.round(atk * spiceEffect.val);
+        if (spiceEffect.mul === "def") def = Math.round(def * spiceEffect.val);
+        if (spiceEffect.mul === "spd") spd = Math.round(spd * spiceEffect.val);
+    }
+    let activeIngredients = [i1, i2, i3].filter(Boolean); let curryName = ""; let visual = "";
+    if (activeIngredients.length === 0) { curryName = `${spicePrefix} スパイススープ`; visual = "🥣"; } 
+    else {
+        let counts = {}; activeIngredients.forEach(x => counts[x] = (counts[x] || 0) + 1); let nameBody = "";
+        Object.keys(counts).forEach(key => { if (counts[key] === 3) nameBody += `トリプル${key}`; else if (counts[key] === 2) nameBody += `W${key}`; else nameBody += key; });
+        curryName = `${spicePrefix}${nameBody}カレー`; visual = activeIngredients.map(x => masterIngredients[x].emoji).join("");
+    }
+
+    const materialsArray = [...activeIngredients]; if(sp) materialsArray.push(sp);
+    const recipeKey = materialsArray.sort().join("+");
+    if(!recipeBook[recipeKey]){
+        recipeBook[recipeKey] = { name: curryName, visual: visual, materials: materialsArray.length > 0 ? materialsArray : ["なし"] };
+    }
+
+    const isCritical = Math.random() < 0.15;
+    const resultBox = document.getElementById("resultBox");
+    const flashText = document.getElementById("criticalFlashText");
+
+    if (isCritical) {
+        playCriticalSound();
+        const prefixes = ["👑至高の", "💎究極の", "伝説の🌟", "幻の🌈", "ゴッド🔥"];
+        const randPrefix = prefixes[Math.floor(Math.random() * prefixes.length)];
+        curryName = `${randPrefix}${curryName}`;
+        
+        const bonus = 1.3 + Math.random() * 0.2;
+        hp = Math.round(hp * bonus); atk = Math.round(atk * bonus); def = Math.round(def * bonus); spd = Math.round(spd * bonus);
+        resultBox.classList.add("critical-box"); flashText.style.display = "block";
+    } else {
+        resultBox.classList.remove("critical-box"); flashText.style.display = "none";
+    }
+
+    currentCurry = { name: curryName, visual: visual, hp: hp, atk: atk, def: def, spd: spd };
+    saveGame();
+
+    document.getElementById("curryVisual").innerText = visual; document.getElementById("curryName").innerText = curryName;
+    document.getElementById("statHP").innerText = hp; document.getElementById("statATK").innerText = atk; document.getElementById("statDEF").innerText = def; document.getElementById("statSPD").innerText = spd;
+    resultBox.style.display = "block";
+}
+
+// ─── バトル ───
+function updateBattleUI() {
+    const readyName = document.getElementById("readyCurryName"); const btn = document.getElementById("btnStartBattle");
+    if (currentCurry) {
+        readyName.innerText = `${currentCurry.visual} ${currentCurry.name} (HP:${currentCurry.hp})`;
+        readyName.style.color = "#27ae60"; btn.disabled = false; btn.style.opacity = 1;
+    } else {
+        readyName.innerText = "❌ カレーがありません。「調理」で作成してください。";
+        readyName.style.color = "#c0392b"; btn.disabled = true; btn.style.opacity = 0.5;
+    }
+}
+
+function startBattle() {
+    if (!currentCurry) return;
+    if (audioCtx.state === 'suspended') { audioCtx.resume(); }
+
+    const opponentKey = document.getElementById("battleOpponent").value;
+    const opponentGroup = opponentsMaster[opponentKey];
+    const randomIndex = Math.floor(Math.random() * opponentGroup.patterns.length);
+    const opponentCurryData = opponentGroup.patterns[randomIndex];
+
+    const vsScreen = document.getElementById("vsCutIn");
+    const pSide = document.getElementById("vsPlayerSide");
+    const eSide = document.getElementById("vsEnemySide");
+    const badge = document.getElementById("vsBadge");
+
+    document.getElementById("damagePop").style.display = "none";
+
+    document.getElementById("vsPlayerName").innerText = playerName;
+    document.getElementById("vsPlayerVisual").innerText = currentCurry.visual;
+    document.getElementById("vsPlayerCurry").innerText = currentCurry.name;
+    document.getElementById("vsEnemyName").innerText = opponentGroup.name;
+    document.getElementById("vsEnemyVisual").innerText = opponentCurryData.visual;
+    document.getElementById("vsEnemyCurry").innerText = opponentCurryData.cName;
+
+    vsScreen.style.display = "flex"; playVsSound();
+
+    setTimeout(() => { pSide.style.transform = "translateX(0)"; }, 100);
+    setTimeout(() => { eSide.style.transform = "translateX(0)"; }, 400);
+    setTimeout(() => { badge.style.opacity = "1"; badge.style.scale = "1"; }, 800);
+
+    setTimeout(() => {
+        vsScreen.style.display = "none";
+        pSide.style.transform = "translateX(-100%)"; eSide.style.transform = "translateX(100%)"; badge.style.opacity = "0"; badge.style.scale = "3";
+        proceedToArena(opponentGroup.name, opponentCurryData);
+    }, 3200);
+}
+
+function proceedToArena(oppName, oppCurry) {
+    document.getElementById("battleSetup").style.display = "none";
+    document.getElementById("battleArena").style.display = "block";
+    document.getElementById("battleResultBox").style.display = "none";
+    
+    document.getElementById("pOwnerText").innerText = playerName;
+    document.getElementById("playerCurryNameText").innerText = currentCurry.name;
+    document.getElementById("pVisual").innerText = currentCurry.visual;
+    document.getElementById("oppOwnerText").innerText = oppName;
+    document.getElementById("oppCurryNameText").innerText = oppCurry.cName;
+    document.getElementById("oVisual").innerText = oppCurry.visual;
+    
+    let pCurrentHp = currentCurry.hp <= 0 ? 1 : currentCurry.hp;
+    let oCurrentHp = oppCurry.hp;
+    updateHpBars(pCurrentHp, oCurrentHp, oppCurry.hp);
+    
+    const log = document.getElementById("battleLog");
+    log.innerHTML = `⚔️ ${oppName} の ${oppCurry.cName} との勝負！\n`;
+
+    let round = 1;
+
+    function executeBattleStep() {
+        if (pCurrentHp <= 0 || oCurrentHp <= 0 || round > 15) {
+            setTimeout(() => determineWinner(pCurrentHp, oCurrentHp, oppCurry), 800); return;
+        }
+
+        if (round % 2 !== 0) {
+            log.innerHTML = `🔥 ${playerName}のターン！`;
+            playAttackSound();
+            setTimeout(() => {
+                let pDamage = Math.max(7, currentCurry.atk - Math.floor(oppCurry.def / 2));
+                pDamage = Math.round(pDamage * (0.9 + Math.random() * 0.2));
+                oCurrentHp = Math.max(0, oCurrentHp - pDamage);
+                log.innerHTML += `\n💥 ${oppCurry.cName} に ${pDamage} のダメージ！`;
+                playDamageSound(); triggerVisualEffect("enemy", pDamage);
+                updateHpBars(pCurrentHp, oCurrentHp, oppCurry.hp);
+                round++; setTimeout(executeBattleStep, 1100);
+            }, 400);
+        } else {
+            log.innerHTML = `⚠️ ${oppName}のターン！`;
+            playAttackSound();
+            setTimeout(() => {
+                let oDamage = Math.max(7, oppCurry.atk - Math.floor(currentCurry.def / 2));
+                oDamage = Math.round(oDamage * (0.9 + Math.random() * 0.2));
+                pCurrentHp = Math.max(0, pCurrentHp - oDamage);
+                log.innerHTML += `\n😢 ${currentCurry.name} は ${oDamage} のダメージをうけた！`;
+                playDamageSound(); triggerVisualEffect("player", oDamage);
+                updateHpBars(pCurrentHp, oCurrentHp, oppCurry.hp);
+                round++; setTimeout(executeBattleStep, 1100);
+            }, 400);
+        }
+    }
+    setTimeout(executeBattleStep, 600);
+}
+
+function triggerVisualEffect(target, damage) {
+    const stage = document.getElementById("battleStage"); const enemyZone = document.getElementById("enemyZone"); const pop = document.getElementById("damagePop");
+    pop.innerText = damage;
+    pop.style.display = "block";
+
+    if (target === "enemy") {
+        enemyZone.classList.add("animate-shake"); pop.style.top = "110px"; pop.style.left = "45%"; pop.style.color = "#f1c40f";
+        pop.style.animation = "none"; pop.offsetHeight; pop.style.animation = "popUp 0.6s forwards";
+        setTimeout(() => enemyZone.classList.remove("animate-shake"), 200);
+    } else {
+        stage.classList.add("flash-red", "animate-shake"); pop.style.top = "190px"; pop.style.left = "45%"; pop.style.color = "#ff4757";
+        pop.style.animation = "none"; pop.offsetHeight; pop.style.animation = "popUp 0.6s forwards";
+        setTimeout(() => stage.classList.remove("flash-red", "animate-shake"), 200);
+    }
+}
+
+function updateHpBars(pHp, oHp, oMaxHp) {
+    document.getElementById("pHpText").innerText = `HP: ${pHp}/${currentCurry.hp}`;
+    document.getElementById("oHpText").innerText = `HP: ${oHp}/${oMaxHp}`;
+    let pPercent = (pHp / currentCurry.hp) * 100; let oPercent = (oHp / oMaxHp) * 100;
+    const pBar = document.getElementById("pWeightBar"); const oBar = document.getElementById("oWeightBar");
+    pBar.style.width = `${Math.max(0, pPercent)}%`; oBar.style.width = `${Math.max(0, oPercent)}%`;
+    if(pPercent < 30) pBar.classList.add("danger"); else pBar.classList.remove("danger");
+    if(oPercent < 30) oBar.classList.add("danger"); else oBar.classList.remove("danger");
+}
+
+function determineWinner(pHp, oHp, oppCurry) {
+    const verdict = document.getElementById("battleVerdict"); const rText = document.getElementById("rewardText"); const log = document.getElementById("battleLog");
+    document.getElementById("battleResultBox").style.display = "block";
+
+    if (pHp > oHp) {
+        playWinSound(); verdict.innerText = "🏆 勝利 (VICTORY) !!"; verdict.style.color = "#2ecc71"; victoryPoints += 100;
+        
+        // 通常食材のドロップ（ショップ限定以外から抽選）
+        const droppable = Object.keys(masterIngredients).filter(k => !masterIngredients[k].shop);
+        let lootItem = droppable[Math.floor(Math.random() * droppable.length)];
+        
+        inventory[lootItem] = (inventory[lootItem] || 0) + 1; saveGame();
+        log.innerHTML = `✨ 勝負あり！見事なスパイス捌きで勝利した！`;
+        rText.innerHTML = `【バトル戦果】<br>・勝利ポイント +100 PT<br>・相手の隠し味のヒントを掴んだ！ 👉 <span style="color:#e67e22; font-size:18px;">${lootItem} 1個</span> を新しく獲得！`;
+    } else {
+        verdict.innerText = "💀 敗北 (DEFEAT) ..."; verdict.style.color = "#e74c3c";
+        log.innerHTML = `🍂 勝負あり。相手のコクに一歩及ばなかった。`;
+        rText.innerHTML = `食材は消費されましたが、ペナルティはありません。また別のカレーで挑戦しましょう！`;
+    }
+    document.getElementById("damagePop").style.display = "none";
+    currentCurry = null;
+}
+
+function endBattleScene() { document.getElementById("battleSetup").style.display = "block"; document.getElementById("battleArena").style.display = "none"; updateBattleUI(); }
+</script>
+</body>
+</html>
