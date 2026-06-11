@@ -1047,11 +1047,18 @@ function startOnlineBattle(hN, hC, gN, gC, role) {
     const myC = role === "host" ? hC : gC;
     currentBattleCurry = myC; // 自分のバトル用カレーを確定
 
-    // 2. 詰まりの原因になる「出撃選択ポップアップ（モーダル）」をプログラム上で強制的に非表示にする
-    // ※お使いのコードのモーダルID候補（battleModal, selectModal等）をまとめて消灯します
+    // 2. 🌟出撃・撤退ボタンがある「黒いポップアップ（モーダル）」を、表示される前に強制的に非表示（非表示）にします
+    // ボタンの親要素（お使いのコードのモーダルID候補）をすべて非表示にします
     ["battleModal", "selectModal", "currySelectModal", "popArea"].forEach(id => {
         const el = document.getElementById(id);
         if(el) el.style.display = "none";
+    });
+    
+    // もしボタン自体に直接IDがない場合でも、ボタンの文字を頼りにポップアップ全体を力づくで非表示にします
+    Array.from(document.querySelectorAll('div, section')).forEach(el => {
+        if (el.innerText && el.innerText.includes("出撃させるカレーを選択")) {
+            el.style.display = "none";
+        }
     });
 
     // 3. VSカットイン画面に情報を表示
@@ -1071,7 +1078,7 @@ function startOnlineBattle(hN, hC, gN, gC, role) {
     setTimeout(() => { if(document.getElementById("vsEnemySide")) document.getElementById("vsEnemySide").style.transform = "translateX(0)"; }, 300);
     setTimeout(() => { if(document.getElementById("vsBadge")) { document.getElementById("vsBadge").style.opacity = "1"; document.getElementById("vsBadge").style.scale = "1"; } }, 600);
 
-    // 4. 3秒後に自動でバトル画面へ移行し、ゲームのメイン処理を叩く
+    // 4. 3秒後に自動でバトル画面へ移行し、ゲームのメイン処理を連動させる
     setTimeout(() => {
         // VS画面を消す
         if(vs) vs.style.display = "none";
@@ -1080,21 +1087,11 @@ function startOnlineBattle(hN, hC, gN, gC, role) {
         if(document.getElementById("battleSetup")) document.getElementById("battleSetup").style.display = "none";
         if(document.getElementById("battleArena")) document.getElementById("battleArena").style.display = "block";
         
-        // 5. 【超重要】「このカレーで出撃する！」ボタンを実際に押したのと同じ処理をここで実行する
-        // 元々のコードでボタンを押したときに動いていた関数を自動実行させます
-        if (typeof confirmBattleCurry === "function") {
-            confirmBattleCurry(); 
-        } else if (typeof startOnlineMatchReady === "function") {
-            startOnlineMatchReady();
-        } else if (typeof initBattle === "function") {
-            initBattle(); 
-        } else if (typeof startFight === "function") {
-            startFight();
+        // 5. 🌟【ここが最重要修正】
+        // プレイヤーが「🔥 このカレーで出撃する！」ボタンを実際に押したのと「全く同じ処理」をプログラムで自動実行します！
+        if (typeof confirmVsDeploy === "function") {
+            confirmVsDeploy(); 
         }
-        
-        // 相手のステータス画面（画像3枚目の「相手のカレー名」など）にデータを反映させる関数を強制呼び出し
-        if (typeof updateBattleUI === "function") updateBattleUI();
-        if (typeof renderBattleWindow === "function") renderBattleWindow();
     }, 3000);
 }
 
