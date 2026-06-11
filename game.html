@@ -1176,9 +1176,33 @@ function joinMatchRoom(rid, has) {
 function proceedJoin(rid, myCurry) {
     const rRef = database.ref('rooms/' + rid);
     rRef.once('value').then(snap => {
-        if(!snap.val() || snap.val().status !== "waiting") return;
-        rRef.update({ guestName: playerName, guestCurry: myCurry, status: "ready" }).then(() => {
-            startOnlineBattle(snap.val().hostName, snap.val().hostCurry, playerName, myCurry, "guest");
+        const roomData = snap.val();
+        if(!roomData || roomData.status !== "waiting") return;
+        
+        // 💡【解決：アイコン同期】自分の選んだアイコン（currentIconFile）も一緒にデータベースへ保存
+        rRef.update({ 
+            guestName: playerName, 
+            guestCurry: myCurry, 
+            guestIcon: currentIconFile, 
+            status: "ready" 
+        }).then(() => {
+            // 💡【解決：アイコン受け渡し】ホストのアイコンと自分のアイコンを正しく次の関数へ引き渡す
+            startOnlineBattle(
+                roomData.hostName, 
+                roomData.hostCurry, 
+                playerName, 
+                myCurry, 
+                "guest", 
+                roomData.hostIcon, 
+                currentIconFile
+            );
+
+            // 💡【解決：2度と対人戦ができない問題の修正】
+            // 対戦が正常に始まったら、この部屋のデータが次回ロビーに戻った時に悪さをしないよう、
+            // 10秒後（確実に対戦アリーナへ画面遷移が完了した頃）にデータベースから自動で部屋を削除・クリーンアップします。
+            setTimeout(() => {
+                rRef.remove().catch(e => console.log("Room cleanup custom log:", e));
+            }, 10000);
         });
     });
 }
@@ -1257,18 +1281,33 @@ function proceedToArena(oppN, oppC, myC) {
 
     document.getElementById("battleSetup").style.display = "none"; document.getElementById("battleArena").style.display = "block";
     document.getElementById("pOwnerText").innerText = playerName; document.getElementById("playerCurryNameText").innerText = myC.name; 
-    document.getElementById("pVisual").innerHTML = myC.visual || "🍛";
+    
+    // 🌟【解決：バトル画面の自分アイコン】
+    // 対人戦なら選んだアイコン画像、Bot戦ならカレーの見た目（絵文字など）を表示
+    if (!isBotMatch) {
+        document.getElementById("pVisual").innerHTML = `<img src="${cachedMyIconFile}" style="width:100%; height:100%; border-radius:50%; object-fit:cover; display:block;">`;
+    } else {
+        document.getElementById("pVisual").innerHTML = myC.visual || "🍛";
+    }
     
     document.getElementById("oppOwnerText").innerText = oppN; document.getElementById("oppCurryNameText").innerText = oppC.name; 
     
-    // アリーナ画面でもBot画像ファイル名（isBotImage）なら <img> タグ、それ以外は文字（絵文字）として表示
-    if(oppC.isBotImage) {
+    // 🌟【解決：バトル画面の相手アイコン】
+    // 対人戦なら相手の選んだアイコン画像、Bot戦ならBotの画像を表示
+    if (!isBotMatch) {
+        document.getElementById("oVisual").innerHTML = `<img src="${cachedOppIconFile}" style="width:100%; height:100%; border-radius:50%; object-fit:cover; display:block;">`;
+    } else if(oppC.isBotImage) {
         document.getElementById("oVisual").innerHTML = `<img src="${oppC.visual}" alt="${oppN}">`;
     } else {
         document.getElementById("oVisual").innerHTML = oppC.visual || "🍛";
     }
     
-    document.getElementById("oppCurryEmojiText").innerText = oppC.emoji || "🍛";
+    // 💡小さなアバター部分（絵文字）も、対人戦の時は画像に置き換える
+    if (!isBotMatch) {
+        document.getElementById("oppCurryEmojiText").innerHTML = `<img src="${cachedOppIconFile}" style="width:30px; height:30px; border-radius:50%; object-fit:cover; vertical-align:middle;">`;
+    } else {
+        document.getElementById("oppCurryEmojiText").innerText = oppC.emoji || "🍛";
+    }
     
     let pHP = myC.hp; let oHP = oppC.hp; updateHP(pHP, oHP, oppC.hp, myC.hp);
     const log = document.getElementById("battleLog"); log.innerHTML = `⚔️ ${oppN} との決闘開始！\n`;
