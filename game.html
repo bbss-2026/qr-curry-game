@@ -61,7 +61,7 @@
         .fridge-item.owned .fridge-emoji { filter: grayscale(0%); }
         select { width: 100%; padding: 10px; margin-bottom: 10px; border-radius: 8px; border: 2px solid #bdc3c7; font-size: 16px; }
         .status-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; text-align: left; max-width: 320px; margin: 0 auto; font-size: 14px; }
-        .status-item { background: #eee; padding: 6px 10px; border-radius: 5px; font-weight: bold; }
+        .status-item { background: #ffebef; color: #c0392b; padding: 6px 10px; border-radius: 5px; font-weight: bold; }
 
         .recipe-book { text-align: left; background: #fffdf0; border: 2px solid #f39c12; border-radius: 10px; padding: 15px; margin-top: 15px; max-height: 200px; overflow-y: auto; }
         .recipe-row { padding: 8px; border-bottom: 1px dashed #ddd; font-size: 12px; display: flex; justify-content: space-between; align-items: center; }
@@ -71,7 +71,12 @@
         .battle-stage { position: relative; background: #2c3e50; border: 4px solid #34495e; border-radius: 12px; height: 320px; margin-bottom: 15px; overflow: hidden; display: flex; flex-direction: column; justify-content: space-between; padding: 15px; box-sizing: border-box; }
         .enemy-zone { text-align: center; margin-top: 30px; transition: transform 0.1s; }
         .player-zone { display: flex; justify-content: space-between; align-items: center; background: rgba(0,0,0,0.7); padding: 8px; border-radius: 6px; color: white; font-size: 11px; }
+        
+        /* キャラクター＆Bot画像共通デザイン */
         .char-visual { font-size: 50px; display: inline-block; text-shadow: 0 4px 0 rgba(0,0,0,0.3); }
+        .char-visual img { width: 60px; height: 60px; object-fit: cover; border-radius: 50%; border: 2px solid #fff; box-shadow: 0 4px 8px rgba(0,0,0,0.3); vertical-align: middle; background: #fff; }
+        #vsEnemyVisual img, #vsPlayerVisual img { width: 100px; height: 100px; border-radius: 50%; border: 3px solid #f1c40f; box-shadow: 0 0 15px rgba(241,196,15,0.5); }
+        
         .hp-container.enemy-hp { position: absolute; top: 15px; right: 15px; background: rgba(0,0,0,0.7); z-index: 5; width: 55%; padding: 5px 10px; border-radius: 6px; color: white; box-sizing: border-box; }
         .hp-bar-bg { background: #555; width: 100%; height: 8px; border-radius: 4px; overflow: hidden; margin-top: 4px; border: 1px solid #000; }
         .hp-bar { background: #2ecc71; height: 100%; width: 100%; transition: width 0.4s ease-out; }
@@ -114,6 +119,11 @@
         @keyframes poisonGlow { 0% { box-shadow: 0 0 5px #9b59b6; } 50% { box-shadow: 0 0 20px #9b59b6; } 100% { box-shadow: 0 0 5px #9b59b6; } }
         .critical-box { animation: criticalGlow 1.5s infinite; border: 3px double #f1c40f !important; }
         @keyframes criticalGlow { 0% { box-shadow: 0 0 5px #f1c40f; } 50% { box-shadow: 0 0 20px #f1c40f; } 100% { box-shadow: 0 0 5px #f1c40f; } }
+        
+        /* オンラインロビー用追加スタイル */
+        .room-section { border: 2px dashed #9b59b6; padding: 15px; border-radius: 10px; margin-top: 15px; text-align: left; background: #fff; }
+        .room-input { width: 90%; padding: 8px; margin-bottom: 10px; border-radius: 6px; border: 2px solid #ddd; }
+        .room-card { display: flex; justify-content: space-between; align-items: center; padding: 10px; border-bottom: 1px solid #eee; background: #fdfdfd; border-radius: 6px; margin-bottom: 5px; }
     </style>
 </head>
 <body>
@@ -132,14 +142,14 @@
         <div class="vs-side player-side" id="vsPlayerSide" style="transform:translateX(-100%);">
             <div style="font-size:14px; color:#f39c12; font-weight:bold;">CHALLENGER</div>
             <div style="font-size:22px; font-weight:bold;" id="vsPlayerName">料理人</div>
-            <div style="font-size:40px; margin:5px 0;" id="vsPlayerVisual">🍛</div>
+            <div class="char-visual" style="margin:5px 0;" id="vsPlayerVisual">🍛</div>
             <div style="font-size:14px; color:#eee;" id="vsPlayerCurry">カレー名</div>
         </div>
         <div class="vs-center-badge" id="vsBadge">VS</div>
         <div class="vs-side enemy-side" id="vsEnemySide" style="transform:translateX(100%);">
             <div style="font-size:14px; color:#9b59b6; font-weight:bold;">OPPONENT</div>
             <div style="font-size:22px; font-weight:bold;" id="vsEnemyName">対戦相手</div>
-            <div style="font-size:40px; margin:5px 0;" id="vsEnemyVisual">🍛</div>
+            <div class="char-visual" style="margin:5px 0;" id="vsEnemyVisual">🍛</div>
             <div style="font-size:14px; color:#eee;" id="vsEnemyCurry">相手カレー名</div>
         </div>
     </div>
@@ -310,7 +320,7 @@
                 <div class="player-zone">
                     <div style="text-align:left; max-width:50%;">
                         <div style="font-weight:bold; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" id="pOwnerText">プレイヤー名</div>
-                        <div style="font-size:22px; margin:2px 0;" id="pVisual">🍛</div>
+                        <div class="char-visual" style="font-size:22px; margin:2px 0;" id="pVisual">🍛</div>
                         <div style="font-size:10px; color:#f1c40f; font-weight:bold;" id="playerCurryNameText">マイカレー名</div>
                     </div>
                     <div class="hp-container" style="width:50%; background:none; padding:0;">
@@ -416,7 +426,7 @@ const masterIngredients = {
     "サバ": { hp: 95, atk: 42, def: 22, spd: 18, emoji: "🐟", shop: 1, desc: "パンチのあるATKを発揮する人気の魚介。" },
     "オクラ": { hp: 40, atk: 15, def: 25, spd: 15, emoji: "🫛", shop: 1, desc: "刻むことで粘り気が出る野菜。DEFを高める盾となる。" },
     "大根": { hp: 70, atk: 10, def: 35, spd: 5, emoji: "🫚", shop: 0, desc: "味が染み込む和の食材。HPの底上げと防衛能力。" },
-    "マッシュルーム": { hp: 35, atk: 22, def: 8, spd: 20, emoji: "🍄", shop: 2, desc: "旨味を持つキノコ。攻撃と素早さが伸びる。" },
+    "マッシュルーム": { hp: 35, atk: 22, def: 8, spd: 20, emoji: "🍄", shop: 2, desc: "帝国を脅かす幻のキノコ。攻撃と素早さが伸びる。" },
     "ひよこ豆": { hp: 60, atk: 15, def: 20, spd: 10, emoji: "🫘", shop: 0, desc: "地味ながらカレーに安定した硬さを提供する。" },
     "金箔": { hp: 100, atk: 50, def: 50, spd: 50, emoji: "✨", shop: -2, desc: "マハラジャに勝利した者のみが手にできる伝説の超アイテム。" }
 };
@@ -432,11 +442,12 @@ const masterSpices = {
     "チリパウダー": { mul: "atk", val: 1.6, name: "爆炎の", emoji: "❤️", desc: "燃え盛るような激辛スパイス。ATKを衝撃の1.6倍に！" }
 };
 
+/* 指定していただいたBot画像ファイル名（bot01.png〜bot04.png）をセット */
 const botOpponents = [
-    { name: "見習い料理人タカシ", curryName: "ベジマイルドカレー", visual: "🥦🧅🥔", hp: 130, atk: 25, def: 20, spd: 15, expBonus: 5 },
-    { name: "魔術師レオン", curryName: "爆炎のW唐揚げ激辛", visual: "💥💥🌶️", hp: 180, atk: 65, def: 15, spd: 35, expBonus: 10 },
-    { name: "ガンコ親父", curryName: "極厚トンカツ重量級", visual: "🐷🥩🥔", hp: 280, atk: 55, def: 45, spd: 5, expBonus: 15 },
-    { name: "ミラ宮廷カレー長", curryName: "至高のシーフード贅沢", visual: "🦞🦐✨", hp: 350, atk: 90, def: 60, spd: 40, expBonus: 20 }
+    { name: "見習い料理人タカシ", curryName: "ベジマイルドカレー", image: "<img src='bot01.png'>", hp: 130, atk: 25, def: 20, spd: 15, expBonus: 5 },
+    { name: "魔術師レオン", curryName: "爆炎のW唐揚げ激辛", image: "<img src='bot02.png'>", hp: 180, atk: 65, def: 15, spd: 35, expBonus: 10 },
+    { name: "ガンコ親父", curryName: "極厚トンカツ重量級", image: "<img src='bot03.png'>", hp: 280, atk: 55, def: 45, spd: 5, expBonus: 15 },
+    { name: "ミラ宮廷カレー長", curryName: "至高 of シーフード贅沢", image: "<img src='bot04.png'>", hp: 350, atk: 90, def: 60, spd: 40, expBonus: 20 }
 ];
 
 let inventory = {}; let scanHistory = {};
@@ -481,7 +492,6 @@ function loadGame() {
     const savedRecipes = localStorage.getItem('qr_curry_recipes');
     const savedStock = localStorage.getItem('qr_curry_stock');
     
-    // 既存セーブの有無にかかわらず、masterの全アイテムを確実に初期化して認識させる（バグ修正）
     if (savedInv) {
         inventory = JSON.parse(savedInv);
     }
@@ -717,19 +727,21 @@ function startBotBattle() {
     isBotMatch = true; currentRoomId = null;
     const currentCurry = curryStock[selectedCurryIndex];
     let oppCurryData = null; let bName = ""; let bVisual = "";
+    
     if (Math.random() < 0.10) {
-        bName = "👑 大富豪マハラジャ"; bVisual = "👳🏽‍♂️✨";
-        oppCurryData = { name: "マハラジャ超絢爛カレー", visual: "👑🍛", hp: 250, atk: 70, def: 50, spd: 40, isMaharaja: true };
-        activeBotData = { expBonus: 5 };
+        /* 大富豪マハラジャ（bot05.png）の出現設定 */
+        bName = "👑 大富豪マハラジャ"; bVisual = "<img src='bot05.png'>";
+        oppCurryData = { name: "マハラジャ超絢爛カレー", visual: bVisual, hp: 250, atk: 70, def: 50, spd: 40, isMaharaja: true };
+        activeBotData = { expBonus: 5, image: bVisual };
     } else {
         const bot = botOpponents[Math.floor(Math.random() * botOpponents.length)];
-        bName = bot.name; bVisual = bot.visual;
-        oppCurryData = { name: bot.curryName, visual: bot.visual, hp: bot.hp, atk: bot.atk, def: bot.def, spd: bot.spd };
+        bName = bot.name; bVisual = bot.image;
+        oppCurryData = { name: bot.curryName, visual: bVisual, hp: bot.hp, atk: bot.atk, def: bot.def, spd: bot.spd };
         activeBotData = bot;
     }
     const vs = document.getElementById("vsCutIn"); vs.style.display = "flex"; playVsSound();
-    document.getElementById("vsPlayerName").innerText = playerName; document.getElementById("vsPlayerVisual").innerText = currentCurry.visual || "🍛"; document.getElementById("vsPlayerCurry").innerText = currentCurry.name;
-    document.getElementById("vsEnemyName").innerText = bName; document.getElementById("vsEnemyVisual").innerText = bVisual; document.getElementById("vsEnemyCurry").innerText = oppCurryData.name;
+    document.getElementById("vsPlayerName").innerText = playerName; document.getElementById("vsPlayerVisual").innerHTML = currentCurry.visual || "🍛"; document.getElementById("vsPlayerCurry").innerText = currentCurry.name;
+    document.getElementById("vsEnemyName").innerText = bName; document.getElementById("vsEnemyVisual").innerHTML = bVisual; document.getElementById("vsEnemyCurry").innerText = oppCurryData.name;
     setTimeout(() => { document.getElementById("vsPlayerSide").style.transform = "translateX(0)"; }, 100);
     setTimeout(() => { document.getElementById("vsEnemySide").style.transform = "translateX(0)"; }, 400);
     setTimeout(() => { document.getElementById("vsBadge").style.opacity = "1"; document.getElementById("vsBadge").style.scale = "1"; }, 800);
@@ -783,8 +795,8 @@ function startOnlineBattle(hN, hC, gN, gC, role) {
     if (audioCtx.state === 'suspended') audioCtx.resume();
     const myC = role === "host" ? hC : gC; const oppC = role === "host" ? gC : hC; const oppN = role === "host" ? gN : hN;
     document.getElementById("vsCutIn").style.display = "flex"; playVsSound();
-    document.getElementById("vsPlayerName").innerText = playerName; document.getElementById("vsPlayerVisual").innerText = myC.visual || "🍛"; document.getElementById("vsPlayerCurry").innerText = myC.name;
-    document.getElementById("vsEnemyName").innerText = oppN; document.getElementById("vsEnemyVisual").innerText = oppC.visual || "🍛"; document.getElementById("vsEnemyCurry").innerText = oppC.name;
+    document.getElementById("vsPlayerName").innerText = playerName; document.getElementById("vsPlayerVisual").innerHTML = myC.visual || "🍛"; document.getElementById("vsPlayerCurry").innerText = myC.name;
+    document.getElementById("vsEnemyName").innerText = oppN; document.getElementById("vsEnemyVisual").innerHTML = oppC.visual || "🍛"; document.getElementById("vsEnemyCurry").innerText = oppC.name;
     setTimeout(() => { document.getElementById("vsPlayerSide").style.transform = "translateX(0)"; }, 100);
     setTimeout(() => { document.getElementById("vsEnemySide").style.transform = "translateX(0)"; }, 400);
     setTimeout(() => { document.getElementById("vsBadge").style.opacity = "1"; document.getElementById("vsBadge").style.scale = "1"; }, 800);
@@ -802,8 +814,8 @@ function proceedToArena(oppN, oppC, myC) {
     pop.innerText = "0";
 
     document.getElementById("battleSetup").style.display = "none"; document.getElementById("battleArena").style.display = "block";
-    document.getElementById("pOwnerText").innerText = playerName; document.getElementById("playerCurryNameText").innerText = myC.name; document.getElementById("pVisual").innerText = myC.visual || "🍛";
-    document.getElementById("oppOwnerText").innerText = oppN; document.getElementById("oppCurryNameText").innerText = oppC.name; document.getElementById("oVisual").innerText = oppC.visual || "🍛";
+    document.getElementById("pOwnerText").innerText = playerName; document.getElementById("playerCurryNameText").innerText = myC.name; document.getElementById("pVisual").innerHTML = myC.visual || "🍛";
+    document.getElementById("oppOwnerText").innerText = oppN; document.getElementById("oppCurryNameText").innerText = oppC.name; document.getElementById("oVisual").innerHTML = oppC.visual || "🍛";
     let pHP = myC.hp; let oHP = oppC.hp; updateHP(pHP, oHP, oppC.hp, myC.hp);
     const log = document.getElementById("battleLog"); log.innerHTML = `⚔️ ${oppN} との決闘開始！\n`;
     let isOP = false, isPP = false;
