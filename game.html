@@ -209,14 +209,12 @@
         <div class="guide-step">
             <h4>1. QRをスキャンしてアイテムを集めよう！</h4>
             <p>「QRスキャン」でカメラをQRにかざすとアイテムが入手できるよ！<br>
-            URLに<b>「curry」</b>や<b>「spice」</b>が含まれていると、獲得数がなんと<b>3倍(3個)</b>にアップ！<br>
             同じQRからは1日1回までしか入手できないけど、次の日になったらまた入手できるよ！</p>
         </div>
         <div class="guide-step">
             <h4>2. 冷蔵庫＆図鑑（売却機能追加！）</h4>
             <p>入手したアイテムが食材とスパイスに分かれて綺麗に確認できるよ！<br>
             「？？？」は未発見。一度でも入手すれば、残り0個になってもタップして説明が読めるよ！<br>
-            さらに、解説画面から余った食材を<b>1個につき15Gで売却</b>することも可能に！<br>
             G(ゴールド)やパックチケットを消費してガチャも回せるよ！</p>
         </div>
         <div class="guide-step">
@@ -225,7 +223,7 @@
         </div>
         <div class="guide-step">
             <h4>4. 対戦アリーナ（VS画面で戦略選択！）</h4>
-            <p>「PCと対戦」や「ルーム戦」に突入後、<b>相手の姿やカレーを確認した上で、出撃させるカレーを全ステータス（HP/ATK/DEF/SPD）を見比べながらじっくり選択</b>できるようになったぞ！相手の弱みを突こう！</p>
+            <p>「PCと対戦」や「対戦ルーム」で対戦をして経験値やゴールドを稼ごう！</p>
         </div>
     </div>
 
@@ -979,7 +977,7 @@ function confirmVsDeploy() {
         // ゲーム本来のアリーナ構築関数を実行
         proceedToArena(cachedOpponentName, cachedOpponentCurry, currentCurry);
         
-        // 🌟【レイアウトの完全修正バリケード】
+        // 🌟【レイアウトの完全修正】
         setTimeout(() => {
             // 1. 相手の大きな丸枠（oVisual）の中身を相手のアイコン画像に
             const oVisualEl = document.getElementById("oVisual");
@@ -988,7 +986,7 @@ function confirmVsDeploy() {
                 oVisualEl.style.background = "none";
             }
 
-            // 2. ❌ 下部ではみ出していた自分側の巨大アバター（pVisual）を完全に消去（非表示化）
+            // 2. 下部ではみ出していた自分側の巨大アバター（pVisual）を完全に消去
             const pVisualEl = document.getElementById("pVisual");
             if (pVisualEl) {
                 pVisualEl.style.display = "none"; 
@@ -998,7 +996,6 @@ function confirmVsDeploy() {
             // 3. 🔴【赤丸の修正】自分の名前の左のアイコンサイズを150%（45px）に拡大して綺麗に配置
             const pOwnerTextEl = document.getElementById("pOwnerText");
             if (pOwnerTextEl) {
-                // 既存のテキストだけを取り出し、150%サイズにした画像タグを左側に新しく結合
                 const rawName = pOwnerTextEl.innerText.replace(/<img[^>]*>/g, "").trim(); 
                 pOwnerTextEl.innerHTML = `<img src="${cachedMyIconFile}" style="width:45px; height:45px; border-radius:50%; object-fit:cover; vertical-align:middle; margin-right:10px; border:2px solid #e67e22;"> ` + rawName;
             }
@@ -1006,12 +1003,12 @@ function confirmVsDeploy() {
             // 4. 🔵【青丸の修正】相手のカレー名の上（oppCurryEmojiText）を、本来の「カレー食材絵文字」に戻す
             const oppEmojiEl = document.getElementById("oppCurryEmojiText");
             if (oppEmojiEl) {
-                // cachedOpponentCurry に入っている本来の食材の絵文字（.emoji）を最優先で再代入
-                oppEmojiEl.innerHTML = cachedOpponentCurry.emoji || "🍛";
-                oppEmojiEl.style.fontSize = "24px"; // 絵文字が見やすくなるようサイズ調整
+                // 💡【修正】🍛 ではなく、相手のカレーデータに入っている本来の食材絵文字（.visual）を代入します
+                oppEmojiEl.innerHTML = cachedOpponentCurry.visual || "🍛";
+                oppEmojiEl.style.fontSize = "24px"; 
             }
 
-        }, 150); // proceedToArena の描画が確実に終わった後に実行
+        }, 150); 
 
         // 💡【連続対戦対策】ルームIDのリセット
         if(currentRoomId) {
