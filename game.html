@@ -182,6 +182,10 @@
     </div>
 
     <h1>🍛 QRスパイスカレー 🍛</h1>
+<div style="text-align: center; margin: 15px 0;">
+    <label style="font-size: 13px; font-weight: bold; color: #333;">プレイヤーアイコン（タップして切り替え）</label><br>
+    <img id="playerIconImg" src="mayimage01.png" data-index="1" onclick="togglePlayerIcon()" style="width: 80px; height: 80px; border: 3px solid #e67e22; border-radius: 50%; cursor: pointer; margin-top: 5px; transition: transform 0.2s;">
+</div>
     <div style="font-size: 13px; color: #e67e22; font-weight: bold;">
         👨‍🍳 料理人: <span id="headerPlayerName">名無しの料理人</span> [EXP: <span id="globalEXP">0</span>] | 💰 資金: <span id="globalG">0</span> G | 🎟️ パック券: <span id="globalTicket">0</span> 枚
     </div>
@@ -373,6 +377,29 @@
 </div>
 
 <script>
+
+// アイコン用の一覧（HTMLと同じ場所にある画像名）
+const playerIconList = ["mayimage01.png", "mayimage02.png", "mayimage03.png"];
+let currentIconFile = "mayimage01.png"; // デフォルト
+
+// アイコンをタップした時に画像を切り替える関数
+function togglePlayerIcon() {
+    const img = document.getElementById("playerIconImg");
+    if(!img) return;
+    
+    // 現在のインデックスを取得して次の画像へ
+    let idx = parseInt(img.getAttribute("data-index"), 10) || 1;
+    idx = idx >= 3 ? 1 : idx + 1;
+    
+    currentIconFile = `mayimage0${idx}.png`;
+    img.src = currentIconFile;
+    img.setAttribute("data-index", idx);
+    
+    // タップした時のちょっとしたアニメーション演出
+    img.style.transform = "scale(1.1)";
+    setTimeout(() => { img.style.transform = "scale(1)"; }, 150);
+}
+
 const firebaseConfig = {
     apiKey: "AIzaSyCEbiyOxye1Eo7gzyZBwGxEHcjPX5WommM",
     authDomain: "curry-battle.firebaseapp.com",
@@ -978,10 +1005,11 @@ function updateMatchCurrySelects() {
 }
 
 // 部屋作成
+// 部屋作成（ホスト側）
 function createMatchRoom() {
     if(!checkDatabase()) return;
     const cIdx = document.getElementById("globalCurrySelect").value;
-    if(cIdx == -1) { showCustomAlert("⚠️", "カレーを選択してください"); return; }
+    if(cIdx == -1) { alert("カレーを選択してください"); return; }
     
     isBotMatch = false;
     const selectedCurry = curryStock[cIdx];
@@ -991,8 +1019,15 @@ function createMatchRoom() {
     
     myRoomRef = database.ref('rooms/' + rid);
     myRoomRef.set({ 
-        hostName: playerName, hostCurry: selectedCurry, guestName: "", guestCurry: null, 
-        status: "waiting", hasPassword: !!pass, password: pass 
+        hostName: playerName, 
+        hostCurry: selectedCurry, 
+        hostIcon: currentIconFile, // 🌟アイコンファイル名を追加保存
+        guestName: "", 
+        guestCurry: null, 
+        guestIcon: "", // 最初は空っぽ
+        status: "waiting", 
+        hasPassword: !!pass, 
+        password: pass 
     });
     
     document.getElementById("lobbyArea").style.display = "none";
@@ -1002,8 +1037,29 @@ function createMatchRoom() {
         const data = snap.val();
         if(data && data.status === "ready") {
             myRoomRef.off('value');
-            startOnlineBattle(data.hostName, data.hostCurry, data.guestName, data.guestCurry, "host");
+            // 🌟引数の最後にアイコン情報（data.hostIcon, data.guestIcon）を渡すよう強化
+            startOnlineBattle(data.hostName, data.hostCurry, data.guestName, data.guestCurry, "host", data.hostIcon, data.guestIcon);
         }
+    });
+}
+
+// 部屋に参加（ゲスト側）
+function proceedJoin(rid, myCurry) {
+    const rRef = database.ref('rooms/' + rid);
+    rRef.once('value').then(snap => {
+        if(!snap.val() || snap.val().status !== "waiting") return;
+        
+        // 🌟入室時に自分の名前、カレー、さらにアイコン（currentIconFile）も上書き保存
+        rRef.update({ 
+            guestName: playerName, 
+            guestCurry: myCurry, 
+            guestIcon: currentIconFile, 
+            status: "ready" 
+        }).then(() => {
+            const data = snap.val();
+            // 🌟引数の最後にアイコン情報（data.hostIcon, 自分のアイコン）を渡す
+            startOnlineBattle(data.hostName, data.hostCurry, playerName, myCurry, "guest", data.hostIcon, currentIconFile);
+        });
     });
 }
 
@@ -1034,11 +1090,12 @@ function proceedJoin(rid, myCurry) {
     });
 }
 
-function startOnlineBattle(hN, hC, gN, gC, role) {
+// 🌟引数に hI（ホストのアイコン）と gI（ゲストのアイコン）を受け取れるように拡張
+function startOnlineBattle(hN, hC, gN, gC, role, hI, gI) {
     if (audioCtx.state === 'suspended') audioCtx.resume();
     isBotMatch = false;
     
-    // 1. お互いの情報を正しくセット
+    // お互いの情報を正しくセット
     const oppC = role === "host" ? gC : hC; 
     const oppN = role === "host" ? gN : hN;
     cachedOpponentName = oppN;
@@ -1046,22 +1103,21 @@ function startOnlineBattle(hN, hC, gN, gC, role) {
 
     const myC = role === "host" ? hC : gC;
     currentBattleCurry = myC; // 自分のバトル用カレーを確定
+    
+    // 🌟お互いのアイコン画像を判定
+    const myIcon = role === "host" ? (hI || "mayimage01.png") : (gI || "mayimage01.png");
+    const oppIcon = role === "host" ? (gI || "mayimage01.png") : (hI || "mayimage01.png");
 
-    // 2. 🌟出撃・撤退ボタンがある「黒いポップアップ（モーダル）」を、表示される前に強制的に非表示（非表示）にします
-    // ボタンの親要素（お使いのコードのモーダルID候補）をすべて非表示にします
+    // 出撃・撤退ボタンがある「黒いポップアップ（モーダル）」を強制非表示
     ["battleModal", "selectModal", "currySelectModal", "popArea"].forEach(id => {
         const el = document.getElementById(id);
         if(el) el.style.display = "none";
     });
-    
-    // もしボタン自体に直接IDがない場合でも、ボタンの文字を頼りにポップアップ全体を力づくで非表示にします
     Array.from(document.querySelectorAll('div, section')).forEach(el => {
-        if (el.innerText && el.innerText.includes("出撃させるカレーを選択")) {
-            el.style.display = "none";
-        }
+        if (el.innerText && el.innerText.includes("出撃させるカレーを選択")) el.style.display = "none";
     });
 
-    // 3. VSカットイン画面に情報を表示
+    // VSカットイン画面に情報を表示
     const vs = document.getElementById("vsCutIn"); 
     if(vs) {
         vs.style.display = "flex"; 
@@ -1073,22 +1129,48 @@ function startOnlineBattle(hN, hC, gN, gC, role) {
     if(document.getElementById("vsEnemyVisual")) document.getElementById("vsEnemyVisual").innerHTML = oppC.visual || "🍛";
     if(document.getElementById("vsEnemyCurry")) document.getElementById("vsEnemyCurry").innerText = oppC.name;
     
+    // 🌟【カットイン画面へのアイコン反映】
+    // 元々イラストやアバターがあったHTML要素の場所に画像を表示させます
+    // ※もしカットイン側の画像IDが異なる場合は適宜調整してください
+    const vsPlayerVisualArea = document.getElementById("vsPlayerVisual"); // 自分の顔表示エリア
+    const vsEnemyVisualArea = document.getElementById("vsEnemyVisualArea") || document.getElementById("vsEnemyVisual"); // 相手の顔表示エリア
+    
+    if(vsPlayerVisualArea) vsPlayerVisualArea.innerHTML = `<img src="${myIcon}" style="width:100px; height:100px; border-radius:50%;">`;
+    // ※対戦前は相手のカレーを隠す要望があったため、相手のアイコン画像自体はここに表示させてOKです
+    if(vsEnemyVisualArea) vsEnemyVisualArea.innerHTML = `<img src="${oppIcon}" style="width:100px; height:100px; border-radius:50%;">`;
+
     // VS画面のアニメーション演出
     setTimeout(() => { if(document.getElementById("vsPlayerSide")) document.getElementById("vsPlayerSide").style.transform = "translateX(0)"; }, 100);
     setTimeout(() => { if(document.getElementById("vsEnemySide")) document.getElementById("vsEnemySide").style.transform = "translateX(0)"; }, 300);
     setTimeout(() => { if(document.getElementById("vsBadge")) { document.getElementById("vsBadge").style.opacity = "1"; document.getElementById("vsBadge").style.scale = "1"; } }, 600);
 
-    // 4. 3秒後に自動でバトル画面へ移行し、ゲームのメイン処理を連動させる
+    // 3秒後に自動でバトル画面へ移行し、ゲームのメイン処理を連動させる
     setTimeout(() => {
-        // VS画面を消す
         if(vs) vs.style.display = "none";
-        
-        // ロビーを隠し、バトルアリーナを表示
         if(document.getElementById("battleSetup")) document.getElementById("battleSetup").style.display = "none";
         if(document.getElementById("battleArena")) document.getElementById("battleArena").style.display = "block";
         
-        // 5. 🌟【ここが最重要修正】
-        // プレイヤーが「🔥 このカレーで出撃する！」ボタンを実際に押したのと「全く同じ処理」をプログラムで自動実行します！
+        // 🌟【実際のバトル画面（スクショ3枚目の画面）のアイコンを強制的に上書き】
+        // スクショ1枚目、3枚目で丸い顔アイコン（野球帽をかぶったキャラなど）が表示されている箇所の <img> タグを探して書き換えます。
+        // 一般的な構成を想定して、クラスや画像要素を自動で書き換えるコードを挟みます。
+        const playerZones = document.querySelectorAll('.player-zone, .enemy-zone');
+        // もしHTMLに特定の顔画像ID（例：playerFaceImg, enemyFaceImg等）がある場合は、以下のように直接上書きできます
+        // ここでは、バトル画面内の画像要素を狙って書き換えます。
+        const images = document.getElementById("battleArena").getElementsByTagName("img");
+        if(images.length >= 2) {
+            // 敵と自分の配置順に合わせてセット（上が相手、下が自分を想定）
+            // お使いのHTMLの構造に合わせて、適切なimg要素にsrcを代入してください
+            // 例として、最初に見つかった2つの大きな丸画像を差し替える想定です。
+            Array.from(images).forEach(img => {
+                if(img.closest('.enemy-zone') || img.src.includes("bot") || img.style.borderColor === "rgb(52, 152, 219)") {
+                    img.src = oppIcon;
+                } else {
+                    img.src = myIcon;
+                }
+            });
+        }
+
+        // プレイヤーが「🔥 このカレーで出撃する！」ボタンを押したのと同じ処理を自動実行
         if (typeof confirmVsDeploy === "function") {
             confirmVsDeploy(); 
         }
