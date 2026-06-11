@@ -153,7 +153,7 @@
     </div>
 </div>
 
-<div class="container" id="mainContainer">
+<div class="container" id="mainContainer" style="margin-bottom: 150px; padding-bottom: 50px;">
     
     <div class="vs-cutin" id="vsCutIn">
         <h2 style="color:#e67e22; margin-top:10px; text-shadow: 0 2px 4px rgba(0,0,0,0.8); font-style:italic;">⚔️ MATCH MATCHING...</h2>
@@ -1379,6 +1379,9 @@ function done(pHP, oHP, myC, oppC) {
     curryStock.splice(selectedCurryIndex, 1); selectedCurryIndex = curryStock.length ? 0 : -1;
     saveGame(); updateCookSelects();
     if(!isBotMatch && currentRoomId) database.ref('rooms/' + currentRoomId).remove();
+
+    // 💡関数の最後にこれを追記（既存の done 関数の internal 処理の末尾に入れてください）
+    if (typeof updateMatchCurrySelects === "function") updateMatchCurrySelects();
 }
 
 function endBattleScene() {
