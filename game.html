@@ -979,32 +979,39 @@ function confirmVsDeploy() {
         // ゲーム本来のアリーナ構築関数を実行
         proceedToArena(cachedOpponentName, cachedOpponentCurry, currentCurry);
         
-        // 🌟【レイアウト崩れ・絵文字上書きの完全修正】
+        // 🌟【レイアウトの完全修正バリケード】
         setTimeout(() => {
-            // 1. 相手の大きな丸枠（oVisual）の中身だけを相手のアイコン画像に差し替える
+            // 1. 相手の大きな丸枠（oVisual）の中身を相手のアイコン画像に
             const oVisualEl = document.getElementById("oVisual");
             if (oVisualEl) {
                 oVisualEl.innerHTML = `<img src="${cachedOppIconFile}" style="width:100%; height:100%; border-radius:50%; object-fit:cover; display:block;">`;
                 oVisualEl.style.background = "none";
             }
 
-            // 2. 自分の大きな丸枠（pVisual）は、具材絵文字などが表示される大事なエリアなので、
-            //    中身を丸ごと画像にせず、既存のテキストやHP表示を維持したまま、
-            //    プレイヤー名の左側に「小さな丸いアイコン」として綺麗に配置します。
-            const pOwnerTextEl = document.getElementById("pOwnerText");
-            if (pOwnerTextEl && !pOwnerTextEl.innerHTML.includes("<img")) {
-                pOwnerTextEl.innerHTML = `<img src="${cachedMyIconFile}" style="width:30px; height:30px; border-radius:50%; object-fit:cover; vertical-align:middle; margin-right:8px;">` + pOwnerTextEl.innerText;
+            // 2. ❌ 下部ではみ出していた自分側の巨大アバター（pVisual）を完全に消去（非表示化）
+            const pVisualEl = document.getElementById("pVisual");
+            if (pVisualEl) {
+                pVisualEl.style.display = "none"; 
+                pVisualEl.innerHTML = "";
             }
 
-            // 3. 相手のHPバーの上にある小さな絵文字（oppCurryEmojiText）も、相手アイコン画像に置き換える
+            // 3. 🔴【赤丸の修正】自分の名前の左のアイコンサイズを150%（45px）に拡大して綺麗に配置
+            const pOwnerTextEl = document.getElementById("pOwnerText");
+            if (pOwnerTextEl) {
+                // 既存のテキストだけを取り出し、150%サイズにした画像タグを左側に新しく結合
+                const rawName = pOwnerTextEl.innerText.replace(/<img[^>]*>/g, "").trim(); 
+                pOwnerTextEl.innerHTML = `<img src="${cachedMyIconFile}" style="width:45px; height:45px; border-radius:50%; object-fit:cover; vertical-align:middle; margin-right:10px; border:2px solid #e67e22;"> ` + rawName;
+            }
+
+            // 4. 🔵【青丸の修正】相手のカレー名の上（oppCurryEmojiText）を、本来の「カレー食材絵文字」に戻す
             const oppEmojiEl = document.getElementById("oppCurryEmojiText");
             if (oppEmojiEl) {
-                oppEmojiEl.innerHTML = `<img src="${cachedOppIconFile}" style="width:30px; height:30px; border-radius:50%; object-fit:cover; vertical-align:middle;">`;
+                // cachedOpponentCurry に入っている本来の食材の絵文字（.emoji）を最優先で再代入
+                oppEmojiEl.innerHTML = cachedOpponentCurry.emoji || "🍛";
+                oppEmojiEl.style.fontSize = "24px"; // 絵文字が見やすくなるようサイズ調整
             }
 
-            // ⚠️ 前回のバグの原因だった「すべてのdivをループして絵文字を強制書き換えする処理」は完全に削除しました。
-            // これにより、カレーの具材絵文字（🥔🥕など）が消されたり、アイコンに化けることはなくなります。
-        }, 100);
+        }, 150); // proceedToArena の描画が確実に終わった後に実行
 
         // 💡【連続対戦対策】ルームIDのリセット
         if(currentRoomId) {
@@ -1030,6 +1037,7 @@ function confirmVsDeploy() {
     
     proceedToArena(cachedOpponentName, cachedOpponentCurry, currentCurry);
 }
+
 function abortMatchDeployment() {
     document.getElementById("vsCutIn").style.display = "none";
     document.getElementById("vsPlayerSide").style.transform = "translateX(-100%)";
