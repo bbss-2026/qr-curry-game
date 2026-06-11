@@ -302,11 +302,15 @@
                 <button class="btn btn-bot" onclick="startBotBattle()">PC料理人と対戦する</button>
             </div>
 
+<div style="margin: 10px 0; text-align: center; padding: 10px; border: 1px solid #ddd; background: #fdfdfd;">
+    <label style="font-weight:bold;">⚔️ 対人戦に使用するカレーを選択:</label><br>
+    <select id="globalCurrySelect" class="room-input"></select>
+</div>
+
+
             <div id="lobbyArea">
                 <div class="room-section">
                     <h4 style="margin:0 0 10px 0; color:#9b59b6;">🏠 新しい対戦ルームを作る</h4>
-                    <label style="font-size:12px;">使用するカレーを選択:</label>
-                    <select id="createRoomCurrySelect" class="room-input"></select>
                     <label style="font-size:12px;">入室合言葉 (空欄なら誰でも):</label>
                     <input type="text" id="createRoomPassword" class="room-input" placeholder="例: 1234">
                     <button class="btn btn-battle" id="btnCreateRoom" onclick="createMatchRoom()">部屋を作成して待機</button>
@@ -943,18 +947,14 @@ function listenToRooms() {
 
 // ルーム用カレー選択肢を更新する関数
 function updateMatchCurrySelects() {
-    const sel = document.getElementById("createRoomCurrySelect");
+    // 修正：枠内のプルダウンではなく、共通のプルダウンを対象にする
+    const sel = document.getElementById("globalCurrySelect");
     if(!sel) return;
-    
     sel.innerHTML = "";
-    
-    // カレーがまだない場合の表示
     if (!curryStock || curryStock.length === 0) {
-        sel.innerHTML = "<option value='-1'>カレーを調理してください</option>";
-        return;
+        sel.innerHTML = "<option value='-1'>カレーを調理してください</option>"; 
+        return; 
     }
-    
-    // カレーがある場合に追加
     curryStock.forEach((c, idx) => {
         const opt = document.createElement("option");
         opt.value = idx;
@@ -966,7 +966,7 @@ function updateMatchCurrySelects() {
 // 部屋作成
 function createMatchRoom() {
     if(!checkDatabase()) return;
-    const cIdx = document.getElementById("createRoomCurrySelect").value;
+    const cIdx = document.getElementById("globalCurrySelect").value;
     if(cIdx == -1) { showCustomAlert("⚠️", "カレーを選択してください"); return; }
     
     isBotMatch = false;
@@ -996,19 +996,18 @@ function createMatchRoom() {
 // 部屋に参加
 function joinMatchRoom(rid, has) {
     if(!checkDatabase()) return;
-    if(!curryStock.length) { showCustomAlert("⚠️", "カレーを調理してください！"); return; }
+    const cIdx = document.getElementById("globalCurrySelect").value; // 修正
+    if(cIdx == -1) { alert("カレーを選択してください"); return; }
     
-    let options = curryStock.map((c,i) => i+":"+c.name).join("\n");
-    const cIdx = prompt("対戦に使うカレー番号(0から始まる)を入力:\n" + options);
-    if(cIdx === null || !curryStock[cIdx]) return;
+    const myCurry = curryStock[cIdx];
     
     if(has) {
         const pass = prompt("合言葉:");
         database.ref('rooms/' + rid).once('value').then(snap => { 
-            if(snap.val() && snap.val().password === pass) proceedJoin(rid, curryStock[cIdx]); 
-            else showCustomAlert("❌", "合言葉エラー"); 
+            if(snap.val() && snap.val().password === pass) proceedJoin(rid, myCurry); 
+            else alert("合言葉エラー"); 
         });
-    } else proceedJoin(rid, curryStock[cIdx]);
+    } else proceedJoin(rid, myCurry);
 }
 
 function proceedJoin(rid, myCurry) {
