@@ -542,6 +542,8 @@ let playerG = 0; let playerEXP = 0; let packTicket = 0;
 let curryStock = []; let selectedCurryIndex = -1;
 let playerName = "名無しの料理人";
 let recipeBook = {}; let myRoomRef = null; let currentRoomId = null;
+let cachedMyIconFile = "mayimage01.png";
+let cachedOppIconFile = "mayimage01.png";
 let isBotMatch = false; let activeBotData = null;
 let discoveredItems = {};
 
@@ -954,7 +956,7 @@ function startBotBattle() {
 function rTrimHtml(str) { return str.replace(/<\/?[^>]+(>|$)/g, ""); }
 
 function confirmVsDeploy() {
-    // 💡対人戦（isBotMatchがfalse）の時の自動処理
+    // ──── 💡対人戦時の自動処理 ────
     if (!isBotMatch) {
         const cIdx = document.getElementById("globalCurrySelect").value;
         if (cIdx == -1 || !curryStock[cIdx]) {
@@ -963,33 +965,68 @@ function confirmVsDeploy() {
         }
         const currentCurry = curryStock[cIdx];
         
-        // 演出画面を隠す
+        // カットイン演出を閉じる
         if(document.getElementById("vsCutIn")) document.getElementById("vsCutIn").style.display = "none";
         if(document.getElementById("vsPlayerSide")) document.getElementById("vsPlayerSide").style.transform = "translateX(-100%)";
         if(document.getElementById("vsEnemySide")) document.getElementById("vsEnemySide").style.transform = "translateX(100%)";
-        if(document.getElementById("vsBadge")) {
-            document.getElementById("vsBadge").style.opacity = "0"; 
-            document.getElementById("vsBadge").style.scale = "3";
-        }
+        if(document.getElementById("vsBadge")) { document.getElementById("vsBadge").style.opacity = "0"; document.getElementById("vsBadge").style.scale = "3"; }
         
-        // 🌟【超重要】次のBot戦のために、非表示にしていたポップアップの表示設定を元の「block」に戻す！
+        // 次のBot戦のために、非表示にしていたポップアップの設定を「block」に戻す
         ["battleModal", "selectModal", "currySelectModal", "popArea"].forEach(id => {
             const el = document.getElementById(id);
             if(el) el.style.display = "block";
         });
         
-        // バトルアリーナへ進行
+        // ゲーム本来のアリーナ構築関数を実行
         proceedToArena(cachedOpponentName, cachedOpponentCurry, currentCurry);
+        
+        // 🌟【解決：バトル画面のアイコン上書きと位置固定】
+        // proceedToArenaが動いて画面が生成された直後に、指定の丸枠の中を書き換えます
+        setTimeout(() => {
+            // スクショの丸い枠（.enemy-zone内の大型円形枠、および.player-zone内の大型円形枠）を取得
+            const enemyVisualContainer = document.querySelector('.enemy-zone div[style*="border-radius: 50%"], .enemy-zone .enemy-visual');
+            const playerVisualContainer = document.querySelector('.player-zone div[style*="border-radius: 50%"], .player-zone .player-visual');
+            
+            // 💡大きな丸枠の背景（具材のアニメーション等）を消去、または中に画像をピッタリはめ込みます
+            if(enemyVisualContainer) {
+                enemyVisualContainer.innerHTML = `<img src="${cachedOppIconFile}" style="width:100%; height:100%; border-radius:50%; object-fit:cover; display:block;">`;
+                enemyVisualContainer.style.background = "none"; // 背景の黒い透過などを解除
+            }
+            if(playerVisualContainer) {
+                playerVisualContainer.innerHTML = `<img src="${cachedMyIconFile}" style="width:100%; height:100%; border-radius:50%; object-fit:cover; display:block;">`;
+                playerVisualContainer.style.background = "none";
+            }
+
+            // 💡ステータスバー（HP）の左側にある小さな丸いアバター部分（スクショで絵文字が出ていた場所）も書き換え
+            // HTML上の名前に付随する絵文字を画像に変換
+            const statusImages = document.getElementById("battleArena").querySelectorAll('div');
+            statusImages.forEach(el => {
+                // カレーの絵文字が入っている要素を見つけたら画像に差し替える
+                if(el.innerText && (el.innerText.includes("🍛") || el.innerText.trim() === "")) {
+                    // クラス名や配置から判定して極小アバターを設置
+                    if(el.closest('.enemy-zone')) {
+                        el.innerHTML = `<img src="${cachedOppIconFile}" style="width:40px; height:40px; border-radius:50%; object-fit:cover; vertical-align:middle; margin-right:5px;">`;
+                    } else if(el.closest('.player-zone')) {
+                        el.innerHTML = `<img src="${cachedMyIconFile}" style="width:40px; height:40px; border-radius:50%; object-fit:cover; vertical-align:middle; margin-right:5px;">`;
+                    }
+                }
+            });
+        }, 100);
+
+        // 💡【解決：2度と対人戦ができなくなる問題への対策】
+        // ロビーエリアや部屋の接続をクリーンに保つため、古い部屋の参照を削除しロビー画面の状態を初期化します
+        if(currentRoomId) {
+            database.ref('rooms/' + currentRoomId).onDisconnect().cancel();
+            currentRoomId = null; // ルームIDをクリアして次回の作成・参加を正常化
+        }
         return;
     }
 
-    // 💡以下はBot戦（手動で出撃ボタンを押した時）の処理
+    // ──── 💡Bot戦（手動で出撃ボタンを押した時）の処理 ────
     if(selectedCurryIndex === -1 || !curryStock[selectedCurryIndex]) {
         if (typeof showCustomAlert === "function") {
             showCustomAlert("⚠️ 出撃不可", "出撃させるカレーがありません。ストックを用意してください。");
-        } else {
-            alert("出撃させるカレーがありません。");
-        }
+        } else { alert("出撃させるカレーがありません。"); }
         return;
     }
     const currentCurry = curryStock[selectedCurryIndex];
@@ -997,13 +1034,11 @@ function confirmVsDeploy() {
     if(document.getElementById("vsCutIn")) document.getElementById("vsCutIn").style.display = "none";
     if(document.getElementById("vsPlayerSide")) document.getElementById("vsPlayerSide").style.transform = "translateX(-100%)";
     if(document.getElementById("vsEnemySide")) document.getElementById("vsEnemySide").style.transform = "translateX(100%)";
-    if(document.getElementById("vsBadge")) {
-        document.getElementById("vsBadge").style.opacity = "0"; 
-        document.getElementById("vsBadge").style.scale = "3";
-    }
+    if(document.getElementById("vsBadge")) { document.getElementById("vsBadge").style.opacity = "0"; document.getElementById("vsBadge").style.scale = "3"; }
     
     proceedToArena(cachedOpponentName, cachedOpponentCurry, currentCurry);
 }
+
 function abortMatchDeployment() {
     document.getElementById("vsCutIn").style.display = "none";
     document.getElementById("vsPlayerSide").style.transform = "translateX(-100%)";
@@ -1156,7 +1191,6 @@ function startOnlineBattle(hN, hC, gN, gC, role, hI, gI) {
     if (audioCtx.state === 'suspended') audioCtx.resume();
     isBotMatch = false; 
     
-    // お互いの情報をセット
     const oppC = role === "host" ? gC : hC; 
     const oppN = role === "host" ? gN : hN;
     cachedOpponentName = oppN;
@@ -1165,11 +1199,11 @@ function startOnlineBattle(hN, hC, gN, gC, role, hI, gI) {
     const myC = role === "host" ? hC : gC;
     currentBattleCurry = myC; 
     
-    // お互いが選んだアイコン（無ければデフォルト）
-    const myIcon = role === "host" ? (hI || "mayimage01.png") : (gI || "mayimage01.png");
-    const oppIcon = role === "host" ? (gI || "mayimage01.png") : (hI || "mayimage01.png");
+    // 💡【修正】お互いのアイコンをグローバル変数に退避させて記憶する
+    cachedMyIconFile = role === "host" ? (hI || "mayimage01.png") : (gI || "mayimage01.png");
+    cachedOppIconFile = role === "host" ? (gI || "mayimage01.png") : (hI || "mayimage01.png");
 
-    // 出撃ポップアップを非表示
+    // 出撃ポップアップを非表示にする
     ["battleModal", "selectModal", "currySelectModal", "popArea"].forEach(id => {
         const el = document.getElementById(id);
         if(el) el.style.display = "none";
@@ -1187,14 +1221,14 @@ function startOnlineBattle(hN, hC, gN, gC, role, hI, gI) {
     if(document.getElementById("vsEnemyName")) document.getElementById("vsEnemyName").innerText = oppN;
     if(document.getElementById("vsEnemyCurry")) document.getElementById("vsEnemyCurry").innerText = oppC.name;
     
-    // 💡【解決：カットインアイコン】それぞれの画面で、お互いが選んだアイコン画像を表示
+    // 💡【解決：カットイン】記憶したアイコンを双方の画面に即時反映
     const vsPlayerVisualArea = document.getElementById("vsPlayerVisual"); 
     const vsEnemyVisualArea = document.getElementById("vsEnemyVisual"); 
     
-    if(vsPlayerVisualArea) vsPlayerVisualArea.innerHTML = `<img src="${myIcon}" style="width:100px; height:100px; border-radius:50%; border:3px solid #e67e22; object-fit:cover;">`;
-    if(vsEnemyVisualArea) vsEnemyVisualArea.innerHTML = `<img src="${oppIcon}" style="width:100px; height:100px; border-radius:50%; border:3px solid #3498db; object-fit:cover;">`;
+    if(vsPlayerVisualArea) vsPlayerVisualArea.innerHTML = `<img src="${cachedMyIconFile}" style="width:100px; height:100px; border-radius:50%; border:3px solid #e67e22; object-fit:cover;">`;
+    if(vsEnemyVisualArea) vsEnemyVisualArea.innerHTML = `<img src="${cachedOppIconFile}" style="width:100px; height:100px; border-radius:50%; border:3px solid #3498db; object-fit:cover;">`;
 
-    // アニメーション
+    // 演出リセットと実行
     const pSide = document.getElementById("vsPlayerSide");
     const eSide = document.getElementById("vsEnemySide");
     const vBadge = document.getElementById("vsBadge");
@@ -1205,28 +1239,16 @@ function startOnlineBattle(hN, hC, gN, gC, role, hI, gI) {
     setTimeout(() => { if(eSide) eSide.style.transform = "translateX(0)"; }, 300);
     setTimeout(() => { if(vBadge) { vBadge.style.opacity = "1"; vBadge.style.scale = "1"; } }, 600);
 
-    // 3秒後に自動でバトル画面へ移行
+    // 3秒後に自動で出撃確定処理へ
     setTimeout(() => {
         if(vs) vs.style.display = "none";
         if(document.getElementById("battleSetup")) document.getElementById("battleSetup").style.display = "none";
         if(document.getElementById("battleArena")) document.getElementById("battleArena").style.display = "block";
 
-        // 出撃処理を実行（ここで本来のHPや絵文字がセットされる）
+        // 出撃処理を自動実行
         if (typeof confirmVsDeploy === "function") {
             confirmVsDeploy(); 
         }
-
-        // 💡【解決：バトル画面アイコン】
-        // confirmVsDeploy() が動いて絵文字がセットされた「直後」を狙って、
-        // アイコン画像（.png）へと強制的に上書きして固定します！
-        setTimeout(() => {
-            const enemyVis = document.querySelector('.enemy-zone .enemy-visual, .enemy-zone div[style*="font-size"], #vsEnemyVisualArea');
-            const playerVis = document.querySelector('.player-zone .player-visual, .player-zone div[style*="font-size"], #vsPlayerVisualArea');
-            
-            if(enemyVis) enemyVis.innerHTML = `<img src="${oppIcon}" style="width:70px; height:70px; border-radius:50%; border:2px solid #3498db; object-fit:cover;">`;
-            if(playerVis) playerVis.innerHTML = `<img src="${myIcon}" style="width:70px; height:70px; border-radius:50%; border:2px solid #e67e22; object-fit:cover;">`;
-        }, 50); // 出撃処理の直後に実行するためのごく僅かな時間差
-        
     }, 3000);
 }
 
