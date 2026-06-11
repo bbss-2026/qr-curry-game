@@ -299,27 +299,27 @@
         <div id="battleSetup">
             <div class="room-section" style="border-color: #e67e22; margin-top:0;">
                 <h4 style="margin:0 0 10px 0; color:#d35400;">🤖 PCと対戦</h4>
-                <p style="font-size:12px; margin:0 0 10px 0; color:#7f8c8d;">ランダムで登場するPC料理人とすぐ戦えます（VS画面でカレーを選択します）</p>
                 <button class="btn btn-bot" onclick="startBotBattle()">PC料理人と対戦する</button>
             </div>
 
             <div id="lobbyArea">
                 <div class="room-section">
                     <h4 style="margin:0 0 10px 0; color:#9b59b6;">🏠 新しい対戦ルームを作る</h4>
-                    <label style="font-size:12px;">入室合キーワード (空欄なら誰でも歓迎):</label>
+                    <label style="font-size:12px;">使用するカレーを選択:</label>
+                    <select id="createRoomCurrySelect" class="room-input"></select>
+                    <label style="font-size:12px;">入室合言葉 (空欄なら誰でも):</label>
                     <input type="text" id="createRoomPassword" class="room-input" placeholder="例: 1234">
-                    <button class="btn btn-battle" id="btnCreateRoom" onclick="createMatchRoom()">部屋を作成して対戦相手を待つ</button>
+                    <button class="btn btn-battle" id="btnCreateRoom" onclick="createMatchRoom()">部屋を作成して待機</button>
                 </div>
 
                 <div class="room-section" style="margin-top:20px; border-color:#34495e;">
-                    <h4 style="margin:0 0 10px 0; color:#34495e;">🌐 对戦相手の募集一覧</h4>
+                    <h4 style="margin:0 0 10px 0; color:#34495e;">🌐 対戦相手の募集一覧</h4>
                     <div id="roomListArea" style="font-size:13px; color:#7f8c8d;">部屋を読み込み中...</div>
                 </div>
             </div>
 
             <div id="waitingArea" style="display:none; padding:20px; background:#fff; border:2px solid #e67e22; border-radius:10px; text-align:center;">
                 <h3 style="color:#e67e22;">⏳ 対戦相手を待っています...</h3>
-                <p>あなたの部屋に他の料理人が入室すると、自動的にバトルへ進みます。</p>
                 <button class="btn btn-cancel" onclick="cancelMatchRoom()" style="width:100%;">募集を取り消す</button>
             </div>
         </div>
@@ -504,7 +504,7 @@ let discoveredItems = {};
 let cachedOpponentName = "";
 let cachedOpponentCurry = null;
 
-window.onload = function() { loadGame(); updateFridgeUI(); updateCookSelects(); refreshRecipeBookUI(); updateShopButtons(); listenToRooms(); };
+window.onload = function() { loadGame(); updateFridgeUI(); updateCookSelects(); refreshRecipeBookUI(); updateShopButtons(); listenToRooms(); updateMatchCurrySelects();};
 
 function switchTab(tab) {
     if (document.getElementById("battleArena").style.display === "block") {
@@ -938,42 +938,75 @@ function listenToRooms() {
     });
 }
 
+
+// ルーム用カレー選択肢を更新する関数
+function updateMatchCurrySelects() {
+    const sel = document.getElementById("createRoomCurrySelect");
+    if(!sel) return;
+    sel.innerHTML = "";
+    if (!curryStock.length) { sel.innerHTML = "<option value='-1'>カレーを調理してください</option>"; return; }
+    curryStock.forEach((c, idx) => {
+        const opt = document.createElement("option");
+        opt.value = idx;
+        opt.innerText = `${c.visual} ${c.name}`;
+        sel.appendChild(opt);
+    });
+}
+
+// 部屋作成
 function createMatchRoom() {
     if(!checkDatabase()) return;
+    const cIdx = document.getElementById("createRoomCurrySelect").value;
+    if(cIdx == -1) { showCustomAlert("⚠️", "カレーを選択してください"); return; }
+    
     isBotMatch = false;
-    const dummyCurry = curryStock[0] || { name: "準備中のカレー", visual: "🍛", hp: 100, atk: 20, def: 20, spd: 20 };
+    const selectedCurry = curryStock[cIdx];
     const pass = document.getElementById("createRoomPassword").value.trim();
-    const rid = 'room_' + Math.random().toString(36).substr(2, 9); currentRoomId = rid;
+    const rid = 'room_' + Math.random().toString(36).substr(2, 9);
+    currentRoomId = rid;
+    
     myRoomRef = database.ref('rooms/' + rid);
-    myRoomRef.set({ hostName: playerName, hostCurry: dummyCurry, guestName: "", guestCurry: null, status: "waiting", hasPassword: !!pass, password: pass });
-    document.getElementById("lobbyArea").style.display = "none"; document.getElementById("waitingArea").style.display = "block";
+    myRoomRef.set({ 
+        hostName: playerName, hostCurry: selectedCurry, guestName: "", guestCurry: null, 
+        status: "waiting", hasPassword: !!pass, password: pass 
+    });
+    
+    document.getElementById("lobbyArea").style.display = "none";
+    document.getElementById("waitingArea").style.display = "block";
     
     myRoomRef.on('value', snap => {
-        if(snap.val() && snap.val().status === "ready") {
+        const data = snap.val();
+        if(data && data.status === "ready") {
             myRoomRef.off('value');
-            startOnlineBattle(snap.val().hostName, snap.val().hostCurry, snap.val().guestName, snap.val().guestCurry, "host");
+            startOnlineBattle(data.hostName, data.hostCurry, data.guestName, data.guestCurry, "host");
         }
     });
 }
 
-function cancelMatchRoom() { if(myRoomRef) { let rRef = database.ref('rooms/' + currentRoomId); rRef.remove(); rRef.off('value'); } document.getElementById("lobbyArea").style.display = "block"; document.getElementById("waitingArea").style.display = "none"; }
-
+// 部屋に参加
 function joinMatchRoom(rid, has) {
     if(!checkDatabase()) return;
-    if(!curryStock.length) { showCustomAlert("⚠️ 参加不可", "対戦用のカレーを調理してから挑戦してください！"); return; }
+    if(!curryStock.length) { showCustomAlert("⚠️", "カレーを調理してください！"); return; }
+    
+    let options = curryStock.map((c,i) => i+":"+c.name).join("\n");
+    const cIdx = prompt("対戦に使うカレー番号(0から始まる)を入力:\n" + options);
+    if(cIdx === null || !curryStock[cIdx]) return;
+    
     if(has) {
-        const pass = prompt("🔑 合言葉を入力してください:");
-        database.ref('rooms/' + rid).once('value').then(snap => { if(snap.val() && snap.val().password === pass) proceedJoin(rid); else showCustomAlert("❌ エラー", "合言葉が違います。"); });
-    } else proceedJoin(rid);
+        const pass = prompt("合言葉:");
+        database.ref('rooms/' + rid).once('value').then(snap => { 
+            if(snap.val() && snap.val().password === pass) proceedJoin(rid, curryStock[cIdx]); 
+            else showCustomAlert("❌", "合言葉エラー"); 
+        });
+    } else proceedJoin(rid, curryStock[cIdx]);
 }
 
-function proceedJoin(rid) {
+function proceedJoin(rid, myCurry) {
     const rRef = database.ref('rooms/' + rid);
     rRef.once('value').then(snap => {
         if(!snap.val() || snap.val().status !== "waiting") return;
-        const dummyCurry = curryStock[0];
-        rRef.update({ guestName: playerName, guestCurry: dummyCurry, status: "ready" }).then(() => {
-            startOnlineBattle(snap.val().hostName, snap.val().hostCurry, playerName, dummyCurry, "guest");
+        rRef.update({ guestName: playerName, guestCurry: myCurry, status: "ready" }).then(() => {
+            startOnlineBattle(snap.val().hostName, snap.val().hostCurry, playerName, myCurry, "guest");
         });
     });
 }
@@ -981,16 +1014,17 @@ function proceedJoin(rid) {
 function startOnlineBattle(hN, hC, gN, gC, role) {
     if (audioCtx.state === 'suspended') audioCtx.resume();
     isBotMatch = false;
-    const oppC = role === "host" ? gC : hC; const oppN = role === "host" ? gN : hN;
+    const oppC = role === "host" ? gC : hC; 
+    const oppN = role === "host" ? gN : hN;
     
     cachedOpponentName = oppN;
     cachedOpponentCurry = oppC;
 
     const vs = document.getElementById("vsCutIn"); vs.style.display = "flex"; playVsSound();
     document.getElementById("vsPlayerName").innerText = playerName;
-    repopulateVsCurrySelector();
-
+    
     document.getElementById("vsEnemyName").innerText = oppN;
+    // 対戦が始まってからお互いのカレー情報を表示
     document.getElementById("vsEnemyVisual").innerHTML = oppC.visual || "🍛";
     document.getElementById("vsEnemyCurry").innerText = oppC.name;
     
@@ -998,6 +1032,8 @@ function startOnlineBattle(hN, hC, gN, gC, role) {
     setTimeout(() => { document.getElementById("vsEnemySide").style.transform = "translateX(0)"; }, 300);
     setTimeout(() => { document.getElementById("vsBadge").style.opacity = "1"; document.getElementById("vsBadge").style.scale = "1"; }, 600);
 }
+
+function cancelMatchRoom() { if(myRoomRef) { let rRef = database.ref('rooms/' + currentRoomId); rRef.remove(); rRef.off('value'); } document.getElementById("lobbyArea").style.display = "block"; document.getElementById("waitingArea").style.display = "none"; }
 
 function proceedToArena(oppN, oppC, myC) {
     document.getElementById("battleResultBox").style.display = "none";
