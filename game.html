@@ -1037,54 +1037,65 @@ function proceedJoin(rid, myCurry) {
 function startOnlineBattle(hN, hC, gN, gC, role) {
     if (audioCtx.state === 'suspended') audioCtx.resume();
     isBotMatch = false;
+    
+    // 1. お互いの情報を正しくセット
     const oppC = role === "host" ? gC : hC; 
     const oppN = role === "host" ? gN : hN;
-    
     cachedOpponentName = oppN;
     cachedOpponentCurry = oppC;
 
-    // 自分のカレー情報を自動的にセット
     const myC = role === "host" ? hC : gC;
-    currentBattleCurry = myC; // 選択したカレーをバトル用変数に代入
+    currentBattleCurry = myC; // 自分のバトル用カレーを確定
 
-    // VS画面を表示
+    // 2. 詰まりの原因になる「出撃選択ポップアップ（モーダル）」をプログラム上で強制的に非表示にする
+    // ※お使いのコードのモーダルID候補（battleModal, selectModal等）をまとめて消灯します
+    ["battleModal", "selectModal", "currySelectModal", "popArea"].forEach(id => {
+        const el = document.getElementById(id);
+        if(el) el.style.display = "none";
+    });
+
+    // 3. VSカットイン画面に情報を表示
     const vs = document.getElementById("vsCutIn"); 
     if(vs) {
         vs.style.display = "flex"; 
         playVsSound();
     }
     
-    document.getElementById("vsPlayerName").innerText = playerName;
-    document.getElementById("vsEnemyName").innerText = oppN;
+    if(document.getElementById("vsPlayerName")) document.getElementById("vsPlayerName").innerText = playerName;
+    if(document.getElementById("vsEnemyName")) document.getElementById("vsEnemyName").innerText = oppN;
+    if(document.getElementById("vsEnemyVisual")) document.getElementById("vsEnemyVisual").innerHTML = oppC.visual || "🍛";
+    if(document.getElementById("vsEnemyCurry")) document.getElementById("vsEnemyCurry").innerText = oppC.name;
     
-    // 対戦が始まってからお互いのカレー情報を表示
-    document.getElementById("vsEnemyVisual").innerHTML = oppC.visual || "🍛";
-    document.getElementById("vsEnemyCurry").innerText = oppC.name;
-    
-    // アニメーション演出の実行
-    setTimeout(() => { document.getElementById("vsPlayerSide").style.transform = "translateX(0)"; }, 100);
-    setTimeout(() => { document.getElementById("vsEnemySide").style.transform = "translateX(0)"; }, 300);
-    setTimeout(() => { document.getElementById("vsBadge").style.opacity = "1"; document.getElementById("vsBadge").style.scale = "1"; }, 600);
+    // VS画面のアニメーション演出
+    setTimeout(() => { if(document.getElementById("vsPlayerSide")) document.getElementById("vsPlayerSide").style.transform = "translateX(0)"; }, 100);
+    setTimeout(() => { if(document.getElementById("vsEnemySide")) document.getElementById("vsEnemySide").style.transform = "translateX(0)"; }, 300);
+    setTimeout(() => { if(document.getElementById("vsBadge")) { document.getElementById("vsBadge").style.opacity = "1"; document.getElementById("vsBadge").style.scale = "1"; } }, 600);
 
-    // 🌟【修正箇所】出撃ボタンを出さず、3秒後に自動でバトルを開始する処理
+    // 4. 3秒後に自動でバトル画面へ移行し、ゲームのメイン処理を叩く
     setTimeout(() => {
-        // VS画面を非表示にする
+        // VS画面を消す
         if(vs) vs.style.display = "none";
         
-        // ロビー画面を隠し、バトルアリーナ画面を表示する
-        document.getElementById("battleSetup").style.display = "none";
-        document.getElementById("battleArena").style.display = "block";
+        // ロビーを隠し、バトルアリーナを表示
+        if(document.getElementById("battleSetup")) document.getElementById("battleSetup").style.display = "none";
+        if(document.getElementById("battleArena")) document.getElementById("battleArena").style.display = "block";
         
-        // バトルのメイン処理をスタートさせる
-        // ※「PCと対戦」や「出撃ボタン」の先で動いていた実際の開始関数を呼び出します
-        if (typeof initBattle === "function") {
+        // 5. 【超重要】「このカレーで出撃する！」ボタンを実際に押したのと同じ処理をここで実行する
+        // 元々のコードでボタンを押したときに動いていた関数を自動実行させます
+        if (typeof confirmBattleCurry === "function") {
+            confirmBattleCurry(); 
+        } else if (typeof startOnlineMatchReady === "function") {
+            startOnlineMatchReady();
+        } else if (typeof initBattle === "function") {
             initBattle(); 
         } else if (typeof startFight === "function") {
             startFight();
-        } else if (typeof beginActualBattle === "function") {
-            beginActualBattle(myC, oppC);
         }
-    }, 3000); // 3000ミリ秒（3秒）後に自動実行
+        
+        // 相手のステータス画面（画像3枚目の「相手のカレー名」など）にデータを反映させる関数を強制呼び出し
+        if (typeof updateBattleUI === "function") updateBattleUI();
+        if (typeof renderBattleWindow === "function") renderBattleWindow();
+    }, 3000);
 }
 
 function cancelMatchRoom() { if(myRoomRef) { let rRef = database.ref('rooms/' + currentRoomId); rRef.remove(); rRef.off('value'); } document.getElementById("lobbyArea").style.display = "block"; document.getElementById("waitingArea").style.display = "none"; }
