@@ -78,6 +78,7 @@
         .hp-bar.danger { background: #e74c3c; }
         .hp-bar.poisoned-bar { background: #9b59b6 !important; }
         .damage-pop { position: absolute; font-family: 'Impact', Arial, sans-serif; font-size: 38px; color: #f1c40f; -webkit-text-stroke: 1.5px #000; font-weight: bold; display: none; pointer-events: none; z-index: 10; }
+        .sub-name-label { color: #ffffff; font-size: 12px; font-weight: bold; background: rgba(0,0,0,0.4); padding: 2px 6px; border-radius: 4px; display: inline-block; margin-top: 4px; }
         
         /* カットイン等演出 */
         .vs-cutin { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: #111; border-radius: 15px; z-index: 100; display: none; flex-direction: column; justify-content: space-around; align-items: center; color: white; overflow: hidden; box-sizing: border-box; padding: 20px; }
@@ -276,13 +277,13 @@
             <div id="lobbyArea">
                 <div class="room-section">
                     <h4 style="margin:0 0 10px 0; color:#9b59b6;">🏠 新しい対戦ルームを作る</h4>
-                    <label style="font-size:12px;">入室合言葉 (空欄なら誰でも歓迎):</label>
+                    <label style="font-size:12px;">入室合キーワード (空欄なら誰でも歓迎):</label>
                     <input type="text" id="createRoomPassword" class="room-input" placeholder="例: 1234">
                     <button class="btn btn-battle" id="btnCreateRoom" onclick="createMatchRoom()">部屋を作って対戦相手を待つ</button>
                 </div>
 
                 <div class="room-section" style="margin-top:20px; border-color:#34495e;">
-                    <h4 style="margin:0 0 10px 0; color:#34495e;">🌐 対戦相手の募集一覧</h4>
+                    <h4 style="margin:0 0 10px 0; color:#34495e;">🌐 对戦相手の募集一覧</h4>
                     <div id="roomListArea" style="font-size:13px; color:#7f8c8d;">部屋を読み込み中...</div>
                 </div>
             </div>
@@ -360,8 +361,9 @@ function playDamageSound() { playTone(100, 'sawtooth', 0.2); }
 function playPoisonSound() { playTone(180, 'sine', 0.3); setTimeout(() => playTone(150, 'sine', 0.3), 100); }
 function playWinSound() { playTone(523.25, 'square', 0.1); setTimeout(() => playTone(659.25, 'square', 0.1), 80); setTimeout(() => playTone(783.99, 'square', 0.8), 160); }
 function playVsSound() { playTone(293.66, 'sawtooth', 0.15); setTimeout(() => playTone(220, 'sawtooth', 0.15), 150); setTimeout(() => playTone(440, 'sawtooth', 0.4), 300); }
-function playCriticalSound() { playTone(880, 'square', 0.1); setTimeout(() => playTone(1320, 'square', 0.1), 60); setTimeout(() => playTone(1760, 'square', 0.3), 120); }
+function play開運Sound() { playTone(880, 'square', 0.1); setTimeout(() => playTone(1320, 'square', 0.1), 60); setTimeout(() => playTone(1760, 'square', 0.3), 120); }
 function playGoldSound() { playTone(987.77, 'sine', 0.1); setTimeout(() => playTone(1318.51, 'sine', 0.1), 50); setTimeout(() => playTone(1975.53, 'sine', 0.4), 100); }
+function playCriticalSound() { playTone(880, 'square', 0.1); setTimeout(() => playTone(1320, 'square', 0.1), 60); setTimeout(() => playTone(1760, 'square', 0.3), 120); }
 
 function showCustomAlert(title, message, onOk) {
     document.getElementById("modalTitle").innerText = title;
@@ -447,7 +449,9 @@ let isBotMatch = false; let activeBotData = null;
 window.onload = function() { loadGame(); updateFridgeUI(); updateCookSelects(); updateBattleUI(); refreshRecipeBookUI(); updateShopButtons(); listenToRooms(); };
 
 function switchTab(tab) {
-    if (document.getElementById("battleArena").style.display === "block") endBattleScene();
+    if (document.getElementById("battleArena").style.display === "block") {
+        endBattleScene();
+    }
     document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
     document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
     event.currentTarget.classList.add('active');
@@ -791,6 +795,13 @@ function startOnlineBattle(hN, hC, gN, gC, role) {
 }
 
 function proceedToArena(oppN, oppC, myC) {
+    // 前の戦闘の残骸（リザルト画面やポップアップ数字）を完全にリセット
+    document.getElementById("battleResultBox").style.display = "none";
+    const pop = document.getElementById("damagePop");
+    pop.style.display = "none";
+    pop.style.animation = "none";
+    pop.innerText = "0";
+
     document.getElementById("battleSetup").style.display = "none"; document.getElementById("battleArena").style.display = "block";
     document.getElementById("pOwnerText").innerText = playerName; document.getElementById("playerCurryNameText").innerText = myC.name; document.getElementById("pVisual").innerText = myC.visual || "🍛";
     document.getElementById("oppOwnerText").innerText = oppN; document.getElementById("oppCurryNameText").innerText = oppC.name; document.getElementById("oVisual").innerText = oppC.visual || "🍛";
@@ -858,6 +869,7 @@ function done(pHP, oHP, myC, oppC) {
 }
 
 function endBattleScene() {
+    document.getElementById("battleResultBox").style.display = "none";
     document.getElementById("battleSetup").style.display = "block"; document.getElementById("lobbyArea").style.display = "block";
     document.getElementById("waitingArea").style.display = "none"; document.getElementById("battleArena").style.display = "none";
 }
