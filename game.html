@@ -480,14 +480,14 @@ function loadGame() {
     const savedName = localStorage.getItem('qr_curry_pname');
     const savedRecipes = localStorage.getItem('qr_curry_recipes');
     const savedStock = localStorage.getItem('qr_curry_stock');
+    
+    // 既存セーブの有無にかかわらず、masterの全アイテムを確実に初期化して認識させる（バグ修正）
     if (savedInv) {
         inventory = JSON.parse(savedInv);
-        Object.keys(masterIngredients).forEach(k => { if (inventory[k] === undefined) inventory[k] = 0; });
-        Object.keys(masterSpices).forEach(k => { if (inventory[k] === undefined) inventory[k] = 0; });
-    } else {
-        Object.keys(masterIngredients).forEach(k => inventory[k] = 0);
-        Object.keys(masterSpices).forEach(k => inventory[k] = 0);
     }
+    Object.keys(masterIngredients).forEach(k => { if (inventory[k] === undefined) inventory[k] = 0; });
+    Object.keys(masterSpices).forEach(k => { if (inventory[k] === undefined) inventory[k] = 0; });
+    
     if (savedHistory) scanHistory = JSON.parse(savedHistory);
     if (savedG) playerG = parseInt(savedG, 10);
     if (savedEXP) playerEXP = parseInt(savedEXP, 10);
@@ -795,7 +795,6 @@ function startOnlineBattle(hN, hC, gN, gC, role) {
 }
 
 function proceedToArena(oppN, oppC, myC) {
-    // 前の戦闘の残骸（リザルト画面やポップアップ数字）を完全にリセット
     document.getElementById("battleResultBox").style.display = "none";
     const pop = document.getElementById("damagePop");
     pop.style.display = "none";
