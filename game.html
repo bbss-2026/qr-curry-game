@@ -378,16 +378,15 @@
 
 <script>
 
-// アイコン用の一覧（HTMLと同じ場所にある画像名）
 const playerIconList = ["mayimage01.png", "mayimage02.png", "mayimage03.png"];
-let currentIconFile = "mayimage01.png"; // デフォルト
+// 💡リロードしても記憶できるように localStorage から読み込む（無ければ 01）
+let currentIconFile = localStorage.getItem("selectedPlayerIcon") || "mayimage01.png";
 
 // アイコンをタップした時に画像を切り替える関数
 function togglePlayerIcon() {
     const img = document.getElementById("playerIconImg");
     if(!img) return;
     
-    // 現在のインデックスを取得して次の画像へ
     let idx = parseInt(img.getAttribute("data-index"), 10) || 1;
     idx = idx >= 3 ? 1 : idx + 1;
     
@@ -395,9 +394,23 @@ function togglePlayerIcon() {
     img.src = currentIconFile;
     img.setAttribute("data-index", idx);
     
-    // タップした時のちょっとしたアニメーション演出
+    // 💡選んだアイコンをブラウザに保存
+    localStorage.setItem("selectedPlayerIcon", currentIconFile);
+    
     img.style.transform = "scale(1.1)";
     setTimeout(() => { img.style.transform = "scale(1)"; }, 150);
+}
+
+// 💡ゲーム起動時やページ読み込み時に、保存されたアイコンを画面に表示する処理
+// window.onload の中身の一番最後、または loadGame() などの直後にこれを書き足してください
+function setupLoadedIconUI() {
+    const img = document.getElementById("playerIconImg");
+    if(img && currentIconFile) {
+        img.src = currentIconFile;
+        // ファイル名から数字（1〜3）を抜き出して data-index を復元
+        const match = currentIconFile.match(/mayimage0(\d)\.png/);
+        if(match) img.setAttribute("data-index", match[1]);
+    }
 }
 
 const firebaseConfig = {
@@ -535,7 +548,7 @@ let discoveredItems = {};
 let cachedOpponentName = "";
 let cachedOpponentCurry = null;
 
-window.onload = function() { loadGame(); updateFridgeUI(); updateCookSelects(); refreshRecipeBookUI(); updateShopButtons(); listenToRooms(); updateMatchCurrySelects();};
+window.onload = function() { loadGame(); updateFridgeUI(); updateCookSelects(); refreshRecipeBookUI(); updateShopButtons(); listenToRooms(); updateMatchCurrySelects();setupLoadedIconUI();};
 
 function switchTab(tab) {
     if (document.getElementById("battleArena").style.display === "block") {
@@ -896,7 +909,7 @@ function syncVsSelection(idx) {
 // 🤖 「PCと対戦」開始処理：画像ファイル名に対応
 function startBotBattle() {
     if (audioCtx.state === 'suspended') audioCtx.resume();
-    isBotMatch = true; currentRoomId = null;
+    isBotMatch = true; currentRoomId = null; // 💡Bot戦なのでフラグをtrueに
     let oppCurryData = null; let bName = ""; let bVisual = ""; let bCurryEmoji = "🍛";
     
     if (Math.random() < 0.10) {
@@ -916,7 +929,17 @@ function startBotBattle() {
     // VS画面の表示
     const vs = document.getElementById("vsCutIn"); vs.style.display = "flex"; playVsSound();
     document.getElementById("vsPlayerName").innerText = playerName;
-    repopulateVsCurrySelector();
+    
+    // 💡【修正】Bot戦の時だけ、手動でカレーを選ぶポップアップを表示する
+    if (typeof repopulateVsCurrySelector === "function") {
+        repopulateVsCurrySelector();
+    }
+    // スキップされていた出撃選択モーダル（ポップアップ）をBot戦の時だけ復活させる
+    const modalIds = ["battleModal", "selectModal", "currySelectModal", "popArea"];
+    modalIds.forEach(id => {
+        const el = document.getElementById(id);
+        if(el) el.style.display = "block";
+    });
 
     document.getElementById("vsEnemyName").innerText = bName;
     // 画像タグに変換して描画
@@ -931,8 +954,36 @@ function startBotBattle() {
 function rTrimHtml(str) { return str.replace(/<\/?[^>]+(>|$)/g, ""); }
 
 function confirmVsDeploy() {
+    // 💡【修正】対人戦（isBotMatchがfalse）の時は、共通プルダウンのカレーを自動セット
+    if (!isBotMatch) {
+        const cIdx = document.getElementById("globalCurrySelect").value;
+        if (cIdx == -1 || !curryStock[cIdx]) {
+            alert("カレーを選択してください");
+            return;
+        }
+        const currentCurry = curryStock[cIdx];
+        
+        // 演出用画面を隠す
+        if(document.getElementById("vsCutIn")) document.getElementById("vsCutIn").style.display = "none";
+        if(document.getElementById("vsPlayerSide")) document.getElementById("vsPlayerSide").style.transform = "translateX(-100%)";
+        if(document.getElementById("vsEnemySide")) document.getElementById("vsEnemySide").style.transform = "translateX(100%)";
+        if(document.getElementById("vsBadge")) {
+            document.getElementById("vsBadge").style.opacity = "0"; 
+            document.getElementById("vsBadge").style.scale = "3";
+        }
+        
+        // バトルアリーナへの進行関数を呼び出し
+        proceedToArena(cachedOpponentName, cachedOpponentCurry, currentCurry);
+        return;
+    }
+
+    // 💡以下は元々のBot戦用の手動出撃処理（そのまま維持）
     if(selectedCurryIndex === -1 || !curryStock[selectedCurryIndex]) {
-        showCustomAlert("⚠️ 出撃不可", "出撃させるカレーがありません。ストックを用意してください。");
+        if (typeof showCustomAlert === "function") {
+            showCustomAlert("⚠️ 出撃不可", "出撃させるカレーがありません。ストックを用意してください。");
+        } else {
+            alert("出撃させるカレーがありません。");
+        }
         return;
     }
     const currentCurry = curryStock[selectedCurryIndex];
@@ -1090,10 +1141,9 @@ function proceedJoin(rid, myCurry) {
     });
 }
 
-// 🌟引数に hI（ホストのアイコン）と gI（ゲストのアイコン）を受け取れるように拡張
 function startOnlineBattle(hN, hC, gN, gC, role, hI, gI) {
     if (audioCtx.state === 'suspended') audioCtx.resume();
-    isBotMatch = false;
+    isBotMatch = false; // 対人戦フラグを確定
     
     // お互いの情報を正しくセット
     const oppC = role === "host" ? gC : hC; 
@@ -1102,13 +1152,13 @@ function startOnlineBattle(hN, hC, gN, gC, role, hI, gI) {
     cachedOpponentCurry = oppC;
 
     const myC = role === "host" ? hC : gC;
-    currentBattleCurry = myC; // 自分のバトル用カレーを確定
+    currentBattleCurry = myC; 
     
-    // 🌟お互いのアイコン画像を判定
+    // お互いのアイコン画像を確定（無ければデフォルト）
     const myIcon = role === "host" ? (hI || "mayimage01.png") : (gI || "mayimage01.png");
     const oppIcon = role === "host" ? (gI || "mayimage01.png") : (hI || "mayimage01.png");
 
-    // 出撃・撤退ボタンがある「黒いポップアップ（モーダル）」を強制非表示
+    // 出撃・撤退ボタンがある黒いポップアップを非表示
     ["battleModal", "selectModal", "currySelectModal", "popArea"].forEach(id => {
         const el = document.getElementById(id);
         if(el) el.style.display = "none";
@@ -1117,7 +1167,7 @@ function startOnlineBattle(hN, hC, gN, gC, role, hI, gI) {
         if (el.innerText && el.innerText.includes("出撃させるカレーを選択")) el.style.display = "none";
     });
 
-    // VSカットイン画面に情報を表示
+    // VSカットイン画面を表示
     const vs = document.getElementById("vsCutIn"); 
     if(vs) {
         vs.style.display = "flex"; 
@@ -1126,51 +1176,37 @@ function startOnlineBattle(hN, hC, gN, gC, role, hI, gI) {
     
     if(document.getElementById("vsPlayerName")) document.getElementById("vsPlayerName").innerText = playerName;
     if(document.getElementById("vsEnemyName")) document.getElementById("vsEnemyName").innerText = oppN;
-    if(document.getElementById("vsEnemyVisual")) document.getElementById("vsEnemyVisual").innerHTML = oppC.visual || "🍛";
+    
+    // 💡【修正】カットイン内のカレー情報のテキスト表示
     if(document.getElementById("vsEnemyCurry")) document.getElementById("vsEnemyCurry").innerText = oppC.name;
     
-    // 🌟【カットイン画面へのアイコン反映】
-    // 元々イラストやアバターがあったHTML要素の場所に画像を表示させます
-    // ※もしカットイン側の画像IDが異なる場合は適宜調整してください
-    const vsPlayerVisualArea = document.getElementById("vsPlayerVisual"); // 自分の顔表示エリア
-    const vsEnemyVisualArea = document.getElementById("vsEnemyVisualArea") || document.getElementById("vsEnemyVisual"); // 相手の顔表示エリア
+    // 💡【修正】カットインのビジュアルエリアに選んだアイコン画像を強制表示
+    const vsPlayerVisualArea = document.getElementById("vsPlayerVisual"); 
+    const vsEnemyVisualArea = document.getElementById("vsEnemyVisual"); 
     
-    if(vsPlayerVisualArea) vsPlayerVisualArea.innerHTML = `<img src="${myIcon}" style="width:100px; height:100px; border-radius:50%;">`;
-    // ※対戦前は相手のカレーを隠す要望があったため、相手のアイコン画像自体はここに表示させてOKです
-    if(vsEnemyVisualArea) vsEnemyVisualArea.innerHTML = `<img src="${oppIcon}" style="width:100px; height:100px; border-radius:50%;">`;
+    if(vsPlayerVisualArea) vsPlayerVisualArea.innerHTML = `<img src="${myIcon}" style="width:100px; height:100px; border-radius:50%; border:3px solid #e67e22; object-fit:cover;">`;
+    if(vsEnemyVisualArea) vsEnemyVisualArea.innerHTML = `<img src="${oppIcon}" style="width:100px; height:100px; border-radius:50%; border:3px solid #3498db; object-fit:cover;">`;
 
-    // VS画面のアニメーション演出
+    // アニメーション演出
     setTimeout(() => { if(document.getElementById("vsPlayerSide")) document.getElementById("vsPlayerSide").style.transform = "translateX(0)"; }, 100);
     setTimeout(() => { if(document.getElementById("vsEnemySide")) document.getElementById("vsEnemySide").style.transform = "translateX(0)"; }, 300);
     setTimeout(() => { if(document.getElementById("vsBadge")) { document.getElementById("vsBadge").style.opacity = "1"; document.getElementById("vsBadge").style.scale = "1"; } }, 600);
 
-    // 3秒後に自動でバトル画面へ移行し、ゲームのメイン処理を連動させる
+    // 3秒後に自動でバトル画面へ移行
     setTimeout(() => {
         if(vs) vs.style.display = "none";
         if(document.getElementById("battleSetup")) document.getElementById("battleSetup").style.display = "none";
         if(document.getElementById("battleArena")) document.getElementById("battleArena").style.display = "block";
         
-        // 🌟【実際のバトル画面（スクショ3枚目の画面）のアイコンを強制的に上書き】
-        // スクショ1枚目、3枚目で丸い顔アイコン（野球帽をかぶったキャラなど）が表示されている箇所の <img> タグを探して書き換えます。
-        // 一般的な構成を想定して、クラスや画像要素を自動で書き換えるコードを挟みます。
-        const playerZones = document.querySelectorAll('.player-zone, .enemy-zone');
-        // もしHTMLに特定の顔画像ID（例：playerFaceImg, enemyFaceImg等）がある場合は、以下のように直接上書きできます
-        // ここでは、バトル画面内の画像要素を狙って書き換えます。
-        const images = document.getElementById("battleArena").getElementsByTagName("img");
-        if(images.length >= 2) {
-            // 敵と自分の配置順に合わせてセット（上が相手、下が自分を想定）
-            // お使いのHTMLの構造に合わせて、適切なimg要素にsrcを代入してください
-            // 例として、最初に見つかった2つの大きな丸画像を差し替える想定です。
-            Array.from(images).forEach(img => {
-                if(img.closest('.enemy-zone') || img.src.includes("bot") || img.style.borderColor === "rgb(52, 152, 219)") {
-                    img.src = oppIcon;
-                } else {
-                    img.src = myIcon;
-                }
-            });
-        }
+        // 💡【修正】バトル画面の「遺伝子（DNA）」や「絵文字」が表示されていたエリアを画像に書き換える
+        // クラス名（.enemy-zone や .player-zone）の中にあるビジュアル表示部分を狙い撃ちします
+        const enemyVisualEl = document.querySelector('.enemy-zone .enemy-visual, #vsEnemyVisualArea, .enemy-zone div[style*="font-size"]');
+        const playerVisualEl = document.querySelector('.player-zone .player-visual, #vsPlayerVisualArea, .player-zone div[style*="font-size"]');
+        
+        if(enemyVisualEl) enemyVisualEl.innerHTML = `<img src="${oppIcon}" style="width:70px; height:70px; border-radius:50%; border:2px solid #3498db;">`;
+        if(playerVisualEl) playerVisualEl.innerHTML = `<img src="${myIcon}" style="width:70px; height:70px; border-radius:50%; border:2px solid #e67e22;">`;
 
-        // プレイヤーが「🔥 このカレーで出撃する！」ボタンを押したのと同じ処理を自動実行
+        // 対人戦用の出撃確定処理を自動実行
         if (typeof confirmVsDeploy === "function") {
             confirmVsDeploy(); 
         }
