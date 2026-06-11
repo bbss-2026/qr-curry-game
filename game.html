@@ -1068,7 +1068,7 @@ function updateMatchCurrySelects() {
 function createMatchRoom() {
     if(!checkDatabase()) return;
     const cIdx = document.getElementById("globalCurrySelect").value;
-    if(cIdx == -1) { alert("カレーを選択してください"); return; }
+    if(cIdx == -1 || !curryStock[cIdx]) { alert("カレーを選択してください"); return; }
     
     isBotMatch = false;
     const selectedCurry = curryStock[cIdx];
@@ -1080,10 +1080,10 @@ function createMatchRoom() {
     myRoomRef.set({ 
         hostName: playerName, 
         hostCurry: selectedCurry, 
-        hostIcon: currentIconFile, // 🌟アイコンファイル名を追加保存
+        hostIcon: currentIconFile, // 自分の選んだアイコン
         guestName: "", 
         guestCurry: null, 
-        guestIcon: "", // 最初は空っぽ
+        guestIcon: "", 
         status: "waiting", 
         hasPassword: !!pass, 
         password: pass 
@@ -1092,11 +1092,14 @@ function createMatchRoom() {
     document.getElementById("lobbyArea").style.display = "none";
     document.getElementById("waitingArea").style.display = "block";
     
+    // 💡2回目以降もバグらないように、一度既存の監視を完全にクリアしてから登録
+    myRoomRef.off('value');
     myRoomRef.on('value', snap => {
         const data = snap.val();
+        // status が ready になったら対戦開始
         if(data && data.status === "ready") {
-            myRoomRef.off('value');
-            // 🌟引数の最後にアイコン情報（data.hostIcon, data.guestIcon）を渡すよう強化
+            // 💡重要：offにするのはこの部屋の監視だけで、全体の募集一覧（listenToRooms）は壊さない
+            myRoomRef.off('value'); 
             startOnlineBattle(data.hostName, data.hostCurry, data.guestName, data.guestCurry, "host", data.hostIcon, data.guestIcon);
         }
     });
@@ -1106,17 +1109,17 @@ function createMatchRoom() {
 function proceedJoin(rid, myCurry) {
     const rRef = database.ref('rooms/' + rid);
     rRef.once('value').then(snap => {
-        if(!snap.val() || snap.val().status !== "waiting") return;
+        const data = snap.val();
+        if(!data || data.status !== "waiting") return;
         
-        // 🌟入室時に自分の名前、カレー、さらにアイコン（currentIconFile）も上書き保存
+        // 自分の選んだアイコンを currentIconFile から確実に送信
         rRef.update({ 
             guestName: playerName, 
             guestCurry: myCurry, 
             guestIcon: currentIconFile, 
             status: "ready" 
         }).then(() => {
-            const data = snap.val();
-            // 🌟引数の最後にアイコン情報（data.hostIcon, 自分のアイコン）を渡す
+            // 💡ゲスト側もホストのアイコン（data.hostIcon）と自分のアイコン（currentIconFile）を正しく渡す
             startOnlineBattle(data.hostName, data.hostCurry, playerName, myCurry, "guest", data.hostIcon, currentIconFile);
         });
     });
@@ -1151,7 +1154,7 @@ function proceedJoin(rid, myCurry) {
 
 function startOnlineBattle(hN, hC, gN, gC, role, hI, gI) {
     if (audioCtx.state === 'suspended') audioCtx.resume();
-    isBotMatch = false; // 対人戦であることを確定
+    isBotMatch = false; 
     
     // お互いの情報をセット
     const oppC = role === "host" ? gC : hC; 
@@ -1162,11 +1165,11 @@ function startOnlineBattle(hN, hC, gN, gC, role, hI, gI) {
     const myC = role === "host" ? hC : gC;
     currentBattleCurry = myC; 
     
-    // アイコンの確定（お互いが選んだものをデータベース経由で確実に取得）
+    // お互いが選んだアイコン（無ければデフォルト）
     const myIcon = role === "host" ? (hI || "mayimage01.png") : (gI || "mayimage01.png");
     const oppIcon = role === "host" ? (gI || "mayimage01.png") : (hI || "mayimage01.png");
 
-    // 🌟【重要】対人戦の時だけ、出撃ポップアップを「この瞬間だけ」非表示にする
+    // 出撃ポップアップを非表示
     ["battleModal", "selectModal", "currySelectModal", "popArea"].forEach(id => {
         const el = document.getElementById(id);
         if(el) el.style.display = "none";
@@ -1176,7 +1179,6 @@ function startOnlineBattle(hN, hC, gN, gC, role, hI, gI) {
     const vs = document.getElementById("vsCutIn"); 
     if(vs) {
         vs.style.display = "flex"; 
-        // 演出用の位置リセット（2回目以降動かなくなる対策）
         vs.style.opacity = "1";
         playVsSound();
     }
@@ -1185,14 +1187,14 @@ function startOnlineBattle(hN, hC, gN, gC, role, hI, gI) {
     if(document.getElementById("vsEnemyName")) document.getElementById("vsEnemyName").innerText = oppN;
     if(document.getElementById("vsEnemyCurry")) document.getElementById("vsEnemyCurry").innerText = oppC.name;
     
-    // カットインにアイコン画像を強制反映
+    // 💡【解決：カットインアイコン】それぞれの画面で、お互いが選んだアイコン画像を表示
     const vsPlayerVisualArea = document.getElementById("vsPlayerVisual"); 
     const vsEnemyVisualArea = document.getElementById("vsEnemyVisual"); 
     
     if(vsPlayerVisualArea) vsPlayerVisualArea.innerHTML = `<img src="${myIcon}" style="width:100px; height:100px; border-radius:50%; border:3px solid #e67e22; object-fit:cover;">`;
     if(vsEnemyVisualArea) vsEnemyVisualArea.innerHTML = `<img src="${oppIcon}" style="width:100px; height:100px; border-radius:50%; border:3px solid #3498db; object-fit:cover;">`;
 
-    // アニメーション演出の初期化と実行（2回目以降対策）
+    // アニメーション
     const pSide = document.getElementById("vsPlayerSide");
     const eSide = document.getElementById("vsEnemySide");
     const vBadge = document.getElementById("vsBadge");
@@ -1208,19 +1210,23 @@ function startOnlineBattle(hN, hC, gN, gC, role, hI, gI) {
         if(vs) vs.style.display = "none";
         if(document.getElementById("battleSetup")) document.getElementById("battleSetup").style.display = "none";
         if(document.getElementById("battleArena")) document.getElementById("battleArena").style.display = "block";
-        
-        // 🌟【バトル画面のアイコン強制上書き】
-        // クラス名や既存の絵文字エリアをすべて画像タグへ置き換えます
-        const enemyVis = document.querySelector('.enemy-zone .enemy-visual, .enemy-zone div[style*="font-size"]');
-        const playerVis = document.querySelector('.player-zone .player-visual, .player-zone div[style*="font-size"]');
-        
-        if(enemyVis) enemyVis.innerHTML = `<img src="${oppIcon}" style="width:70px; height:70px; border-radius:50%; border:2px solid #3498db; object-fit:cover;">`;
-        if(playerVis) playerVis.innerHTML = `<img src="${myIcon}" style="width:70px; height:70px; border-radius:50%; border:2px solid #e67e22; object-fit:cover;">`;
 
-        // 対人戦用の出撃確定処理を自動実行
+        // 出撃処理を実行（ここで本来のHPや絵文字がセットされる）
         if (typeof confirmVsDeploy === "function") {
             confirmVsDeploy(); 
         }
+
+        // 💡【解決：バトル画面アイコン】
+        // confirmVsDeploy() が動いて絵文字がセットされた「直後」を狙って、
+        // アイコン画像（.png）へと強制的に上書きして固定します！
+        setTimeout(() => {
+            const enemyVis = document.querySelector('.enemy-zone .enemy-visual, .enemy-zone div[style*="font-size"], #vsEnemyVisualArea');
+            const playerVis = document.querySelector('.player-zone .player-visual, .player-zone div[style*="font-size"], #vsPlayerVisualArea');
+            
+            if(enemyVis) enemyVis.innerHTML = `<img src="${oppIcon}" style="width:70px; height:70px; border-radius:50%; border:2px solid #3498db; object-fit:cover;">`;
+            if(playerVis) playerVis.innerHTML = `<img src="${myIcon}" style="width:70px; height:70px; border-radius:50%; border:2px solid #e67e22; object-fit:cover;">`;
+        }, 50); // 出撃処理の直後に実行するためのごく僅かな時間差
+        
     }, 3000);
 }
 
