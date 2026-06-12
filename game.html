@@ -264,7 +264,6 @@
                 <button class="btn-shop btn-shop-pack" id="btnGachaPack" onclick="buyGachaPack()">🎉 豪華10個パックガチャ (チケット1枚消費)<br><span style="font-size:10px;font-weight:normal;opacity:0.9;">通常具材7個 ＋ スパイス2個 ＋ 中級or最高級1個！</span></button>
             </div>
         </div>
-        <div style="font-size:11px; color:#7f8c8d; margin-bottom:5px; text-align:center;">💡 持っている食材をタップすると、解説確認や食材の売却(15G)ができます。</div>
         
         <div class="category-title">📦 所持食材（具材）</div>
         <div class="fridge-grid" id="fridgeIngredientsGrid"></div>
@@ -486,7 +485,17 @@ const masterIngredients = {
     "大根": { hp: 70, atk: 10, def: 35, spd: 5, emoji: "🫚", shop: 0, desc: "味が染み込む和の食材。HPの底上げと防衛能力。" },
     "マッシュルーム": { hp: 35, atk: 22, def: 8, spd: 20, emoji: "🍄", shop: 2, desc: "帝国を脅かす幻のキノコ。攻撃と素早さが伸びる。" },
     "ひよこ豆": { hp: 60, atk: 15, def: 20, spd: 10, emoji: "🫘", shop: 0, desc: "地味ながらカレーに安定した硬さを提供する。" },
-    "金箔": { hp: 100, atk: 50, def: 50, spd: 50, emoji: "✨", shop: -2, desc: "マハラジャに勝利した者のみが手にできる伝説の超アイテム。" }
+    "金箔": { hp: 100, atk: 50, def: 50, spd: 50, emoji: "✨", shop: -2, desc: "マハラジャに勝利した者のみが手にできる伝説の超アイテム。" },
+    "チーズ": { hp: 70, atk: 20, def: 30, spd: 10, emoji: "🧀", shop: 0, desc: "濃厚なコクがカレーに深みをもたらす。HPとDEFを底上げする安定食材。" },
+    "イカ": { hp: 55, atk: 35, def: 15, spd: 30, emoji: "🦑", shop: 0, desc: "弾力のある食感が特徴。ATKとSPDをバランスよく伸ばす海の食材。" },
+    "小エビ": { hp: 40, atk: 30, def: 10, spd: 35, emoji: "🦐", shop: 0, desc: "小ぶりながらもカレーに旨味を凝縮させる。SPDが伸びる軽量食材。" },
+    "ホタテ": { hp: 80, atk: 40, def: 25, spd: 20, emoji: "🫧", shop: 1, desc: "甘みと旨味が抜群の貝柱。HPとATKをしっかり引き上げる中級食材。" },
+    "ツナ": { hp: 65, atk: 30, def: 20, spd: 20, emoji: "🐠", shop: 0, desc: "缶詰でもしっかりコクが出る万能食材。全ステータスをまんべんなく補強。" },
+    "合鴨": { hp: 100, atk: 50, def: 30, spd: 25, emoji: "🦆", shop: 1, desc: "上品な脂とコクを持つ鴨肉。ATKとHPを高水準で両立する中級肉食材。" },
+    "牡蠣": { hp: 90, atk: 35, def: 40, spd: 15, emoji: "🦪", shop: 1, desc: "海のミルクと称される濃厚な旨味。DEFとHPを強化する守備型食材。" },
+    "キャビア": { hp: 60, atk: 70, def: 20, spd: 50, emoji: "🫀", shop: 2, desc: "最高級の魚卵。圧倒的なATKとSPDを持つ超攻撃型の最高級食材。" },
+    "オマール海老": { hp: 130, atk: 65, def: 55, spd: 20, emoji: "🦞", shop: 2, desc: "王者の風格を持つ海老の王様。HPとATKとDEFすべてを高水準で底上げする。" },
+    "ズワイガニ": { hp: 110, atk: 45, def: 65, spd: 10, emoji: "🦀", shop: 2, desc: "甲殻の王。圧倒的なDEFとHPを誇る最強の盾食材。" }
 };
 const masterSpices = {
     "ターメリック": { mul: "hp", val: 1.3, name: "黄金の", emoji: "💛", desc: "カレーの黄色を決定づける。HPを1.3倍にする！" },
@@ -496,7 +505,8 @@ const masterSpices = {
     "シナモン": { mul: "spd", val: 1.3, name: "甘美な", emoji: "🪵", desc: "甘くエキゾチックな香りの樹皮。SPDを1.3倍にする。" },
     "クローブ": { mul: "def", val: 1.3, name: "深遠なる", emoji: "📌", desc: "しびれるような刺激的な香り。DEFを1.3倍にする！" },
     "ブラックペッパー": { mul: "atk", val: 1.3, name: "刺激の", emoji: "🖤", desc: "シャープな辛味がATKを1.3倍にする。" },
-    "チリパウダー": { mul: "atk", val: 1.6, name: "爆炎の", emoji: "❤️", desc: "燃え盛るような激辛スパイス。ATKを衝撃の1.6倍に！" }
+    "チリパウダー": { mul: "atk", val: 1.6, name: "爆炎の", emoji: "❤️", desc: "燃え盛るような激辛スパイス。ATKを衝撃の1.6倍に！" },
+    "マンゴーチャツネ": { mul: "hp", val: 1.5, name: "甘熟の", emoji: "🥭", desc: "甘くトロピカルなインド伝来の秘伝ソース。HPを驚異の1.5倍に引き上げる！" }
 };
 const botOpponents = [
     { name: "見習い料理人タカシ", curryName: "ベジマイルドカレー", emoji: "🥦🥔🥕", image: "bot01.png", hp: 130, atk: 25, def: 20, spd: 15, expBonus: 5 },
@@ -619,8 +629,12 @@ function buyGacha(type) {
         const pool = Object.keys(masterIngredients).filter(k => masterIngredients[k].shop === 1);
         winner = pool[Math.floor(Math.random() * pool.length)]; emoji = masterIngredients[winner].emoji;
     } else if (type === 'high') {
-        const pool = Object.keys(masterIngredients).filter(k => masterIngredients[k].shop === 2);
-        winner = pool[Math.floor(Math.random() * pool.length)]; emoji = masterIngredients[winner].emoji;
+        // 最高級食材 + 最高級スパイス(マンゴーチャツネ) を合わせたプール
+        const ingPool = Object.keys(masterIngredients).filter(k => masterIngredients[k].shop === 2);
+        const spcPool = ["マンゴーチャツネ"];
+        const pool = [...ingPool, ...spcPool];
+        winner = pool[Math.floor(Math.random() * pool.length)];
+        emoji = masterIngredients[winner] ? masterIngredients[winner].emoji : masterSpices[winner].emoji;
     }
     inventory[winner] = (inventory[winner] || 0) + 1; discoveredItems[winner] = true;
     playWinSound(); showCustomAlert("🎰 ガチャ結果", `見事！【${emoji} ${winner}】を引き当てた！`);
@@ -749,13 +763,16 @@ function createFridgeCard(grid, name, emoji, isSpice) {
     }
     grid.appendChild(itemDiv);
 }
+const sellPrices = { "金箔": 150, "赤パプリカ": 50, "黄パプリカ": 50 };
+function getSellPrice(name) { return sellPrices[name] || 15; }
 function sellItemAction(name) {
     if ((inventory[name] || 0) <= 0) return;
     inventory[name]--;
-    playerG += 15;
+    const price = getSellPrice(name);
+    playerG += price;
     playTone(880, 'sine', 0.1);
     saveGame(); updateFridgeUI(); updateCookSelects();
-    showCustomAlert("💸 売却完了", `${name}を1個売却し、<span style="color:#2ecc71;">15 G</span> を手に入れました！`, null, sellItemAction, name);
+    showCustomAlert("💸 売却完了", `${name}を1個売却し、<span style="color:#2ecc71;">${price} G</span> を手に入れました！`, null, sellItemAction, name);
 }
 function refreshRecipeBookUI() {
     const area = document.getElementById("recipeBookArea"); const keys = Object.keys(recipeBook);
@@ -858,6 +875,8 @@ function startBotBattle() {
     document.getElementById("vsEnemyName").innerText = bName;
     document.getElementById("vsEnemyVisual").innerHTML = `<img src="${bVisual}" alt="${bName}">`;
     document.getElementById("vsEnemyCurry").innerText = oppCurryData.name;
+    // ★Bot戦：プレイヤーアイコンを正しく表示
+    document.getElementById("vsPlayerVisual").innerHTML = `<img src="${currentIconFile}" style="width:100px;height:100px;border-radius:50%;border:3px solid #e67e22;object-fit:cover;">`;
     setTimeout(() => { document.getElementById("vsPlayerSide").style.transform = "translateX(0)"; }, 100);
     setTimeout(() => { document.getElementById("vsEnemySide").style.transform = "translateX(0)"; }, 300);
     setTimeout(() => { document.getElementById("vsBadge").style.opacity = "1"; document.getElementById("vsBadge").style.scale = "1"; }, 600);
@@ -978,6 +997,9 @@ function startOnlineBattle(hN, hC, gN, gC, role, hI, gI) {
     ["battleModal", "selectModal", "currySelectModal", "popArea"].forEach(id => { const el = document.getElementById(id); if(el) el.style.display = "none"; });
     const vs = document.getElementById("vsCutIn");
     if(vs) { vs.style.display = "flex"; vs.style.opacity = "1"; playVsSound(); }
+    // ★対人戦：カレー選択ボックスを非表示
+    const vsInteractive = vs ? vs.querySelector('.vs-interactive-area') : null;
+    if(vsInteractive) vsInteractive.style.display = "none";
     if(document.getElementById("vsPlayerName")) document.getElementById("vsPlayerName").innerText = playerName;
     if(document.getElementById("vsEnemyName")) document.getElementById("vsEnemyName").innerText = oppN;
     if(document.getElementById("vsEnemyCurry")) document.getElementById("vsEnemyCurry").innerText = oppC.name;
