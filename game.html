@@ -18,12 +18,7 @@
         .tab-btn.active { background: #e67e22; color: white; }
         .page { display: none; text-align: left; }
         .page.active { display: block; }
-        #canvas { width: 100%; max-width: 340px; background: #333; border-radius: 10px; display: block; margin: 0 auto; }
-        #scanWrapper { position: relative; width: 100%; max-width: 340px; margin: 0 auto 15px auto; display: none; }
-        #scanGuide { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 60%; padding-bottom: 60%; pointer-events: none; }
-        #scanGuide::before { content: ''; position: absolute; top: 0; left: 0; right: 0; bottom: 0; border: 3px solid rgba(255,255,255,0.85); border-radius: 8px; box-shadow: 0 0 0 2000px rgba(0,0,0,0.35); animation: scanPulse 1.5s ease-in-out infinite; }
-        #scanGuide::after { content: 'ここにQRをかざす'; position: absolute; bottom: -26px; left: 50%; transform: translateX(-50%); color: white; font-size: 12px; font-weight: bold; white-space: nowrap; text-shadow: 0 1px 3px rgba(0,0,0,0.8); }
-        @keyframes scanPulse { 0%,100% { opacity: 0.7; } 50% { opacity: 1; } }
+        #canvas { width: 100%; max-width: 300px; background: #333; border-radius: 10px; margin-bottom: 15px; display: none; margin-left: auto; margin-right: auto; }
         
         /* 遊び方ページ用 */
         .guide-box { background: #fffdf0; border: 2px solid #e67e22; border-radius: 10px; padding: 15px; margin-bottom: 20px; font-size: 14px; line-height: 1.6; }
@@ -250,11 +245,8 @@
             ・お店のレジにある「QR決済コード」へのスキャンは、店員さんの誤解を招くためご遠慮ください。<br>
             ・購入前の商品のQRスキャンは、特典の不当な取得にあたります。必ず商品を購入した後にスキャンをお楽しみください。
         </div>
-        <div id="statusMessage" style="font-size:14px; color:#7f8c8d; margin-bottom:8px; display:none; text-align:center;">🔍 QRを枠内に映してください...</div>
-        <div id="scanWrapper">
-            <canvas id="canvas"></canvas>
-            <div id="scanGuide"></div>
-        </div>
+        <div id="statusMessage" style="font-size:14px; color:#7f8c8d; margin-bottom:15px; display:none; text-align:center;">🔍 QRを枠内に映してください...</div>
+        <canvas id="canvas"></canvas>
         <button id="btnCancel" class="btn btn-cancel" onclick="cancelScanning()" style="display:none;">❌ キャンセル</button>
         <div class="get-box" id="getBox" style="display:none; margin-top:20px; padding:15px; background:#fffdf0; border:2px dashed #e67e22; border-radius:10px; text-align:center;">
             <div style="font-size:14px; color:#e67e22; font-weight:bold;" id="getBoxTitle">🎉 食材ゲット！</div>
@@ -511,61 +503,20 @@ function playTone(freq, type, duration) {
 }
 // ===== BGM・特殊効果音管理 =====
 let battleBGM = null;
-
-// BGMファイルをあらかじめ読み込んでおく（Safari対策：プリロード）
-const bgmCache = {};
-function preloadBGM(src) {
-    if(bgmCache[src]) return;
-    const audio = new Audio(src);
-    audio.preload = "auto";
-    audio.load();
-    bgmCache[src] = audio;
-}
-// ページ読み込み後すぐにプリロード
-window.addEventListener('DOMContentLoaded', () => {
-    ['Guardare_il_cielo.mp3', 'wave.mp3'].forEach(preloadBGM);
-});
-
 function playBattleBGM(src) {
     stopBattleBGM();
-    // キャッシュ済みのAudioを再利用、なければ新規作成
-    const cached = bgmCache[src];
-    if(cached) {
-        cached.currentTime = 0;
-        cached.loop = true;
-        cached.volume = 0.5;
-        battleBGM = cached;
-    } else {
-        battleBGM = new Audio(src);
-        battleBGM.loop = true;
-        battleBGM.volume = 0.5;
-        bgmCache[src] = battleBGM;
-    }
-    // Safari: AudioContextをresumeしてから再生
-    const doPlay = () => {
-        battleBGM.play().catch(e => console.log("BGM play error:", e));
-    };
-    if(audioCtx && audioCtx.state === 'suspended') {
-        audioCtx.resume().then(doPlay);
-    } else {
-        doPlay();
-    }
+    battleBGM = new Audio(src);
+    battleBGM.loop = true;
+    battleBGM.volume = 0.5;
+    battleBGM.play().catch(e => console.log("BGM play error:", e));
 }
 function stopBattleBGM() {
-    if(battleBGM) {
-        battleBGM.pause();
-        battleBGM.currentTime = 0;
-        battleBGM = null;
-    }
+    if(battleBGM) { battleBGM.pause(); battleBGM.currentTime = 0; battleBGM = null; }
 }
 function playSoundEffect(src) {
     const se = new Audio(src);
     se.volume = 0.7;
-    if(audioCtx && audioCtx.state === 'suspended') {
-        audioCtx.resume().then(() => se.play().catch(e => console.log("SE play error:", e)));
-    } else {
-        se.play().catch(e => console.log("SE play error:", e));
-    }
+    se.play().catch(e => console.log("SE play error:", e));
 }
 // ===== ここまで =====
 function playAttackSound() { playTone(440, 'triangle', 0.1); setTimeout(() => playTone(659.25, 'triangle', 0.1), 50); }
@@ -798,8 +749,7 @@ function switchTab(tab, el) {
     }
     document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
     document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-    const activeBtn = el || document.querySelector(".tab-btn[onclick*="'"+tab+"'"]");
-    if(activeBtn) activeBtn.classList.add('active');
+    if(el) el.classList.add('active');
     document.getElementById('page' + tab.charAt(0).toUpperCase() + tab.slice(1)).classList.add('active');
     cancelScanning();
 }
@@ -964,106 +914,43 @@ function selectRandomIngredients() {
     [1,2,3].forEach(n => updateIngredientHint(n));
     updateSpiceHint();
 }
-let video = document.createElement("video");
-let canvasElement = document.getElementById("canvas");
-let canvas = canvasElement.getContext("2d");
-let localStream = null;
-let animationFrameId = null;
-let lastTickTime = 0; // ③ 間引き用タイムスタンプ
-const TICK_INTERVAL = 100; // 100msごとに解析（約10fps）
-
+let video = document.createElement("video"); let canvasElement = document.getElementById("canvas"); let canvas = canvasElement.getContext("2d"); let localStream = null; let animationFrameId = null;
+let lastTickTime = 0;
 function startCamera() {
     document.getElementById("getBox").style.display = "none";
-    // ① フォーカス continuous ② 解像度指定
-    const constraints = {
-        video: {
-            facingMode: "environment",
-            width: { ideal: 1280 },
-            height: { ideal: 720 },
-            focusMode: "continuous"
-        }
-    };
-    navigator.mediaDevices.getUserMedia(constraints)
-        .catch(() => {
-            // focusModeに非対応の端末用フォールバック
-            return navigator.mediaDevices.getUserMedia({
-                video: { facingMode: "environment", width: { ideal: 1280 }, height: { ideal: 720 } }
-            });
-        })
-        .then(function(stream) {
-            localStream = stream;
-            // ① フォーカスをトラックに直接適用（対応端末のみ）
-            const track = stream.getVideoTracks()[0];
-            if(track && track.applyConstraints) {
-                track.applyConstraints({ advanced: [{ focusMode: "continuous" }] }).catch(() => {});
-            }
-            video.srcObject = stream;
-            video.setAttribute("playsinline", true);
-            video.play();
-            // ⑤ ガイド枠ラッパーを表示
-            document.getElementById("scanWrapper").style.display = "block";
-            document.getElementById("statusMessage").style.display = "block";
-            document.getElementById("btnCancel").style.display = "inline-block";
-            document.getElementById("btnStartCamera").style.display = "none";
-            lastTickTime = 0;
-            tick(0);
-        })
-        .catch(function(err) {
-            alert("カメラの起動に失敗しました。カメラへのアクセスを許可してください。
-(" + err.message + ")");
-        });
+    navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } }).then(function(stream) {
+        localStream = stream; video.srcObject = stream; video.setAttribute("playsinline", true); video.play();
+        canvasElement.style.display = "inline-block"; document.getElementById("statusMessage").style.display = "block";
+        document.getElementById("btnCancel").style.display = "inline-block"; document.getElementById("btnStartCamera").style.display = "none";
+        lastTickTime = 0;
+        requestAnimationFrame(tick);
+    });
 }
-
 function tick(timestamp) {
-    // ③ 100msごとにだけ解析（毎フレームは処理しない）
-    if(timestamp - lastTickTime < TICK_INTERVAL) {
-        animationFrameId = requestAnimationFrame(tick);
-        return;
-    }
+    if(timestamp - lastTickTime < 100) { animationFrameId = requestAnimationFrame(tick); return; }
     lastTickTime = timestamp;
-
     if (video.readyState === video.HAVE_ENOUGH_DATA) {
-        canvasElement.height = video.videoHeight;
-        canvasElement.width = video.videoWidth;
-        canvas.drawImage(video, 0, 0, canvasElement.width, canvasElement.height);
+        canvasElement.height = video.videoHeight; canvasElement.width = video.videoWidth; canvas.drawImage(video, 0, 0, canvasElement.width, canvasElement.height);
         var imageData = canvas.getImageData(0, 0, canvasElement.width, canvasElement.height);
         var code = jsQR(imageData.data, imageData.width, imageData.height, { inversionAttempts: "dontInvert" });
         if (code) {
-            let loc = code.location;
-            let startX = Math.max(0, Math.floor(loc.topLeftCorner.x));
-            let startY = Math.max(0, Math.floor(loc.topLeftCorner.y));
+            let loc = code.location; let startX = Math.max(0, Math.floor(loc.topLeftCorner.x)); let startY = Math.max(0, Math.floor(loc.topLeftCorner.y));
             let w = Math.min(canvasElement.width - startX, Math.floor(loc.topRightCorner.x - loc.topLeftCorner.x));
             let h = Math.min(canvasElement.height - startY, Math.floor(loc.bottomLeftCorner.y - loc.topLeftCorner.y));
             let rSum = 0, gSum = 0, bSum = 0, pCount = 0;
             if(w > 10 && h > 10) {
                 let qrImgData = canvas.getImageData(startX, startY, w, h).data;
-                for(let i = 0; i < qrImgData.length; i += 4) {
-                    rSum += qrImgData[i]; gSum += qrImgData[i+1]; bSum += qrImgData[i+2]; pCount++;
-                }
+                for(let i=0; i<qrImgData.length; i+=4) { rSum += qrImgData[i]; gSum += qrImgData[i+1]; bSum += qrImgData[i+2]; pCount++; }
             }
-            let avgR = pCount > 0 ? rSum / pCount : 0;
-            let avgG = pCount > 0 ? gSum / pCount : 0;
-            let avgB = pCount > 0 ? bSum / pCount : 0;
-            // ④ バイブレーション（対応端末のみ）
+            let avgR = pCount > 0 ? rSum / pCount : 0; let avgG = pCount > 0 ? gSum / pCount : 0; let avgB = pCount > 0 ? bSum / pCount : 0;
             if(navigator.vibrate) navigator.vibrate(100);
-            stopCamera();
-            processQRData(code.data, avgR, avgG, avgB);
-            return;
+            stopCamera(); canvasElement.style.display = "none"; processQRData(code.data, avgR, avgG, avgB); return;
         }
     }
     animationFrameId = requestAnimationFrame(tick);
 }
-
-function stopCamera() {
-    if(animationFrameId) cancelAnimationFrame(animationFrameId);
-    if(localStream) localStream.getTracks().forEach(track => track.stop());
-    document.getElementById("btnCancel").style.display = "none";
-    document.getElementById("scanWrapper").style.display = "none";
-}
-function cancelScanning() {
-    stopCamera();
-    document.getElementById("btnStartCamera").style.display = "inline-block";
-}
+function stopCamera() { if (animationFrameId) cancelAnimationFrame(animationFrameId); if (localStream) localStream.getTracks().forEach(track => track.stop()); document.getElementById("btnCancel").style.display = "none"; }
+function cancelScanning() { stopCamera(); canvasElement.style.display = "none"; document.getElementById("btnStartCamera").style.display = "inline-block"; }
 function resetScanner() { document.getElementById("getBox").style.display = "none"; document.getElementById("btnStartCamera").style.display = "inline-block"; }
 function processQRData(text, r, g, b) {
     const today = new Date().toISOString().split('T')[0];
@@ -1491,11 +1378,10 @@ function proceedToArena(oppN, oppC, myC) {
     }
     let pHP = myC.hp; let oHP = oppC.hp; updateHP(pHP, oHP, oppC.hp, myC.hp);
     const log = document.getElementById("battleLog"); log.innerHTML = `⚔️ ${oppN} との決闘開始！\n`;
-    // ★特殊BGM（自分または相手のカレーを判定）- Safari対策で少し遅延
+    // ★特殊BGM（自分または相手のカレーを判定）
     stopBattleBGM();
-    const bgmSrc = (myC.isMargherita || oppC.isMargherita) ? "Guardare_il_cielo.mp3"
-                 : (myC.isSeafood || oppC.isSeafood) ? "wave.mp3" : null;
-    if(bgmSrc) setTimeout(() => playBattleBGM(bgmSrc), 300);
+    if(myC.isMargherita || oppC.isMargherita) playBattleBGM("Guardare_il_cielo.mp3");
+    else if(myC.isSeafood || oppC.isSeafood) playBattleBGM("wave.mp3");
     let isOP = false, isPP = false;
     if (myC.isPoison) { isOP = true; log.innerHTML += `☠️ 毒気が ${oppN} を蝕む！`; playPoisonSound(); }
     if (oppC.isPoison) { isPP = true; log.innerHTML += `☠️ 毒気が ${playerName} を蝕む！`; playPoisonSound(); }
