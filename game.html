@@ -18,7 +18,12 @@
         .tab-btn.active { background: #e67e22; color: white; }
         .page { display: none; text-align: left; }
         .page.active { display: block; }
-        #canvas { width: 100%; max-width: 300px; background: #333; border-radius: 10px; margin-bottom: 15px; display: none; margin-left: auto; margin-right: auto; }
+        #canvas { width: 100%; max-width: 340px; background: #333; border-radius: 10px; display: block; margin: 0 auto; }
+        #scanWrapper { position: relative; width: 100%; max-width: 340px; margin: 0 auto 15px auto; display: none; }
+        #scanGuide { position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%); width: 60%; padding-bottom: 60%; pointer-events: none; }
+        #scanGuide::before { content: ''; position: absolute; top: 0; left: 0; right: 0; bottom: 0; border: 3px solid rgba(255,255,255,0.85); border-radius: 8px; box-shadow: 0 0 0 2000px rgba(0,0,0,0.35); animation: scanPulse 1.5s ease-in-out infinite; }
+        #scanGuide::after { content: 'ここにQRをかざす'; position: absolute; bottom: -26px; left: 50%; transform: translateX(-50%); color: white; font-size: 12px; font-weight: bold; white-space: nowrap; text-shadow: 0 1px 3px rgba(0,0,0,0.8); }
+        @keyframes scanPulse { 0%,100% { opacity:0.7; } 50% { opacity:1; } }
         
         /* 遊び方ページ用 */
         .guide-box { background: #fffdf0; border: 2px solid #e67e22; border-radius: 10px; padding: 15px; margin-bottom: 20px; font-size: 14px; line-height: 1.6; }
@@ -245,8 +250,11 @@
             ・お店のレジにある「QR決済コード」へのスキャンは、店員さんの誤解を招くためご遠慮ください。<br>
             ・購入前の商品のQRスキャンは、特典の不当な取得にあたります。必ず商品を購入した後にスキャンをお楽しみください。
         </div>
-        <div id="statusMessage" style="font-size:14px; color:#7f8c8d; margin-bottom:15px; display:none; text-align:center;">🔍 QRを枠内に映してください...</div>
-        <canvas id="canvas"></canvas>
+        <div id="statusMessage" style="font-size:14px; color:#7f8c8d; margin-bottom:8px; display:none; text-align:center;">🔍 QRを枠内に映してください...</div>
+        <div id="scanWrapper">
+            <canvas id="canvas"></canvas>
+            <div id="scanGuide"></div>
+        </div>
         <button id="btnCancel" class="btn btn-cancel" onclick="cancelScanning()" style="display:none;">❌ キャンセル</button>
         <div class="get-box" id="getBox" style="display:none; margin-top:20px; padding:15px; background:#fffdf0; border:2px dashed #e67e22; border-radius:10px; text-align:center;">
             <div style="font-size:14px; color:#e67e22; font-weight:bold;" id="getBoxTitle">🎉 食材ゲット！</div>
@@ -918,13 +926,24 @@ let video = document.createElement("video"); let canvasElement = document.getEle
 let lastTickTime = 0;
 function startCamera() {
     document.getElementById("getBox").style.display = "none";
-    navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } }).then(function(stream) {
-        localStream = stream; video.srcObject = stream; video.setAttribute("playsinline", true); video.play();
-        canvasElement.style.display = "inline-block"; document.getElementById("statusMessage").style.display = "block";
-        document.getElementById("btnCancel").style.display = "inline-block"; document.getElementById("btnStartCamera").style.display = "none";
-        lastTickTime = 0;
-        requestAnimationFrame(tick);
-    });
+    navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment", width: { ideal: 1280 }, height: { ideal: 720 } } })
+        .then(function(stream) {
+            localStream = stream;
+            const track = stream.getVideoTracks()[0];
+            if(track && track.applyConstraints) {
+                track.applyConstraints({ advanced: [{ focusMode: "continuous" }] }).catch(() => {});
+            }
+            video.srcObject = stream; video.setAttribute("playsinline", true); video.play();
+            document.getElementById("scanWrapper").style.display = "block";
+            document.getElementById("statusMessage").style.display = "block";
+            document.getElementById("btnCancel").style.display = "inline-block";
+            document.getElementById("btnStartCamera").style.display = "none";
+            lastTickTime = 0;
+            requestAnimationFrame(tick);
+        })
+        .catch(function(err) {
+            alert("カメラの起動に失敗しました。カメラへのアクセスを許可してください。\n(" + err.message + ")");
+        });
 }
 function tick(timestamp) {
     if(timestamp - lastTickTime < 100) { animationFrameId = requestAnimationFrame(tick); return; }
@@ -949,7 +968,12 @@ function tick(timestamp) {
     }
     animationFrameId = requestAnimationFrame(tick);
 }
-function stopCamera() { if (animationFrameId) cancelAnimationFrame(animationFrameId); if (localStream) localStream.getTracks().forEach(track => track.stop()); document.getElementById("btnCancel").style.display = "none"; }
+function stopCamera() {
+    if (animationFrameId) cancelAnimationFrame(animationFrameId);
+    if (localStream) localStream.getTracks().forEach(track => track.stop());
+    document.getElementById("btnCancel").style.display = "none";
+    const sw = document.getElementById("scanWrapper"); if(sw) sw.style.display = "none";
+}
 function cancelScanning() { stopCamera(); canvasElement.style.display = "none"; document.getElementById("btnStartCamera").style.display = "inline-block"; }
 function resetScanner() { document.getElementById("getBox").style.display = "none"; document.getElementById("btnStartCamera").style.display = "inline-block"; }
 function processQRData(text, r, g, b) {
