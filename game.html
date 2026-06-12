@@ -1150,11 +1150,8 @@ function repopulateVsCurrySelector() {
 }
 function syncVsSelection(idx) {
     selectedCurryIndex = parseInt(idx, 10);
-    if(selectedCurryIndex !== -1 && curryStock[selectedCurryIndex]) {
-        document.getElementById("vsPlayerVisual").innerHTML = curryStock[selectedCurryIndex].visual || "🍛";
-    } else {
-        document.getElementById("vsPlayerVisual").innerHTML = "❓";
-    }
+    // ★Bot戦ではプレイヤーアイコンを変えない（カレー絵文字で上書きしない）
+    // アイコンはstartBotBattle()で設定済みなので何もしない
 }
 function startBotBattle() {
     if (audioCtx.state === 'suspended') audioCtx.resume();
@@ -1375,10 +1372,10 @@ function proceedToArena(oppN, oppC, myC) {
     }
     let pHP = myC.hp; let oHP = oppC.hp; updateHP(pHP, oHP, oppC.hp, myC.hp);
     const log = document.getElementById("battleLog"); log.innerHTML = `⚔️ ${oppN} との決闘開始！\n`;
-    // ★特殊BGM
+    // ★特殊BGM（自分または相手のカレーを判定）
     stopBattleBGM();
-    if(myC.isMargherita) playBattleBGM("Guardare_il_cielo.mp3");
-    else if(myC.isSeafood) playBattleBGM("wave.mp3");
+    if(myC.isMargherita || oppC.isMargherita) playBattleBGM("Guardare_il_cielo.mp3");
+    else if(myC.isSeafood || oppC.isSeafood) playBattleBGM("wave.mp3");
     let isOP = false, isPP = false;
     if (myC.isPoison) { isOP = true; log.innerHTML += `☠️ 毒気が ${oppN} を蝕む！`; playPoisonSound(); }
     if (oppC.isPoison) { isPP = true; log.innerHTML += `☠️ 毒気が ${playerName} を蝕む！`; playPoisonSound(); }
@@ -1388,7 +1385,7 @@ function proceedToArena(oppN, oppC, myC) {
         if (myTurn) {
             log.innerHTML = `🔥 自分のターン！`;
             if (isPP) { let d = Math.round(myC.hp * 0.08); pHP -= d; log.innerHTML += `\n☠️ 毒ダメージ: ${d}`; triggerEffect("player-poison", d); updateHP(pHP, oHP, oppC.hp, myC.hp); if(pHP<=0){step();return;} }
-            if (myC.hasGold) { playGoldSound(); log.innerHTML += `\n🌟 金箔乱舞！`; } else if(myC.isTonTonTon) { playSoundEffect('pig2.mp3'); } else playAttackSound();
+            if (myC.hasGold) { playGoldSound(); log.innerHTML += `\n🌟 金箔乱舞！`; } else if(myC.isTonTonTon) { playSoundEffect('pig2.mp3'); } else if(oppC.isTonTonTon) { playSoundEffect('pig1.mp3'); } else playAttackSound();
             setTimeout(() => {
                 let d = Math.max(8, myC.atk - Math.floor(oppC.def / 2)); d = Math.round(d * (0.9 + Math.random() * 0.2));
                 oHP = Math.max(0, oHP - d); log.innerHTML += `\n💥 ダメージ: ${d}`; triggerEffect(myC.hasGold?"enemy-gold":"enemy", d);
@@ -1397,7 +1394,7 @@ function proceedToArena(oppN, oppC, myC) {
         } else {
             log.innerHTML = `⚠️ 相手のターン！`;
             if (isOP) { let d = Math.round(oppC.hp * 0.08); oHP -= d; log.innerHTML += `\n☠️ 毒ダメージ: ${d}`; triggerEffect("enemy-poison", d); updateHP(pHP, oHP, oppC.hp, myC.hp); if(oHP<=0){step();return;} }
-            if(myC.isTonTonTon) { playSoundEffect('pig1.mp3'); } else playAttackSound();
+            if(myC.isTonTonTon) { playSoundEffect('pig1.mp3'); } else if(oppC.isTonTonTon) { playSoundEffect('pig2.mp3'); } else playAttackSound();
             setTimeout(() => {
                 let d = Math.max(8, oppC.atk - Math.floor(myC.def / 2)); d = Math.round(d * (0.9 + Math.random() * 0.2));
                 pHP = Math.max(0, pHP - d); log.innerHTML += `\n😢 被弾ダメージ: ${d}`; triggerEffect("player", d);
