@@ -182,7 +182,7 @@
     <h1>🍛 QRスパイスカレー 🍛</h1>
 
     <div style="font-size: 13px; color: #e67e22; font-weight: bold;">
-        👨‍🍳 料理人: <span id="headerPlayerName">名無しの料理人</span> [EXP: <span id="globalEXP">0</span>] | 💰 資金: <span id="globalG">0</span> G | 🎟️ パック券: <span id="globalTicket">0</span> 枚
+        👨‍🍳 料理人: <span id="headerPlayerName">名無しの料理人</span> [<span id="headerLv">Lv.1</span>(<span id="headerEXPBar">EXP:0/100</span>)] | 💰 資金: <span id="globalG">0</span> G | 🎟️ パック券: <span id="globalTicket">0</span> 枚
     </div>
     
     <div class="tab-menu">
@@ -423,6 +423,109 @@ function playVsSound() { playTone(293.66, 'sawtooth', 0.15); setTimeout(() => pl
 function play開運Sound() { playTone(880, 'square', 0.1); setTimeout(() => playTone(1320, 'square', 0.1), 60); setTimeout(() => playTone(1760, 'square', 0.3), 120); }
 function playGoldSound() { playTone(987.77, 'sine', 0.1); setTimeout(() => playTone(1318.51, 'sine', 0.1), 50); setTimeout(() => playTone(1975.53, 'sine', 0.4), 100); }
 function playCriticalSound() { playTone(880, 'square', 0.1); setTimeout(() => playTone(1320, 'square', 0.1), 60); setTimeout(() => playTone(1760, 'square', 0.3), 120); }
+// ===== Lv機能 =====
+const MAX_LV = 8;
+const EXP_PER_LV = 100;
+
+function calcLv(exp) {
+    return Math.min(MAX_LV, Math.floor(exp / EXP_PER_LV) + 1);
+}
+function expForNextLv(exp) {
+    const lv = calcLv(exp);
+    if (lv >= MAX_LV) return null; // 上限
+    const nextBorder = (lv) * EXP_PER_LV; // lv→lv+1 に必要な累計EXP
+    return nextBorder - exp;
+}
+function expCurrentInLv(exp) {
+    const lv = calcLv(exp);
+    if (lv >= MAX_LV) return EXP_PER_LV;
+    return exp % EXP_PER_LV;
+}
+function updateLvDisplay() {
+    const lv = calcLv(playerEXP);
+    const inLvExp = expCurrentInLv(playerEXP);
+    const lvEl = document.getElementById("headerLv");
+    const barEl = document.getElementById("headerEXPBar");
+    if (lvEl) lvEl.innerText = `Lv.${lv}`;
+    if (barEl) {
+        if (lv >= MAX_LV) {
+            barEl.innerText = `EXP:MAX`;
+        } else {
+            barEl.innerText = `EXP:${inLvExp}/${EXP_PER_LV}`;
+        }
+    }
+}
+
+function getLvUpReward(lv) {
+    // Lv5はストック上限拡張、それ以外はランダム5種
+    if (lv === 5) return { type: 'stock' };
+    if (lv >= 2 && lv <= MAX_LV) return { type: 'items' };
+    return null;
+}
+
+function grantLvUpReward(lv) {
+    const reward = getLvUpReward(lv);
+    if (!reward) return '';
+    if (reward.type === 'stock') {
+        // Lv5: カレーストック上限8に（フラグ保存）
+        localStorage.setItem('qr_curry_stock_limit', '8');
+        return '🍛 カレーストック上限が<b>8個</b>に拡張されました！';
+    }
+    if (reward.type === 'items') {
+        // 金箔・赤パプリカ・黄パプリカを除く食材＋スパイス全部からランダム5種
+        const ingPool = Object.keys(masterIngredients).filter(k => !["金箔","赤パプリカ","黄パプリカ"].includes(k));
+        const spcPool = Object.keys(masterSpices);
+        const allPool = [...ingPool, ...spcPool];
+        // シャッフルして5種選ぶ（重複あり可）
+        let picked = [];
+        for (let i = 0; i < 5; i++) {
+            const item = allPool[Math.floor(Math.random() * allPool.length)];
+            picked.push(item);
+            inventory[item] = (inventory[item] || 0) + 1;
+            discoveredItems[item] = true;
+        }
+        const lines = picked.map(p => {
+            const emoji = masterIngredients[p] ? masterIngredients[p].emoji : masterSpices[p].emoji;
+            return `${emoji} ${p}`;
+        }).join('　');
+        return `🎁 ランダム5種入手！<br><b>${lines}</b>`;
+    }
+    return '';
+}
+
+function checkLvUp(oldExp, newExp) {
+    const oldLv = calcLv(oldExp);
+    const newLv = calcLv(newExp);
+    if (newLv > oldLv) {
+        // レベルアップした！
+        let rewardText = grantLvUpReward(newLv);
+        saveGame(); updateFridgeUI(); updateCookSelects();
+        const limitMsg = newLv >= MAX_LV ? '<br>🏆 <b>最大レベルに到達！</b>' : '';
+        showCustomAlert(
+            `🎉 LEVEL UP!! Lv.${newLv}`,
+            `<div style="font-size:20px; color:#f1c40f; font-weight:bold; margin-bottom:8px;">★ Lv.${oldLv} → Lv.${newLv} ★</div>${rewardText}${limitMsg}`,
+            null
+        );
+        playLvUpSound();
+        return true;
+    }
+    return false;
+}
+
+function playLvUpSound() {
+    playTone(523.25, 'square', 0.08);
+    setTimeout(() => playTone(659.25, 'square', 0.08), 80);
+    setTimeout(() => playTone(783.99, 'square', 0.08), 160);
+    setTimeout(() => playTone(1046.50, 'square', 0.5), 240);
+}
+
+function getCurryStockLimit() {
+    const saved = localStorage.getItem('qr_curry_stock_limit');
+    if (saved) return parseInt(saved, 10);
+    return calcLv(playerEXP) >= 5 ? 8 : 5;
+}
+// ===== Lv機能ここまで =====
+
 function showCustomAlert(title, message, onOk, sellCallback, itemName) {
     document.getElementById("customModal").style.display = "none";
     document.getElementById("modalTitle").innerText = title;
@@ -525,7 +628,7 @@ let isBotMatch = false; let activeBotData = null;
 let discoveredItems = {};
 let cachedOpponentName = "";
 let cachedOpponentCurry = null;
-window.onload = function() { loadGame(); updateFridgeUI(); updateCookSelects(); refreshRecipeBookUI(); updateShopButtons(); listenToRooms(); updateMatchCurrySelects(); setupLoadedIconUI(); };
+window.onload = function() { loadGame(); updateFridgeUI(); updateCookSelects(); refreshRecipeBookUI(); updateShopButtons(); listenToRooms(); updateMatchCurrySelects(); setupLoadedIconUI(); updateLvDisplay(); };
 function switchTab(tab) {
     if (document.getElementById("battleArena").style.display === "block") {
         endBattleScene();
@@ -547,9 +650,9 @@ function saveGame() {
     localStorage.setItem('qr_curry_stock', JSON.stringify(curryStock));
     localStorage.setItem('qr_curry_discovered', JSON.stringify(discoveredItems));
     document.getElementById("globalG").innerText = playerG;
-    document.getElementById("globalEXP").innerText = playerEXP;
     document.getElementById("globalTicket").innerText = packTicket;
     updateShopButtons();
+    updateLvDisplay();
 }
 function loadGame() {
     const savedInv = localStorage.getItem('qr_curry_inv');
@@ -584,13 +687,12 @@ function loadGame() {
     document.getElementById("playerNameInput").value = playerName;
     document.getElementById("headerPlayerName").innerText = playerName;
     document.getElementById("globalG").innerText = playerG;
-    document.getElementById("globalEXP").innerText = playerEXP;
     document.getElementById("globalTicket").innerText = packTicket;
 }
 function handleNameChange(val) { if(!val.trim()) val = "名無しの料理人"; playerName = val; document.getElementById("headerPlayerName").innerText = val; saveGame(); }
 function clearSaveData() {
     showCustomConfirm("⚠️ 全初期化", "セーブデータをすべてリセットします（初期配布チケット2枚になります）。本当によろしいですか？", function() {
-        localStorage.clear(); inventory = {}; scanHistory = {}; playerG = 0; playerEXP = 0; packTicket = 2; curryStock = []; playerName = "名無しの料理人"; recipeBook = {}; discoveredItems = {}; loadGame(); updateFridgeUI(); updateCookSelects(); refreshRecipeBookUI(); updateShopButtons(); document.getElementById("resultBox").style.display = "none"; saveGame();
+        localStorage.clear(); inventory = {}; scanHistory = {}; playerG = 0; playerEXP = 0; packTicket = 2; curryStock = []; playerName = "名無しの料理人"; recipeBook = {}; discoveredItems = {}; loadGame(); updateFridgeUI(); updateCookSelects(); refreshRecipeBookUI(); updateShopButtons(); document.getElementById("resultBox").style.display = "none"; saveGame(); updateLvDisplay();
     });
 }
 function triggerStaffOnly() {
@@ -791,7 +893,7 @@ function updateCookSelects() {
 function checkCookStock() {
     const i1 = document.getElementById("ingredient1").value; const i2 = document.getElementById("ingredient2").value; const i3 = document.getElementById("ingredient3").value; const sp = document.getElementById("spice").value;
     if(!i1 && !i2 && !i3 && !sp) return;
-    if(curryStock.length >= 5) showCustomConfirm("⚠️ ストック満杯の警告", "新しく調理すると<span style='color:#e74c3c;'>【一番古いカレー】</span>が自動消去されますがよろしいですか？", function() { cookCurry(); });
+    if(curryStock.length >= getCurryStockLimit()) showCustomConfirm("⚠️ ストック満杯の警告", "新しく調理すると<span style='color:#e74c3c;'>【一番古いカレー】</span>が自動消去されますがよろしいですか？", function() { cookCurry(); });
     else cookCurry();
 }
 function cookCurry() {
@@ -822,7 +924,7 @@ function cookCurry() {
     if(hasGold) { playGoldSound(); cName = `✨黄金仕立ての${cName}`; document.getElementById("resultBox").classList.add("gold-box"); document.getElementById("goldFlashText").style.display="block"; }
     else if(isPoison) { playPoisonSound(); document.getElementById("resultBox").classList.add("poison-box"); document.getElementById("poisonFlashText").style.display="block"; }
     else if(Math.random()<0.15){ playCriticalSound(); cName=`💎至高の${cName}`; hp=Math.round(hp*1.4); atk=Math.round(atk*1.4); document.getElementById("resultBox").classList.add("critical-box"); document.getElementById("criticalFlashText").style.display="block"; }
-    if (curryStock.length >= 5) curryStock.shift();
+    if (curryStock.length >= getCurryStockLimit()) curryStock.shift();
     const newCurry = { name: cName, visual: vis, hp: hp, atk: atk, def: def, spd: spd, isPoison, hasGold };
     curryStock.push(newCurry); selectedCurryIndex = curryStock.length - 1;
     saveGame(); updateFridgeUI(); updateCookSelects();
@@ -1105,9 +1207,15 @@ function done(pHP, oHP, myC, oppC) {
         if (isBotMatch && oppC.isMaharaja) { g = 300; inventory["金箔"] = (inventory["金箔"] || 0) + 1; discoveredItems["金箔"] = true; loot = "✨金箔ゲット！"; }
         else if (isBotMatch) { e = activeBotData.expBonus; let drp = Object.keys(masterIngredients).filter(k=>masterIngredients[k].shop===0); let itm = drp[Math.floor(Math.random()*drp.length)]; inventory[itm]=(inventory[itm]||0)+1; discoveredItems[itm] = true; loot = itm + "ゲット！"; }
         else { g = 50; e = 10; }
-        playerG += g; playerEXP += e; rew.innerHTML = `💰 +${g}G / ✨ +${e}EXP<br>${loot}`;
+        playerG += g;
+        const oldEXP1 = playerEXP; playerEXP += e;
+        rew.innerHTML = `💰 +${g}G / ✨ +${e}EXP<br>${loot}`;
+        setTimeout(() => checkLvUp(oldEXP1, playerEXP), 800);
     } else {
-        res.innerText = "💀 敗北 ..."; res.style.color = "#e74c3c"; playerEXP += 1; rew.innerHTML = `✨ +1EXP どんまい！`;
+        res.innerText = "💀 敗北 ..."; res.style.color = "#e74c3c";
+        const oldEXP2 = playerEXP; playerEXP += 1;
+        rew.innerHTML = `✨ +1EXP どんまい！`;
+        setTimeout(() => checkLvUp(oldEXP2, playerEXP), 800);
     }
     curryStock.splice(selectedCurryIndex, 1); selectedCurryIndex = curryStock.length ? 0 : -1;
     saveGame(); updateCookSelects();
