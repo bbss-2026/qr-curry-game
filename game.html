@@ -137,6 +137,13 @@
         .room-section { border: 2px dashed #9b59b6; padding: 15px; border-radius: 10px; margin-top: 15px; text-align: left; background: #fff; }
         .room-input { width: 90%; padding: 8px; margin-bottom: 10px; border-radius: 6px; border: 2px solid #ddd; }
         .room-card { display: flex; justify-content: space-between; align-items: center; padding: 10px; border-bottom: 1px solid #eee; background: #fdfdfd; border-radius: 6px; margin-bottom: 5px; }
+        /* 特殊カレー演出 */
+        .margherita-box { animation: margheritaGlow 1.5s infinite; border: 3px solid #e74c3c !important; }
+        @keyframes margheritaGlow { 0% { box-shadow: 0 0 5px #e74c3c; } 50% { box-shadow: 0 0 20px #27ae60, 0 0 30px #e74c3c; } 100% { box-shadow: 0 0 5px #e74c3c; } }
+        .tonton-box { animation: tontonGlow 1.5s infinite; border: 3px solid #f39c12 !important; }
+        @keyframes tontonGlow { 0% { box-shadow: 0 0 5px #f39c12; } 50% { box-shadow: 0 0 20px #f39c12; } 100% { box-shadow: 0 0 5px #f39c12; } }
+        .wave-box { animation: waveGlow 1.5s infinite; border: 3px solid #3498db !important; }
+        @keyframes waveGlow { 0% { box-shadow: 0 0 5px #3498db; } 50% { box-shadow: 0 0 20px #1abc9c, 0 0 30px #3498db; } 100% { box-shadow: 0 0 5px #3498db; } }
         @keyframes resultPop {
             0% { transform: scale(0.3); opacity: 0; }
             60% { transform: scale(1.2); opacity: 1; }
@@ -330,6 +337,9 @@
             <div id="criticalFlashText" style="color:#d35400; font-weight:bold; font-size:16px; display:none;">✨ 会心の出来！！！ ✨</div>
             <div id="poisonFlashText" style="color:#9b59b6; font-weight:bold; font-size:16px; display:none;">☠️ 危険！怪しい毒気が立ち上っている…！ ☠️</div>
             <div id="goldFlashText" style="color:#f39c12; font-weight:bold; font-size:16px; display:none;">🌟 眩い輝き！最高級金箔仕立て！ 🌟</div>
+            <div id="margheritaFlashText" style="color:#e74c3c; font-weight:bold; font-size:16px; display:none;">🍅🧀 マルゲリータの奇跡！全ステータス上昇！ 🧀🍅</div>
+            <div id="tontonFlashText" style="color:#f39c12; font-weight:bold; font-size:16px; display:none;">🐷🐷🐷 3匹のトントントン！ブヒィ！ 🐷🐷🐷</div>
+            <div id="waveFlashText" style="color:#3498db; font-weight:bold; font-size:16px; display:none;">🌊 海の幸が集結！海鮮スペシャルカレー！ 🌊</div>
             <div style="font-size:64px;" id="curryVisual">🍛</div>
             <div style="font-size:18px; font-weight:bold; color:#c0392b; margin-bottom:10px;" id="curryName">未調理 of カレー</div>
             <div class="status-grid">
@@ -1083,6 +1093,8 @@ function cookCurry() {
     let hasRaisin = acts.includes("レーズン"); let hasSaba = acts.includes("サバ"); let hasTuna = acts.includes("ツナ"); let hasDaikon = acts.includes("大根"); let hasPotato = acts.includes("ジャガイモ");
     let isMargherita = acts.includes("トマト") && acts.includes("チーズ");
     let isTonTonTon = acts.filter(x => x === "トンカツ").length === 3;
+    const SEAFOOD_LIST = ["サバ","イカ","小エビ","ホタテ","ツナ","牡蠣","キャビア","オマール海老","ズワイガニ"];
+    let isSeafood = acts.length === 3 && acts.every(x => SEAFOOD_LIST.includes(x));
     if(acts.length===0){ cName=`${prefix}スパイススープ`; vis="🥣"; } else {
         if(isMargherita) {
             // トマトとチーズをカレー名から除いて残りの食材で名前を作る
@@ -1096,6 +1108,7 @@ function cookCurry() {
             let cnts={}; acts.forEach(x=>cnts[x]=(cnts[x]||0)+1); let body="";
             Object.keys(cnts).forEach(k=>{ if(cnts[k]===3)body+=`トリプル${k}`; else if(cnts[k]===2)body+=`W${k}`; else body+=k; });
             cName=`${prefix}${body}カレー`; vis=acts.map(x=>masterIngredients[x].emoji).join("");
+            if(isSeafood) cName = `🌊${cName}🌊`;
         }
     }
     // マルゲリータ：全ステータス1.2倍
@@ -1106,13 +1119,16 @@ function cookCurry() {
     else if(countNas >= 2) { cName = `☠️怨念のナス毒沼カレー`; isPoison = true; }
     const rKey=[...acts, sp].filter(Boolean).sort().join("+");
     if(!recipeBook[rKey]) recipeBook[rKey]={name:cName, visual:vis, materials:acts.length?acts:["なし"]};
-    document.getElementById("resultBox").classList.remove("critical-box", "poison-box", "gold-box");
-    document.getElementById("criticalFlashText").style.display="none"; document.getElementById("poisonFlashText").style.display="none"; document.getElementById("goldFlashText").style.display="none";
+    document.getElementById("resultBox").classList.remove("critical-box","poison-box","gold-box","margherita-box","tonton-box","wave-box");
+    ["criticalFlashText","poisonFlashText","goldFlashText","margheritaFlashText","tontonFlashText","waveFlashText"].forEach(id=>{ const el=document.getElementById(id); if(el) el.style.display="none"; });
     if(hasGold) { playGoldSound(); cName = `✨黄金仕立ての${cName}`; document.getElementById("resultBox").classList.add("gold-box"); document.getElementById("goldFlashText").style.display="block"; }
     else if(isPoison) { playPoisonSound(); document.getElementById("resultBox").classList.add("poison-box"); document.getElementById("poisonFlashText").style.display="block"; }
+    else if(isMargherita) { playCriticalSound(); document.getElementById("resultBox").classList.add("margherita-box"); document.getElementById("margheritaFlashText").style.display="block"; }
+    else if(isTonTonTon) { playSoundEffect('pig2.mp3'); document.getElementById("resultBox").classList.add("tonton-box"); document.getElementById("tontonFlashText").style.display="block"; }
+    else if(isSeafood) { playTone(440,'sine',0.3); setTimeout(()=>playTone(550,'sine',0.3),150); document.getElementById("resultBox").classList.add("wave-box"); document.getElementById("waveFlashText").style.display="block"; }
     else if(Math.random()<0.15){ playCriticalSound(); cName=`💎至高の${cName}`; hp=Math.round(hp*1.4); atk=Math.round(atk*1.4); document.getElementById("resultBox").classList.add("critical-box"); document.getElementById("criticalFlashText").style.display="block"; }
     if (curryStock.length >= getCurryStockLimit()) curryStock.shift();
-    const newCurry = { name: cName, visual: vis, hp: hp, atk: atk, def: def, spd: spd, isPoison, hasGold, isMargherita, isTonTonTon };
+    const newCurry = { name: cName, visual: vis, hp: hp, atk: atk, def: def, spd: spd, isPoison, hasGold, isMargherita, isTonTonTon, isSeafood };
     curryStock.push(newCurry); selectedCurryIndex = curryStock.length - 1;
     saveGame(); updateFridgeUI(); updateCookSelects(); clearAllHints();
     document.getElementById("curryVisual").innerText=vis; document.getElementById("curryName").innerText=cName;
@@ -1362,6 +1378,7 @@ function proceedToArena(oppN, oppC, myC) {
     // ★特殊BGM
     stopBattleBGM();
     if(myC.isMargherita) playBattleBGM("Guardare_il_cielo.mp3");
+    else if(myC.isSeafood) playBattleBGM("wave.mp3");
     let isOP = false, isPP = false;
     if (myC.isPoison) { isOP = true; log.innerHTML += `☠️ 毒気が ${oppN} を蝕む！`; playPoisonSound(); }
     if (oppC.isPoison) { isPP = true; log.innerHTML += `☠️ 毒気が ${playerName} を蝕む！`; playPoisonSound(); }
