@@ -1033,6 +1033,9 @@ function startBotBattle() {
     cachedOpponentName = bName;
     cachedOpponentCurry = oppCurryData;
     const vs = document.getElementById("vsCutIn"); vs.style.display = "flex"; playVsSound();
+    // ★対人戦後のBot戦でも出撃ボックスが表示されるよう復元
+    const vsInteractiveBot = vs ? vs.querySelector('.vs-interactive-area') : null;
+    if(vsInteractiveBot) vsInteractiveBot.style.display = "block";
     document.getElementById("vsPlayerName").innerText = playerName;
     if (typeof repopulateVsCurrySelector === "function") repopulateVsCurrySelector();
     const modalIds = ["battleModal", "selectModal", "currySelectModal", "popArea"];
