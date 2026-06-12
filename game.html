@@ -369,26 +369,55 @@
     </div>
 </div>
 <script>
-const playerIconList = ["mayimage01.png", "mayimage02.png", "mayimage03.png"];
+// 全アイコンリスト（番号順）
+const ALL_ICON_LIST = ["mayimage01.png","mayimage02.png","mayimage03.png","mayimage04.png","mayimage05.png","mayimage06.png"];
+// 解放済みアイコン（初期は01〜03）
+function getUnlockedIcons() {
+    const saved = localStorage.getItem("unlockedIcons");
+    return saved ? JSON.parse(saved) : ["mayimage01.png","mayimage02.png","mayimage03.png"];
+}
+function saveUnlockedIcons(list) {
+    localStorage.setItem("unlockedIcons", JSON.stringify(list));
+}
+function unlockIcon(filename) {
+    const list = getUnlockedIcons();
+    if (!list.includes(filename)) {
+        list.push(filename);
+        saveUnlockedIcons(list);
+        return true; // 新規解放
+    }
+    return false;
+}
+
 let currentIconFile = localStorage.getItem("selectedPlayerIcon") || "mayimage01.png";
+
 function togglePlayerIcon() {
     const img = document.getElementById("playerIconImg");
     if(!img) return;
-    let idx = parseInt(img.getAttribute("data-index"), 10) || 1;
-    idx = idx >= 3 ? 1 : idx + 1;
-    currentIconFile = `mayimage0${idx}.png`;
+    const unlocked = getUnlockedIcons();
+    const curIdx = unlocked.indexOf(currentIconFile);
+    const nextIdx = (curIdx + 1) % unlocked.length;
+    currentIconFile = unlocked[nextIdx];
     img.src = currentIconFile;
-    img.setAttribute("data-index", idx);
+    // data-index は全リスト内の番号で管理
+    const globalIdx = ALL_ICON_LIST.indexOf(currentIconFile) + 1;
+    img.setAttribute("data-index", globalIdx);
     localStorage.setItem("selectedPlayerIcon", currentIconFile);
     img.style.transform = "scale(1.1)";
     setTimeout(() => { img.style.transform = "scale(1)"; }, 150);
 }
 function setupLoadedIconUI() {
     const img = document.getElementById("playerIconImg");
+    // 解放済みに含まれているか確認
+    const unlocked = getUnlockedIcons();
+    if (!unlocked.includes(currentIconFile)) {
+        currentIconFile = unlocked[0];
+        localStorage.setItem("selectedPlayerIcon", currentIconFile);
+    }
     if(img && currentIconFile) {
         img.src = currentIconFile;
-        const match = currentIconFile.match(/mayimage0(\d)\.png/);
-        if(match) img.setAttribute("data-index", match[1]);
+        const globalIdx = ALL_ICON_LIST.indexOf(currentIconFile) + 1;
+        img.setAttribute("data-index", globalIdx > 0 ? globalIdx : 1);
     }
 }
 const firebaseConfig = {
@@ -456,8 +485,10 @@ function updateLvDisplay() {
     }
 }
 
+// Lvごとの解放アイコン定義
+const LV_UNLOCK_ICONS = { 2: "mayimage04.png", 3: "mayimage05.png", 4: "mayimage06.png" };
+
 function getLvUpReward(lv) {
-    // Lv5はストック上限拡張、それ以外はランダム5種
     if (lv === 5) return { type: 'stock' };
     if (lv >= 2 && lv <= MAX_LV) return { type: 'items' };
     return null;
@@ -465,18 +496,16 @@ function getLvUpReward(lv) {
 
 function grantLvUpReward(lv) {
     const reward = getLvUpReward(lv);
-    if (!reward) return '';
-    if (reward.type === 'stock') {
-        // Lv5: カレーストック上限8に（フラグ保存）
+    let resultLines = [];
+
+    if (reward && reward.type === 'stock') {
         localStorage.setItem('qr_curry_stock_limit', '8');
-        return '🍛 カレーストック上限が<b>8個</b>に拡張されました！';
+        resultLines.push('🍛 カレーストック上限が<b>8個</b>に拡張されました！');
     }
-    if (reward.type === 'items') {
-        // 金箔・赤パプリカ・黄パプリカを除く食材＋スパイス全部からランダム5種
+    if (reward && reward.type === 'items') {
         const ingPool = Object.keys(masterIngredients).filter(k => !["金箔","赤パプリカ","黄パプリカ"].includes(k));
         const spcPool = Object.keys(masterSpices);
         const allPool = [...ingPool, ...spcPool];
-        // シャッフルして5種選ぶ（重複あり可）
         let picked = [];
         for (let i = 0; i < 5; i++) {
             const item = allPool[Math.floor(Math.random() * allPool.length)];
@@ -488,9 +517,18 @@ function grantLvUpReward(lv) {
             const emoji = masterIngredients[p] ? masterIngredients[p].emoji : masterSpices[p].emoji;
             return `${emoji} ${p}`;
         }).join('　');
-        return `🎁 ランダム5種入手！<br><b>${lines}</b>`;
+        resultLines.push(`🎁 ランダム5種入手！<br><b>${lines}</b>`);
     }
-    return '';
+
+    // アイコン解放チェック
+    if (LV_UNLOCK_ICONS[lv]) {
+        const unlocked = unlockIcon(LV_UNLOCK_ICONS[lv]);
+        if (unlocked) {
+            resultLines.push(`🖼️ プレイヤーアイコンが1つ解放されました！`);
+        }
+    }
+
+    return resultLines.join('<br>');
 }
 
 function checkLvUp(oldExp, newExp) {
@@ -692,7 +730,7 @@ function loadGame() {
 function handleNameChange(val) { if(!val.trim()) val = "名無しの料理人"; playerName = val; document.getElementById("headerPlayerName").innerText = val; saveGame(); }
 function clearSaveData() {
     showCustomConfirm("⚠️ 全初期化", "セーブデータをすべてリセットします（初期配布チケット2枚になります）。本当によろしいですか？", function() {
-        localStorage.clear(); inventory = {}; scanHistory = {}; playerG = 0; playerEXP = 0; packTicket = 2; curryStock = []; playerName = "名無しの料理人"; recipeBook = {}; discoveredItems = {}; loadGame(); updateFridgeUI(); updateCookSelects(); refreshRecipeBookUI(); updateShopButtons(); document.getElementById("resultBox").style.display = "none"; saveGame(); updateLvDisplay();
+        localStorage.clear(); inventory = {}; scanHistory = {}; playerG = 0; playerEXP = 0; packTicket = 2; curryStock = []; playerName = "名無しの料理人"; recipeBook = {}; discoveredItems = {}; saveUnlockedIcons(["mayimage01.png","mayimage02.png","mayimage03.png"]); currentIconFile = "mayimage01.png"; localStorage.setItem("selectedPlayerIcon", "mayimage01.png"); loadGame(); updateFridgeUI(); updateCookSelects(); refreshRecipeBookUI(); updateShopButtons(); document.getElementById("resultBox").style.display = "none"; saveGame(); updateLvDisplay(); setupLoadedIconUI();
     });
 }
 function triggerStaffOnly() {
@@ -703,7 +741,32 @@ function triggerStaffOnly() {
                 Object.keys(masterIngredients).forEach(k => { inventory[k] = 99; discoveredItems[k] = true; });
                 Object.keys(masterSpices).forEach(k => { inventory[k] = 99; discoveredItems[k] = true; });
                 playerG = 9999; packTicket = 10; saveGame(); updateFridgeUI(); updateCookSelects(); playWinSound();
-                showCustomAlert("✨ 開発者用フルチャージ完了！");
+                // レベル選択ダイアログ
+                setTimeout(() => {
+                    const lvInput = prompt(`🎮 デバッグ：プレイヤーレベルを入力 (1〜${MAX_LV}):
+現在: Lv.${calcLv(playerEXP)}`);
+                    if (lvInput !== null) {
+                        const targetLv = parseInt(lvInput, 10);
+                        if (!isNaN(targetLv) && targetLv >= 1 && targetLv <= MAX_LV) {
+                            // 目標Lvに対応するEXPを設定（そのLvの開始EXP）
+                            playerEXP = (targetLv - 1) * EXP_PER_LV;
+                            // そのLv以下のアイコンを全解放
+                            const newUnlocked = ["mayimage01.png","mayimage02.png","mayimage03.png"];
+                            Object.keys(LV_UNLOCK_ICONS).forEach(lvKey => {
+                                if (parseInt(lvKey) <= targetLv) newUnlocked.push(LV_UNLOCK_ICONS[lvKey]);
+                            });
+                            saveUnlockedIcons(newUnlocked);
+                            // Lv5以上ならストック上限も解放
+                            if (targetLv >= 5) localStorage.setItem('qr_curry_stock_limit', '8');
+                            else localStorage.removeItem('qr_curry_stock_limit');
+                            saveGame(); updateLvDisplay(); setupLoadedIconUI();
+                            showCustomAlert("✅ デバッグ設定完了", `Lv.${targetLv} に設定しました！<br>EXP: ${playerEXP}<br>解放アイコン: ${newUnlocked.length}種`);
+                        } else {
+                            showCustomAlert("❌ 入力エラー", `1〜${MAX_LV} の数字を入力してください。`);
+                        }
+                    }
+                }, 400);
+                showCustomAlert("✨ 開発者用フルチャージ完了！続けてレベル設定ができます。");
             } else if (pass !== null) showCustomAlert("❌ パスワード不一致");
         }, 300);
     });
