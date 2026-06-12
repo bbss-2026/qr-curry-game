@@ -203,11 +203,11 @@
     </div>
     
     <div class="tab-menu">
-        <button class="tab-btn active" onclick="switchTab('guide')">📖 遊び方</button>
-        <button class="tab-btn" onclick="switchTab('scan')">📷 QRスキャン</button>
-        <button class="tab-btn" onclick="switchTab('fridge')">📦 冷蔵庫＆図鑑</button>
-        <button class="tab-btn" onclick="switchTab('cook')">🔥 調理</button>
-        <button class="tab-btn" onclick="switchTab('battle')">⚔️ 対戦アリーナ</button>
+        <button class="tab-btn active" onclick="switchTab('guide', this)">📖 遊び方</button>
+        <button class="tab-btn" onclick="switchTab('scan', this)">📷 QRスキャン</button>
+        <button class="tab-btn" onclick="switchTab('fridge', this)">📦 冷蔵庫＆図鑑</button>
+        <button class="tab-btn" onclick="switchTab('cook', this)">🔥 調理</button>
+        <button class="tab-btn" onclick="switchTab('battle', this)">⚔️ 対戦アリーナ</button>
     </div>
 
     <!-- 遊び方タブ -->
@@ -792,13 +792,14 @@ let discoveredItems = {};
 let cachedOpponentName = "";
 let cachedOpponentCurry = null;
 window.onload = function() { loadGame(); updateFridgeUI(); updateCookSelects(); refreshRecipeBookUI(); updateShopButtons(); listenToRooms(); updateMatchCurrySelects(); setupLoadedIconUI(); updateLvDisplay(); };
-function switchTab(tab) {
+function switchTab(tab, el) {
     if (document.getElementById("battleArena").style.display === "block") {
         endBattleScene();
     }
     document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
     document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-    event.currentTarget.classList.add('active');
+    const activeBtn = el || document.querySelector(".tab-btn[onclick*="'"+tab+"'"]");
+    if(activeBtn) activeBtn.classList.add('active');
     document.getElementById('page' + tab.charAt(0).toUpperCase() + tab.slice(1)).classList.add('active');
     cancelScanning();
 }
@@ -1005,7 +1006,7 @@ function startCamera() {
             document.getElementById("btnCancel").style.display = "inline-block";
             document.getElementById("btnStartCamera").style.display = "none";
             lastTickTime = 0;
-            tick();
+            tick(0);
         })
         .catch(function(err) {
             alert("カメラの起動に失敗しました。カメラへのアクセスを許可してください。
