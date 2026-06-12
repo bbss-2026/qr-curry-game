@@ -137,6 +137,11 @@
         .room-section { border: 2px dashed #9b59b6; padding: 15px; border-radius: 10px; margin-top: 15px; text-align: left; background: #fff; }
         .room-input { width: 90%; padding: 8px; margin-bottom: 10px; border-radius: 6px; border: 2px solid #ddd; }
         .room-card { display: flex; justify-content: space-between; align-items: center; padding: 10px; border-bottom: 1px solid #eee; background: #fdfdfd; border-radius: 6px; margin-bottom: 5px; }
+        @keyframes resultPop {
+            0% { transform: scale(0.3); opacity: 0; }
+            60% { transform: scale(1.2); opacity: 1; }
+            100% { transform: scale(1.0); opacity: 1; }
+        }
 
         /* ★追加：冷蔵庫タブ内プレイヤーアイコンエリア */
         .profile-area { text-align: center; margin-bottom: 15px; padding-bottom: 15px; border-bottom: 2px solid #f0e0c8; }
@@ -231,7 +236,7 @@
             ルールとマナーを守って楽しくお遊びください。<br>
             ・歩きスマホや、公共の場で交通の邪魔になるスキャンはやめましょう。<br>
             ・お店のレジにある「QR決済コード」へのスキャンは、店員さんの誤解を招くためご遠慮ください。<br>
-            ・購入前の商品のQRスキャンは、特典の不当な取得にあたります。必ず商品を購入した後にスキャンをお楽しみください。
+            ・購入前の商品のQRコードスキャンは、特典の不当な取得にあたります。必ず商品を購入した後にスキャンをお楽しみください。
         </div>
         <div id="statusMessage" style="font-size:14px; color:#7f8c8d; margin-bottom:15px; display:none; text-align:center;">🔍 QRを枠内に映してください...</div>
         <canvas id="canvas"></canvas>
@@ -272,10 +277,26 @@
             </div>
         </div>
         
-        <div class="category-title">📦 所持食材（具材）</div>
+        <div style="display:flex; align-items:center; justify-content:space-between; margin:18px 0 8px 0;">
+            <div class="category-title" style="margin:0;">📦 所持食材（具材）</div>
+            <select id="sortIngredients" onchange="updateFridgeUI()" style="font-size:11px; padding:3px 5px; border-radius:6px; border:1px solid #e67e22; color:#d35400; font-weight:bold; width:auto; margin:0;">
+                <option value="default">並び順：デフォルト</option>
+                <option value="hp">HP 高順</option>
+                <option value="atk">ATK 高順</option>
+                <option value="def">DEF 高順</option>
+                <option value="spd">SPD 高順</option>
+                <option value="count">所持数 多順</option>
+            </select>
+        </div>
         <div class="fridge-grid" id="fridgeIngredientsGrid"></div>
         
-        <div class="category-title">🌿 所持スパイス</div>
+        <div style="display:flex; align-items:center; justify-content:space-between; margin:18px 0 8px 0;">
+            <div class="category-title" style="margin:0;">🌿 所持スパイス</div>
+            <select id="sortSpices" onchange="updateFridgeUI()" style="font-size:11px; padding:3px 5px; border-radius:6px; border:1px solid #e67e22; color:#d35400; font-weight:bold; width:auto; margin:0;">
+                <option value="default">並び順：デフォルト</option>
+                <option value="count">所持数 多順</option>
+            </select>
+        </div>
         <div class="fridge-grid" id="fridgeSpicesGrid"></div>
         <h3 style="margin-top:25px; color:#d35400; text-align:center;">📖 発見したレシピ履歴</h3>
         <div class="recipe-book" id="recipeBookArea">履歴がありません。</div>
@@ -284,11 +305,27 @@
     <!-- 調理タブ -->
     <div id="pageCook" class="page">
         <button class="btn btn-rand" onclick="selectRandomIngredients()">🎲 在庫からおまかせランダム選択</button>
-        <h3 style="font-size:16px;">食材 1</h3><select id="ingredient1"></select>
-        <h3 style="font-size:16px;">食材 2</h3><select id="ingredient2"></select>
-        <h3 style="font-size:16px;">食材 3</h3><select id="ingredient3"></select>
-        <h3 style="font-size:16px;">スパイス</h3><select id="spice"></select>
-        <button class="btn btn-cook" onclick="checkCookStock()">🔥 カレーを調理する！</button>
+        <button class="btn btn-cook" onclick="checkCookStock()" style="margin-bottom:18px;">🔥 カレーを調理する！</button>
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:2px;">
+            <h3 style="font-size:16px; margin:0;">食材 1</h3>
+            <span id="statHint1" style="font-size:11px; color:#e67e22; font-weight:bold;"></span>
+        </div>
+        <select id="ingredient1" onchange="updateIngredientHint(1)"></select>
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:2px;">
+            <h3 style="font-size:16px; margin:0;">食材 2</h3>
+            <span id="statHint2" style="font-size:11px; color:#e67e22; font-weight:bold;"></span>
+        </div>
+        <select id="ingredient2" onchange="updateIngredientHint(2)"></select>
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:2px;">
+            <h3 style="font-size:16px; margin:0;">食材 3</h3>
+            <span id="statHint3" style="font-size:11px; color:#e67e22; font-weight:bold;"></span>
+        </div>
+        <select id="ingredient3" onchange="updateIngredientHint(3)"></select>
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:2px;">
+            <h3 style="font-size:16px; margin:0;">スパイス</h3>
+            <span id="statHintSpice" style="font-size:11px; color:#9b59b6; font-weight:bold;"></span>
+        </div>
+        <select id="spice" onchange="updateSpiceHint()"></select>
         <div class="result-box" id="resultBox" style="display:none; margin-top:20px; padding:15px; background:#fffdf0; border:2px dashed #e67e22; border-radius:10px; text-align:center;">
             <div id="criticalFlashText" style="color:#d35400; font-weight:bold; font-size:16px; display:none;">✨ 会心の出来！！！ ✨</div>
             <div id="poisonFlashText" style="color:#9b59b6; font-weight:bold; font-size:16px; display:none;">☠️ 危険！怪しい毒気が立ち上っている…！ ☠️</div>
@@ -335,6 +372,9 @@
         <div id="battleArena" style="display:none;">
             <div class="battle-stage" id="battleStage">
                 <div class="damage-pop" id="damagePop" style="display:none;">0</div>
+                <div id="battleResultOverlay" style="display:none; position:absolute; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.6); z-index:20; display:none; flex-direction:column; justify-content:center; align-items:center; border-radius:8px;">
+                    <div id="battleResultBig" style="font-size:52px; font-weight:900; font-family:'Impact',Arial,sans-serif; -webkit-text-stroke:2px #000; text-shadow:0 0 20px rgba(0,0,0,0.8); animation:resultPop 0.4s ease-out;"></div>
+                </div>
                 
                 <div class="enemy-zone" id="enemyZone">
                     <div class="enemy-upper-row">
@@ -843,6 +883,8 @@ function selectRandomIngredients() {
     let pool = [...avail];
     ["ingredient1", "ingredient2", "ingredient3"].forEach(id => { document.getElementById(id).value = pool.splice(Math.floor(Math.random() * pool.length), 1)[0]; });
     document.getElementById("spice").value = sps[Math.floor(Math.random() * sps.length)];
+    [1,2,3].forEach(n => updateIngredientHint(n));
+    updateSpiceHint();
 }
 let video = document.createElement("video"); let canvasElement = document.getElementById("canvas"); let canvas = canvasElement.getContext("2d"); let localStream = null; let animationFrameId = null;
 function startCamera() {
@@ -909,8 +951,29 @@ function updateFridgeUI() {
     const ingGrid = document.getElementById("fridgeIngredientsGrid");
     const spcGrid = document.getElementById("fridgeSpicesGrid");
     ingGrid.innerHTML = ""; spcGrid.innerHTML = "";
-    Object.keys(masterIngredients).forEach(name => createFridgeCard(ingGrid, name, masterIngredients[name].emoji, false));
-    Object.keys(masterSpices).forEach(name => createFridgeCard(spcGrid, name, masterSpices[name].emoji, true));
+
+    const ingSort = (document.getElementById("sortIngredients") || {}).value || "default";
+    let ingKeys = Object.keys(masterIngredients);
+    // 図鑑登録済みを先に、未登録を後ろに固定
+    const discovered = ingKeys.filter(k => discoveredItems[k]);
+    const undiscovered = ingKeys.filter(k => !discoveredItems[k]);
+    if (ingSort !== "default") {
+        discovered.sort((a, b) => {
+            if (ingSort === "count") return (inventory[b]||0) - (inventory[a]||0);
+            return masterIngredients[b][ingSort] - masterIngredients[a][ingSort];
+        });
+    }
+    [...discovered, ...undiscovered].forEach(name => createFridgeCard(ingGrid, name, masterIngredients[name].emoji, false));
+
+    const spcSort = (document.getElementById("sortSpices") || {}).value || "default";
+    let spcKeys = Object.keys(masterSpices);
+    const discSpc = spcKeys.filter(k => discoveredItems[k]);
+    const undiscSpc = spcKeys.filter(k => !discoveredItems[k]);
+    if (spcSort === "count") {
+        discSpc.sort((a, b) => (inventory[b]||0) - (inventory[a]||0));
+    }
+    [...discSpc, ...undiscSpc].forEach(name => createFridgeCard(spcGrid, name, masterSpices[name].emoji, true));
+
     updateMatchCurrySelects();
 }
 function createFridgeCard(grid, name, emoji, isSpice) {
@@ -960,6 +1023,27 @@ function updateCookSelects() {
     });
     const spSel = document.getElementById("spice"); spSel.innerHTML = "<option value=''>❌ （なし）</option>";
     Object.keys(masterSpices).forEach(n => { if((inventory[n]||0)>0){ const o=document.createElement("option"); o.value=n; o.innerText=`${masterSpices[n].emoji} ${n} (所持数: ${inventory[n]}個)`; spSel.appendChild(o); } });
+}
+function updateIngredientHint(num) {
+    const val = document.getElementById("ingredient" + num).value;
+    const el = document.getElementById("statHint" + num);
+    if (!el) return;
+    if (!val || !masterIngredients[val]) { el.innerText = ""; return; }
+    const d = masterIngredients[val];
+    el.innerText = `HP+${d.hp} / ATK+${d.atk} / DEF+${d.def} / SPD+${d.spd}`;
+}
+function updateSpiceHint() {
+    const val = document.getElementById("spice").value;
+    const el = document.getElementById("statHintSpice");
+    if (!el) return;
+    if (!val || !masterSpices[val]) { el.innerText = ""; return; }
+    const d = masterSpices[val];
+    const statName = d.mul === "hp" ? "HP" : d.mul === "atk" ? "ATK" : d.mul === "def" ? "DEF" : "SPD";
+    el.innerText = `${statName} ${d.val}倍`;
+}
+function clearAllHints() {
+    [1,2,3].forEach(n => { const el = document.getElementById("statHint"+n); if(el) el.innerText=""; });
+    const es = document.getElementById("statHintSpice"); if(es) es.innerText="";
 }
 function checkCookStock() {
     const i1 = document.getElementById("ingredient1").value; const i2 = document.getElementById("ingredient2").value; const i3 = document.getElementById("ingredient3").value; const sp = document.getElementById("spice").value;
@@ -1215,6 +1299,11 @@ document.addEventListener('visibilitychange', function() {
 });
 function proceedToArena(oppN, oppC, myC) {
     document.getElementById("battleResultBox").style.display = "none";
+    const overlay2 = document.getElementById("battleResultOverlay"); if(overlay2) overlay2.style.display = "none";
+    // 赤文字リセット
+    ["oppOwnerText","oHpText","pOwnerText","pHpText"].forEach(id => {
+        const el = document.getElementById(id); if(el) el.style.color = "";
+    });
     const pop = document.getElementById("damagePop"); pop.style.display = "none"; pop.style.animation = "none"; pop.innerText = "0";
     document.getElementById("battleSetup").style.display = "none"; document.getElementById("battleArena").style.display = "block";
     document.getElementById("pOwnerText").innerText = playerName; document.getElementById("playerCurryNameText").innerText = myC.name;
@@ -1289,9 +1378,34 @@ function triggerEffect(target, damage) {
     }
 }
 function done(pHP, oHP, myC, oppC) {
-    document.getElementById("battleResultBox").style.display = "block";
+    const isWin = pHP > oHP;
+
+    // ★中央ドーン演出
+    const overlay = document.getElementById("battleResultOverlay");
+    const bigText = document.getElementById("battleResultBig");
+    if (overlay && bigText) {
+        bigText.innerText = isWin ? "🏆 勝利!!" : "💀 敗北...";
+        bigText.style.color = isWin ? "#2ecc71" : "#ff4444";
+        overlay.style.display = "flex";
+        // 2秒後に結果ボックスを表示してオーバーレイを消す
+        setTimeout(() => { overlay.style.display = "none"; document.getElementById("battleResultBox").style.display = "block"; }, 2000);
+    } else {
+        document.getElementById("battleResultBox").style.display = "block";
+    }
+
+    // ★負けた側のHP・名前を赤文字に
+    if (isWin) {
+        // 相手が負け → 敵ゾーンを赤く
+        document.getElementById("oppOwnerText").style.color = "#ff4444";
+        document.getElementById("oHpText").style.color = "#ff4444";
+    } else {
+        // 自分が負け → プレイヤーゾーンを赤く
+        document.getElementById("pOwnerText").style.color = "#ff4444";
+        document.getElementById("pHpText").style.color = "#ff4444";
+    }
+
     const res = document.getElementById("battleVerdict"); const rew = document.getElementById("rewardText");
-    if (pHP > oHP) {
+    if (isWin) {
         playWinSound(); res.innerText = "🏆 勝利 !!"; res.style.color = "#2ecc71";
         let g = 30, e = 5, loot = "";
         if (isBotMatch && oppC.isMaharaja) { g = 300; inventory["金箔"] = (inventory["金箔"] || 0) + 1; discoveredItems["金箔"] = true; loot = "✨金箔ゲット！"; }
