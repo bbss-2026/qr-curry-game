@@ -259,8 +259,8 @@
             <div class="shop-grid">
                 <button class="btn-shop btn-shop-30" id="btnGachaNormal" onclick="buyGacha('normal')">食材ガチャ (30G)<br><span style="font-size:9px;font-weight:normal;">通常QR具材1種</span></button>
                 <button class="btn-shop btn-shop-30s" id="btnGachaSpice" onclick="buyGacha('spice')">スパイスガチャ (30G)<br><span style="font-size:9px;font-weight:normal;">スパイス1種</span></button>
-                <button class="btn-shop btn-shop-100" id="btnGachaMid" onclick="buyGacha('mid')">中級具材ガチャ (100G)<br><span style="font-size:9px;font-weight:normal;">サバ・オクラ等1種</span></button>
-                <button class="btn-shop btn-shop-300" id="btnGachaHigh" onclick="buyGacha('high')">最高級ガチャ (300G)<br><span style="font-size:9px;font-weight:normal;">牛すじ・マッシュ等1種</span></button>
+                <button class="btn-shop btn-shop-100" id="btnGachaMid" onclick="buyGacha('mid')">中級具材ガチャ (100G)<br><span style="font-size:9px;font-weight:normal;">牡蠣・合鴨など1種</span></button>
+                <button class="btn-shop btn-shop-300" id="btnGachaHigh" onclick="buyGacha('high')">最高級ガチャ (300G)<br><span style="font-size:9px;font-weight:normal;">キャビア・海老など1種</span></button>
                 <button class="btn-shop btn-shop-pack" id="btnGachaPack" onclick="buyGachaPack()">🎉 豪華10個パックガチャ (チケット1枚消費)<br><span style="font-size:10px;font-weight:normal;opacity:0.9;">通常具材7個 ＋ スパイス2個 ＋ 中級or最高級1個！</span></button>
             </div>
         </div>
@@ -465,10 +465,10 @@ function showCustomConfirm(title, message, onConfirm, onCancel) {
 const masterIngredients = {
     "牛肉": { hp: 120, atk: 40, def: 30, spd: 10, emoji: "🥩", shop: 0, desc: "ジューシーで旨味あふれる高級なお肉。HPが大きく上昇する万能なメイン食材！" },
     "牛タン": { hp: 100, atk: 35, def: 25, spd: 25, emoji: "👅", shop: 1, desc: "独特の歯ごたえが魅力。お肉の中では油分が少なめで、SPDを落とさずに強化できる。" },
-    "牛すじ": { hp: 150, atk: 20, def: 50, spd: 5, emoji: "🍢", shop: 2, desc: "煮込むことでプルプルになる部位。圧倒的なDEFを誇る、耐久カレーの必須具材。" },
+    "牛すじ": { hp: 150, atk: 20, def: 50, spd: 5, emoji: "🍢", shop: 0, desc: "煮込むことでプルプルになる部位。圧倒的なDEFを誇る、耐久カレーの必須具材。" },
     "チキン": { hp: 90, atk: 45, def: 20, spd: 30, emoji: "🍗", shop: 0, desc: "ヘルシーな鶏肉。SPDとATKが優秀。" },
-    "唐揚げ": { hp: 80, atk: 60, def: 15, spd: 20, emoji: "💥", shop: 1, desc: "カラッと揚がったお肉。最大のATK上昇量を誇る攻撃的具材！" },
-    "トンカツ": { hp: 110, atk: 55, def: 35, spd: 10, emoji: "🐷", shop: 2, desc: "サクサクの豚カツ。高い攻撃力と防御力を合わせ持つ。" },
+    "唐揚げ": { hp: 80, atk: 60, def: 15, spd: 20, emoji: "💥", shop: 0, desc: "カラッと揚がったお肉。最大のATK上昇量を誇る攻撃的具材！" },
+    "トンカツ": { hp: 110, atk: 55, def: 35, spd: 10, emoji: "🐷", shop: 0, desc: "サクサクの豚カツ。高い攻撃力と防御力を合わせ持つ。" },
     "ウインナー": { hp: 85, atk: 40, def: 25, spd: 25, emoji: "🌭", shop: 0, desc: "パリッと弾けるジューシーなソーセージ。攻守のバランスが良い。" },
     "ナス": { hp: 30, atk: 5, def: 15, spd: 10, emoji: "🍆", shop: 0, desc: "油とスパイスをよく吸う野菜。組み合わせ次第では『毒カレー』に変貌することも…？" },
     "トマト": { hp: 40, atk: 10, def: 5, spd: 15, emoji: "🍅", shop: 0, desc: "爽やかな酸味を加える。程よいスピード感を生み出す。" },
@@ -483,7 +483,7 @@ const masterIngredients = {
     "サバ": { hp: 95, atk: 42, def: 22, spd: 18, emoji: "🐟", shop: 1, desc: "パンチのあるATKを発揮する人気の魚介。" },
     "オクラ": { hp: 40, atk: 15, def: 25, spd: 15, emoji: "🫛", shop: 1, desc: "刻むことで粘り気が出る野菜。DEFを高める盾となる。" },
     "大根": { hp: 70, atk: 10, def: 35, spd: 5, emoji: "🫚", shop: 0, desc: "味が染み込む和の食材。HPの底上げと防衛能力。" },
-    "マッシュルーム": { hp: 35, atk: 22, def: 8, spd: 20, emoji: "🍄", shop: 2, desc: "帝国を脅かす幻のキノコ。攻撃と素早さが伸びる。" },
+    "マッシュルーム": { hp: 35, atk: 22, def: 8, spd: 20, emoji: "🍄", shop: 0, desc: "帝国を脅かす幻のキノコ。攻撃と素早さが伸びる。" },
     "ひよこ豆": { hp: 60, atk: 15, def: 20, spd: 10, emoji: "🫘", shop: 0, desc: "地味ながらカレーに安定した硬さを提供する。" },
     "金箔": { hp: 100, atk: 50, def: 50, spd: 50, emoji: "✨", shop: -2, desc: "マハラジャに勝利した者のみが手にできる伝説の超アイテム。" },
     "チーズ": { hp: 70, atk: 20, def: 30, spd: 10, emoji: "🧀", shop: 0, desc: "濃厚なコクがカレーに深みをもたらす。HPとDEFを底上げする安定食材。" },
@@ -512,7 +512,7 @@ const botOpponents = [
     { name: "見習い料理人タカシ", curryName: "ベジマイルドカレー", emoji: "🥦🥔🥕", image: "bot01.png", hp: 130, atk: 25, def: 20, spd: 15, expBonus: 5 },
     { name: "魔術師レオン", curryName: "爆炎のW唐揚げ激辛", emoji: "💥💥❤️", image: "bot02.png", hp: 180, atk: 65, def: 15, spd: 35, expBonus: 10 },
     { name: "ガンコ親父", curryName: "極厚トンカツ重量級", emoji: "🐷🥩🧅", image: "bot03.png", hp: 280, atk: 55, def: 45, spd: 5, expBonus: 15 },
-    { name: "ミラ宮廷カレー長", curryName: "至高 of シーフード贅沢", emoji: "🐟✨🐚", image: "bot04.png", hp: 350, atk: 90, def: 60, spd: 40, expBonus: 20 }
+    { name: "宮廷カレー長", curryName: "至高 of シーフード贅沢", emoji: "🐟✨🐚", image: "bot04.png", hp: 350, atk: 90, def: 60, spd: 40, expBonus: 20 }
 ];
 let inventory = {}; let scanHistory = {};
 let playerG = 0; let playerEXP = 0; let packTicket = 0;
