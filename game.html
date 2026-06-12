@@ -491,6 +491,24 @@ function playTone(freq, type, duration) {
         osc.stop(audioCtx.currentTime + duration);
     } catch(e) {}
 }
+// ===== BGM・特殊効果音管理 =====
+let battleBGM = null;
+function playBattleBGM(src) {
+    stopBattleBGM();
+    battleBGM = new Audio(src);
+    battleBGM.loop = true;
+    battleBGM.volume = 0.5;
+    battleBGM.play().catch(e => console.log("BGM play error:", e));
+}
+function stopBattleBGM() {
+    if(battleBGM) { battleBGM.pause(); battleBGM.currentTime = 0; battleBGM = null; }
+}
+function playSoundEffect(src) {
+    const se = new Audio(src);
+    se.volume = 0.7;
+    se.play().catch(e => console.log("SE play error:", e));
+}
+// ===== ここまで =====
 function playAttackSound() { playTone(440, 'triangle', 0.1); setTimeout(() => playTone(659.25, 'triangle', 0.1), 50); }
 function playDamageSound() { playTone(100, 'sawtooth', 0.2); }
 function playPoisonSound() { playTone(180, 'sine', 0.3); setTimeout(() => playTone(150, 'sine', 0.3), 100); }
@@ -1063,11 +1081,25 @@ function cookCurry() {
     let isPoison = false; let hasGold = acts.includes("金箔");
     let countNas = acts.filter(x => x === "ナス").length;
     let hasRaisin = acts.includes("レーズン"); let hasSaba = acts.includes("サバ"); let hasTuna = acts.includes("ツナ"); let hasDaikon = acts.includes("大根"); let hasPotato = acts.includes("ジャガイモ");
+    let isMargherita = acts.includes("トマト") && acts.includes("チーズ");
+    let isTonTonTon = acts.filter(x => x === "トンカツ").length === 3;
     if(acts.length===0){ cName=`${prefix}スパイススープ`; vis="🥣"; } else {
-        let cnts={}; acts.forEach(x=>cnts[x]=(cnts[x]||0)+1); let body="";
-        Object.keys(cnts).forEach(k=>{ if(cnts[k]===3)body+=`トリプル${k}`; else if(cnts[k]===2)body+=`W${k}`; else body+=k; });
-        cName=`${prefix}${body}カレー`; vis=acts.map(x=>masterIngredients[x].emoji).join("");
+        if(isMargherita) {
+            // トマトとチーズをカレー名から除いて残りの食材で名前を作る
+            const others = acts.filter(x => x !== "トマト" && x !== "チーズ");
+            let body = others.length > 0 ? others.map(x => x).join("") : "";
+            cName = `${prefix}マルゲリータ${body ? body + "の" : ""}カレー`;
+            vis = acts.map(x => masterIngredients[x].emoji).join("");
+        } else if(isTonTonTon) {
+            cName = "3匹のトントントン"; vis = "🐷🐷🐷";
+        } else {
+            let cnts={}; acts.forEach(x=>cnts[x]=(cnts[x]||0)+1); let body="";
+            Object.keys(cnts).forEach(k=>{ if(cnts[k]===3)body+=`トリプル${k}`; else if(cnts[k]===2)body+=`W${k}`; else body+=k; });
+            cName=`${prefix}${body}カレー`; vis=acts.map(x=>masterIngredients[x].emoji).join("");
+        }
     }
+    // マルゲリータ：全ステータス1.2倍
+    if(isMargherita) { hp=Math.round(hp*1.2); atk=Math.round(atk*1.2); def=Math.round(def*1.2); spd=Math.round(spd*1.2); }
     if(countNas >= 1 && hasRaisin) { cName = "☠️瘴気漂う毒ナスレーズン"; isPoison = true; } 
     else if((hasSaba || hasTuna) && countNas >= 1 && hasDaikon) { cName = "☠️デスフィッシュカレー"; isPoison = true; } 
     else if(hasPotato && countNas >= 1 && hasRaisin) { cName = "☠️水分絶滅シナモンポテト"; isPoison = true; } 
@@ -1080,7 +1112,7 @@ function cookCurry() {
     else if(isPoison) { playPoisonSound(); document.getElementById("resultBox").classList.add("poison-box"); document.getElementById("poisonFlashText").style.display="block"; }
     else if(Math.random()<0.15){ playCriticalSound(); cName=`💎至高の${cName}`; hp=Math.round(hp*1.4); atk=Math.round(atk*1.4); document.getElementById("resultBox").classList.add("critical-box"); document.getElementById("criticalFlashText").style.display="block"; }
     if (curryStock.length >= getCurryStockLimit()) curryStock.shift();
-    const newCurry = { name: cName, visual: vis, hp: hp, atk: atk, def: def, spd: spd, isPoison, hasGold };
+    const newCurry = { name: cName, visual: vis, hp: hp, atk: atk, def: def, spd: spd, isPoison, hasGold, isMargherita, isTonTonTon };
     curryStock.push(newCurry); selectedCurryIndex = curryStock.length - 1;
     saveGame(); updateFridgeUI(); updateCookSelects(); clearAllHints();
     document.getElementById("curryVisual").innerText=vis; document.getElementById("curryName").innerText=cName;
@@ -1327,6 +1359,9 @@ function proceedToArena(oppN, oppC, myC) {
     }
     let pHP = myC.hp; let oHP = oppC.hp; updateHP(pHP, oHP, oppC.hp, myC.hp);
     const log = document.getElementById("battleLog"); log.innerHTML = `⚔️ ${oppN} との決闘開始！\n`;
+    // ★特殊BGM
+    stopBattleBGM();
+    if(myC.isMargherita) playBattleBGM("Guardare_il_cielo.mp3");
     let isOP = false, isPP = false;
     if (myC.isPoison) { isOP = true; log.innerHTML += `☠️ 毒気が ${oppN} を蝕む！`; playPoisonSound(); }
     if (oppC.isPoison) { isPP = true; log.innerHTML += `☠️ 毒気が ${playerName} を蝕む！`; playPoisonSound(); }
@@ -1336,7 +1371,7 @@ function proceedToArena(oppN, oppC, myC) {
         if (myTurn) {
             log.innerHTML = `🔥 自分のターン！`;
             if (isPP) { let d = Math.round(myC.hp * 0.08); pHP -= d; log.innerHTML += `\n☠️ 毒ダメージ: ${d}`; triggerEffect("player-poison", d); updateHP(pHP, oHP, oppC.hp, myC.hp); if(pHP<=0){step();return;} }
-            if (myC.hasGold) { playGoldSound(); log.innerHTML += `\n🌟 金箔乱舞！`; } else playAttackSound();
+            if (myC.hasGold) { playGoldSound(); log.innerHTML += `\n🌟 金箔乱舞！`; } else if(myC.isTonTonTon) { playSoundEffect('pig2.mp3'); } else playAttackSound();
             setTimeout(() => {
                 let d = Math.max(8, myC.atk - Math.floor(oppC.def / 2)); d = Math.round(d * (0.9 + Math.random() * 0.2));
                 oHP = Math.max(0, oHP - d); log.innerHTML += `\n💥 ダメージ: ${d}`; triggerEffect(myC.hasGold?"enemy-gold":"enemy", d);
@@ -1345,7 +1380,7 @@ function proceedToArena(oppN, oppC, myC) {
         } else {
             log.innerHTML = `⚠️ 相手のターン！`;
             if (isOP) { let d = Math.round(oppC.hp * 0.08); oHP -= d; log.innerHTML += `\n☠️ 毒ダメージ: ${d}`; triggerEffect("enemy-poison", d); updateHP(pHP, oHP, oppC.hp, myC.hp); if(oHP<=0){step();return;} }
-            playAttackSound();
+            if(myC.isTonTonTon) { playSoundEffect('pig1.mp3'); } else playAttackSound();
             setTimeout(() => {
                 let d = Math.max(8, oppC.atk - Math.floor(myC.def / 2)); d = Math.round(d * (0.9 + Math.random() * 0.2));
                 pHP = Math.max(0, pHP - d); log.innerHTML += `\n😢 被弾ダメージ: ${d}`; triggerEffect("player", d);
@@ -1378,6 +1413,7 @@ function triggerEffect(target, damage) {
     }
 }
 function done(pHP, oHP, myC, oppC) {
+    stopBattleBGM(); // ★バトル終了時BGM停止
     const isWin = pHP > oHP;
 
     // ★中央ドーン演出
@@ -1427,6 +1463,7 @@ function done(pHP, oHP, myC, oppC) {
     if (typeof updateMatchCurrySelects === "function") updateMatchCurrySelects();
 }
 function endBattleScene() {
+    stopBattleBGM(); // ★退場時も念のため停止
     document.getElementById("battleResultBox").style.display = "none";
     document.getElementById("battleSetup").style.display = "block"; document.getElementById("lobbyArea").style.display = "block";
     document.getElementById("waitingArea").style.display = "none"; document.getElementById("battleArena").style.display = "none";
