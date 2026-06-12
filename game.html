@@ -236,7 +236,7 @@
             ルールとマナーを守って楽しくお遊びください。<br>
             ・歩きスマホや、公共の場で交通の邪魔になるスキャンはやめましょう。<br>
             ・お店のレジにある「QR決済コード」へのスキャンは、店員さんの誤解を招くためご遠慮ください。<br>
-            ・購入前の商品のQRコードスキャンは、特典の不当な取得にあたります。必ず商品を購入した後にスキャンをお楽しみください。
+            ・購入前の商品のQRスキャンは、特典の不当な取得にあたります。必ず商品を購入した後にスキャンをお楽しみください。
         </div>
         <div id="statusMessage" style="font-size:14px; color:#7f8c8d; margin-bottom:15px; display:none; text-align:center;">🔍 QRを枠内に映してください...</div>
         <canvas id="canvas"></canvas>
@@ -1082,7 +1082,7 @@ function cookCurry() {
     if (curryStock.length >= getCurryStockLimit()) curryStock.shift();
     const newCurry = { name: cName, visual: vis, hp: hp, atk: atk, def: def, spd: spd, isPoison, hasGold };
     curryStock.push(newCurry); selectedCurryIndex = curryStock.length - 1;
-    saveGame(); updateFridgeUI(); updateCookSelects();
+    saveGame(); updateFridgeUI(); updateCookSelects(); clearAllHints();
     document.getElementById("curryVisual").innerText=vis; document.getElementById("curryName").innerText=cName;
     document.getElementById("statHP").innerText=hp; document.getElementById("statATK").innerText=atk; document.getElementById("statDEF").innerText=def; document.getElementById("statSPD").innerText=spd;
     document.getElementById("resultBox").style.display="block";
