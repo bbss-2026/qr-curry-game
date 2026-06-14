@@ -138,6 +138,12 @@
         .room-input { width: 90%; padding: 8px; margin-bottom: 10px; border-radius: 6px; border: 2px solid #ddd; }
         .room-card { display: flex; justify-content: space-between; align-items: center; padding: 10px; border-bottom: 1px solid #eee; background: #fdfdfd; border-radius: 6px; margin-bottom: 5px; }
         /* 特殊カレー演出 */
+        .illusion-box { animation: illusionGlow 1.5s infinite; border: 3px solid #1abc9c !important; }
+        @keyframes illusionGlow { 0%,100% { box-shadow: 0 0 5px #1abc9c; } 50% { box-shadow: 0 0 20px #1abc9c, 0 0 30px #3498db; } }
+        .sticky-box { animation: stickyGlow 1.5s infinite; border: 3px solid #2ecc71 !important; }
+        @keyframes stickyGlow { 0%,100% { box-shadow: 0 0 5px #2ecc71; } 50% { box-shadow: 0 0 20px #2ecc71; } }
+        .seed-box { animation: seedGlow 1.5s infinite; border: 3px solid #27ae60 !important; }
+        @keyframes seedGlow { 0%,100% { box-shadow: 0 0 5px #27ae60; } 50% { box-shadow: 0 0 20px #f39c12, 0 0 30px #27ae60; } }
         .margherita-box { animation: margheritaGlow 1.5s infinite; border: 3px solid #e74c3c !important; }
         @keyframes margheritaGlow { 0% { box-shadow: 0 0 5px #e74c3c; } 50% { box-shadow: 0 0 20px #27ae60, 0 0 30px #e74c3c; } 100% { box-shadow: 0 0 5px #e74c3c; } }
         .tonton-box { animation: tontonGlow 1.5s infinite; border: 3px solid #f39c12 !important; }
@@ -340,6 +346,9 @@
             <div id="margheritaFlashText" style="color:#e74c3c; font-weight:bold; font-size:16px; display:none;">🍅🧀 マルゲリータの奇跡！全ステータス上昇！ 🧀🍅</div>
             <div id="tontonFlashText" style="color:#f39c12; font-weight:bold; font-size:16px; display:none;">🐷🐷🐷 3匹のトントントン！ブヒィ！ 🐷🐷🐷</div>
             <div id="waveFlashText" style="color:#3498db; font-weight:bold; font-size:16px; display:none;">🌊 海の幸が集結！海鮮スペシャルカレー！ 🌊</div>
+            <div id="illusionFlashText" style="color:#1abc9c; font-weight:bold; font-size:16px; display:none;">🦑🍄 幻惑の霧が漂う…敵の命中率が下がる！ 🍄🦑</div>
+            <div id="stickyFlashText" style="color:#2ecc71; font-weight:bold; font-size:16px; display:none;">🫛🧀 ネバネバが敵を封じる！必ず先攻を取れる！ 🧀🫛</div>
+            <div id="seedFlashText" style="color:#27ae60; font-weight:bold; font-size:16px; display:none;">🌱 種の力が炸裂！連続発射カレー爆誕！ 🌱</div>
             <div style="font-size:64px;" id="curryVisual">🍛</div>
             <div style="font-size:18px; font-weight:bold; color:#c0392b; margin-bottom:10px;" id="curryName">未調理 of カレー</div>
             <div class="status-grid">
@@ -739,6 +748,7 @@ let recipeBook = {}; let myRoomRef = null; let currentRoomId = null;
 let cachedMyIconFile = "mayimage01.png";
 let cachedOppIconFile = "mayimage01.png";
 let isBotMatch = false; let activeBotData = null;
+let onlineRole = 'host'; // 対人戦での自分の役割
 let discoveredItems = {};
 let cachedOpponentName = "";
 let cachedOpponentCurry = null;
@@ -1101,6 +1111,12 @@ function cookCurry() {
     let isTonTonTon = acts.filter(x => x === "トンカツ").length === 3;
     const SEAFOOD_LIST = ["サバ","イカ","小エビ","ホタテ","ツナ","牡蠣","キャビア","オマール海老","ズワイガニ"];
     let isSeafood = acts.length === 3 && acts.every(x => SEAFOOD_LIST.includes(x));
+    // 新特殊カレー判定
+    let isIllusion = acts.includes("イカ") && acts.includes("マッシュルーム");
+    let isSticky = acts.includes("オクラ") && acts.includes("チーズ");
+    const SEED_LIST = ["ピーマン","赤パプリカ","黄パプリカ","オクラ","トマト","ナス","レーズン","レンコン"];
+    let seedCount = acts.filter(x => SEED_LIST.includes(x)).length;
+    let isSeed = seedCount >= 2;
     if(acts.length===0){ cName=`${prefix}スパイススープ`; vis="🥣"; } else {
         if(isMargherita) {
             // トマトとチーズをカレー名から除いて残りの食材で名前を作る
@@ -1119,22 +1135,47 @@ function cookCurry() {
     }
     // マルゲリータ：全ステータス1.2倍
     if(isMargherita) { hp=Math.round(hp*1.2); atk=Math.round(atk*1.2); def=Math.round(def*1.2); spd=Math.round(spd*1.2); }
-    if(countNas >= 1 && hasRaisin) { cName = "☠️瘴気漂う毒ナスレーズン"; isPoison = true; } 
-    else if((hasSaba || hasTuna) && countNas >= 1 && hasDaikon) { cName = "☠️デスフィッシュカレー"; isPoison = true; } 
-    else if(hasPotato && countNas >= 1 && hasRaisin) { cName = "☠️水分絶滅シナモンポテト"; isPoison = true; } 
-    else if(countNas >= 2) { cName = `☠️怨念のナス毒沼カレー`; isPoison = true; }
+    // 排他特殊カレー候補をリストアップしてランダム抽選
+    let exclusiveCandidates = [];
+    if(countNas >= 1 && hasRaisin) exclusiveCandidates.push("poison_nas_raisin");
+    if((hasSaba || hasTuna) && countNas >= 1 && hasDaikon) exclusiveCandidates.push("poison_fish");
+    if(hasPotato && countNas >= 1 && hasRaisin) exclusiveCandidates.push("poison_potato");
+    if(countNas >= 2) exclusiveCandidates.push("poison_nas2");
+    if(isMargherita) exclusiveCandidates.push("margherita");
+    if(isTonTonTon) exclusiveCandidates.push("tonton");
+    if(isIllusion) exclusiveCandidates.push("illusion");
+    if(isSticky) exclusiveCandidates.push("sticky");
+    if(isSeed) exclusiveCandidates.push("seed");
+    // 抽選で1つ選ぶ（重複時はランダム）
+    const chosen = exclusiveCandidates.length > 0 ? exclusiveCandidates[Math.floor(Math.random() * exclusiveCandidates.length)] : null;
+    // フラグリセットして選ばれたものだけ有効化
+    isPoison=false; isMargherita=false; isTonTonTon=false; isIllusion=false; isSticky=false; isSeed=false;
+    if(chosen === "poison_nas_raisin") { cName = "☠️瘴気漂う毒ナスレーズン"; isPoison = true; }
+    else if(chosen === "poison_fish") { cName = "☠️デスフィッシュカレー"; isPoison = true; }
+    else if(chosen === "poison_potato") { cName = "☠️水分絶滅シナモンポテト"; isPoison = true; }
+    else if(chosen === "poison_nas2") { cName = "☠️怨念のナス毒沼カレー"; isPoison = true; }
+    else if(chosen === "margherita") { isMargherita = true; }
+    else if(chosen === "tonton") { isTonTonTon = true; }
+    else if(chosen === "illusion") { cName = `🌀幻惑の${cName}`; isIllusion = true; }
+    else if(chosen === "sticky") { cName = `💚ネバネバ${cName}`; isSticky = true; }
+    else if(chosen === "seed") { cName = `🌱種連発${cName}`; isSeed = true; }
     const rKey=[...acts, sp].filter(Boolean).sort().join("+");
     if(!recipeBook[rKey]) recipeBook[rKey]={name:cName, visual:vis, materials:acts.length?acts:["なし"]};
-    document.getElementById("resultBox").classList.remove("critical-box","poison-box","gold-box","margherita-box","tonton-box","wave-box");
-    ["criticalFlashText","poisonFlashText","goldFlashText","margheritaFlashText","tontonFlashText","waveFlashText"].forEach(id=>{ const el=document.getElementById(id); if(el) el.style.display="none"; });
+    document.getElementById("resultBox").classList.remove("critical-box","poison-box","gold-box","margherita-box","tonton-box","wave-box","illusion-box","sticky-box","seed-box");
+    ["criticalFlashText","poisonFlashText","goldFlashText","margheritaFlashText","tontonFlashText","waveFlashText","illusionFlashText","stickyFlashText","seedFlashText"].forEach(id=>{ const el=document.getElementById(id); if(el) el.style.display="none"; });
+    // 重複OK：金箔・海鮮・会心
     if(hasGold) { playGoldSound(); cName = `✨黄金仕立ての${cName}`; document.getElementById("resultBox").classList.add("gold-box"); document.getElementById("goldFlashText").style.display="block"; }
-    else if(isPoison) { playPoisonSound(); document.getElementById("resultBox").classList.add("poison-box"); document.getElementById("poisonFlashText").style.display="block"; }
+    if(isSeafood) { playTone(440,'sine',0.3); setTimeout(()=>playTone(550,'sine',0.3),150); document.getElementById("resultBox").classList.add("wave-box"); document.getElementById("waveFlashText").style.display="block"; }
+    if(!hasGold && !isSeafood && Math.random()<0.15){ playCriticalSound(); cName=`💎至高の${cName}`; hp=Math.round(hp*1.4); atk=Math.round(atk*1.4); document.getElementById("resultBox").classList.add("critical-box"); document.getElementById("criticalFlashText").style.display="block"; }
+    // 排他特殊演出（chosenで選ばれた1つのみ）
+    if(isPoison) { playPoisonSound(); document.getElementById("resultBox").classList.add("poison-box"); document.getElementById("poisonFlashText").style.display="block"; }
     else if(isMargherita) { playCriticalSound(); document.getElementById("resultBox").classList.add("margherita-box"); document.getElementById("margheritaFlashText").style.display="block"; }
     else if(isTonTonTon) { playSoundEffect('pig2.mp3'); document.getElementById("resultBox").classList.add("tonton-box"); document.getElementById("tontonFlashText").style.display="block"; }
-    else if(isSeafood) { playTone(440,'sine',0.3); setTimeout(()=>playTone(550,'sine',0.3),150); document.getElementById("resultBox").classList.add("wave-box"); document.getElementById("waveFlashText").style.display="block"; }
-    else if(Math.random()<0.15){ playCriticalSound(); cName=`💎至高の${cName}`; hp=Math.round(hp*1.4); atk=Math.round(atk*1.4); document.getElementById("resultBox").classList.add("critical-box"); document.getElementById("criticalFlashText").style.display="block"; }
+    else if(isIllusion) { playTone(300,'sine',0.2); setTimeout(()=>playTone(250,'sine',0.3),200); document.getElementById("resultBox").classList.add("illusion-box"); document.getElementById("illusionFlashText").style.display="block"; }
+    else if(isSticky) { playTone(350,'triangle',0.3); document.getElementById("resultBox").classList.add("sticky-box"); document.getElementById("stickyFlashText").style.display="block"; }
+    else if(isSeed) { playTone(500,'square',0.1); setTimeout(()=>playTone(600,'square',0.1),80); setTimeout(()=>playTone(700,'square',0.1),160); document.getElementById("resultBox").classList.add("seed-box"); document.getElementById("seedFlashText").style.display="block"; }
     if (curryStock.length >= getCurryStockLimit()) curryStock.shift();
-    const newCurry = { name: cName, visual: vis, hp: hp, atk: atk, def: def, spd: spd, isPoison, hasGold, isMargherita, isTonTonTon, isSeafood };
+    const newCurry = { name: cName, visual: vis, hp: hp, atk: atk, def: def, spd: spd, isPoison, hasGold, isMargherita, isTonTonTon, isSeafood, isIllusion, isSticky, isSeed };
     curryStock.push(newCurry); selectedCurryIndex = curryStock.length - 1;
     saveGame(); updateFridgeUI(); updateCookSelects(); clearAllHints();
     document.getElementById("curryVisual").innerText=vis; document.getElementById("curryName").innerText=cName;
@@ -1300,6 +1341,7 @@ function proceedJoin(rid, myCurry) {
 function startOnlineBattle(hN, hC, gN, gC, role, hI, gI) {
     if (audioCtx.state === 'suspended') audioCtx.resume();
     isBotMatch = false;
+    onlineRole = role;
     const oppC = role === "host" ? gC : hC; const oppN = role === "host" ? gN : hN;
     cachedOpponentName = oppN; cachedOpponentCurry = oppC;
     const myC = role === "host" ? hC : gC; currentBattleCurry = myC;
@@ -1331,6 +1373,122 @@ function startOnlineBattle(hN, hC, gN, gC, role, hI, gI) {
         if (typeof confirmVsDeploy === "function") confirmVsDeploy();
     }, 3000);
 }
+// ===== 対人戦ホスト：ターン結果をFirebaseに書き込む =====
+function writeOnlineTurn(roomId, turnData) {
+    if(!database || !roomId) return;
+    database.ref('rooms/' + roomId + '/turns/' + turnData.round).set(turnData);
+}
+
+// ===== 対人戦ゲスト：Firebaseからターン結果を受信して表示 =====
+let guestBattleRef = null;
+function startGuestBattleListener(roomId, myC, oppC, oppN) {
+    if(!database || !roomId) return;
+    const log = document.getElementById("battleLog");
+    log.innerHTML = `⚔️ ${oppN} との決闘開始！\n`;
+
+    // ターンをバッファに溜めて順番に1100ms間隔で再生
+    let turnBuffer = [];
+    let isPlaying = false;
+    let lastPlayedRound = 0;
+
+    function playNextTurn() {
+        // ラウンド順にソートして未再生のものを取り出す
+        turnBuffer.sort((a,b) => a.round - b.round);
+        const next = turnBuffer.find(t => t.round > lastPlayedRound);
+        if(!next) { isPlaying = false; return; }
+        isPlaying = true;
+        lastPlayedRound = next.round;
+
+        // ゲスト視点：hostHP=相手、guestHP=自分
+        const myHP = next.guestHP;   // ゲスト=自分
+        const oppHP = next.hostHP;   // ホスト=相手
+
+        updateHP(myHP, oppHP, oppC.hp, myC.hp);
+        log.innerHTML = next.log;
+
+        // effectもゲスト視点に反転
+        if(next.effect) {
+            let guestEffect = next.effect;
+            if(next.effect === 'player') guestEffect = 'enemy';
+            else if(next.effect === 'enemy') guestEffect = 'player';
+            else if(next.effect === 'enemy-gold') guestEffect = 'player';
+            else if(next.effect === 'player-poison') guestEffect = 'enemy-poison';
+            else if(next.effect === 'enemy-poison') guestEffect = 'player-poison';
+            triggerEffect(guestEffect, next.effectDmg || 0);
+        }
+
+        if(next.finished) {
+            isPlaying = false;
+            if(guestBattleRef) { guestBattleRef.off(); guestBattleRef = null; }
+            return;
+        }
+        setTimeout(playNextTurn, 1100);
+    }
+
+    guestBattleRef = database.ref('rooms/' + roomId + '/turns');
+    guestBattleRef.on('child_added', snap => {
+        const turn = snap.val();
+        if(!turn) return;
+        turnBuffer.push(turn);
+        if(!isPlaying) playNextTurn();
+    });
+
+    // バトル結果を待機
+    database.ref('rooms/' + roomId + '/battleResult').on('value', snap => {
+        const result = snap.val();
+        if(!result) return;
+        database.ref('rooms/' + roomId + '/battleResult').off();
+        const isWin = result.winner === 'guest';
+        setTimeout(() => {
+            const overlay = document.getElementById("battleResultOverlay");
+            const bigText = document.getElementById("battleResultBig");
+            if(overlay && bigText) {
+                bigText.innerText = isWin ? "🏆 勝利!!" : "💀 敗北...";
+                bigText.style.color = isWin ? "#2ecc71" : "#ff4444";
+                overlay.style.display = "flex";
+                setTimeout(() => { overlay.style.display = "none"; document.getElementById("battleResultBox").style.display = "block"; }, 2000);
+            } else {
+                document.getElementById("battleResultBox").style.display = "block";
+            }
+            const res = document.getElementById("battleVerdict");
+            const rew = document.getElementById("rewardText");
+            if(isWin) {
+                playWinSound(); res.innerText = "🏆 勝利 !!"; res.style.color = "#2ecc71";
+                playerG += 50; const oldEXP = playerEXP; playerEXP += 10;
+                rew.innerHTML = `💰 +50G / ✨ +10EXP`;
+                setTimeout(() => checkLvUp(oldEXP, playerEXP), 800);
+                document.getElementById("oppOwnerText").style.color = "#ff4444";
+                document.getElementById("oHpText").style.color = "#ff4444";
+            } else {
+                res.innerText = "💀 敗北 ..."; res.style.color = "#e74c3c";
+                const oldEXP = playerEXP; playerEXP += 1;
+                rew.innerHTML = `✨ +1EXP どんまい！`;
+                setTimeout(() => checkLvUp(oldEXP, playerEXP), 800);
+                document.getElementById("pOwnerText").style.color = "#ff4444";
+                document.getElementById("pHpText").style.color = "#ff4444";
+            }
+            curryStock.splice(selectedCurryIndex, 1); selectedCurryIndex = curryStock.length ? 0 : -1;
+            saveGame(); updateCookSelects(); updateMatchCurrySelects();
+            stopBattleBGM();
+        }, 1500);
+    });
+}
+
+// ===== ホストのstep関数：各ターン結果をFirebaseに書き込む =====
+// （proceedToArena内のstep関数の後に、ターン書き込みを追加）
+function writeHostTurn(roomId, round, logText, hostHP, guestHP, effect, effectDmg, finished) {
+    if(!database || !roomId || onlineRole !== 'host') return;
+    database.ref('rooms/' + roomId + '/turns/' + round).set({
+        round,
+        log: logText,
+        hostHP, guestHP,   // 明示的にホスト/ゲストのHPを保存
+        effect: effect || null,
+        effectDmg: effectDmg || 0,
+        finished: !!finished
+    });
+}
+// =====ここまで=====
+
 function cancelMatchRoom() { if(myRoomRef) { let rRef = database.ref('rooms/' + currentRoomId); rRef.remove(); rRef.off('value'); } document.getElementById("lobbyArea").style.display = "block"; document.getElementById("waitingArea").style.display = "none"; }
 
 // ブラウザ更新・タブ閉じ時に待機中の部屋を自動削除
@@ -1382,30 +1540,107 @@ function proceedToArena(oppN, oppC, myC) {
     stopBattleBGM();
     if(myC.isMargherita || oppC.isMargherita) playBattleBGM("Guardare_il_cielo.mp3");
     else if(myC.isSeafood || oppC.isSeafood) playBattleBGM("wave.mp3");
+    // 対人戦：ゲスト側はFirebaseからターン結果を受信して表示のみ
+    if(!isBotMatch && onlineRole === 'guest') {
+        startGuestBattleListener(currentRoomId, myC, oppC, oppN);
+        return;
+    }
     let isOP = false, isPP = false;
     if (myC.isPoison) { isOP = true; log.innerHTML += `☠️ 毒気が ${oppN} を蝕む！`; playPoisonSound(); }
     if (oppC.isPoison) { isPP = true; log.innerHTML += `☠️ 毒気が ${playerName} を蝕む！`; playPoisonSound(); }
-    let round = 1; let myTurn = myC.spd >= oppC.spd;
+    // 毒の演出テキスト
+    if (myC.isPoison) { log.innerHTML += `\n☠️ ${oppN} は毒にかかった！毎ターン毒ダメージ！`; }
+    if (oppC.isPoison) { log.innerHTML += `\n☠️ ${playerName} は毒にかかった！毎ターン毒ダメージ！`; }
+    // 幻惑状態：命中率70%
+    let myIsIlluded = !!(oppC.isIllusion);
+    let oppIsIlluded = !!(myC.isIllusion);
+    if(myC.isIllusion) { log.innerHTML += `\n🌀 ${oppN} は幻惑にかかった！攻撃命中率ダウン！`; }
+    if(oppC.isIllusion) { log.innerHTML += `\n🌀 ${playerName} は幻惑にかかった！攻撃命中率ダウン！`; }
+    // ネバネバ先攻：必ず先攻
+    let myTurn;
+    if(myC.isSticky && !oppC.isSticky) {
+        myTurn = true;
+        log.innerHTML += `\n💚 ${oppN} はネバネバにかかった！${playerName} の先攻攻撃！`;
+    } else if(oppC.isSticky && !myC.isSticky) {
+        myTurn = false;
+        log.innerHTML += `\n💚 ${playerName} はネバネバにかかった！${oppN} の先攻攻撃！`;
+    } else { myTurn = myC.spd >= oppC.spd; }
+    let round = 1;
     function step() {
         if (pHP <= 0 || oHP <= 0 || round > 20) { setTimeout(() => done(pHP, oHP, myC, oppC), 800); return; }
         if (myTurn) {
             log.innerHTML = `🔥 自分のターン！`;
             if (isPP) { let d = Math.round(myC.hp * 0.08); pHP -= d; log.innerHTML += `\n☠️ 毒ダメージ: ${d}`; triggerEffect("player-poison", d); updateHP(pHP, oHP, oppC.hp, myC.hp); if(pHP<=0){step();return;} }
             if (myC.hasGold) { playGoldSound(); log.innerHTML += `\n🌟 金箔乱舞！`; } else if(myC.isTonTonTon) { playSoundEffect('pig2.mp3'); } else if(oppC.isTonTonTon) { playSoundEffect('pig1.mp3'); } else playAttackSound();
-            setTimeout(() => {
-                let d = Math.max(8, myC.atk - Math.floor(oppC.def / 2)); d = Math.round(d * (0.9 + Math.random() * 0.2));
-                oHP = Math.max(0, oHP - d); log.innerHTML += `\n💥 ダメージ: ${d}`; triggerEffect(myC.hasGold?"enemy-gold":"enemy", d);
-                updateHP(pHP, oHP, oppC.hp, myC.hp); myTurn = false; round++; setTimeout(step, 1100);
-            }, 400);
+            // 自分が幻惑状態：70%命中
+            if(myIsIlluded && Math.random() > 0.7) {
+                log.innerHTML += `\n💨 幻惑で攻撃が外れた！`;
+                setTimeout(() => { updateHP(pHP, oHP, oppC.hp, myC.hp); myTurn = false; round++; setTimeout(step, 1100); }, 400);
+            } else if(myC.isSeed && Math.random() < 0.3) {
+                const hits = Math.floor(Math.random() * 5) + 2;
+                let damages = [];
+                for(let i=0;i<hits;i++){
+                    let sd = Math.max(2, Math.round(myC.atk * 0.3 - Math.floor(oppC.def / 4)));
+                    sd = Math.round(sd * (0.9 + Math.random() * 0.2));
+                    damages.push(sd); oHP = Math.max(0, oHP - sd);
+                }
+                log.innerHTML += `\n🌱 種連続発射 ${hits}連撃！`;
+                // 1発ずつ演出を連射
+                damages.forEach((sd, i) => {
+                    setTimeout(() => {
+                        triggerEffect("enemy", sd);
+                        if(i === damages.length - 1) {
+                            log.innerHTML += ` 合計: ${damages.reduce((a,b)=>a+b,0)}`;
+                            updateHP(pHP, oHP, oppC.hp, myC.hp);
+                            myTurn = false; round++; setTimeout(step, 1100);
+                        }
+                    }, 300 + i * 250);
+                });
+            } else {
+                setTimeout(() => {
+                    let d = Math.max(8, myC.atk - Math.floor(oppC.def / 2)); d = Math.round(d * (0.9 + Math.random() * 0.2));
+                    oHP = Math.max(0, oHP - d); log.innerHTML += `\n💥 ダメージ: ${d}`; triggerEffect(myC.hasGold?"enemy-gold":"enemy", d);
+                    updateHP(pHP, oHP, oppC.hp, myC.hp);
+                    writeHostTurn(currentRoomId, round, log.innerHTML, pHP, oHP, myC.hasGold?"enemy-gold":"enemy", d, pHP<=0||oHP<=0||round>=20);
+                    myTurn = false; round++; setTimeout(step, 1100); // pHP=自分(host), oHP=相手(guest)
+                }, 400);
+            }
         } else {
             log.innerHTML = `⚠️ 相手のターン！`;
             if (isOP) { let d = Math.round(oppC.hp * 0.08); oHP -= d; log.innerHTML += `\n☠️ 毒ダメージ: ${d}`; triggerEffect("enemy-poison", d); updateHP(pHP, oHP, oppC.hp, myC.hp); if(oHP<=0){step();return;} }
             if(myC.isTonTonTon) { playSoundEffect('pig1.mp3'); } else if(oppC.isTonTonTon) { playSoundEffect('pig2.mp3'); } else playAttackSound();
-            setTimeout(() => {
-                let d = Math.max(8, oppC.atk - Math.floor(myC.def / 2)); d = Math.round(d * (0.9 + Math.random() * 0.2));
-                pHP = Math.max(0, pHP - d); log.innerHTML += `\n😢 被弾ダメージ: ${d}`; triggerEffect("player", d);
-                updateHP(pHP, oHP, oppC.hp, myC.hp); myTurn = true; round++; setTimeout(step, 1100);
-            }, 400);
+            // 相手が幻惑状態：70%命中
+            if(oppIsIlluded && Math.random() > 0.7) {
+                log.innerHTML += `\n💨 幻惑で相手の攻撃が外れた！`;
+                setTimeout(() => { updateHP(pHP, oHP, oppC.hp, myC.hp); myTurn = true; round++; setTimeout(step, 1100); }, 400);
+            } else if(oppC.isSeed && Math.random() < 0.3) {
+                const hits = Math.floor(Math.random() * 5) + 2;
+                let damages = [];
+                for(let i=0;i<hits;i++){
+                    let sd = Math.max(2, Math.round(oppC.atk * 0.3 - Math.floor(myC.def / 4)));
+                    sd = Math.round(sd * (0.9 + Math.random() * 0.2));
+                    damages.push(sd); pHP = Math.max(0, pHP - sd);
+                }
+                log.innerHTML += `\n🌱 相手の種連続発射 ${hits}連撃！`;
+                damages.forEach((sd, i) => {
+                    setTimeout(() => {
+                        triggerEffect("player", sd);
+                        if(i === damages.length - 1) {
+                            log.innerHTML += ` 合計: ${damages.reduce((a,b)=>a+b,0)}`;
+                            updateHP(pHP, oHP, oppC.hp, myC.hp);
+                            myTurn = true; round++; setTimeout(step, 1100);
+                        }
+                    }, 300 + i * 250);
+                });
+            } else {
+                setTimeout(() => {
+                    let d = Math.max(8, oppC.atk - Math.floor(myC.def / 2)); d = Math.round(d * (0.9 + Math.random() * 0.2));
+                    pHP = Math.max(0, pHP - d); log.innerHTML += `\n😢 被弾ダメージ: ${d}`; triggerEffect("player", d);
+                    updateHP(pHP, oHP, oppC.hp, myC.hp);
+                    writeHostTurn(currentRoomId, round, log.innerHTML, pHP, oHP, "player", d, pHP<=0||oHP<=0||round>=20);
+                    myTurn = true; round++; setTimeout(step, 1100); // pHP=自分(host), oHP=相手(guest)
+                }, 400);
+            }
         }
     }
     setTimeout(step, 600);
@@ -1479,11 +1714,21 @@ function done(pHP, oHP, myC, oppC) {
     }
     curryStock.splice(selectedCurryIndex, 1); selectedCurryIndex = curryStock.length ? 0 : -1;
     saveGame(); updateCookSelects();
-    if(!isBotMatch && currentRoomId) database.ref('rooms/' + currentRoomId).remove();
+    // 対人戦ホスト：バトル結果をFirebaseに書き込んでゲストに通知
+    if(!isBotMatch && currentRoomId && onlineRole === 'host' && database) {
+        database.ref('rooms/' + currentRoomId + '/battleResult').set({
+            winner: isWin ? 'host' : 'guest',
+            pHP: pHP, oHP: oHP
+        });
+        setTimeout(() => { database.ref('rooms/' + currentRoomId).remove(); }, 5000);
+    } else if(!isBotMatch && currentRoomId && onlineRole !== 'host') {
+        // ゲスト側は自前で結果表示後にリスナー解除（startGuestBattleListenerで管理）
+    }
     if (typeof updateMatchCurrySelects === "function") updateMatchCurrySelects();
 }
 function endBattleScene() {
-    stopBattleBGM(); // ★退場時も念のため停止
+    stopBattleBGM();
+    if(guestBattleRef) { guestBattleRef.off(); guestBattleRef = null; }
     document.getElementById("battleResultBox").style.display = "none";
     document.getElementById("battleSetup").style.display = "block"; document.getElementById("lobbyArea").style.display = "block";
     document.getElementById("waitingArea").style.display = "none"; document.getElementById("battleArena").style.display = "none";
