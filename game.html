@@ -1327,15 +1327,9 @@ function startBotBattle() {
 function rTrimHtml(str) { return str.replace(/<\/?[^>]+(>|$)/g, ""); }
 function confirmVsDeploy() {
     if (!isBotMatch) {
-        const cIdx = document.getElementById("globalCurrySelect").value;
-        if (cIdx == -1 || !curryStock[cIdx]) { alert("カレーを選択してください"); return; }
-        const currentCurry = curryStock[cIdx];
-        if(document.getElementById("vsCutIn")) document.getElementById("vsCutIn").style.display = "none";
-        if(document.getElementById("vsPlayerSide")) document.getElementById("vsPlayerSide").style.transform = "translateX(-100%)";
-        if(document.getElementById("vsEnemySide")) document.getElementById("vsEnemySide").style.transform = "translateX(100%)";
-        if(document.getElementById("vsBadge")) { document.getElementById("vsBadge").style.opacity = "0"; document.getElementById("vsBadge").style.scale = "3"; }
-        ["battleModal", "selectModal", "currySelectModal", "popArea"].forEach(id => { const el = document.getElementById(id); if(el) el.style.display = "block"; });
-        proceedToArena(cachedOpponentName, cachedOpponentCurry, currentCurry);
+        // 対人戦はstartOnlineBattleから直接proceedToArenaを呼ぶので、ここでは何もしない
+        // (VSカットインの出撃ボタンはBot戦専用)
+        return;
         setTimeout(() => {
             const oVisualEl = document.getElementById("oVisual");
             if (oVisualEl) { oVisualEl.innerHTML = `<img src="${cachedOppIconFile}" style="width:100%; height:100%; border-radius:50%; object-fit:cover; display:block;">`; oVisualEl.style.background = "none"; }
@@ -1462,7 +1456,8 @@ function startOnlineBattle(hN, hC, gN, gC, role, hI, gI) {
         if(vs) vs.style.display = "none";
         if(document.getElementById("battleSetup")) document.getElementById("battleSetup").style.display = "none";
         if(document.getElementById("battleArena")) document.getElementById("battleArena").style.display = "block";
-        if (typeof confirmVsDeploy === "function") confirmVsDeploy();
+        // 対人戦は直接proceedToArenaへ（confirmVsDeploy経由だとroomIdが失われるケースがある）
+        proceedToArena(cachedOpponentName, cachedOpponentCurry, currentBattleCurry);
     }, 3000);
 }
 // ===== 対人戦：バトル全ターンを事前計算 =====
