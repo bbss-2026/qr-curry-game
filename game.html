@@ -1529,6 +1529,7 @@ function calcAllBattleTurns(myC, oppC, oppN, myName) {
 
 // ===== ターンデータを順番に再生（ホスト・ゲスト共通）=====
 function playBattleTurns(turns, myC, oppC, oppN, role) {
+    console.log("[BATTLE] playBattleTurns 開始 role=", role, "turns=", turns.length);
     const log = document.getElementById("battleLog");
     const isGuest = role === 'guest';
     let idx = 0;
@@ -1589,26 +1590,35 @@ function playBattleTurns(turns, myC, oppC, oppN, role) {
 // ===== 対人戦ゲスト：Firebaseからターンデータを受信して再生 =====
 let guestBattleRef = null;
 function startGuestBattleListener(roomId, myC, oppC, oppN) {
-    if(!database || !roomId) return;
+    console.log("[GUEST] startGuestBattleListener 開始 roomId=", roomId);
+    if(!database) { console.error("[GUEST] database が null"); return; }
+    if(!roomId) { console.error("[GUEST] roomId が null"); return; }
     const log = document.getElementById("battleLog");
     log.innerHTML = `⚔️ ${oppN} との決闘開始！\n`;
     let started = false;
-    // on('value')でFirebaseを監視し、ターンデータが書き込まれたら即再生
     guestBattleRef = database.ref('rooms/' + roomId + '/turns');
+    console.log("[GUEST] Firebase監視開始 path=rooms/" + roomId + "/turns");
     guestBattleRef.on('value', snap => {
-        if(started) return; // 再生済みなら無視
+        console.log("[GUEST] Firebase受信 data=", snap.val());
+        if(started) { console.log("[GUEST] 既に再生済みのためスキップ"); return; }
         const data = snap.val();
-        if(!data) return; // まだ書き込まれていなければ待機継続
+        if(!data) { console.log("[GUEST] データなし、待機中..."); return; }
         const turns = Object.values(data).sort((a,b) => a.round - b.round);
-        if(turns.length === 0) return;
+        console.log("[GUEST] ターン数=", turns.length);
+        if(turns.length === 0) { console.log("[GUEST] ターン0件"); return; }
         started = true;
-        guestBattleRef.off(); // 監視解除
+        guestBattleRef.off();
         guestBattleRef = null;
+        console.log("[GUEST] playBattleTurns 呼び出し");
         playBattleTurns(turns, myC, oppC, oppN, 'guest');
     });
-    // 20秒タイムアウト（ホストが書き込まなかった場合の安全策）
+    guestBattleRef.on('cancel', err => {
+        console.error("[GUEST] Firebase監視キャンセル（権限エラーの可能性）:", err);
+        log.innerHTML += '\n⚠️ Firebase接続エラー: ' + err.message;
+    });
     setTimeout(() => {
         if(!started && guestBattleRef) {
+            console.warn("[GUEST] 20秒タイムアウト: データ未受信");
             guestBattleRef.off(); guestBattleRef = null;
             log.innerHTML += '\n⚠️ タイムアウト：ホストからのデータを受信できませんでした。';
         }
@@ -1675,16 +1685,19 @@ function proceedToArena(oppN, oppC, myC) {
         // 対人戦：ホストがバトルを事前計算して全ターンをFirebaseに一括書き込み
         // ゲスト・ホスト共に同じデータを順番に再生する
         if(onlineRole === 'host') {
+            console.log("[HOST] バトル計算開始");
             const allTurns = calcAllBattleTurns(myC, oppC, oppN, playerName);
-            // Firebaseに一括書き込み
+            console.log("[HOST] 計算完了 ターン数=", allTurns.length, allTurns);
             const turnsRef = database.ref('rooms/' + currentRoomId + '/turns');
             turnsRef.set(allTurns).then(() => {
-                // 結果も書き込む
+                console.log("[HOST] Firebase書き込み完了");
                 const lastTurn = allTurns[allTurns.length - 1];
                 const hostWin = lastTurn.hostHP > lastTurn.guestHP;
+                console.log("[HOST] 結果=", hostWin ? 'host勝利' : 'guest勝利');
                 database.ref('rooms/' + currentRoomId + '/battleResult').set({ winner: hostWin ? 'host' : 'guest' });
+            }).catch(err => {
+                console.error("[HOST] Firebase書き込みエラー:", err);
             });
-            // ホスト自身もターンを順番に再生（ホスト視点）
             playBattleTurns(allTurns, myC, oppC, oppN, 'host');
         } else {
             // ゲスト：Firebaseからターンデータを受信して再生
