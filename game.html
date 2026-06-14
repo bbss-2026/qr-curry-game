@@ -137,6 +137,10 @@
         .room-section { border: 2px dashed #9b59b6; padding: 15px; border-radius: 10px; margin-top: 15px; text-align: left; background: #fff; }
         .room-input { width: 90%; padding: 8px; margin-bottom: 10px; border-radius: 6px; border: 2px solid #ddd; }
         .room-card { display: flex; justify-content: space-between; align-items: center; padding: 10px; border-bottom: 1px solid #eee; background: #fdfdfd; border-radius: 6px; margin-bottom: 5px; }
+        .recipe-star { cursor: pointer; font-size: 18px; padding: 2px 6px; border: none; background: none; }
+        .recipe-star.active { color: #f1c40f; }
+        .recipe-star.inactive { color: #ccc; }
+        .fav-recipe-select { width: 100%; padding: 8px; margin-bottom: 8px; border-radius: 8px; border: 2px solid #f1c40f; font-size: 13px; background: #fffdf0; }
         /* 特殊カレー演出 */
         .illusion-box { animation: illusionGlow 1.5s infinite; border: 3px solid #1abc9c !important; }
         @keyframes illusionGlow { 0%,100% { box-shadow: 0 0 5px #1abc9c; } 50% { box-shadow: 0 0 20px #1abc9c, 0 0 30px #3498db; } }
@@ -318,6 +322,11 @@
     <!-- 調理タブ -->
     <div id="pageCook" class="page">
         <button class="btn btn-rand" onclick="selectRandomIngredients()">🎲 在庫からおまかせランダム選択</button>
+        <div id="favRecipeArea" style="margin-bottom:8px; display:none;">
+            <select id="favRecipeSelect" class="fav-recipe-select" onchange="applyFavRecipe(this.value)">
+                <option value="">⭐ お気に入りレシピから選択...</option>
+            </select>
+        </div>
         <button class="btn btn-cook" onclick="checkCookStock()" style="margin-bottom:18px;">🔥 カレーを調理する！</button>
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:2px;">
             <h3 style="font-size:16px; margin:0;">食材 1</h3>
@@ -1055,10 +1064,92 @@ function sellItemAction(name) {
     showCustomAlert("💸 売却完了", `${name}を1個売却し、<span style="color:#2ecc71;">${price} G</span> を手に入れました！`, null, sellItemAction, name);
 }
 function refreshRecipeBookUI() {
-    const area = document.getElementById("recipeBookArea"); const keys = Object.keys(recipeBook);
-    if(keys.length === 0) { area.innerHTML = "<div style='color:#7f8c8d; text-align:center;'>まだ履歴がありません。</div>"; return; }
+    const area = document.getElementById("recipeBookArea");
+    const keys = Object.keys(recipeBook);
+    if(keys.length === 0) { area.innerHTML = "<div style='color:#7f8c8d; text-align:center;'>まだ履歴がありません。</div>"; updateFavRecipeSelect(); return; }
     area.innerHTML = "";
-    keys.forEach(k => { const row = document.createElement("div"); row.className = "recipe-row"; row.innerHTML = `<div><span>${recipeBook[k].visual}</span> <strong>${recipeBook[k].name}</strong></div><div style='font-size:11px; color:#7f8c8d;'>🧪:${recipeBook[k].materials.join('+')}</div>`; area.appendChild(row); });
+    keys.forEach(k => {
+        const r = recipeBook[k];
+        const isFav = !!(r.fav);
+        const row = document.createElement("div");
+        row.className = "recipe-row";
+        row.style.cssText = "display:flex; justify-content:space-between; align-items:center;";
+        row.innerHTML = `
+            <div style="flex:1; min-width:0;">
+                <span>${r.visual}</span> <strong style="font-size:12px;">${r.name}</strong>
+                <div style='font-size:10px; color:#7f8c8d;'>🧪:${r.materials.join('+')}</div>
+            </div>
+            <button class="recipe-star ${isFav ? 'active' : 'inactive'}" onclick="toggleFavRecipe('${k}')">${isFav ? '⭐' : '☆'}</button>`;
+        area.appendChild(row);
+    });
+    updateFavRecipeSelect();
+}
+
+function toggleFavRecipe(key) {
+    if(!recipeBook[key]) return;
+    const isFav = !!(recipeBook[key].fav);
+    if(!isFav) {
+        // お気に入り追加：上限10個チェック
+        const favCount = Object.values(recipeBook).filter(r => r.fav).length;
+        if(favCount >= 10) { showCustomAlert("⭐ お気に入り上限", "お気に入りは最大10個までです。先に他のお気に入りを解除してください。"); return; }
+        recipeBook[key].fav = true;
+    } else {
+        recipeBook[key].fav = false;
+    }
+    saveGame(); refreshRecipeBookUI();
+}
+
+function updateFavRecipeSelect() {
+    const sel = document.getElementById("favRecipeSelect");
+    const area = document.getElementById("favRecipeArea");
+    if(!sel) return;
+    const favKeys = Object.keys(recipeBook).filter(k => recipeBook[k].fav);
+    if(favKeys.length === 0) { area.style.display = "none"; return; }
+    area.style.display = "block";
+    sel.innerHTML = '<option value="">⭐ お気に入りレシピから選択...</option>';
+    favKeys.forEach(k => {
+        const r = recipeBook[k];
+        const opt = document.createElement("option");
+        opt.value = k; opt.innerText = `${r.visual} ${r.name}`;
+        sel.appendChild(opt);
+    });
+}
+
+function applyFavRecipe(key) {
+    if(!key || !recipeBook[key]) return;
+    const r = recipeBook[key];
+    // materials = [食材1, 食材2, 食材3, スパイス] の順で保存されているが
+    // keyが "食材+食材+スパイス" 形式なので materials から復元
+    const mats = r.materials || [];
+    const spiceName = mats.find(m => masterSpices[m]);
+    const ings = mats.filter(m => masterIngredients[m]);
+    // 在庫チェック
+    let missing = [];
+    const needed = {};
+    [...ings, ...(spiceName ? [spiceName] : [])].forEach(m => { needed[m] = (needed[m]||0)+1; });
+    Object.keys(needed).forEach(m => { if((inventory[m]||0) < needed[m]) missing.push(m); });
+    if(missing.length > 0) {
+        showCustomAlert("⚠️ 在庫不足", `以下のアイテムが足りません：<br><b>${missing.join('、')}</b>`);
+        document.getElementById("favRecipeSelect").value = "";
+        return;
+    }
+    // プルダウンに反映
+    const ingIds = ["ingredient1","ingredient2","ingredient3"];
+    ingIds.forEach((id,i) => { document.getElementById(id).value = ings[i] || ""; updateIngredientHint(i+1); });
+    document.getElementById("spice").value = spiceName || "";
+    updateSpiceHint();
+    document.getElementById("favRecipeSelect").value = "";
+}
+
+function pruneRecipeBook() {
+    // お気に入り以外が20件を超えたら古いものから削除
+    const favKeys = Object.keys(recipeBook).filter(k => recipeBook[k].fav);
+    const normalKeys = Object.keys(recipeBook).filter(k => !recipeBook[k].fav);
+    const MAX = 20;
+    if(normalKeys.length > MAX) {
+        // 古い順に削除（配列先頭が古い）
+        normalKeys.slice(0, normalKeys.length - MAX).forEach(k => delete recipeBook[k]);
+    }
 }
 function updateCookSelects() {
     ["ingredient1", "ingredient2", "ingredient3"].forEach(id => {
@@ -1501,23 +1592,27 @@ function startGuestBattleListener(roomId, myC, oppC, oppN) {
     if(!database || !roomId) return;
     const log = document.getElementById("battleLog");
     log.innerHTML = `⚔️ ${oppN} との決闘開始！\n`;
-    // Firebaseにターンデータが揃うのを待って一括取得・再生
+    let started = false;
+    // on('value')でFirebaseを監視し、ターンデータが書き込まれたら即再生
     guestBattleRef = database.ref('rooms/' + roomId + '/turns');
-    // onceで全ターンを一括取得（ホストが書き込み完了後に届く）
-    const waitForTurns = () => {
-        guestBattleRef.once('value').then(snap => {
-            const data = snap.val();
-            if(!data) {
-                // まだ書き込まれていなければ500ms後に再試行
-                setTimeout(waitForTurns, 500);
-                return;
-            }
-            const turns = Object.values(data).sort((a,b) => a.round - b.round);
-            if(guestBattleRef) { guestBattleRef.off(); guestBattleRef = null; }
-            playBattleTurns(turns, myC, oppC, oppN, 'guest');
-        });
-    };
-    setTimeout(waitForTurns, 800); // ホストの書き込み完了を少し待つ
+    guestBattleRef.on('value', snap => {
+        if(started) return; // 再生済みなら無視
+        const data = snap.val();
+        if(!data) return; // まだ書き込まれていなければ待機継続
+        const turns = Object.values(data).sort((a,b) => a.round - b.round);
+        if(turns.length === 0) return;
+        started = true;
+        guestBattleRef.off(); // 監視解除
+        guestBattleRef = null;
+        playBattleTurns(turns, myC, oppC, oppN, 'guest');
+    });
+    // 20秒タイムアウト（ホストが書き込まなかった場合の安全策）
+    setTimeout(() => {
+        if(!started && guestBattleRef) {
+            guestBattleRef.off(); guestBattleRef = null;
+            log.innerHTML += '\n⚠️ タイムアウト：ホストからのデータを受信できませんでした。';
+        }
+    }, 20000);
 }
 
 // ===== ホストのstep関数：各ターン結果をFirebaseに書き込む =====
