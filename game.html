@@ -1373,120 +1373,155 @@ function startOnlineBattle(hN, hC, gN, gC, role, hI, gI) {
         if (typeof confirmVsDeploy === "function") confirmVsDeploy();
     }, 3000);
 }
-// ===== 対人戦ホスト：ターン結果をFirebaseに書き込む =====
-function writeOnlineTurn(roomId, turnData) {
-    if(!database || !roomId) return;
-    database.ref('rooms/' + roomId + '/turns/' + turnData.round).set(turnData);
+// ===== 対人戦：バトル全ターンを事前計算 =====
+function calcAllBattleTurns(myC, oppC, oppN, myName) {
+    let turns = [];
+    let pHP = myC.hp, oHP = oppC.hp;
+    let isOP = myC.isPoison, isPP = oppC.isPoison;
+    let myIsIlluded = !!(oppC.isIllusion), oppIsIlluded = !!(myC.isIllusion);
+    let myTurn;
+    let statusLines = [];
+    if(isOP) statusLines.push(`☠️ ${oppN} は毒にかかった！毎ターン毒ダメージ！`);
+    if(isPP) statusLines.push(`☠️ ${myName} は毒にかかった！毎ターン毒ダメージ！`);
+    if(myC.isIllusion) statusLines.push(`🌀 ${oppN} は幻惑にかかった！攻撃命中率ダウン！`);
+    if(oppC.isIllusion) statusLines.push(`🌀 ${myName} は幻惑にかかった！攻撃命中率ダウン！`);
+    if(myC.isSticky && !oppC.isSticky) { myTurn=true; statusLines.push(`💚 ${oppN} はネバネバにかかった！${myName} の先攻攻撃！`); }
+    else if(oppC.isSticky && !myC.isSticky) { myTurn=false; statusLines.push(`💚 ${myName} はネバネバにかかった！${oppN} の先攻攻撃！`); }
+    else myTurn = myC.spd >= oppC.spd;
+
+    for(let round = 1; round <= 20; round++) {
+        if(pHP <= 0 || oHP <= 0) break;
+        let turn = { round, hostHP: pHP, guestHP: oHP, log: '', effects: [], statusLines: round===1 ? statusLines : [] };
+        if(myTurn) {
+            turn.log = `🔥 ${myName} のターン！`;
+            // 毒
+            if(isPP) { let d=Math.round(myC.hp*0.08); pHP=Math.max(0,pHP-d); turn.log+=`\n☠️ 毒ダメージ: ${d}`; turn.effects.push({type:'player-poison',dmg:d}); turn.hostHP=pHP; if(pHP<=0){turns.push(turn);break;} }
+            // 幻惑ミス
+            if(myIsIlluded && Math.random()>0.7) {
+                turn.log += `\n💨 幻惑で攻撃が外れた！`;
+            } else if(myC.isSeed && Math.random()<0.3) {
+                const hits=Math.floor(Math.random()*5)+2;
+                let seedDmgs=[];
+                for(let i=0;i<hits;i++){let sd=Math.max(2,Math.round(myC.atk*0.3-Math.floor(oppC.def/4)));sd=Math.round(sd*(0.9+Math.random()*0.2));seedDmgs.push(sd);oHP=Math.max(0,oHP-sd);}
+                turn.log+=`\n🌱 種連続発射 ${hits}連撃！合計: ${seedDmgs.reduce((a,b)=>a+b,0)}`;
+                seedDmgs.forEach(sd=>turn.effects.push({type:'enemy',dmg:sd,seed:true}));
+                turn.guestHP=oHP;
+            } else {
+                let d=Math.max(8,myC.atk-Math.floor(oppC.def/2));d=Math.round(d*(0.9+Math.random()*0.2));
+                oHP=Math.max(0,oHP-d);
+                if(myC.hasGold){turn.log+=`\n🌟 金箔乱舞！💥 ダメージ: ${d}`;turn.effects.push({type:'enemy-gold',dmg:d});}
+                else{turn.log+=`\n💥 ダメージ: ${d}`;turn.effects.push({type:'enemy',dmg:d});}
+                turn.guestHP=oHP;
+            }
+        } else {
+            turn.log = `⚠️ ${oppN} のターン！`;
+            if(isOP) { let d=Math.round(oppC.hp*0.08);oHP=Math.max(0,oHP-d);turn.log+=`\n☠️ 毒ダメージ: ${d}`;turn.effects.push({type:'enemy-poison',dmg:d});turn.guestHP=oHP;if(oHP<=0){turns.push(turn);break;} }
+            if(oppIsIlluded && Math.random()>0.7) {
+                turn.log+=`\n💨 幻惑で相手の攻撃が外れた！`;
+            } else if(oppC.isSeed && Math.random()<0.3) {
+                const hits=Math.floor(Math.random()*5)+2;
+                let seedDmgs=[];
+                for(let i=0;i<hits;i++){let sd=Math.max(2,Math.round(oppC.atk*0.3-Math.floor(myC.def/4)));sd=Math.round(sd*(0.9+Math.random()*0.2));seedDmgs.push(sd);pHP=Math.max(0,pHP-sd);}
+                turn.log+=`\n🌱 相手の種連続発射 ${hits}連撃！合計: ${seedDmgs.reduce((a,b)=>a+b,0)}`;
+                seedDmgs.forEach(sd=>turn.effects.push({type:'player',dmg:sd,seed:true}));
+                turn.hostHP=pHP;
+            } else {
+                let d=Math.max(8,oppC.atk-Math.floor(myC.def/2));d=Math.round(d*(0.9+Math.random()*0.2));
+                pHP=Math.max(0,pHP-d);turn.log+=`\n😢 被弾ダメージ: ${d}`;turn.effects.push({type:'player',dmg:d});turn.hostHP=pHP;
+            }
+        }
+        myTurn=!myTurn;
+        turns.push(turn);
+    }
+    return turns;
 }
 
-// ===== 対人戦ゲスト：Firebaseからターン結果を受信して表示 =====
+// ===== ターンデータを順番に再生（ホスト・ゲスト共通）=====
+function playBattleTurns(turns, myC, oppC, oppN, role) {
+    const log = document.getElementById("battleLog");
+    const isGuest = role === 'guest';
+    let idx = 0;
+    // 状態異常テキスト（1ターン目のstatusLinesを表示）
+    if(turns.length > 0 && turns[0].statusLines && turns[0].statusLines.length > 0) {
+        turns[0].statusLines.forEach(line => { log.innerHTML += `\n${line}`; });
+        if(turns[0].statusLines.some(l => l.includes('毒'))) playPoisonSound();
+    }
+    function playTurn() {
+        if(idx >= turns.length) {
+            const last = turns[turns.length-1];
+            const hostHP = last.hostHP, guestHP = last.guestHP;
+            const myHP = isGuest ? guestHP : hostHP;
+            const oppHP = isGuest ? hostHP : guestHP;
+            setTimeout(() => done(myHP, oppHP, myC, oppC), 800);
+            return;
+        }
+        const turn = turns[idx++];
+        // ゲスト視点ではhostHP/guestHPを入れ替え
+        const myHP = isGuest ? turn.guestHP : turn.hostHP;
+        const oppHP = isGuest ? turn.hostHP : turn.guestHP;
+        log.innerHTML = turn.log;
+        // エフェクト再生（種は連射演出）
+        const seedEffects = turn.effects.filter(e=>e.seed);
+        const normalEffects = turn.effects.filter(e=>!e.seed);
+        normalEffects.forEach(e => {
+            let ef = e.type;
+            if(isGuest) {
+                if(ef==='player') ef='enemy';
+                else if(ef==='enemy'||ef==='enemy-gold') ef='player';
+                else if(ef==='player-poison') ef='enemy-poison';
+                else if(ef==='enemy-poison') ef='player-poison';
+            }
+            triggerEffect(ef, e.dmg);
+            // 効果音
+            if(ef==='enemy-gold') playGoldSound();
+            else if(isGuest ? myC.isTonTonTon : oppC.isTonTonTon) { if(ef==='player') playSoundEffect('pig1.mp3'); }
+            else if(isGuest ? oppC.isTonTonTon : myC.isTonTonTon) { if(ef==='enemy') playSoundEffect('pig2.mp3'); }
+            else if(ef.includes('poison')) playPoisonSound();
+            else playAttackSound();
+        });
+        // 種連射
+        if(seedEffects.length > 0) {
+            seedEffects.forEach((e,i) => {
+                setTimeout(() => {
+                    let ef = e.type;
+                    if(isGuest){ if(ef==='player') ef='enemy'; else if(ef==='enemy') ef='player'; }
+                    triggerEffect(ef, e.dmg);
+                }, i * 250);
+            });
+        }
+        updateHP(myHP, oppHP, oppC.hp, myC.hp);
+        setTimeout(playTurn, 1200);
+    }
+    setTimeout(playTurn, 600);
+}
+
+// ===== 対人戦ゲスト：Firebaseからターンデータを受信して再生 =====
 let guestBattleRef = null;
 function startGuestBattleListener(roomId, myC, oppC, oppN) {
     if(!database || !roomId) return;
     const log = document.getElementById("battleLog");
     log.innerHTML = `⚔️ ${oppN} との決闘開始！\n`;
-
-    // ターンをバッファに溜めて順番に1100ms間隔で再生
-    let turnBuffer = [];
-    let isPlaying = false;
-    let lastPlayedRound = 0;
-
-    function playNextTurn() {
-        // ラウンド順にソートして未再生のものを取り出す
-        turnBuffer.sort((a,b) => a.round - b.round);
-        const next = turnBuffer.find(t => t.round > lastPlayedRound);
-        if(!next) { isPlaying = false; return; }
-        isPlaying = true;
-        lastPlayedRound = next.round;
-
-        // ゲスト視点：hostHP=相手、guestHP=自分
-        const myHP = next.guestHP;   // ゲスト=自分
-        const oppHP = next.hostHP;   // ホスト=相手
-
-        updateHP(myHP, oppHP, oppC.hp, myC.hp);
-        log.innerHTML = next.log;
-
-        // effectもゲスト視点に反転
-        if(next.effect) {
-            let guestEffect = next.effect;
-            if(next.effect === 'player') guestEffect = 'enemy';
-            else if(next.effect === 'enemy') guestEffect = 'player';
-            else if(next.effect === 'enemy-gold') guestEffect = 'player';
-            else if(next.effect === 'player-poison') guestEffect = 'enemy-poison';
-            else if(next.effect === 'enemy-poison') guestEffect = 'player-poison';
-            triggerEffect(guestEffect, next.effectDmg || 0);
-        }
-
-        if(next.finished) {
-            isPlaying = false;
-            if(guestBattleRef) { guestBattleRef.off(); guestBattleRef = null; }
-            return;
-        }
-        setTimeout(playNextTurn, 1100);
-    }
-
+    // Firebaseにターンデータが揃うのを待って一括取得・再生
     guestBattleRef = database.ref('rooms/' + roomId + '/turns');
-    guestBattleRef.on('child_added', snap => {
-        const turn = snap.val();
-        if(!turn) return;
-        turnBuffer.push(turn);
-        if(!isPlaying) playNextTurn();
-    });
-
-    // バトル結果を待機
-    database.ref('rooms/' + roomId + '/battleResult').on('value', snap => {
-        const result = snap.val();
-        if(!result) return;
-        database.ref('rooms/' + roomId + '/battleResult').off();
-        const isWin = result.winner === 'guest';
-        setTimeout(() => {
-            const overlay = document.getElementById("battleResultOverlay");
-            const bigText = document.getElementById("battleResultBig");
-            if(overlay && bigText) {
-                bigText.innerText = isWin ? "🏆 勝利!!" : "💀 敗北...";
-                bigText.style.color = isWin ? "#2ecc71" : "#ff4444";
-                overlay.style.display = "flex";
-                setTimeout(() => { overlay.style.display = "none"; document.getElementById("battleResultBox").style.display = "block"; }, 2000);
-            } else {
-                document.getElementById("battleResultBox").style.display = "block";
+    // onceで全ターンを一括取得（ホストが書き込み完了後に届く）
+    const waitForTurns = () => {
+        guestBattleRef.once('value').then(snap => {
+            const data = snap.val();
+            if(!data) {
+                // まだ書き込まれていなければ500ms後に再試行
+                setTimeout(waitForTurns, 500);
+                return;
             }
-            const res = document.getElementById("battleVerdict");
-            const rew = document.getElementById("rewardText");
-            if(isWin) {
-                playWinSound(); res.innerText = "🏆 勝利 !!"; res.style.color = "#2ecc71";
-                playerG += 50; const oldEXP = playerEXP; playerEXP += 10;
-                rew.innerHTML = `💰 +50G / ✨ +10EXP`;
-                setTimeout(() => checkLvUp(oldEXP, playerEXP), 800);
-                document.getElementById("oppOwnerText").style.color = "#ff4444";
-                document.getElementById("oHpText").style.color = "#ff4444";
-            } else {
-                res.innerText = "💀 敗北 ..."; res.style.color = "#e74c3c";
-                const oldEXP = playerEXP; playerEXP += 1;
-                rew.innerHTML = `✨ +1EXP どんまい！`;
-                setTimeout(() => checkLvUp(oldEXP, playerEXP), 800);
-                document.getElementById("pOwnerText").style.color = "#ff4444";
-                document.getElementById("pHpText").style.color = "#ff4444";
-            }
-            curryStock.splice(selectedCurryIndex, 1); selectedCurryIndex = curryStock.length ? 0 : -1;
-            saveGame(); updateCookSelects(); updateMatchCurrySelects();
-            stopBattleBGM();
-        }, 1500);
-    });
+            const turns = Object.values(data).sort((a,b) => a.round - b.round);
+            if(guestBattleRef) { guestBattleRef.off(); guestBattleRef = null; }
+            playBattleTurns(turns, myC, oppC, oppN, 'guest');
+        });
+    };
+    setTimeout(waitForTurns, 800); // ホストの書き込み完了を少し待つ
 }
 
 // ===== ホストのstep関数：各ターン結果をFirebaseに書き込む =====
 // （proceedToArena内のstep関数の後に、ターン書き込みを追加）
-function writeHostTurn(roomId, round, logText, hostHP, guestHP, effect, effectDmg, finished) {
-    if(!database || !roomId || onlineRole !== 'host') return;
-    database.ref('rooms/' + roomId + '/turns/' + round).set({
-        round,
-        log: logText,
-        hostHP, guestHP,   // 明示的にホスト/ゲストのHPを保存
-        effect: effect || null,
-        effectDmg: effectDmg || 0,
-        finished: !!finished
-    });
-}
 // =====ここまで=====
 
 function cancelMatchRoom() { if(myRoomRef) { let rRef = database.ref('rooms/' + currentRoomId); rRef.remove(); rRef.off('value'); } document.getElementById("lobbyArea").style.display = "block"; document.getElementById("waitingArea").style.display = "none"; }
@@ -1536,35 +1571,48 @@ function proceedToArena(oppN, oppC, myC) {
     }
     let pHP = myC.hp; let oHP = oppC.hp; updateHP(pHP, oHP, oppC.hp, myC.hp);
     const log = document.getElementById("battleLog"); log.innerHTML = `⚔️ ${oppN} との決闘開始！\n`;
-    // ★特殊BGM（自分または相手のカレーを判定）
+    // ★特殊BGM
     stopBattleBGM();
     if(myC.isMargherita || oppC.isMargherita) playBattleBGM("Guardare_il_cielo.mp3");
     else if(myC.isSeafood || oppC.isSeafood) playBattleBGM("wave.mp3");
-    // 対人戦：ゲスト側はFirebaseからターン結果を受信して表示のみ
-    if(!isBotMatch && onlineRole === 'guest') {
-        startGuestBattleListener(currentRoomId, myC, oppC, oppN);
+
+    if(!isBotMatch) {
+        // 対人戦：ホストがバトルを事前計算して全ターンをFirebaseに一括書き込み
+        // ゲスト・ホスト共に同じデータを順番に再生する
+        if(onlineRole === 'host') {
+            const allTurns = calcAllBattleTurns(myC, oppC, oppN, playerName);
+            // Firebaseに一括書き込み
+            const turnsRef = database.ref('rooms/' + currentRoomId + '/turns');
+            turnsRef.set(allTurns).then(() => {
+                // 結果も書き込む
+                const lastTurn = allTurns[allTurns.length - 1];
+                const hostWin = lastTurn.hostHP > lastTurn.guestHP;
+                database.ref('rooms/' + currentRoomId + '/battleResult').set({ winner: hostWin ? 'host' : 'guest' });
+            });
+            // ホスト自身もターンを順番に再生（ホスト視点）
+            playBattleTurns(allTurns, myC, oppC, oppN, 'host');
+        } else {
+            // ゲスト：Firebaseからターンデータを受信して再生
+            startGuestBattleListener(currentRoomId, myC, oppC, oppN);
+        }
         return;
     }
+
+    // BOT戦：従来通りリアルタイムstep処理
     let isOP = false, isPP = false;
-    if (myC.isPoison) { isOP = true; log.innerHTML += `☠️ 毒気が ${oppN} を蝕む！`; playPoisonSound(); }
-    if (oppC.isPoison) { isPP = true; log.innerHTML += `☠️ 毒気が ${playerName} を蝕む！`; playPoisonSound(); }
-    // 毒の演出テキスト
-    if (myC.isPoison) { log.innerHTML += `\n☠️ ${oppN} は毒にかかった！毎ターン毒ダメージ！`; }
-    if (oppC.isPoison) { log.innerHTML += `\n☠️ ${playerName} は毒にかかった！毎ターン毒ダメージ！`; }
-    // 幻惑状態：命中率70%
+    if (myC.isPoison) { isOP = true; }
+    if (oppC.isPoison) { isPP = true; }
+    // 状態異常テキスト
+    if (myC.isPoison) { log.innerHTML += `\n☠️ ${oppN} は毒にかかった！毎ターン毒ダメージ！`; playPoisonSound(); }
+    if (oppC.isPoison) { log.innerHTML += `\n☠️ ${playerName} は毒にかかった！毎ターン毒ダメージ！`; playPoisonSound(); }
     let myIsIlluded = !!(oppC.isIllusion);
     let oppIsIlluded = !!(myC.isIllusion);
     if(myC.isIllusion) { log.innerHTML += `\n🌀 ${oppN} は幻惑にかかった！攻撃命中率ダウン！`; }
     if(oppC.isIllusion) { log.innerHTML += `\n🌀 ${playerName} は幻惑にかかった！攻撃命中率ダウン！`; }
-    // ネバネバ先攻：必ず先攻
     let myTurn;
-    if(myC.isSticky && !oppC.isSticky) {
-        myTurn = true;
-        log.innerHTML += `\n💚 ${oppN} はネバネバにかかった！${playerName} の先攻攻撃！`;
-    } else if(oppC.isSticky && !myC.isSticky) {
-        myTurn = false;
-        log.innerHTML += `\n💚 ${playerName} はネバネバにかかった！${oppN} の先攻攻撃！`;
-    } else { myTurn = myC.spd >= oppC.spd; }
+    if(myC.isSticky && !oppC.isSticky) { myTurn = true; log.innerHTML += `\n💚 ${oppN} はネバネバにかかった！${playerName} の先攻攻撃！`; }
+    else if(oppC.isSticky && !myC.isSticky) { myTurn = false; log.innerHTML += `\n💚 ${playerName} はネバネバにかかった！${oppN} の先攻攻撃！`; }
+    else { myTurn = myC.spd >= oppC.spd; }
     let round = 1;
     function step() {
         if (pHP <= 0 || oHP <= 0 || round > 20) { setTimeout(() => done(pHP, oHP, myC, oppC), 800); return; }
@@ -1572,73 +1620,40 @@ function proceedToArena(oppN, oppC, myC) {
             log.innerHTML = `🔥 自分のターン！`;
             if (isPP) { let d = Math.round(myC.hp * 0.08); pHP -= d; log.innerHTML += `\n☠️ 毒ダメージ: ${d}`; triggerEffect("player-poison", d); updateHP(pHP, oHP, oppC.hp, myC.hp); if(pHP<=0){step();return;} }
             if (myC.hasGold) { playGoldSound(); log.innerHTML += `\n🌟 金箔乱舞！`; } else if(myC.isTonTonTon) { playSoundEffect('pig2.mp3'); } else if(oppC.isTonTonTon) { playSoundEffect('pig1.mp3'); } else playAttackSound();
-            // 自分が幻惑状態：70%命中
             if(myIsIlluded && Math.random() > 0.7) {
                 log.innerHTML += `\n💨 幻惑で攻撃が外れた！`;
                 setTimeout(() => { updateHP(pHP, oHP, oppC.hp, myC.hp); myTurn = false; round++; setTimeout(step, 1100); }, 400);
             } else if(myC.isSeed && Math.random() < 0.3) {
                 const hits = Math.floor(Math.random() * 5) + 2;
                 let damages = [];
-                for(let i=0;i<hits;i++){
-                    let sd = Math.max(2, Math.round(myC.atk * 0.3 - Math.floor(oppC.def / 4)));
-                    sd = Math.round(sd * (0.9 + Math.random() * 0.2));
-                    damages.push(sd); oHP = Math.max(0, oHP - sd);
-                }
+                for(let i=0;i<hits;i++){ let sd = Math.max(2, Math.round(myC.atk*0.3 - Math.floor(oppC.def/4))); sd = Math.round(sd*(0.9+Math.random()*0.2)); damages.push(sd); oHP = Math.max(0,oHP-sd); }
                 log.innerHTML += `\n🌱 種連続発射 ${hits}連撃！`;
-                // 1発ずつ演出を連射
-                damages.forEach((sd, i) => {
-                    setTimeout(() => {
-                        triggerEffect("enemy", sd);
-                        if(i === damages.length - 1) {
-                            log.innerHTML += ` 合計: ${damages.reduce((a,b)=>a+b,0)}`;
-                            updateHP(pHP, oHP, oppC.hp, myC.hp);
-                            myTurn = false; round++; setTimeout(step, 1100);
-                        }
-                    }, 300 + i * 250);
-                });
+                damages.forEach((sd,i) => { setTimeout(() => { triggerEffect("enemy",sd); if(i===damages.length-1){ log.innerHTML+=` 合計: ${damages.reduce((a,b)=>a+b,0)}`; updateHP(pHP,oHP,oppC.hp,myC.hp); myTurn=false; round++; setTimeout(step,1100); } }, 300+i*250); });
             } else {
                 setTimeout(() => {
-                    let d = Math.max(8, myC.atk - Math.floor(oppC.def / 2)); d = Math.round(d * (0.9 + Math.random() * 0.2));
-                    oHP = Math.max(0, oHP - d); log.innerHTML += `\n💥 ダメージ: ${d}`; triggerEffect(myC.hasGold?"enemy-gold":"enemy", d);
-                    updateHP(pHP, oHP, oppC.hp, myC.hp);
-                    writeHostTurn(currentRoomId, round, log.innerHTML, pHP, oHP, myC.hasGold?"enemy-gold":"enemy", d, pHP<=0||oHP<=0||round>=20);
-                    myTurn = false; round++; setTimeout(step, 1100); // pHP=自分(host), oHP=相手(guest)
+                    let d = Math.max(8, myC.atk - Math.floor(oppC.def/2)); d = Math.round(d*(0.9+Math.random()*0.2));
+                    oHP = Math.max(0,oHP-d); log.innerHTML += `\n💥 ダメージ: ${d}`; triggerEffect(myC.hasGold?"enemy-gold":"enemy", d);
+                    updateHP(pHP,oHP,oppC.hp,myC.hp); myTurn=false; round++; setTimeout(step,1100);
                 }, 400);
             }
         } else {
             log.innerHTML = `⚠️ 相手のターン！`;
-            if (isOP) { let d = Math.round(oppC.hp * 0.08); oHP -= d; log.innerHTML += `\n☠️ 毒ダメージ: ${d}`; triggerEffect("enemy-poison", d); updateHP(pHP, oHP, oppC.hp, myC.hp); if(oHP<=0){step();return;} }
-            if(myC.isTonTonTon) { playSoundEffect('pig1.mp3'); } else if(oppC.isTonTonTon) { playSoundEffect('pig2.mp3'); } else playAttackSound();
-            // 相手が幻惑状態：70%命中
+            if (isOP) { let d = Math.round(oppC.hp*0.08); oHP-=d; log.innerHTML += `\n☠️ 毒ダメージ: ${d}`; triggerEffect("enemy-poison",d); updateHP(pHP,oHP,oppC.hp,myC.hp); if(oHP<=0){step();return;} }
+            if(myC.isTonTonTon){ playSoundEffect('pig1.mp3'); } else if(oppC.isTonTonTon){ playSoundEffect('pig2.mp3'); } else playAttackSound();
             if(oppIsIlluded && Math.random() > 0.7) {
                 log.innerHTML += `\n💨 幻惑で相手の攻撃が外れた！`;
-                setTimeout(() => { updateHP(pHP, oHP, oppC.hp, myC.hp); myTurn = true; round++; setTimeout(step, 1100); }, 400);
+                setTimeout(() => { updateHP(pHP,oHP,oppC.hp,myC.hp); myTurn=true; round++; setTimeout(step,1100); }, 400);
             } else if(oppC.isSeed && Math.random() < 0.3) {
                 const hits = Math.floor(Math.random() * 5) + 2;
                 let damages = [];
-                for(let i=0;i<hits;i++){
-                    let sd = Math.max(2, Math.round(oppC.atk * 0.3 - Math.floor(myC.def / 4)));
-                    sd = Math.round(sd * (0.9 + Math.random() * 0.2));
-                    damages.push(sd); pHP = Math.max(0, pHP - sd);
-                }
+                for(let i=0;i<hits;i++){ let sd = Math.max(2, Math.round(oppC.atk*0.3 - Math.floor(myC.def/4))); sd = Math.round(sd*(0.9+Math.random()*0.2)); damages.push(sd); pHP = Math.max(0,pHP-sd); }
                 log.innerHTML += `\n🌱 相手の種連続発射 ${hits}連撃！`;
-                damages.forEach((sd, i) => {
-                    setTimeout(() => {
-                        triggerEffect("player", sd);
-                        if(i === damages.length - 1) {
-                            log.innerHTML += ` 合計: ${damages.reduce((a,b)=>a+b,0)}`;
-                            updateHP(pHP, oHP, oppC.hp, myC.hp);
-                            myTurn = true; round++; setTimeout(step, 1100);
-                        }
-                    }, 300 + i * 250);
-                });
+                damages.forEach((sd,i) => { setTimeout(() => { triggerEffect("player",sd); if(i===damages.length-1){ log.innerHTML+=` 合計: ${damages.reduce((a,b)=>a+b,0)}`; updateHP(pHP,oHP,oppC.hp,myC.hp); myTurn=true; round++; setTimeout(step,1100); } }, 300+i*250); });
             } else {
                 setTimeout(() => {
-                    let d = Math.max(8, oppC.atk - Math.floor(myC.def / 2)); d = Math.round(d * (0.9 + Math.random() * 0.2));
-                    pHP = Math.max(0, pHP - d); log.innerHTML += `\n😢 被弾ダメージ: ${d}`; triggerEffect("player", d);
-                    updateHP(pHP, oHP, oppC.hp, myC.hp);
-                    writeHostTurn(currentRoomId, round, log.innerHTML, pHP, oHP, "player", d, pHP<=0||oHP<=0||round>=20);
-                    myTurn = true; round++; setTimeout(step, 1100); // pHP=自分(host), oHP=相手(guest)
+                    let d = Math.max(8, oppC.atk - Math.floor(myC.def/2)); d = Math.round(d*(0.9+Math.random()*0.2));
+                    pHP = Math.max(0,pHP-d); log.innerHTML += `\n😢 被弾ダメージ: ${d}`; triggerEffect("player",d);
+                    updateHP(pHP,oHP,oppC.hp,myC.hp); myTurn=true; round++; setTimeout(step,1100);
                 }, 400);
             }
         }
@@ -1714,15 +1729,9 @@ function done(pHP, oHP, myC, oppC) {
     }
     curryStock.splice(selectedCurryIndex, 1); selectedCurryIndex = curryStock.length ? 0 : -1;
     saveGame(); updateCookSelects();
-    // 対人戦ホスト：バトル結果をFirebaseに書き込んでゲストに通知
+    // 対人戦：部屋クリーンアップ（ホストのみ）
     if(!isBotMatch && currentRoomId && onlineRole === 'host' && database) {
-        database.ref('rooms/' + currentRoomId + '/battleResult').set({
-            winner: isWin ? 'host' : 'guest',
-            pHP: pHP, oHP: oHP
-        });
-        setTimeout(() => { database.ref('rooms/' + currentRoomId).remove(); }, 5000);
-    } else if(!isBotMatch && currentRoomId && onlineRole !== 'host') {
-        // ゲスト側は自前で結果表示後にリスナー解除（startGuestBattleListenerで管理）
+        setTimeout(() => { database.ref('rooms/' + currentRoomId).remove(); }, 8000);
     }
     if (typeof updateMatchCurrySelects === "function") updateMatchCurrySelects();
 }
