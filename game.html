@@ -1492,6 +1492,7 @@ function calcAllBattleTurns(myC, oppC, oppN, myName) {
             if(myIsIlluded && Math.random()>0.7) {
                 turn.log+=`
 💨 幻惑で攻撃が外れた！`;
+                turn.hostHP=pHP; turn.guestHP=oHP;
             } else if(myC.isSeed && Math.random()<0.3) {
                 const hits=Math.floor(Math.random()*5)+2; let seedDmgs=[];
                 for(let i=0;i<hits;i++){let sd=Math.max(2,Math.round(myC.atk*0.3-Math.floor(oppC.def/4)));sd=Math.round(sd*(0.9+Math.random()*0.2));seedDmgs.push(sd);oHP=Math.max(0,oHP-sd);}
@@ -1512,6 +1513,7 @@ function calcAllBattleTurns(myC, oppC, oppN, myName) {
             if(oppIsIlluded && Math.random()>0.7) {
                 turn.log+=`
 💨 幻惑で相手の攻撃が外れた！`;
+                turn.hostHP=pHP; turn.guestHP=oHP;
             } else if(oppC.isSeed && Math.random()<0.3) {
                 const hits=Math.floor(Math.random()*5)+2; let seedDmgs=[];
                 for(let i=0;i<hits;i++){let sd=Math.max(2,Math.round(oppC.atk*0.3-Math.floor(myC.def/4)));sd=Math.round(sd*(0.9+Math.random()*0.2));seedDmgs.push(sd);pHP=Math.max(0,pHP-sd);}
@@ -1597,7 +1599,7 @@ function startBattleScene(oppN, oppC, myC) {
     if (!isBotMatch) {
         document.getElementById("pVisual").innerHTML = `<img src="${cachedMyIconFile}" style="width:36px;height:36px;border-radius:50%;object-fit:cover;display:inline-block;border:2px solid #e67e22;vertical-align:middle;">`;
         document.getElementById("oVisual").innerHTML = `<img src="${cachedOppIconFile}" style="width:100%;height:100%;border-radius:50%;object-fit:cover;display:block;">`;
-        document.getElementById("oppCurryEmojiText").innerHTML = `<img src="${cachedOppIconFile}" style="width:30px;height:30px;border-radius:50%;object-fit:cover;vertical-align:middle;">`;
+        document.getElementById("oppCurryEmojiText").innerText = oppC.emoji || oppC.visual || "🍛";
     } else {
         document.getElementById("pVisual").innerHTML = myC.visual || "🍛";
         if(oppC.isBotImage) document.getElementById("oVisual").innerHTML = `<img src="${oppC.visual}" alt="${oppN}">`;
