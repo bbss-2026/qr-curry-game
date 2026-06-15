@@ -1595,7 +1595,7 @@ function startBattleScene(oppN, oppC, myC) {
     document.getElementById("pOwnerText").innerText = playerName;
     document.getElementById("playerCurryNameText").innerText = myC.name;
     if (!isBotMatch) {
-        document.getElementById("pVisual").innerHTML = `<img src="${cachedMyIconFile}" style="width:100%;height:100%;border-radius:50%;object-fit:cover;display:block;">`;
+        document.getElementById("pVisual").innerHTML = `<img src="${cachedMyIconFile}" style="width:36px;height:36px;border-radius:50%;object-fit:cover;display:inline-block;border:2px solid #e67e22;vertical-align:middle;">`;
         document.getElementById("oVisual").innerHTML = `<img src="${cachedOppIconFile}" style="width:100%;height:100%;border-radius:50%;object-fit:cover;display:block;">`;
         document.getElementById("oppCurryEmojiText").innerHTML = `<img src="${cachedOppIconFile}" style="width:30px;height:30px;border-radius:50%;object-fit:cover;vertical-align:middle;">`;
     } else {
