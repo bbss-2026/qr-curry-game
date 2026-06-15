@@ -1488,44 +1488,45 @@ function calcAllBattleTurns(myC, oppC, oppN, myName) {
         if(myTurn) {
             turn.log = `🔥 ${myName} のターン！`;
             if(isPP) { let d=Math.round(myC.hp*0.08); pHP=Math.max(0,pHP-d); turn.log+=`
-☠️ 毒ダメージ: ${d}`; turn.effects.push({type:'player-poison',dmg:d}); turn.hostHP=pHP; if(pHP<=0){turns.push(turn);break;} }
+☠️ 毒ダメージ: ${d}`; turn.effects.push({type:'player-poison',dmg:d}); if(pHP<=0){ turn.hostHP=pHP; turn.guestHP=oHP; turns.push(turn); break; } }
             if(myIsIlluded && Math.random()>0.7) {
                 turn.log+=`
 💨 幻惑で攻撃が外れた！`;
-                turn.hostHP=pHP; turn.guestHP=oHP;
             } else if(myC.isSeed && Math.random()<0.3) {
                 const hits=Math.floor(Math.random()*5)+2; let seedDmgs=[];
                 for(let i=0;i<hits;i++){let sd=Math.max(2,Math.round(myC.atk*0.3-Math.floor(oppC.def/4)));sd=Math.round(sd*(0.9+Math.random()*0.2));seedDmgs.push(sd);oHP=Math.max(0,oHP-sd);}
                 turn.log+=`
 🌱 種連続発射 ${hits}連撃！合計: ${seedDmgs.reduce((a,b)=>a+b,0)}`;
-                seedDmgs.forEach(sd=>turn.effects.push({type:'enemy',dmg:sd,seed:true})); turn.guestHP=oHP;
+                seedDmgs.forEach(sd=>turn.effects.push({type:'enemy',dmg:sd,seed:true}));
             } else {
                 let d=Math.max(8,myC.atk-Math.floor(oppC.def/2)); d=Math.round(d*(0.9+Math.random()*0.2)); oHP=Math.max(0,oHP-d);
                 if(myC.hasGold){turn.log+=`
 🌟 金箔乱舞！💥 ダメージ: ${d}`;turn.effects.push({type:'enemy-gold',dmg:d});}
                 else{turn.log+=`
-💥 ダメージ: ${d}`;turn.effects.push({type:'enemy',dmg:d});} turn.guestHP=oHP;
+💥 ダメージ: ${d}`;turn.effects.push({type:'enemy',dmg:d});}
             }
         } else {
             turn.log = `⚠️ ${oppN} のターン！`;
             if(isOP) { let d=Math.round(oppC.hp*0.08);oHP=Math.max(0,oHP-d);turn.log+=`
-☠️ 毒ダメージ: ${d}`;turn.effects.push({type:'enemy-poison',dmg:d});turn.guestHP=oHP;if(oHP<=0){turns.push(turn);break;} }
+☠️ 毒ダメージ: ${d}`;turn.effects.push({type:'enemy-poison',dmg:d}); if(oHP<=0){ turn.hostHP=pHP; turn.guestHP=oHP; turns.push(turn); break; } }
             if(oppIsIlluded && Math.random()>0.7) {
                 turn.log+=`
 💨 幻惑で相手の攻撃が外れた！`;
-                turn.hostHP=pHP; turn.guestHP=oHP;
             } else if(oppC.isSeed && Math.random()<0.3) {
                 const hits=Math.floor(Math.random()*5)+2; let seedDmgs=[];
                 for(let i=0;i<hits;i++){let sd=Math.max(2,Math.round(oppC.atk*0.3-Math.floor(myC.def/4)));sd=Math.round(sd*(0.9+Math.random()*0.2));seedDmgs.push(sd);pHP=Math.max(0,pHP-sd);}
                 turn.log+=`
 🌱 相手の種連続発射 ${hits}連撃！合計: ${seedDmgs.reduce((a,b)=>a+b,0)}`;
-                seedDmgs.forEach(sd=>turn.effects.push({type:'player',dmg:sd,seed:true})); turn.hostHP=pHP;
+                seedDmgs.forEach(sd=>turn.effects.push({type:'player',dmg:sd,seed:true}));
             } else {
                 let d=Math.max(8,oppC.atk-Math.floor(myC.def/2));d=Math.round(d*(0.9+Math.random()*0.2));
                 pHP=Math.max(0,pHP-d);turn.log+=`
-😢 被弾ダメージ: ${d}`;turn.effects.push({type:'player',dmg:d});turn.hostHP=pHP;
+😢 被弾ダメージ: ${d}`;turn.effects.push({type:'player',dmg:d});
             }
         }
+        // ターン終了時に必ず最新HPを確定（幻惑ミス含む全ケース対応）
+        turn.hostHP = pHP;
+        turn.guestHP = oHP;
         myTurn=!myTurn;
         turns.push(turn);
     }
