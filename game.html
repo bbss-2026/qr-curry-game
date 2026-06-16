@@ -22,8 +22,16 @@
         
         /* 遊び方ページ用 */
         .guide-box { background: #fffdf0; border: 2px solid #e67e22; border-radius: 10px; padding: 15px; margin-bottom: 20px; font-size: 14px; line-height: 1.6; }
-        .guide-step { margin-bottom: 15px; border-left: 4px solid #e67e22; padding-left: 10px; }
-        .guide-step h4 { margin: 0 0 5px 0; color: #d35400; }
+        /* アコーディオン */
+        .accordion-item { border: 1px solid #e0c080; border-radius: 8px; margin-bottom: 8px; overflow: hidden; }
+        .accordion-header { background: #fff8ee; padding: 12px 15px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; font-weight: bold; color: #d35400; font-size: 14px; user-select: none; }
+        .accordion-header:hover { background: #fff0d0; }
+        .accordion-arrow { transition: transform 0.3s; font-size: 12px; color: #e67e22; }
+        .accordion-arrow.open { transform: rotate(180deg); }
+        .accordion-body { display: none; padding: 12px 15px; font-size: 13px; line-height: 1.7; color: #4a3b32; background: #fff; border-top: 1px solid #f0e0c0; }
+        .accordion-body.open { display: block; }
+        /* お知らせ */
+        .notice-box { background: #fff8ee; border: 2px solid #e67e22; border-radius: 10px; padding: 12px 15px; margin-bottom: 15px; font-size: 13px; line-height: 1.6; color: #4a3b32; display: none; }
         /* ボタン・フォーム */
         .btn { width: 80%; padding: 12px; font-size: 16px; font-weight: bold; border: none; border-radius: 8px; cursor: pointer; margin: 8px auto; transition: 0.1s; display: block; }
         .btn-start { background: #3498db; color: white; box-shadow: 0 4px 0 #2980b9; }
@@ -223,25 +231,52 @@
             おかしな部分も多々あるかと思いますが温かい目で見守ってやってください。<br>
             今後も随時アップデートをする予定です。（AIに頼んで）</p>
         </div>
-        <h3 style="color:#d35400; border-bottom: 2px solid #e67e22; padding-bottom:5px;">遊び方</h3>
-        <div class="guide-step">
-            <h4>1. QRをスキャンしてアイテムを集めよう！</h4>
-            <p>「QRスキャン」でカメラをQRにかざすとアイテムが入手できるよ！<br>
-            同じQRからは1日1回までしか入手できないけど、次の日になったらまた入手できるよ！</p>
+        <!-- お知らせ（Firebaseから取得） -->
+        <div class="notice-box" id="noticeBox"></div>
+        <!-- アコーディオンメニュー -->
+        <div class="accordion-item">
+            <div class="accordion-header" onclick="toggleAccordion(this)">
+                1. QRをスキャンしてアイテムを集めよう！
+                <span class="accordion-arrow">▼</span>
+            </div>
+            <div class="accordion-body">
+                「QRスキャン」でカメラをQRにかざすとアイテムが入手できます。<br>
+                同じQRからは1日1回までしか入手できませんが、次の日になったら再び入手可能です。<br>
+                アイテムはQR以外にもガチャやバトルなど他の方法でも入手可能です。
+            </div>
         </div>
-        <div class="guide-step">
-            <h4>2. 冷蔵庫＆図鑑（売却機能追加！）</h4>
-            <p>入手したアイテムが食材とスパイスに分かれて綺麗に確認できるよ！<br>
-            「？？？」は未発見。一度でも入手すれば、残り0個になってもタップして説明が読めるよ！<br>
-            G(ゴールド)やパックチケットを消費してガチャも回せるよ！</p>
+        <div class="accordion-item">
+            <div class="accordion-header" onclick="toggleAccordion(this)">
+                2. 冷蔵庫＆図鑑
+                <span class="accordion-arrow">▼</span>
+            </div>
+            <div class="accordion-body">
+                入手したアイテムが確認できます。<br>
+                G(ゴールド)やパックチケットを消費してガチャも回せます。<br>
+                発見したレシピは20個まで履歴が記録され、確認できます。<br>
+                レシピの右にある☆でお気に入り登録ができ、お気に入りにしたレシピは削除されません。
+            </div>
         </div>
-        <div class="guide-step">
-            <h4>3. 調理</h4>
-            <p>食材3つとスパイス1つまで選んで調理してね！カレーは5個までストック可能！</p>
+        <div class="accordion-item">
+            <div class="accordion-header" onclick="toggleAccordion(this)">
+                3. 調理
+                <span class="accordion-arrow">▼</span>
+            </div>
+            <div class="accordion-body">
+                食材3つとスパイス1つまで選んでカレーを調理することができます。<br>
+                ランダムで素材を決めたり、お気に入りレシピから素材を入れることもできます。<br>
+                特定の組み合わせで調理をすると特殊カレーができることも！？
+            </div>
         </div>
-        <div class="guide-step">
-            <h4>4. 対戦アリーナ（VS画面で戦略選択！）</h4>
-            <p>「PCと対戦」や「対戦ルーム」で対戦をして経験値やゴールドを稼ごう！</p>
+        <div class="accordion-item">
+            <div class="accordion-header" onclick="toggleAccordion(this)">
+                4. 対戦アリーナ
+                <span class="accordion-arrow">▼</span>
+            </div>
+            <div class="accordion-body">
+                「PCと対戦」や「対戦ルーム」で対戦をして経験値やゴールドを稼ごう！<br>
+                作ったカレーのステータスで戦う戦略的なバトルが楽しめます。
+            </div>
         </div>
     </div>
 
@@ -761,7 +796,7 @@ let onlineRole = 'host'; // 対人戦での自分の役割
 let discoveredItems = {};
 let cachedOpponentName = "";
 let cachedOpponentCurry = null;
-window.onload = function() { loadGame(); updateFridgeUI(); updateCookSelects(); refreshRecipeBookUI(); updateShopButtons(); listenToRooms(); updateMatchCurrySelects(); setupLoadedIconUI(); updateLvDisplay(); };
+window.onload = function() { loadGame(); updateFridgeUI(); updateCookSelects(); refreshRecipeBookUI(); updateShopButtons(); listenToRooms(); updateMatchCurrySelects(); setupLoadedIconUI(); updateLvDisplay(); loadNotice(); };
 function switchTab(tab, el) {
     if (document.getElementById("battleArena").style.display === "block") {
         endBattleScene();
@@ -829,42 +864,103 @@ function clearSaveData() {
     });
 }
 function triggerStaffOnly() {
-    showCustomAlert("🔒 Staff Only", "デベロッパー用コマンドライン", function() {
+    showCustomAlert("🔒 Staff Only", "パスワードを入力してください", function() {
         setTimeout(() => {
-            const pass = prompt("🔑 パスワードを入力してください:");
-            if (pass === "5555") {
-                Object.keys(masterIngredients).forEach(k => { inventory[k] = 99; discoveredItems[k] = true; });
-                Object.keys(masterSpices).forEach(k => { inventory[k] = 99; discoveredItems[k] = true; });
-                playerG = 9999; packTicket = 10; saveGame(); updateFridgeUI(); updateCookSelects(); playWinSound();
-                // レベル選択ダイアログ
-                setTimeout(() => {
-                    const lvInput = prompt(`🎮 デバッグ：プレイヤーレベルを入力 (1〜${MAX_LV}):
-現在: Lv.${calcLv(playerEXP)}`);
-                    if (lvInput !== null) {
-                        const targetLv = parseInt(lvInput, 10);
-                        if (!isNaN(targetLv) && targetLv >= 1 && targetLv <= MAX_LV) {
-                            // 目標Lvに対応するEXPを設定（そのLvの開始EXP）
-                            playerEXP = (targetLv - 1) * EXP_PER_LV;
-                            // そのLv以下のアイコンを全解放
-                            const newUnlocked = ["mayimage01.png","mayimage02.png","mayimage03.png"];
-                            Object.keys(LV_UNLOCK_ICONS).forEach(lvKey => {
-                                if (parseInt(lvKey) <= targetLv) newUnlocked.push(LV_UNLOCK_ICONS[lvKey]);
-                            });
-                            saveUnlockedIcons(newUnlocked);
-                            // Lv5以上ならストック上限も解放
-                            if (targetLv >= 5) localStorage.setItem('qr_curry_stock_limit', '8');
-                            else localStorage.removeItem('qr_curry_stock_limit');
-                            saveGame(); updateLvDisplay(); setupLoadedIconUI();
-                            showCustomAlert("✅ デバッグ設定完了", `Lv.${targetLv} に設定しました！<br>EXP: ${playerEXP}<br>解放アイコン: ${newUnlocked.length}種`);
-                        } else {
-                            showCustomAlert("❌ 入力エラー", `1〜${MAX_LV} の数字を入力してください。`);
-                        }
-                    }
-                }, 400);
-                showCustomAlert("✨ 開発者用フルチャージ完了！続けてレベル設定ができます。");
-            } else if (pass !== null) showCustomAlert("❌ パスワード不一致");
+            const pass = prompt("🔑 パスワード:");
+            if (pass !== "5555") { if(pass !== null) showCustomAlert("❌ パスワード不一致"); return; }
+            showStaffMenu();
         }, 300);
     });
+}
+
+function showStaffMenu() {
+    var menuHTML = [
+        '<div style="text-align:left;font-size:13px;">',
+        '<div style="margin-bottom:10px;font-weight:bold;color:#d35400;">&#x1F6E0;&#xFE0F; Staff Only メニュー</div>',
+        '<button onclick="staffAction(\"fullcharge\")" style="width:100%;margin-bottom:8px;padding:8px;background:#e67e22;color:white;border:none;border-radius:6px;font-weight:bold;cursor:pointer;">&#x2728; アイテム全補充</button>',
+        '<button onclick="staffAction(\"setlevel\")" style="width:100%;margin-bottom:12px;padding:8px;background:#3498db;color:white;border:none;border-radius:6px;font-weight:bold;cursor:pointer;">&#x1F3AE; レベル設定</button>',
+        '<div style="margin:0 0 4px 0;font-weight:bold;color:#555;font-size:12px;">&#x1F4E2; お知らせ設定（全ユーザーに表示）</div>',
+        '<textarea id="staffNoticeInput" style="width:100%;height:80px;padding:8px;border:2px solid #e67e22;border-radius:6px;font-size:12px;box-sizing:border-box;resize:vertical;" placeholder="お知らせ内容（空欄で非表示）"></textarea>',
+        '<button onclick="staffAction(\"setnotice\")" style="width:100%;margin-top:6px;padding:8px;background:#2ecc71;color:white;border:none;border-radius:6px;font-weight:bold;cursor:pointer;">&#x1F4BE; お知らせを保存・反映</button>',
+        '</div>'
+    ].join('');
+    document.getElementById("modalTitle").innerText = "Staff Only";
+    document.getElementById("modalMessage").innerHTML = menuHTML;
+    if(database) {
+        database.ref('notice').once('value').then(function(snap) {
+            var cur = snap.val() || '';
+            var ta = document.getElementById("staffNoticeInput");
+            if(ta) ta.value = cur;
+        });
+    }
+    const btnGroup = document.getElementById("modalBtnGroup");
+    btnGroup.innerHTML = '';
+    const closeBtn = document.createElement("button");
+    closeBtn.className = "modal-btn modal-btn-cancel";
+    closeBtn.innerText = "閉じる";
+    closeBtn.onclick = function() { document.getElementById("customModal").style.display = "none"; };
+    btnGroup.appendChild(closeBtn);
+    document.getElementById("customModal").style.display = "flex";
+}
+
+function staffAction(action) {
+    if(action === 'fullcharge') {
+        Object.keys(masterIngredients).forEach(k => { inventory[k] = 99; discoveredItems[k] = true; });
+        Object.keys(masterSpices).forEach(k => { inventory[k] = 99; discoveredItems[k] = true; });
+        playerG = 9999; packTicket = 10;
+        saveGame(); updateFridgeUI(); updateCookSelects(); playWinSound();
+        showCustomAlert("✨ アイテム全補充完了！");
+    } else if(action === 'setlevel') {
+        document.getElementById("customModal").style.display = "none";
+        setTimeout(function() {
+            var lvInput = prompt("🎮 レベル設定 (1〜" + MAX_LV + "):\n現在: Lv." + calcLv(playerEXP));
+            if(lvInput !== null) {
+                var targetLv = parseInt(lvInput, 10);
+                if(!isNaN(targetLv) && targetLv >= 1 && targetLv <= MAX_LV) {
+                    playerEXP = (targetLv - 1) * EXP_PER_LV;
+                    var newUnlocked = ["mayimage01.png","mayimage02.png","mayimage03.png"];
+                    Object.keys(LV_UNLOCK_ICONS).forEach(function(lvKey) { if(parseInt(lvKey) <= targetLv) newUnlocked.push(LV_UNLOCK_ICONS[lvKey]); });
+                    saveUnlockedIcons(newUnlocked);
+                    if(targetLv >= 5) localStorage.setItem('qr_curry_stock_limit','8');
+                    else localStorage.removeItem('qr_curry_stock_limit');
+                    saveGame(); updateLvDisplay(); setupLoadedIconUI();
+                    showCustomAlert("✅ レベル設定完了", "Lv." + targetLv + " に設定しました！");
+                } else showCustomAlert("❌ 入力エラー", "1〜" + MAX_LV + " の数字を入力してください。");
+            }
+        }, 300);
+    } else if(action === 'setnotice') {
+        var ta = document.getElementById("staffNoticeInput");
+        var text = ta ? ta.value.trim() : '';
+        if(!database) { showCustomAlert("❌ Firebase未接続"); return; }
+        database.ref('notice').set(text).then(function() {
+            loadNotice();
+            showCustomAlert("✅ お知らせを保存しました！");
+        }).catch(function(e) { showCustomAlert("❌ 保存失敗", e.message); });
+    }
+}
+
+function loadNotice() {
+    if(!database) return;
+    database.ref('notice').once('value').then(function(snap) {
+        var text = snap.val() || '';
+        var box = document.getElementById("noticeBox");
+        if(!box) return;
+        if(text) {
+            box.innerHTML = text.replace(/\n/g, '<br>');
+            box.style.display = "block";
+        } else {
+            box.style.display = "none";
+        }
+    });
+}
+
+function toggleAccordion(header) {
+    var arrow = header.querySelector('.accordion-arrow');
+    var body = header.nextElementSibling;
+    var isOpen = body.classList.contains('open');
+    document.querySelectorAll('.accordion-body').forEach(function(b) { b.classList.remove('open'); });
+    document.querySelectorAll('.accordion-arrow').forEach(function(a) { a.classList.remove('open'); });
+    if(!isOpen) { body.classList.add('open'); arrow.classList.add('open'); }
 }
 function updateShopButtons() {
     const bNormal = document.getElementById("btnGachaNormal"); const bSpice = document.getElementById("btnGachaSpice");
@@ -1068,16 +1164,18 @@ function refreshRecipeBookUI() {
     const keys = Object.keys(recipeBook);
     if(keys.length === 0) { area.innerHTML = "<div style='color:#7f8c8d; text-align:center;'>まだ履歴がありません。</div>"; updateFavRecipeSelect(); return; }
     area.innerHTML = "";
-    keys.forEach(k => {
+    // 最新順（追加順の逆）で表示
+    [...keys].reverse().forEach(k => {
         const r = recipeBook[k];
         const isFav = !!(r.fav);
         const row = document.createElement("div");
         row.className = "recipe-row";
         row.style.cssText = "display:flex; justify-content:space-between; align-items:center;";
+        const spicePart = r.spice ? ` + 🌶️${r.spice}` : '';
         row.innerHTML = `
             <div style="flex:1; min-width:0;">
                 <span>${r.visual}</span> <strong style="font-size:12px;">${r.name}</strong>
-                <div style='font-size:10px; color:#7f8c8d;'>🧪:${r.materials.join('+')}</div>
+                <div style='font-size:10px; color:#7f8c8d;'>🧪:${r.materials.join('+')}${spicePart}</div>
             </div>
             <button class="recipe-star ${isFav ? 'active' : 'inactive'}" onclick="toggleFavRecipe('${k}')">${isFav ? '⭐' : '☆'}</button>`;
         area.appendChild(row);
@@ -1251,7 +1349,7 @@ function cookCurry() {
     else if(chosen === "sticky") { cName = `💚ネバネバ${cName}`; isSticky = true; }
     else if(chosen === "seed") { cName = `🌱種連発${cName}`; isSeed = true; }
     const rKey=[...acts, sp].filter(Boolean).sort().join("+");
-    if(!recipeBook[rKey]) recipeBook[rKey]={name:cName, visual:vis, materials:acts.length?acts:["なし"]};
+    if(!recipeBook[rKey]) { recipeBook[rKey]={name:cName, visual:vis, materials:acts.length?acts:["なし"], spice:sp||""}; pruneRecipeBook(); }
     document.getElementById("resultBox").classList.remove("critical-box","poison-box","gold-box","margherita-box","tonton-box","wave-box","illusion-box","sticky-box","seed-box");
     ["criticalFlashText","poisonFlashText","goldFlashText","margheritaFlashText","tontonFlashText","waveFlashText","illusionFlashText","stickyFlashText","seedFlashText"].forEach(id=>{ const el=document.getElementById(id); if(el) el.style.display="none"; });
     // 重複OK：金箔・海鮮・会心
