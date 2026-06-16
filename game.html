@@ -1546,14 +1546,17 @@ function playBattleTurns(turns, myC, oppC, oppN, role) {
     }
 
     function playTurn() {
+        console.log("[PLAY] playTurn呼び出し idx:", idx, "turns.length:", turns.length, "role:", role);
         if(idx >= turns.length) {
             const last = turns[turns.length-1];
             const myHP = isGuest ? last.guestHP : last.hostHP;
             const oppHP = isGuest ? last.hostHP : last.guestHP;
+            console.log("[PLAY] 全ターン終了 myHP:", myHP, "oppHP:", oppHP);
             setTimeout(() => done(myHP, oppHP, myC, oppC), 800);
             return;
         }
         const turn = turns[idx++];
+        console.log("[PLAY] ターン", turn.round, "hostHP:", turn.hostHP, "guestHP:", turn.guestHP, "effects:", turn.effects.length);
         const myHP = isGuest ? turn.guestHP : turn.hostHP;
         const oppHP = isGuest ? turn.hostHP : turn.guestHP;
 
@@ -1638,25 +1641,32 @@ function startBattleScene(oppN, oppC, myC) {
         if(onlineRole === 'host') {
             // ホスト：全ターン計算→Firebase書き込み→自分も再生
             const allTurns = calcAllBattleTurns(myC, oppC, oppN, playerName);
+            console.log("[HOST] 計算ターン数:", allTurns.length);
+            allTurns.forEach((t,i) => console.log("[HOST] turn"+t.round, "hostHP:"+t.hostHP, "guestHP:"+t.guestHP, "log:"+t.log.substring(0,40)));
             const lastTurn = allTurns[allTurns.length-1];
             const hostWin = lastTurn.hostHP > lastTurn.guestHP;
-            // turnsとresultを同時に書き込む
             database.ref('rooms/' + currentRoomId).update({
                 turns: allTurns,
                 battleResult: { winner: hostWin ? 'host' : 'guest' }
-            }).catch(e => console.error("Firebase書き込みエラー:", e));
+            }).then(() => {
+                console.log("[HOST] Firebase書き込み完了");
+            }).catch(e => console.error("[HOST] Firebase書き込みエラー:", e));
             playBattleTurns(allTurns, myC, oppC, oppN, 'host');
         } else {
             // ゲスト：Firebaseを監視してturnsが来たら再生
             let started = false;
             guestBattleRef = database.ref('rooms/' + currentRoomId + '/turns');
+            console.log("[GUEST] Firebase監視開始 roomId:", currentRoomId);
             guestBattleRef.on('value', snap => {
-                if(started) return;
+                console.log("[GUEST] Firebase受信 data:", snap.val());
+                if(started) { console.log("[GUEST] 既に開始済み"); return; }
                 const data = snap.val();
-                if(!data || Object.keys(data).length === 0) return;
+                if(!data || Object.keys(data).length === 0) { console.log("[GUEST] データなし待機中"); return; }
                 started = true;
                 guestBattleRef.off(); guestBattleRef = null;
                 const turns = Object.values(data).sort((a,b)=>a.round-b.round);
+                console.log("[GUEST] ターン数:", turns.length);
+                turns.forEach(t => console.log("[GUEST] turn"+t.round, "hostHP:"+t.hostHP, "guestHP:"+t.guestHP, "log:"+t.log.substring(0,40)));
                 playBattleTurns(turns, myC, oppC, oppN, 'guest');
             });
             setTimeout(() => {
