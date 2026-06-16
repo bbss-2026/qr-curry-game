@@ -1488,7 +1488,7 @@ function calcAllBattleTurns(myC, oppC, oppN, myName) {
         if(myTurn) {
             turn.log = `🔥 ${myName} のターン！`;
             if(isPP) { let d=Math.round(myC.hp*0.08); pHP=Math.max(0,pHP-d); turn.log+=`
-☠️ 毒ダメージ: ${d}`; turn.effects.push({type:'player-poison',dmg:d}); if(pHP<=0){ turn.hostHP=pHP; turn.guestHP=oHP; turns.push(turn); break; } }
+☠️ 毒ダメージ: ${d}`; if(!turn.effects) turn.effects=[]; turn.effects.push({type:'player-poison',dmg:d}); if(pHP<=0){ turn.hostHP=pHP; turn.guestHP=oHP; turns.push(turn); break; } }
             if(myIsIlluded && Math.random()>0.7) {
                 turn.log+=`
 💨 幻惑で攻撃が外れた！`;
@@ -1508,7 +1508,7 @@ function calcAllBattleTurns(myC, oppC, oppN, myName) {
         } else {
             turn.log = `⚠️ ${oppN} のターン！`;
             if(isOP) { let d=Math.round(oppC.hp*0.08);oHP=Math.max(0,oHP-d);turn.log+=`
-☠️ 毒ダメージ: ${d}`;turn.effects.push({type:'enemy-poison',dmg:d}); if(oHP<=0){ turn.hostHP=pHP; turn.guestHP=oHP; turns.push(turn); break; } }
+☠️ 毒ダメージ: ${d}`; if(!turn.effects) turn.effects=[]; turn.effects.push({type:'enemy-poison',dmg:d}); if(oHP<=0){ turn.hostHP=pHP; turn.guestHP=oHP; turns.push(turn); break; } }
             if(oppIsIlluded && Math.random()>0.7) {
                 turn.log+=`
 💨 幻惑で相手の攻撃が外れた！`;
@@ -1546,25 +1546,23 @@ function playBattleTurns(turns, myC, oppC, oppN, role) {
     }
 
     function playTurn() {
-        console.log("[PLAY] playTurn呼び出し idx:", idx, "turns.length:", turns.length, "role:", role);
         if(idx >= turns.length) {
             const last = turns[turns.length-1];
             const myHP = isGuest ? last.guestHP : last.hostHP;
             const oppHP = isGuest ? last.hostHP : last.guestHP;
-            console.log("[PLAY] 全ターン終了 myHP:", myHP, "oppHP:", oppHP);
             setTimeout(() => done(myHP, oppHP, myC, oppC), 800);
             return;
         }
         const turn = turns[idx++];
-        console.log("[PLAY] ターン", turn.round, "hostHP:", turn.hostHP, "guestHP:", turn.guestHP, "effects:", turn.effects.length);
         const myHP = isGuest ? turn.guestHP : turn.hostHP;
         const oppHP = isGuest ? turn.hostHP : turn.guestHP;
 
         log.innerHTML = turn.log;
         updateHP(myHP, oppHP, oppC.hp, myC.hp);
 
-        const seedEffects = turn.effects.filter(e => e.seed);
-        const normalEffects = turn.effects.filter(e => !e.seed);
+        const effects = turn.effects || [];
+        const seedEffects = effects.filter(e => e.seed);
+        const normalEffects = effects.filter(e => !e.seed);
 
         // 通常エフェクト
         normalEffects.forEach(e => {
@@ -1641,32 +1639,32 @@ function startBattleScene(oppN, oppC, myC) {
         if(onlineRole === 'host') {
             // ホスト：全ターン計算→Firebase書き込み→自分も再生
             const allTurns = calcAllBattleTurns(myC, oppC, oppN, playerName);
-            console.log("[HOST] 計算ターン数:", allTurns.length);
-            allTurns.forEach((t,i) => console.log("[HOST] turn"+t.round, "hostHP:"+t.hostHP, "guestHP:"+t.guestHP, "log:"+t.log.substring(0,40)));
             const lastTurn = allTurns[allTurns.length-1];
             const hostWin = lastTurn.hostHP > lastTurn.guestHP;
+            // turnsとresultを同時に書き込む
             database.ref('rooms/' + currentRoomId).update({
                 turns: allTurns,
                 battleResult: { winner: hostWin ? 'host' : 'guest' }
-            }).then(() => {
-                console.log("[HOST] Firebase書き込み完了");
-            }).catch(e => console.error("[HOST] Firebase書き込みエラー:", e));
+            }).catch(e => console.error("Firebase書き込みエラー:", e));
             playBattleTurns(allTurns, myC, oppC, oppN, 'host');
         } else {
             // ゲスト：Firebaseを監視してturnsが来たら再生
             let started = false;
             guestBattleRef = database.ref('rooms/' + currentRoomId + '/turns');
-            console.log("[GUEST] Firebase監視開始 roomId:", currentRoomId);
             guestBattleRef.on('value', snap => {
-                console.log("[GUEST] Firebase受信 data:", snap.val());
-                if(started) { console.log("[GUEST] 既に開始済み"); return; }
+                if(started) return;
                 const data = snap.val();
-                if(!data || Object.keys(data).length === 0) { console.log("[GUEST] データなし待機中"); return; }
+                if(!data || Object.keys(data).length === 0) return;
                 started = true;
                 guestBattleRef.off(); guestBattleRef = null;
                 const turns = Object.values(data).sort((a,b)=>a.round-b.round);
-                console.log("[GUEST] ターン数:", turns.length);
-                turns.forEach(t => console.log("[GUEST] turn"+t.round, "hostHP:"+t.hostHP, "guestHP:"+t.guestHP, "log:"+t.log.substring(0,40)));
+                // Firebaseは配列をオブジェクトに変換するため正規化
+                turns.forEach(t => {
+                    if(t.effects && !Array.isArray(t.effects)) t.effects = Object.values(t.effects);
+                    else if(!t.effects) t.effects = [];
+                    if(t.statusLines && !Array.isArray(t.statusLines)) t.statusLines = Object.values(t.statusLines);
+                    else if(!t.statusLines) t.statusLines = [];
+                });
                 playBattleTurns(turns, myC, oppC, oppN, 'guest');
             });
             setTimeout(() => {
