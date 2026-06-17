@@ -12,11 +12,15 @@
         h1 { display: none; }
         .logo-area { padding: 24px 20px 16px; text-align: center; }
         .logo-area img { width: 240px; max-width: 80%; }
-        .tab-menu { display: flex; justify-content: space-around; margin: 0; background: #efdeb1; border-bottom: 2px solid #b88742; padding: 0; gap: 0; flex-wrap: nowrap; }
-        .tab-btn { flex: 1; padding: 12px 4px; border: none; background: none; font-size: 11px; font-weight: bold; cursor: pointer; color: #b88742; border-bottom: 3px solid transparent; margin-bottom: -2px; letter-spacing: 0.01em; transition: color 0.2s, border-color 0.2s; }
-        .tab-btn.active { color: #420000; border-bottom: 3px solid #420000; }
-        .tab-btn:hover { color: #420000; }
-        .status-bar { background: #b88742; color: #efdeb1; font-size: 12px; font-weight: bold; padding: 7px 16px; text-align: center; letter-spacing: 0.02em; }
+        .tab-menu { display: flex; justify-content: space-around; margin: 0; background: #efdeb1; padding: 16px 0 0 0; gap: 0; flex-wrap: nowrap; }
+        .tab-btn { flex: 1; padding: 0 4px 12px 4px; border: none; background: none; font-size: 11pt; font-weight: bold; cursor: pointer; color: #420000; display: flex; flex-direction: column; align-items: center; gap: 8px; transition: color 0.2s; }
+        .tab-btn::before { content: ''; display: block; width: 80px; height: 2px; background: #420000; }
+        .tab-btn.active { color: #b88742; }
+        .tab-btn.active::before { background: #b88742; }
+        .tab-btn:hover { color: #b88742; }
+        .status-bar-wrap { padding: 12px 16px 16px; background: #efdeb1; }
+        .status-bar { background: white; color: #420000; font-size: 12px; font-weight: bold; padding: 8px 14px; text-align: center; letter-spacing: 0.02em; border-radius: 2px; display: flex; flex-wrap: wrap; justify-content: center; gap: 0 8px; }
+        .status-bar .sep { color: #b88742; margin: 0 2px; }
         .page { display: none; text-align: left; padding: 20px; }
         .page.active { display: block; }
         h1 { color: #d35400; font-size: 24px; margin-bottom: 5px; }
@@ -34,8 +38,8 @@
         .accordion-arrow.open { transform: rotate(180deg); }
         .accordion-body { display: none; padding: 12px 0 16px 12px; font-size: 13px; line-height: 1.7; color: #5a3a1a; background: transparent; border-top: none; }
         .accordion-body.open { display: block; }
-        .accordion-item:last-child .accordion-header { border-bottom: 1px solid #b88742; }
-        .accordion-item:last-child .accordion-body.open { border-bottom: 1px solid #b88742; }
+        .accordion-item:last-child .accordion-header { border-bottom: none; }
+
         /* お知らせ */
         .notice-box { background: #f5e9c8; border-left: 3px solid #b88742; padding: 12px 15px; margin-bottom: 20px; font-size: 13px; line-height: 1.6; color: #420000; display: none; }
         /* ボタン・フォーム */
@@ -222,19 +226,26 @@
 
     
     <div class="tab-menu">
-        <button class="tab-btn active" onclick="switchTab('guide', this)">📖 遊び方</button>
-        <button class="tab-btn" onclick="switchTab('scan', this)">📷 QRスキャン</button>
-        <button class="tab-btn" onclick="switchTab('fridge', this)">📦 冷蔵庫＆図鑑</button>
-        <button class="tab-btn" onclick="switchTab('cook', this)">🔥 調理</button>
-        <button class="tab-btn" onclick="switchTab('battle', this)">⚔️ 対戦アリーナ</button>
+        <button class="tab-btn active" onclick="switchTab('guide', this)">遊び方</button>
+        <button class="tab-btn" onclick="switchTab('scan', this)">QRスキャン</button>
+        <button class="tab-btn" onclick="switchTab('fridge', this)">冷蔵庫</button>
+        <button class="tab-btn" onclick="switchTab('cook', this)">調理</button>
+        <button class="tab-btn" onclick="switchTab('battle', this)">対戦アリーナ</button>
     </div>
 
     <!-- 遊び方タブ -->
-    <div class="status-bar">
-        <span id="headerPlayerName">名無しの料理人</span> [<span id="headerLv">Lv.1</span>(<span id="headerEXPBar">EXP:0/100</span>)] | 資金: <span id="globalG">0</span> G | パック券: <span id="globalTicket">0</span> 枚
+    <div class="status-bar-wrap">
+        <div class="status-bar">
+            <span><span id="headerPlayerName">名無しの料理人</span> [<span id="headerLv">Lv.1</span>(<span id="headerEXPBar">EXP:0/100</span>)]</span>
+            <span class="sep">|</span>
+            <span>資金: <span id="globalG">0</span> G</span>
+            <span class="sep">|</span>
+            <span>パック券: <span id="globalTicket">0</span> 枚</span>
+        </div>
     </div>
     <div id="pageGuide" class="page active">
-        <div style="background:#b88742; color:#efdeb1; padding:16px; border-radius:4px; margin-bottom:16px; font-size:13px; line-height:1.7;">
+
+                <div style="background:#b88742; color:#ffffff; padding:16px; border-radius:4px; margin-bottom:16px; font-size:13px; line-height:1.7;">
             QRスパイスカレーを遊んでいただきありがとうございます。<br>
             このゲームは生成AIを使って作成したゲームですので、開発者は細かいことよくわかってません。<br>
             おかしな部分も多々あるかと思いますが温かい目で見守ってやってください。<br>
@@ -242,7 +253,6 @@
         </div>
         <!-- お知らせ（Firebaseから取得） -->
         <div class="notice-box" id="noticeBox"></div>
-        <!-- アコーディオンメニュー -->
         <div class="accordion-item">
             <div class="accordion-header" onclick="toggleAccordion(this)">
                 1. QRをスキャンしてアイテムを集めよう！
@@ -290,8 +300,8 @@
     </div>
 
     <!-- QRスキャンタブ -->
-    <div id="pageScan" class="page">
-        <button id="btnStartCamera" class="btn btn-start" onclick="startCamera()" style="display:flex;align-items:center;justify-content:center;gap:10px;width:80%;"><img src="camera.svg" style="width:24px;height:auto;filter:brightness(10);" alt="">カメラを起動する</button>
+    <div id="pageScan" class="page" style="text-align:center;">
+        <button id="btnStartCamera" class="btn btn-start" onclick="startCamera()" style="display:flex;align-items:center;justify-content:center;gap:8px;width:80%;color:#efdeb1;font-size:16px;"><img src="camera.svg" style="height:1em;width:auto;filter:brightness(10);" alt="">カメラを起動する</button>
         <div id="statusMessage" style="font-size:14px; color:#7f8c8d; margin-bottom:15px; display:none; text-align:center;">QRを枠内に映してください</div>
         <canvas id="canvas"></canvas>
         <button id="btnCancel" class="btn btn-cancel" onclick="cancelScanning()" style="display:none;">キャンセル</button>
@@ -322,13 +332,10 @@
             <p class="profile-hint">※プレイヤーアイコン、名前はタップで変更できます。</p>
         </div>
         
-        <div class="btn-admin-group">
-            <button class="btn-sm btn-danger-sm" onclick="clearSaveData()">全初期化</button>
-            <button class="btn-sm btn-staff-sm" onclick="triggerStaffOnly()">Staff Only</button>
-        </div>
+
         
         <div class="shop-box">
-            <div style="display:flex;align-items:center;gap:8px;font-weight:bold;color:#420000;font-size:14px;border-bottom:1px solid #b88742;padding-bottom:8px;margin-bottom:8px;"><img src="gatya.svg" style="width:24px;height:auto;" alt="">ガチャショップ</div>
+            <div style="display:flex;align-items:center;gap:8px;font-weight:bold;color:#420000;font-size:14px;border-bottom:1px solid #b88742;padding-bottom:8px;margin-bottom:8px;"><img src="gatya.svg" style="height:1em;width:auto;" alt="">ガチャショップ</div>
             <div class="shop-grid">
                 <button class="btn-shop btn-shop-30" id="btnGachaNormal" onclick="buyGacha('normal')">食材ガチャ (30G)<br><span style="font-size:9px;font-weight:normal;">通常QR具材1種</span></button>
                 <button class="btn-shop btn-shop-30s" id="btnGachaSpice" onclick="buyGacha('spice')">スパイスガチャ (30G)<br><span style="font-size:9px;font-weight:normal;">スパイス1種</span></button>
@@ -359,8 +366,12 @@
             </select>
         </div>
         <div class="fridge-grid" id="fridgeSpicesGrid"></div>
-        <h3 style="margin-top:25px; color:#d35400; text-align:center;">発見したレシピ履歴</h3>
+        <h3 style="margin-top:25px; color:#420000; font-size:13px; letter-spacing:0.08em; border-top:1px solid #b88742; padding-top:16px; font-weight:bold;">発見したレシピ履歴</h3>
         <div class="recipe-book" id="recipeBookArea">履歴がありません。</div>
+        <div class="btn-admin-group" style="margin-top:24px; padding-top:16px; border-top:1px solid #b88742;">
+            <button class="btn-sm btn-danger-sm" onclick="clearSaveData()">全初期化</button>
+            <button class="btn-sm btn-staff-sm" onclick="triggerStaffOnly()">Staff Only</button>
+        </div>
     </div>
 
     <!-- 調理タブ -->
