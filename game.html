@@ -854,6 +854,7 @@ let recipeBook = {}; let myRoomRef = null; let currentRoomId = null;
 let cachedMyIconFile = "mayimage01.png";
 let cachedOppIconFile = "mayimage01.png";
 let isBotMatch = false; let activeBotData = null;
+let battleAborted = false; // バトル強制終了フラグ
 let onlineRole = 'host'; // 対人戦での自分の役割
 let discoveredItems = {};
 let cachedOpponentName = "";
@@ -1890,6 +1891,7 @@ function playBattleTurns(turns, myC, oppC, oppN, role) {
 let guestBattleRef = null;
 function startBattleScene(oppN, oppC, myC) {
     // バトル画面セットアップ
+    battleAborted = false; // バトル開始時にリセット
     document.getElementById("battleResultBox").style.display = "none";
     const overlay2 = document.getElementById("battleResultOverlay"); if(overlay2) overlay2.style.display = "none";
     ["oppOwnerText","oHpText","pOwnerText","pHpText"].forEach(id => { const el=document.getElementById(id); if(el){ el.style.color=""; el.classList.remove("name-poisoned","name-illuded"); } });
@@ -2029,6 +2031,7 @@ function startBattleScene(oppN, oppC, myC) {
     }
 
     function step(){
+        if(battleAborted) return; // 強制終了済みなら処理しない
         if(pHP<=0||oHP<=0||round>20){setTimeout(()=>done(pHP,oHP,myC,oppC),800);return;}
         if(myTurn){
             log.innerHTML=`🔥 自分のターン！`;
@@ -2113,6 +2116,7 @@ document.addEventListener('visibilitychange', function() {
 });
 
 function forceForfeit() {
+    battleAborted = true; // step関数を即停止
     stopBattleBGM();
     // バトル画面を終了してアリーナから退場
     endBattleScene();
