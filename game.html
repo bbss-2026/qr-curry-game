@@ -775,7 +775,7 @@ function getCurryStockLimit() {
 
 function showCustomAlert(title, message, onOk, sellCallback, itemName) {
     document.getElementById("customModal").style.display = "none";
-    document.getElementById("modalTitle").innerText = title;
+    document.getElementById("modalTitle").innerHTML = title;
     document.getElementById("modalMessage").innerHTML = message;
     const btnGroup = document.getElementById("modalBtnGroup");
     btnGroup.innerHTML = "";
@@ -814,50 +814,50 @@ function showCustomConfirm(title, message, onConfirm, onCancel) {
     document.getElementById("customModal").style.display = "flex";
 }
 const masterIngredients = {
-    "牛肉": { hp: 120, atk: 40, def: 30, spd: 10, emoji: "foods_icon/item_04.svg", shop: 0, desc: "ジューシーで旨味あふれる高級なお肉。HPが大きく上昇する万能なメイン食材！" },
-    "牛タン": { hp: 100, atk: 35, def: 25, spd: 25, emoji: "foods_icon/item_05.svg", shop: 1, desc: "独特の歯ごたえが魅力。お肉の中では油分が少なめで、SPDを落とさずに強化できる。" },
-    "牛すじ": { hp: 150, atk: 20, def: 50, spd: 5, emoji: "foods_icon/item_06.svg", shop: 0, desc: "煮込むことでプルプルになる部位。圧倒的なDEFを誇る、耐久カレーの必須具材。" },
-    "チキン": { hp: 90, atk: 45, def: 20, spd: 30, emoji: "foods_icon/item_07.svg", shop: 0, desc: "ヘルシーな鶏肉。SPDとATKが優秀。" },
-    "唐揚げ": { hp: 80, atk: 60, def: 15, spd: 20, emoji: "foods_icon/item_42.svg", shop: 0, desc: "カラッと揚がったお肉。最大のATK上昇量を誇る攻撃的具材！" },
-    "トンカツ": { hp: 110, atk: 55, def: 35, spd: 10, emoji: "foods_icon/item_08.svg", shop: 0, desc: "サクサクの豚カツ。高い攻撃力と防御力を合わせ持つ。" },
-    "ウインナー": { hp: 85, atk: 40, def: 25, spd: 25, emoji: "foods_icon/item_11.svg", shop: 0, desc: "パリッと弾けるジューシーなソーセージ。攻守のバランスが良い。" },
-    "ナス": { hp: 30, atk: 5, def: 15, spd: 10, emoji: "foods_icon/item_09.svg", shop: 0, desc: "油とスパイスをよく吸う野菜。組み合わせ次第では『毒カレー』に変貌することも…？" },
-    "トマト": { hp: 40, atk: 10, def: 5, spd: 15, emoji: "foods_icon/item_41.svg", shop: 0, desc: "爽やかな酸味を加える。程よいスピード感を生み出す。" },
-    "レンコン": { hp: 20, atk: 10, def: 25, spd: 5, emoji: "foods_icon/item_02.svg", shop: 0, desc: "シャキシャキした食感。DEFを補強してくれる。" },
-    "ジャガイモ": { hp: 50, atk: 5, def: 20, spd: 2, emoji: "foods_icon/item_10.svg", shop: 0, desc: "ドロっとしたコクとHPを与えるが、重いのでSPDが落ちる。" },
-    "ピーマン": { hp: 30, atk: 10, def: 15, spd: 15, emoji: "foods_icon/item_14.svg", shop: 0, desc: "ほろ苦い緑のピーマン。キレのあるスピードと平均的な守備力。" },
-    "赤パプリカ": { hp: 45, atk: 25, def: 15, spd: 25, emoji: "foods_icon/item_15.svg", shop: -1, desc: "赤いQRからしか出現しない完熟パプリカ。攻撃力と素早さを誇る！" },
-    "黄パプリカ": { hp: 65, atk: 15, def: 30, spd: 15, emoji: "foods_icon/item_16.svg", shop: -1, desc: "黄色いQRからしか出現しない完熟パプリカ。抜群のHPと防御力！" },
-    "レーズン": { hp: 15, atk: 20, def: 5, spd: 25, emoji: "foods_icon/item_12.svg", shop: 0, desc: "甘酸っぱい隠し味。高いスピードをもたらすが耐久は低い。" },
-    "玉ねぎ": { hp: 45, atk: 12, def: 12, spd: 12, emoji: "foods_icon/item_13.svg", shop: 0, desc: "すべてのステータスを等しく成長させる。" },
-    "にんじん": { hp: 55, atk: 8, def: 18, spd: 8, emoji: "foods_icon/item_18.svg", shop: 0, desc: "カレーにまろやかな耐久力をもたらす。" },
-    "サバ": { hp: 95, atk: 42, def: 22, spd: 18, emoji: "foods_icon/item_33.svg", shop: 1, desc: "パンチのあるATKを発揮する人気の魚介。" },
-    "オクラ": { hp: 40, atk: 15, def: 25, spd: 15, emoji: "foods_icon/item_01.svg", shop: 1, desc: "刻むことで粘り気が出る野菜。DEFを高める盾となる。" },
-    "大根": { hp: 70, atk: 10, def: 35, spd: 5, emoji: "foods_icon/item_17.svg", shop: 0, desc: "味が染み込む和の食材。HPの底上げと防衛能力。" },
-    "マッシュルーム": { hp: 35, atk: 22, def: 8, spd: 20, emoji: "foods_icon/item_22.svg", shop: 0, desc: "帝国を脅かす幻のキノコ。攻撃と素早さが伸びる。" },
-    "ひよこ豆": { hp: 60, atk: 15, def: 20, spd: 10, emoji: "foods_icon/item_21.svg", shop: 0, desc: "地味ながらカレーに安定した硬さを提供する。" },
-    "金箔": { hp: 100, atk: 50, def: 50, spd: 50, emoji: "foods_icon/item_39.svg", shop: -2, desc: "マハラジャに勝利した者のみが手にできる伝説の超アイテム。" },
-    "チーズ": { hp: 70, atk: 20, def: 30, spd: 10, emoji: "foods_icon/item_23.svg", shop: 0, desc: "濃厚なコクがカレーに深みをもたらす。HPとDEFを底上げする安定食材。" },
-    "イカ": { hp: 55, atk: 35, def: 15, spd: 30, emoji: "foods_icon/item_19.svg", shop: 0, desc: "弾力のある食感が特徴。ATKとSPDをバランスよく伸ばす海の食材。" },
-    "小エビ": { hp: 40, atk: 30, def: 10, spd: 35, emoji: "foods_icon/item_20.svg", shop: 0, desc: "小ぶりながらもカレーに旨味を凝縮させる。SPDが伸びる軽量食材。" },
-    "ホタテ": { hp: 80, atk: 40, def: 25, spd: 20, emoji: "foods_icon/item_36.svg", shop: 1, desc: "甘みと旨味が抜群の貝柱。HPとATKをしっかり引き上げる中級食材。" },
-    "ツナ": { hp: 65, atk: 30, def: 20, spd: 20, emoji: "foods_icon/item_24.svg", shop: 0, desc: "缶詰でもしっかりコクが出る万能食材。全ステータスをまんべんなく補強。" },
-    "合鴨": { hp: 100, atk: 50, def: 30, spd: 25, emoji: "foods_icon/item_40.svg", shop: 1, desc: "上品な脂とコクを持つ鴨肉。ATKとHPを高水準で両立する中級肉食材。" },
-    "牡蠣": { hp: 90, atk: 35, def: 40, spd: 15, emoji: "foods_icon/item_38.svg", shop: 1, desc: "海のミルクと称される濃厚な旨味。DEFとHPを強化する守備型食材。" },
-    "キャビア": { hp: 60, atk: 70, def: 20, spd: 50, emoji: "foods_icon/item_30.svg", shop: 2, desc: "最高級の魚卵。圧倒的なATKとSPDを持つ超攻撃型の最高級食材。" },
-    "オマール海老": { hp: 130, atk: 65, def: 55, spd: 20, emoji: "foods_icon/item_28.svg", shop: 2, desc: "王者の風格を持つ海老の王様。HPとATKとDEFすべてを高水準で底上げする。" },
-    "ズワイガニ": { hp: 110, atk: 45, def: 65, spd: 10, emoji: "foods_icon/item_27.svg", shop: 2, desc: "甲殻の王。圧倒的なDEFとHPを誇る最強の盾食材。" }
+    "牛肉": { hp: 120, atk: 40, def: 30, spd: 10, emoji: "🥩", icon: "foods_icon/item_04.svg", shop: 0, desc: "ジューシーで旨味あふれる高級なお肉。HPが大きく上昇する万能なメイン食材！" },
+    "牛タン": { hp: 100, atk: 35, def: 25, spd: 25, emoji: "👅", icon: "foods_icon/item_05.svg", shop: 1, desc: "独特の歯ごたえが魅力。お肉の中では油分が少なめで、SPDを落とさずに強化できる。" },
+    "牛すじ": { hp: 150, atk: 20, def: 50, spd: 5, emoji: "🍢", icon: "foods_icon/item_06.svg", shop: 0, desc: "煮込むことでプルプルになる部位。圧倒的なDEFを誇る、耐久カレーの必須具材。" },
+    "チキン": { hp: 90, atk: 45, def: 20, spd: 30, emoji: "🍗", icon: "foods_icon/item_07.svg", shop: 0, desc: "ヘルシーな鶏肉。SPDとATKが優秀。" },
+    "唐揚げ": { hp: 80, atk: 60, def: 15, spd: 20, emoji: "💥", icon: "foods_icon/item_42.svg", shop: 0, desc: "カラッと揚がったお肉。最大のATK上昇量を誇る攻撃的具材！" },
+    "トンカツ": { hp: 110, atk: 55, def: 35, spd: 10, emoji: "🐷", icon: "foods_icon/item_08.svg", shop: 0, desc: "サクサクの豚カツ。高い攻撃力と防御力を合わせ持つ。" },
+    "ウインナー": { hp: 85, atk: 40, def: 25, spd: 25, emoji: "🌭", icon: "foods_icon/item_11.svg", shop: 0, desc: "パリッと弾けるジューシーなソーセージ。攻守のバランスが良い。" },
+    "ナス": { hp: 30, atk: 5, def: 15, spd: 10, emoji: "🍆", icon: "foods_icon/item_09.svg", shop: 0, desc: "油とスパイスをよく吸う野菜。組み合わせ次第では『毒カレー』に変貌することも…？" },
+    "トマト": { hp: 40, atk: 10, def: 5, spd: 15, emoji: "🍅", icon: "foods_icon/item_41.svg", shop: 0, desc: "爽やかな酸味を加える。程よいスピード感を生み出す。" },
+    "レンコン": { hp: 20, atk: 10, def: 25, spd: 5, emoji: "🕸️", icon: "foods_icon/item_02.svg", shop: 0, desc: "シャキシャキした食感。DEFを補強してくれる。" },
+    "ジャガイモ": { hp: 50, atk: 5, def: 20, spd: 2, emoji: "🥔", icon: "foods_icon/item_10.svg", shop: 0, desc: "ドロっとしたコクとHPを与えるが、重いのでSPDが落ちる。" },
+    "ピーマン": { hp: 30, atk: 10, def: 15, spd: 15, emoji: "🫑", icon: "foods_icon/item_14.svg", shop: 0, desc: "ほろ苦い緑のピーマン。キレのあるスピードと平均的な守備力。" },
+    "赤パプリカ": { hp: 45, atk: 25, def: 15, spd: 25, emoji: "🔴", icon: "foods_icon/item_15.svg", shop: -1, desc: "赤いQRからしか出現しない完熟パプリカ。攻撃力と素早さを誇る！" },
+    "黄パプリカ": { hp: 65, atk: 15, def: 30, spd: 15, emoji: "🟡", icon: "foods_icon/item_16.svg", shop: -1, desc: "黄色いQRからしか出現しない完熟パプリカ。抜群のHPと防御力！" },
+    "レーズン": { hp: 15, atk: 20, def: 5, spd: 25, emoji: "🍇", icon: "foods_icon/item_12.svg", shop: 0, desc: "甘酸っぱい隠し味。高いスピードをもたらすが耐久は低い。" },
+    "玉ねぎ": { hp: 45, atk: 12, def: 12, spd: 12, emoji: "🧅", icon: "foods_icon/item_13.svg", shop: 0, desc: "すべてのステータスを等しく成長させる。" },
+    "にんじん": { hp: 55, atk: 8, def: 18, spd: 8, emoji: "🥕", icon: "foods_icon/item_18.svg", shop: 0, desc: "カレーにまろやかな耐久力をもたらす。" },
+    "サバ": { hp: 95, atk: 42, def: 22, spd: 18, emoji: "🐟", icon: "foods_icon/item_33.svg", shop: 1, desc: "パンチのあるATKを発揮する人気の魚介。" },
+    "オクラ": { hp: 40, atk: 15, def: 25, spd: 15, emoji: "🫛", icon: "foods_icon/item_01.svg", shop: 1, desc: "刻むことで粘り気が出る野菜。DEFを高める盾となる。" },
+    "大根": { hp: 70, atk: 10, def: 35, spd: 5, emoji: "🫚", icon: "foods_icon/item_17.svg", shop: 0, desc: "味が染み込む和の食材。HPの底上げと防衛能力。" },
+    "マッシュルーム": { hp: 35, atk: 22, def: 8, spd: 20, emoji: "🍄", icon: "foods_icon/item_22.svg", shop: 0, desc: "帝国を脅かす幻のキノコ。攻撃と素早さが伸びる。" },
+    "ひよこ豆": { hp: 60, atk: 15, def: 20, spd: 10, emoji: "🫘", icon: "foods_icon/item_21.svg", shop: 0, desc: "地味ながらカレーに安定した硬さを提供する。" },
+    "金箔": { hp: 100, atk: 50, def: 50, spd: 50, emoji: "✨", icon: "foods_icon/item_39.svg", shop: -2, desc: "マハラジャに勝利した者のみが手にできる伝説の超アイテム。" },
+    "チーズ": { hp: 70, atk: 20, def: 30, spd: 10, emoji: "🧀", icon: "foods_icon/item_23.svg", shop: 0, desc: "濃厚なコクがカレーに深みをもたらす。HPとDEFを底上げする安定食材。" },
+    "イカ": { hp: 55, atk: 35, def: 15, spd: 30, emoji: "🦑", icon: "foods_icon/item_19.svg", shop: 0, desc: "弾力のある食感が特徴。ATKとSPDをバランスよく伸ばす海の食材。" },
+    "小エビ": { hp: 40, atk: 30, def: 10, spd: 35, emoji: "🦐", icon: "foods_icon/item_20.svg", shop: 0, desc: "小ぶりながらもカレーに旨味を凝縮させる。SPDが伸びる軽量食材。" },
+    "ホタテ": { hp: 80, atk: 40, def: 25, spd: 20, emoji: "🫧", icon: "foods_icon/item_36.svg", shop: 1, desc: "甘みと旨味が抜群の貝柱。HPとATKをしっかり引き上げる中級食材。" },
+    "ツナ": { hp: 65, atk: 30, def: 20, spd: 20, emoji: "🐠", icon: "foods_icon/item_24.svg", shop: 0, desc: "缶詰でもしっかりコクが出る万能食材。全ステータスをまんべんなく補強。" },
+    "合鴨": { hp: 100, atk: 50, def: 30, spd: 25, emoji: "🦆", icon: "foods_icon/item_40.svg", shop: 1, desc: "上品な脂とコクを持つ鴨肉。ATKとHPを高水準で両立する中級肉食材。" },
+    "牡蠣": { hp: 90, atk: 35, def: 40, spd: 15, emoji: "🦪", icon: "foods_icon/item_38.svg", shop: 1, desc: "海のミルクと称される濃厚な旨味。DEFとHPを強化する守備型食材。" },
+    "キャビア": { hp: 60, atk: 70, def: 20, spd: 50, emoji: "🫀", icon: "foods_icon/item_30.svg", shop: 2, desc: "最高級の魚卵。圧倒的なATKとSPDを持つ超攻撃型の最高級食材。" },
+    "オマール海老": { hp: 130, atk: 65, def: 55, spd: 20, emoji: "🦞", icon: "foods_icon/item_28.svg", shop: 2, desc: "王者の風格を持つ海老の王様。HPとATKとDEFすべてを高水準で底上げする。" },
+    "ズワイガニ": { hp: 110, atk: 45, def: 65, spd: 10, emoji: "🦀", icon: "foods_icon/item_27.svg", shop: 2, desc: "甲殻の王。圧倒的なDEFとHPを誇る最強の盾食材。" }
 };
 const masterSpices = {
-    "ターメリック": { mul: "hp", val: 1.3, name: "黄金の", emoji: "foods_icon/item_03.svg", desc: "カレーの黄色を決定づける。HPを1.3倍にする！" },
-    "クミン": { mul: "def", val: 1.4, name: "薫る", emoji: "foods_icon/item_31.svg", desc: "芳香を放ち、全体のDEFを1.4倍に跳ね上げる。" },
-    "コリアンダー": { mul: "hp", val: 1.2, name: "爽やか緑の", emoji: "foods_icon/item_25.svg", desc: "爽やかな風味を持ち、HPを1.2倍にする。" },
-    "カルダモン": { mul: "spd", val: 1.5, name: "気高き", emoji: "foods_icon/item_29.svg", desc: "スパイスの女王。SPDを1.5倍にする大人気種。" },
-    "シナモン": { mul: "spd", val: 1.3, name: "甘美な", emoji: "foods_icon/item_26.svg", desc: "甘くエキゾチックな香りの樹皮。SPDを1.3倍にする。" },
-    "クローブ": { mul: "def", val: 1.3, name: "深遠なる", emoji: "foods_icon/item_32.svg", desc: "しびれるような刺激的な香り。DEFを1.3倍にする！" },
-    "ブラックペッパー": { mul: "atk", val: 1.3, name: "刺激の", emoji: "foods_icon/item_35.svg", desc: "シャープな辛味がATKを1.3倍にする。" },
-    "チリパウダー": { mul: "atk", val: 1.6, name: "爆炎の", emoji: "foods_icon/item_34.svg", desc: "燃え盛るような激辛スパイス。ATKを衝撃の1.6倍に！" },
-    "マンゴーチャツネ": { mul: "hp", val: 1.5, name: "甘熟の", emoji: "foods_icon/item_37.svg", desc: "甘くトロピカルなインド伝来の秘伝ソース。HPを驚異の1.5倍に引き上げる！" }
+    "ターメリック": { mul: "hp", val: 1.3, name: "黄金の", emoji: "💛", icon: "foods_icon/item_03.svg", desc: "カレーの黄色を決定づける。HPを1.3倍にする！" },
+    "クミン": { mul: "def", val: 1.4, name: "薫る", emoji: "🤎", icon: "foods_icon/item_31.svg", desc: "芳香を放ち、全体のDEFを1.4倍に跳ね上げる。" },
+    "コリアンダー": { mul: "hp", val: 1.2, name: "爽やか緑の", emoji: "💚", icon: "foods_icon/item_25.svg", desc: "爽やかな風味を持ち、HPを1.2倍にする。" },
+    "カルダモン": { mul: "spd", val: 1.5, name: "気高き", emoji: "🌱", icon: "foods_icon/item_29.svg", desc: "スパイスの女王。SPDを1.5倍にする大人気種。" },
+    "シナモン": { mul: "spd", val: 1.3, name: "甘美な", emoji: "🪵", icon: "foods_icon/item_26.svg", desc: "甘くエキゾチックな香りの樹皮。SPDを1.3倍にする。" },
+    "クローブ": { mul: "def", val: 1.3, name: "深遠なる", emoji: "📌", icon: "foods_icon/item_32.svg", desc: "しびれるような刺激的な香り。DEFを1.3倍にする！" },
+    "ブラックペッパー": { mul: "atk", val: 1.3, name: "刺激の", emoji: "🖤", icon: "foods_icon/item_35.svg", desc: "シャープな辛味がATKを1.3倍にする。" },
+    "チリパウダー": { mul: "atk", val: 1.6, name: "爆炎の", emoji: "❤️", icon: "foods_icon/item_34.svg", desc: "燃え盛るような激辛スパイス。ATKを衝撃の1.6倍に！" },
+    "マンゴーチャツネ": { mul: "hp", val: 1.5, name: "甘熟の", emoji: "🥭", icon: "foods_icon/item_37.svg", desc: "甘くトロピカルなインド伝来の秘伝ソース。HPを驚異の1.5倍に引き上げる！" }
 };
 const botOpponents = [
     { name: "見習い料理人タカシ", curryName: "ベジマイルドカレー", emoji: "🥦🥔🥕", image: "bot01.png", hp: 130, atk: 25, def: 20, spd: 15, expBonus: 5 },
@@ -1410,7 +1410,10 @@ function buyGacha(type) {
         emoji = masterIngredients[winner] ? masterIngredients[winner].emoji : masterSpices[winner].emoji;
     }
     inventory[winner] = (inventory[winner] || 0) + 1; discoveredItems[winner] = true;
-    playWinSound(); showCustomAlert("🎰 ガチャ結果", `見事！【${emoji} ${winner}】を引き当てた！`);
+    const gachaItemData = masterIngredients[winner] || masterSpices[winner];
+    const gachaIcon = gachaItemData && gachaItemData.icon;
+    const gachaImg = gachaIcon ? `<img src="${gachaIcon}" style="width:1.5em;height:1.5em;vertical-align:middle;object-fit:contain;">` : emoji;
+    playWinSound(); showCustomAlert("🎰 ガチャ結果", `見事！${gachaImg}【${winner}】を引き当てた！`);
     saveGame(); updateFridgeUI(); updateCookSelects();
 }
 function buyGachaPack() {
@@ -1431,7 +1434,11 @@ function buyGachaPack() {
     let rareItem = rarePool[Math.floor(Math.random() * rarePool.length)]; rewards.push({ name: rareItem, emoji: masterIngredients[rareItem].emoji });
     inventory[rareItem] = (inventory[rareItem] || 0) + 1; discoveredItems[rareItem] = true;
     let resultHTML = "<div style='text-align:left; max-height:220px; overflow-y:auto; background:#fff; padding:10px; border-radius:8px; border:1px solid #ddd; line-height:1.6;'>";
-    rewards.forEach((r, idx) => { resultHTML += `${idx+1}. ${r.emoji} <b>${r.name}</b><br>`; });
+    rewards.forEach((r, idx) => {
+        const pd = masterIngredients[r.name] || masterSpices[r.name];
+        const pImg = pd && pd.icon ? `<img src="${pd.icon}" style="width:1.2em;height:1.2em;vertical-align:middle;object-fit:contain;">` : r.emoji;
+        resultHTML += `${idx+1}. ${pImg} <b>${r.name}</b><br>`;
+    });
     resultHTML += "</div>";
     playWinSound(); showCustomAlert("🎉 豪華10個パック開封！", `以下の10個を手に入れた！<br><br>${resultHTML}`);
     saveGame(); updateFridgeUI(); updateCookSelects();
@@ -1511,7 +1518,12 @@ function processQRData(text, r, g, b) {
     saveGame();
     onQRScanned(addCount >= 3); // 実績・デイリー更新（3個入手はボーナスQR）
     const isSpice = masterSpices[itemName]; const emoji = isSpice ? masterSpices[itemName].emoji : masterIngredients[itemName].emoji;
-    document.getElementById("getBoxTitle").innerText = "🎉 食材ゲット！"; document.getElementById("getItemEmoji").innerText = emoji; document.getElementById("getItemName").innerText = `${itemName} × ${addCount}つ`; document.getElementById("getBox").style.display = "block";
+    document.getElementById("getBoxTitle").innerText = "🎉 食材ゲット！";
+    const qrItemData = masterIngredients[itemName] || masterSpices[itemName];
+    const qrIcon = qrItemData && qrItemData.icon;
+    document.getElementById("getItemEmoji").innerHTML = qrIcon ? `<img src="${qrIcon}" style="width:64px;height:64px;object-fit:contain;">` : emoji;
+    document.getElementById("getItemName").innerText = `${itemName} × ${addCount}つ`;
+    document.getElementById("getBox").style.display = "block";
     updateCookSelects();
 }
 function updateFridgeUI() {
@@ -1550,14 +1562,18 @@ function createFridgeCard(grid, name, emoji, isSpice) {
     if (isDiscovered) {
         if (count === 0) itemDiv.className = "fridge-item discovered zero-count";
         else itemDiv.className = "fridge-item discovered";
-        const emojiDisp = emoji && emoji.endsWith('.svg') ? `<img src="${emoji}" style="width:40px;height:40px;object-fit:contain;">` : emoji;
+        const itemData2 = isSpice ? masterSpices[name] : masterIngredients[name];
+        const iconSrc = itemData2 && itemData2.icon ? itemData2.icon : null;
+        const emojiDisp = iconSrc ? `<img src="${iconSrc}" style="width:40px;height:40px;object-fit:contain;display:block;margin:0 auto;">` : `<span style="font-size:28px;">${emoji}</span>`;
         itemDiv.innerHTML = `<div class="fridge-emoji">${emojiDisp}</div><div>${name}</div><div>${count}個</div>`;
         itemDiv.onclick = function() {
             const data = isSpice ? masterSpices[name] : masterIngredients[name];
             let info = isSpice ? `<br><span style="color:#e67e22; font-weight:bold;">📈 効果: ${data.mul === "hp" ? "HP" : data.mul === "atk" ? "攻撃" : data.mul === "def" ? "防御" : "素早さ"} ${data.val}倍！</span>` : `<br><span style="color:#2ecc71; font-weight:bold;">📊 HP:+${data.hp}/ATK:+${data.atk}/DEF:+${data.def}/SPD:+${data.spd}</span>`;
-            const modalEmoji = emoji && emoji.endsWith('.svg') ? `<img src="${emoji}" style="width:1.2em;height:1.2em;vertical-align:middle;object-fit:contain;">` : emoji;
+            const itemDataM = isSpice ? masterSpices[name] : masterIngredients[name];
+            const iconM = itemDataM && itemDataM.icon ? `<img src="${itemDataM.icon}" style="width:1.2em;height:1.2em;vertical-align:middle;object-fit:contain;">` : emoji;
+            document.getElementById("modalTitle").innerHTML = `${iconM} ${name} の解説`;
             showCustomAlert(
-                `${modalEmoji} ${name} の解説`, 
+                `${name} の解説`, 
                 `${data.desc}<br><br><b>現在の所持数: <span style="color:#e74c3c;font-size:16px;">${count}</span> 個</b>${info}`, 
                 null, sellItemAction, name
             );
@@ -1673,10 +1689,10 @@ function pruneRecipeBook() {
 function updateCookSelects() {
     ["ingredient1", "ingredient2", "ingredient3"].forEach(id => {
         const sel = document.getElementById(id); sel.innerHTML = "<option value=''>❌ （なし）</option>";
-        Object.keys(masterIngredients).forEach(n => { if((inventory[n]||0)>0){ const o=document.createElement("option"); o.value=n; o.innerText=`${masterIngredients[n].emoji} ${n} (所持数: ${inventory[n]}個)`; sel.appendChild(o); } });
+        Object.keys(masterIngredients).forEach(n => { if((inventory[n]||0)>0){ const o=document.createElement("option"); o.value=n; o.text=`${n} (所持数: ${inventory[n]}個)`; sel.appendChild(o); } });
     });
     const spSel = document.getElementById("spice"); spSel.innerHTML = "<option value=''>❌ （なし）</option>";
-    Object.keys(masterSpices).forEach(n => { if((inventory[n]||0)>0){ const o=document.createElement("option"); o.value=n; o.innerText=`${masterSpices[n].emoji} ${n} (所持数: ${inventory[n]}個)`; spSel.appendChild(o); } });
+    Object.keys(masterSpices).forEach(n => { if((inventory[n]||0)>0){ const o=document.createElement("option"); o.value=n; o.text=`${n} (所持数: ${inventory[n]}個)`; spSel.appendChild(o); } });
 }
 function updateIngredientHint(num) {
     const val = document.getElementById("ingredient" + num).value;
