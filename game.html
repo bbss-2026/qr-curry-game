@@ -628,13 +628,25 @@ function playSoundEffect(src) {
 // ===== ここまで =====
 function playAttackSound() { playSoundEffect('punch.mp3'); }
 
-// アイテムのvisual（emoji or SVGパス）をHTML要素として返す
-function itemVisualHTML(visual, size) {
-    size = size || '32px';
-    if(visual && visual.endsWith('.svg')) {
-        return '<img src="' + visual + '" style="width:' + size + ';height:' + size + ';object-fit:contain;" alt="">';
+// アイテム名からSVGアイコンHTMLを生成（サイズ指定可）
+function itemIconHTML(name, size) {
+    size = size || '28px';
+    const data = masterIngredients[name] || masterSpices[name];
+    if(data && data.icon) {
+        return `<img src="${data.icon}" style="width:${size};height:${size};object-fit:contain;vertical-align:middle;" alt="${name}" title="${name}">`;
     }
-    return '<span style="font-size:' + size + ';">' + visual + '</span>';
+    return `<span style="font-size:${size};" title="${name}">${data ? data.emoji : ''}</span>`;
+}
+
+// 食材リスト+スパイスからアイコン列を生成
+function curryIconsHTML(materials, spice, size) {
+    size = size || '24px';
+    let html = '';
+    if(Array.isArray(materials)) {
+        materials.forEach(m => { if(m && m !== 'なし') html += itemIconHTML(m, size); });
+    }
+    if(spice) html += itemIconHTML(spice, size);
+    return html;
 }
 function playStatusFlash(type) {
     // type: 'poison' or 'illusion'
@@ -1610,7 +1622,7 @@ function refreshRecipeBookUI() {
         const spicePart = r.spice ? ` + 🌶️${r.spice}` : '';
         row.innerHTML = `
             <div style="flex:1; min-width:0;">
-                <span>${r.visual}</span> <strong style="font-size:12px;">${r.name}</strong>
+                <span>${curryIconsHTML(r.materials, r.spice, '20px') || r.visual}</span> <strong style="font-size:12px;">${r.name}</strong>
                 <div style='font-size:10px; color:#7f8c8d;'>🧪:${r.materials.join('+')}${spicePart}</div>
             </div>
             <button class="recipe-star ${isFav ? 'active' : 'inactive'}" onclick="toggleFavRecipe('${k}')">${isFav ? '⭐' : '☆'}</button>`;
@@ -1809,7 +1821,9 @@ function cookCurry() {
     curryStock.push(newCurry); selectedCurryIndex = curryStock.length - 1;
     saveGame(); updateFridgeUI(); updateCookSelects(); refreshRecipeBookUI(); updateFavRecipeSelect(); clearAllHints();
     onCookDone(newCurry); // 実績・デイリー更新
-    document.getElementById("curryVisual").innerText=vis; document.getElementById("curryName").innerText=cName;
+    // カレー結果のアイコン表示（食材のSVGアイコンを横並び）
+    const cookIconsHTML = curryIconsHTML(acts, sp, '32px');
+    document.getElementById("curryVisual").innerHTML = cookIconsHTML || vis; document.getElementById("curryName").innerText=cName;
     document.getElementById("statHP").innerText=hp; document.getElementById("statATK").innerText=atk; document.getElementById("statDEF").innerText=def; document.getElementById("statSPD").innerText=spd;
     document.getElementById("resultBox").style.display="block";
 }
@@ -2215,7 +2229,11 @@ function startBattleScene(oppN, oppC, myC) {
         document.getElementById("oVisual").innerHTML = `<img src="${cachedOppIconFile}" style="width:100%;height:100%;border-radius:50%;object-fit:cover;display:block;">`;
         document.getElementById("oppCurryEmojiText").innerText = oppC.emoji || oppC.visual || "🍛";
     } else {
-        document.getElementById("pVisual").innerHTML = myC.visual || "🍛";
+        // Bot戦：自分のカレーアイコン（SVG）
+        const myMaterials = curryStock[selectedCurryIndex] ? curryStock[selectedCurryIndex].materials : null;
+        const mySpice = curryStock[selectedCurryIndex] ? curryStock[selectedCurryIndex].spice : null;
+        const myIconsHtml = myMaterials ? curryIconsHTML(myMaterials, mySpice, '20px') : myC.visual;
+        document.getElementById("pVisual").innerHTML = myIconsHtml || myC.visual || "🍛";
         if(oppC.isBotImage) document.getElementById("oVisual").innerHTML = `<img src="${oppC.visual}" alt="${oppN}">`;
         else document.getElementById("oVisual").innerHTML = oppC.visual || "🍛";
         document.getElementById("oppCurryEmojiText").innerText = oppC.emoji || "🍛";
