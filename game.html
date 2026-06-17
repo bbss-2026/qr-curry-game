@@ -7,74 +7,80 @@
     <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
-    <style>
-        body { font-family: 'Helvetica Neue', Arial, sans-serif; background-color: #f9f5eb; color: #4a3b32; padding: 20px; text-align: center; margin: 0; }
-        .container { max-width: 500px; margin: 0 auto; background: white; padding: 20px; border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); border: 3px solid #e7a643; box-sizing: border-box; position: relative; }
+    <style>        body { font-family: 'Helvetica Neue', Arial, sans-serif; background-color: #efdeb1; color: #420000; padding: 0; text-align: center; margin: 0; }
+        .container { max-width: 500px; margin: 0 auto; background: #efdeb1; padding: 0; box-sizing: border-box; position: relative; min-height: 100vh; }
+        h1 { display: none; }
+        .logo-area { padding: 24px 20px 16px; text-align: center; }
+        .logo-area img { width: 240px; max-width: 80%; }
+        .tab-menu { display: flex; justify-content: space-around; margin: 0; background: #efdeb1; border-bottom: 2px solid #b88742; padding: 0; gap: 0; flex-wrap: nowrap; }
+        .tab-btn { flex: 1; padding: 12px 4px; border: none; background: none; font-size: 11px; font-weight: bold; cursor: pointer; color: #b88742; border-bottom: 3px solid transparent; margin-bottom: -2px; letter-spacing: 0.01em; transition: color 0.2s, border-color 0.2s; }
+        .tab-btn.active { color: #420000; border-bottom: 3px solid #420000; }
+        .tab-btn:hover { color: #420000; }
+        .status-bar { background: #b88742; color: #efdeb1; font-size: 12px; font-weight: bold; padding: 7px 16px; text-align: center; letter-spacing: 0.02em; }
+        .page { display: none; text-align: left; padding: 20px; }
+        .page.active { display: block; }
         h1 { color: #d35400; font-size: 24px; margin-bottom: 5px; }
         
         /* タブ */
-        .tab-menu { display: flex; flex-wrap: wrap; justify-content: center; gap: 5px; margin: 20px 0; background: #eee; border-radius: 8px; padding: 5px; }
-        .tab-btn { flex: 1; min-width: 80px; padding: 8px 4px; border: none; background: none; font-size: 13px; font-weight: bold; cursor: pointer; border-radius: 5px; color: #7f8c8d; }
-        .tab-btn.active { background: #e67e22; color: white; }
-        .page { display: none; text-align: left; }
-        .page.active { display: block; }
         #canvas { width: 100%; max-width: 300px; background: #333; border-radius: 10px; margin-bottom: 15px; display: none; margin-left: auto; margin-right: auto; }
         
         /* 遊び方ページ用 */
         .guide-box { background: #fffdf0; border: 2px solid #e67e22; border-radius: 10px; padding: 15px; margin-bottom: 20px; font-size: 14px; line-height: 1.6; }
         /* アコーディオン */
-        .accordion-item { border: 1px solid #e0c080; border-radius: 8px; margin-bottom: 8px; overflow: hidden; }
-        .accordion-header { background: #fff8ee; padding: 12px 15px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; font-weight: bold; color: #d35400; font-size: 14px; user-select: none; }
-        .accordion-header:hover { background: #fff0d0; }
-        .accordion-arrow { transition: transform 0.3s; font-size: 12px; color: #e67e22; }
+        .accordion-item { border: none; margin-bottom: 0; overflow: hidden; }
+        .accordion-header { background: transparent; padding: 14px 0; cursor: pointer; display: flex; justify-content: space-between; align-items: center; font-weight: bold; color: #420000; font-size: 14px; user-select: none; border-top: 1px solid #b88742; }
+        .accordion-header:hover { color: #b88742; }
+        .accordion-arrow { transition: transform 0.3s; font-size: 12px; color: #b88742; }
         .accordion-arrow.open { transform: rotate(180deg); }
-        .accordion-body { display: none; padding: 12px 15px; font-size: 13px; line-height: 1.7; color: #4a3b32; background: #fff; border-top: 1px solid #f0e0c0; }
+        .accordion-body { display: none; padding: 12px 0 16px 12px; font-size: 13px; line-height: 1.7; color: #5a3a1a; background: transparent; border-top: none; }
         .accordion-body.open { display: block; }
+        .accordion-item:last-child .accordion-header { border-bottom: 1px solid #b88742; }
+        .accordion-item:last-child .accordion-body.open { border-bottom: 1px solid #b88742; }
         /* お知らせ */
-        .notice-box { background: #fff8ee; border: 2px solid #e67e22; border-radius: 10px; padding: 12px 15px; margin-bottom: 15px; font-size: 13px; line-height: 1.6; color: #4a3b32; display: none; }
+        .notice-box { background: #f5e9c8; border-left: 3px solid #b88742; padding: 12px 15px; margin-bottom: 20px; font-size: 13px; line-height: 1.6; color: #420000; display: none; }
         /* ボタン・フォーム */
-        .btn { width: 80%; padding: 12px; font-size: 16px; font-weight: bold; border: none; border-radius: 8px; cursor: pointer; margin: 8px auto; transition: 0.1s; display: block; }
-        .btn-start { background: #3498db; color: white; box-shadow: 0 4px 0 #2980b9; }
-        .btn-cancel { background: #e74c3c; color: white; box-shadow: 0 4px 0 #c0392b; }
-        .btn-cook { background: #2ecc71; color: white; box-shadow: 0 4px 0 #27ae60; width: 100%; }
-        .btn-rand { background: #e67e22; color: white; box-shadow: 0 4px 0 #d35400; width: 100%; margin-bottom: 15px; }
-        .btn-battle { background: #9b59b6; color: white; box-shadow: 0 4px 0 #8e44ad; width: 100%; }
-        .btn-bot { background: #e67e22; color: white; box-shadow: 0 4px 0 #d35400; width: 100%; }
-        .btn:active { transform: translateY(4px); box-shadow: none; }
+        .btn { width: 80%; padding: 12px; font-size: 15px; font-weight: bold; border: none; border-radius: 4px; cursor: pointer; margin: 8px auto; transition: 0.15s; display: block; letter-spacing: 0.05em; }
+        .btn-start { background: #b88742; color: #efdeb1; }
+        .btn-cancel { background: #420000; color: #efdeb1; }
+        .btn-cook { background: #b88742; color: #efdeb1; width: 100%; }
+        .btn-rand { background: #420000; color: #efdeb1; width: 100%; margin-bottom: 15px; }
+        .btn-battle { background: #420000; color: #efdeb1; width: 100%; }
+        .btn-bot { background: #b88742; color: #efdeb1; width: 100%; }
+        .btn:active { opacity: 0.8; transform: translateY(1px); }
         
         /* 管理系小ボタン */
-        .btn-admin-group { display: flex; justify-content: space-between; width: 95%; margin: 10px auto; gap: 10px; }
-        .btn-sm { flex: 1; font-size: 11px; padding: 6px; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; color: white; }
-        .btn-danger-sm { background: #e74c3c; box-shadow: 0 3px 0 #c0392b; }
-        .btn-staff-sm { background: #7f8c8d; box-shadow: 0 3px 0 #5d6d7e; }
+        .btn-admin-group { display: flex; justify-content: space-between; width: 100%; margin: 10px auto; gap: 10px; }
+        .btn-sm { flex: 1; font-size: 11px; padding: 6px; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; }
+        .btn-danger-sm { background: #420000; color: #efdeb1; }
+        .btn-staff-sm { background: #b88742; color: #efdeb1; }
         /* ガチャ用デザイン */
-        .shop-box { background: #fff5e6; border: 2px solid #f39c12; border-radius: 10px; padding: 15px; margin: 15px 0; text-align: left; }
-        .shop-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px; }
-        .btn-shop { padding: 10px; font-size: 11px; font-weight: bold; color: white; border: none; border-radius: 6px; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; height: 60px; }
-        .btn-shop-30 { background: #e67e22; box-shadow: 0 3px 0 #b35d10; }
-        .btn-shop-30s { background: #d35400; box-shadow: 0 3px 0 #a03d00; }
-        .btn-shop-100 { background: #3498db; box-shadow: 0 3px 0 #2980b9; }
-        .btn-shop-300 { background: #9b59b6; box-shadow: 0 3px 0 #732d8f; }
-        .btn-shop-pack { background: #e74c3c; box-shadow: 0 3px 0 #c0392b; grid-column: span 2; height: 65px; font-size: 13px; }
-        .btn-shop:disabled { background: #bdc3c7 !important; box-shadow: none !important; cursor: not-allowed; }
+        .shop-box { background: transparent; border: none; border-top: 1px solid #b88742; padding: 20px 0 15px; margin: 15px 0; text-align: left; }
+        .shop-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 10px; }
+        .btn-shop { padding: 12px 8px; font-size: 11px; font-weight: bold; color: #efdeb1; background: #b88742; border: none; border-radius: 4px; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; height: 60px; transition: opacity 0.15s; }
+        .btn-shop-30 { background: #b88742; }
+        .btn-shop-30s { background: #9a6e30; }
+        .btn-shop-100 { background: #7a5520; }
+        .btn-shop-300 { background: #420000; }
+        .btn-shop-pack { background: #420000; grid-column: span 2; height: 65px; font-size: 13px; }
+        .btn-shop:hover { opacity: 0.85; }
+        .btn-shop:disabled { background: #c9b98a !important; color: #a89060 !important; cursor: not-allowed; opacity: 0.6; }
         
-        /* ★修正：名前入力欄を幅60%・中央に */
-        .input-name { width: 60%; padding: 10px; font-size: 16px; border-radius: 8px; border: 2px solid #e67e22; text-align: center; font-weight: bold; margin: 0 auto 6px auto; display: block; }
+        .input-name { width: 60%; padding: 8px 12px; font-size: 15px; border-radius: 4px; border: 1px solid #b88742; background: #f5e9c8; color: #420000; text-align: center; font-weight: bold; margin: 0 auto 6px auto; display: block; outline: none; }
         
         /* 冷蔵庫＆図鑑 */
-        .category-title { font-size: 15px; font-weight: bold; color: #d35400; border-left: 5px solid #e67e22; padding-left: 8px; margin: 18px 0 8px 0; }
-        .fridge-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 15px; }
-        .fridge-item { background: #f0f0f0; padding: 10px; border-radius: 8px; font-size: 12px; border: 2px solid #ddd; color: #ccc; cursor: not-allowed; transition: 0.2s; text-align: center; }
-        .fridge-item.discovered { background: #fffdf0; border-color: #e67e22; color: #4a3b32; font-weight: bold; cursor: pointer; }
-        .fridge-item.discovered.zero-count { background: #eae4d9; border-color: #bdc3c7; color: #7f8c8d; }
+        .category-title { font-size: 13px; font-weight: bold; color: #420000; letter-spacing: 0.08em; text-transform: uppercase; margin: 0; }
+        .fridge-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 15px; }
+        .fridge-item { background: #f5e9c8; padding: 12px 8px; border-radius: 4px; font-size: 12px; border: none; color: #c9b090; cursor: not-allowed; transition: 0.2s; text-align: center; }
+        .fridge-item.discovered { background: #fff8ee; color: #420000; font-weight: bold; cursor: pointer; border: 1px solid #b88742; }
+        .fridge-item.discovered.zero-count { background: #ede0c4; color: #9a7a50; border: 1px solid #c9b090; }
         .fridge-emoji { font-size: 28px; filter: grayscale(100%); }
         .fridge-item.discovered .fridge-emoji { filter: grayscale(0%); }
         .fridge-item.discovered.zero-count .fridge-emoji { filter: grayscale(50%); opacity: 0.6; }
-        select { width: 100%; padding: 10px; margin-bottom: 10px; border-radius: 8px; border: 2px solid #bdc3c7; font-size: 14px; }
+        select { width: 100%; padding: 9px 12px; margin-bottom: 10px; border-radius: 4px; border: 1px solid #b88742; background: #f5e9c8; color: #420000; font-size: 13px; outline: none; }
         .status-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; text-align: left; max-width: 320px; margin: 0 auto; font-size: 14px; }
         .status-item { background: #ffebef; color: #c0392b; padding: 6px 10px; border-radius: 5px; font-weight: bold; }
-        .recipe-book { text-align: left; background: #fffdf0; border: 2px solid #f39c12; border-radius: 10px; padding: 15px; margin-top: 15px; max-height: 200px; overflow-y: auto; }
-        .recipe-row { padding: 8px; border-bottom: 1px dashed #ddd; font-size: 12px; display: flex; justify-content: space-between; align-items: center; }
+        .recipe-book { text-align: left; background: #f5e9c8; border: 1px solid #b88742; border-radius: 4px; padding: 12px; margin-top: 15px; max-height: 200px; overflow-y: auto; }
+        .recipe-row { padding: 8px 4px; border-bottom: 1px solid #d4c09a; font-size: 12px; display: flex; justify-content: space-between; align-items: center; }
         /* バトル関連レイアウト */
         .battle-monitor { background: #111; color: #00ff00; padding: 15px; border-radius: 10px; height: 90px; overflow-y: auto; text-align: left; font-family: monospace; font-size: 13px; margin-top: 15px; line-height: 1.5; border: 2px solid #333; }
         .battle-stage { position: relative; background: #2c3e50; border: 4px solid #34495e; border-radius: 12px; height: 350px; margin-bottom: 15px; overflow: hidden; display: flex; flex-direction: column; justify-content: space-between; padding: 15px; box-sizing: border-box; }
@@ -109,15 +115,15 @@
         .vs-center-badge { font-size: 44px; font-weight: 900; color: #f1c40f; text-shadow: 0 0 15px #f1c40f; opacity: 0; scale: 3; transition: 0.3s; font-style: italic; margin: 0 10px; }
         .vs-interactive-area { width: 100%; max-width: 420px; background: rgba(255,255,255,0.1); padding: 15px; border-radius: 12px; border: 2px solid #e67e22; margin-top: 25px; box-sizing: border-box; text-align: left; }
         
-        .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); z-index: 9999; display: none; justify-content: center; align-items: center; }
-        .modal-box { background: #fdfaf4; width: 85%; max-width: 380px; padding: 20px; border-radius: 15px; border: 3px solid #e67e22; box-shadow: 0 10px 25px rgba(0,0,0,0.3); text-align: center; box-sizing: border-box; }
-        .modal-title { font-size: 18px; font-weight: bold; color: #d35400; margin-bottom: 12px; }
-        .modal-message { font-size: 14px; color: #4a3b32; margin-bottom: 20px; line-height: 1.5; font-weight: bold; }
+        .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(66,0,0,0.5); z-index: 9999; display: none; justify-content: center; align-items: center; }
+        .modal-box { background: #efdeb1; width: 85%; max-width: 380px; padding: 24px; border-radius: 4px; border: 1px solid #b88742; box-shadow: 0 8px 32px rgba(66,0,0,0.2); text-align: center; box-sizing: border-box; }
+        .modal-title { font-size: 16px; font-weight: bold; color: #420000; margin-bottom: 12px; letter-spacing: 0.05em; }
+        .modal-message { font-size: 13px; color: #420000; margin-bottom: 20px; line-height: 1.6; }
         .modal-btn-group { display: flex; justify-content: center; gap: 10px; flex-wrap: wrap; }
-        .modal-btn { flex: 1; min-width: 100px; padding: 10px; font-size: 14px; font-weight: bold; border: none; border-radius: 6px; cursor: pointer; color: white; }
-        .modal-btn-ok { background: #2ecc71; box-shadow: 0 3px 0 #27ae60; }
-        .modal-btn-cancel { background: #e74c3c; box-shadow: 0 3px 0 #c0392b; }
-        .modal-btn-sell { background: #e67e22; box-shadow: 0 3px 0 #b35d10; }
+        .modal-btn { flex: 1; min-width: 100px; padding: 10px; font-size: 13px; font-weight: bold; border: none; border-radius: 4px; cursor: pointer; letter-spacing: 0.04em; }
+        .modal-btn-ok { background: #b88742; color: #efdeb1; }
+        .modal-btn-cancel { background: #420000; color: #efdeb1; }
+        .modal-btn-sell { background: #9a6e30; color: #efdeb1; }
         @keyframes popUp {
             0% { opacity: 0; transform: translateY(0) scale(0.5); display: block; }
             15% { opacity: 1; transform: translateY(-20px) scale(1.2); }
@@ -142,13 +148,13 @@
         @keyframes criticalGlow { 0% { box-shadow: 0 0 5px #f1c40f; } 50% { box-shadow: 0 0 20px #f1c40f; } 100% { box-shadow: 0 0 5px #f1c40f; } }
         
         /* オンラインロビー用 */
-        .room-section { border: 2px dashed #9b59b6; padding: 15px; border-radius: 10px; margin-top: 15px; text-align: left; background: #fff; }
-        .room-input { width: 90%; padding: 8px; margin-bottom: 10px; border-radius: 6px; border: 2px solid #ddd; }
-        .room-card { display: flex; justify-content: space-between; align-items: center; padding: 10px; border-bottom: 1px solid #eee; background: #fdfdfd; border-radius: 6px; margin-bottom: 5px; }
+        .room-section { border: none; border-top: 1px solid #b88742; padding: 16px 0; margin-top: 16px; text-align: left; background: transparent; }
+        .room-input { width: 100%; padding: 8px 12px; margin-bottom: 10px; border-radius: 4px; border: 1px solid #b88742; background: #f5e9c8; color: #420000; box-sizing: border-box; }
+        .room-card { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid #d4c09a; background: transparent; margin-bottom: 0; }
         .recipe-star { cursor: pointer; font-size: 18px; padding: 2px 6px; border: none; background: none; }
         .recipe-star.active { color: #f1c40f; }
-        .recipe-star.inactive { color: #ccc; }
-        .fav-recipe-select { width: 100%; padding: 8px; margin-bottom: 8px; border-radius: 8px; border: 2px solid #f1c40f; font-size: 13px; background: #fffdf0; }
+        .recipe-star.inactive { color: #c9b090; }
+        .fav-recipe-select { width: 100%; padding: 8px 12px; margin-bottom: 8px; border-radius: 4px; border: 1px solid #b88742; font-size: 13px; background: #f5e9c8; color: #420000; }
         /* 特殊カレー演出 */
         .illusion-box { animation: illusionGlow 1.5s infinite; border: 3px solid #1abc9c !important; }
         @keyframes illusionGlow { 0%,100% { box-shadow: 0 0 5px #1abc9c; } 50% { box-shadow: 0 0 20px #1abc9c, 0 0 30px #3498db; } }
@@ -169,7 +175,7 @@
         }
 
         /* ★追加：冷蔵庫タブ内プレイヤーアイコンエリア */
-        .profile-area { text-align: center; margin-bottom: 15px; padding-bottom: 15px; border-bottom: 2px solid #f0e0c8; }
+        .profile-area { text-align: center; margin-bottom: 15px; padding-bottom: 15px; border-bottom: 1px solid #b88742; }
         .profile-hint { font-size: 11px; color: #999; margin-top: 4px; margin-bottom: 0; }
     </style>
 </head>
@@ -181,7 +187,7 @@
         <div class="modal-btn-group" id="modalBtnGroup"></div>
     </div>
 </div>
-<div class="container" id="mainContainer" style="margin-bottom: 150px; padding-bottom: 50px;">
+<div class="container" id="mainContainer">
     
     <div class="vs-cutin" id="vsCutIn">
         <h2 style="color:#e67e22; margin-top:10px; text-shadow: 0 2px 4px rgba(0,0,0,0.8); font-style:italic;">⚔️ MATCH MATCHING...</h2>
@@ -209,11 +215,11 @@
     </div>
 
     <!-- ★タイトル。アイコンブロックはここから削除 -->
-    <h1>🍛 QRスパイスカレー 🍛</h1>
-
-    <div style="font-size: 13px; color: #e67e22; font-weight: bold;">
-        👨‍🍳 料理人: <span id="headerPlayerName">名無しの料理人</span> [<span id="headerLv">Lv.1</span>(<span id="headerEXPBar">EXP:0/100</span>)] | 💰 資金: <span id="globalG">0</span> G | 🎟️ パック券: <span id="globalTicket">0</span> 枚
+    <div class="logo-area">
+        <img src="battlecurry-logo.svg" alt="Battle Curry">
     </div>
+
+
     
     <div class="tab-menu">
         <button class="tab-btn active" onclick="switchTab('guide', this)">📖 遊び方</button>
@@ -224,12 +230,15 @@
     </div>
 
     <!-- 遊び方タブ -->
+    <div class="status-bar">
+        <span id="headerPlayerName">名無しの料理人</span> [<span id="headerLv">Lv.1</span>(<span id="headerEXPBar">EXP:0/100</span>)] | 資金: <span id="globalG">0</span> G | パック券: <span id="globalTicket">0</span> 枚
+    </div>
     <div id="pageGuide" class="page active">
-        <div class="guide-box">
-            <p>QRスパイスカレーを遊んでいただきありがとうございます。<br>
+        <div style="background:#b88742; color:#efdeb1; padding:16px; border-radius:4px; margin-bottom:16px; font-size:13px; line-height:1.7;">
+            QRスパイスカレーを遊んでいただきありがとうございます。<br>
             このゲームは生成AIを使って作成したゲームですので、開発者は細かいことよくわかってません。<br>
             おかしな部分も多々あるかと思いますが温かい目で見守ってやってください。<br>
-            今後も随時アップデートをする予定です。（AIに頼んで）</p>
+            今後も随時アップデートをする予定です。（AIに頼んで）
         </div>
         <!-- お知らせ（Firebaseから取得） -->
         <div class="notice-box" id="noticeBox"></div>
@@ -282,10 +291,10 @@
 
     <!-- QRスキャンタブ -->
     <div id="pageScan" class="page">
-        <button id="btnStartCamera" class="btn btn-start" onclick="startCamera()">🎥 カメラを起動する</button>
-        <div id="statusMessage" style="font-size:14px; color:#7f8c8d; margin-bottom:15px; display:none; text-align:center;">🔍 QRを枠内に映してください...</div>
+        <button id="btnStartCamera" class="btn btn-start" onclick="startCamera()" style="display:flex;align-items:center;justify-content:center;gap:10px;width:80%;"><img src="camera.svg" style="width:24px;height:auto;filter:brightness(10);" alt="">カメラを起動する</button>
+        <div id="statusMessage" style="font-size:14px; color:#7f8c8d; margin-bottom:15px; display:none; text-align:center;">QRを枠内に映してください</div>
         <canvas id="canvas"></canvas>
-        <button id="btnCancel" class="btn btn-cancel" onclick="cancelScanning()" style="display:none;">❌ キャンセル</button>
+        <button id="btnCancel" class="btn btn-cancel" onclick="cancelScanning()" style="display:none;">キャンセル</button>
         <div style="margin: 16px auto 10px auto; max-width: 420px; background: #fffdf0; border: 1px solid #e0c080; border-radius: 8px; padding: 10px 14px; text-align: left; font-size: 12px; color: #7a6040; line-height: 1.7;">
             <div style="font-weight: bold; margin-bottom: 4px; color: #b8860b;">⚠️ QRスキャンに関するご注意</div>
             ルールとマナーを守って楽しくお遊びください。<br>
@@ -298,7 +307,7 @@
             <div style="font-size:12px; color:#2ecc71; font-weight:bold; display:none; margin-top:4px;" id="bonusBadge">✨ キーワードボーナス発生！入手数3個！ ✨</div>
             <div style="font-size:64px;" id="getItemEmoji">🥩</div>
             <div style="font-size:18px; font-weight:bold; color:#c0392b;" id="getItemName">牛肉</div>
-            <button class="btn btn-start" onclick="resetScanner()" style="width:100%; margin-top:15px;">🔄 もう一度スキャン</button>
+            <button class="btn btn-start" onclick="resetScanner()" style="width:100%; margin-top:15px;">もう一度スキャン</button>
         </div>
     </div>
 
@@ -314,12 +323,12 @@
         </div>
         
         <div class="btn-admin-group">
-            <button class="btn-sm btn-danger-sm" onclick="clearSaveData()">⚠️ 全初期化</button>
+            <button class="btn-sm btn-danger-sm" onclick="clearSaveData()">全初期化</button>
             <button class="btn-sm btn-staff-sm" onclick="triggerStaffOnly()">Staff Only</button>
         </div>
         
         <div class="shop-box">
-            <div style="font-weight: bold; color: #d35400; font-size: 14px; border-bottom: 1px solid #f39c12; padding-bottom: 4px; margin-bottom: 8px;">🎰 ガチャショップ</div>
+            <div style="display:flex;align-items:center;gap:8px;font-weight:bold;color:#420000;font-size:14px;border-bottom:1px solid #b88742;padding-bottom:8px;margin-bottom:8px;"><img src="gatya.svg" style="width:24px;height:auto;" alt="">ガチャショップ</div>
             <div class="shop-grid">
                 <button class="btn-shop btn-shop-30" id="btnGachaNormal" onclick="buyGacha('normal')">食材ガチャ (30G)<br><span style="font-size:9px;font-weight:normal;">通常QR具材1種</span></button>
                 <button class="btn-shop btn-shop-30s" id="btnGachaSpice" onclick="buyGacha('spice')">スパイスガチャ (30G)<br><span style="font-size:9px;font-weight:normal;">スパイス1種</span></button>
@@ -331,7 +340,7 @@
         
         <div style="display:flex; align-items:center; justify-content:space-between; margin:18px 0 8px 0;">
             <div class="category-title" style="margin:0;">📦 所持食材（具材）</div>
-            <select id="sortIngredients" onchange="updateFridgeUI()" style="font-size:11px; padding:3px 5px; border-radius:6px; border:1px solid #e67e22; color:#d35400; font-weight:bold; width:auto; margin:0;">
+            <select id="sortIngredients" onchange="updateFridgeUI()" style="font-size:11px; padding:3px 5px; border-radius:6px; border:1px solid #b88742; color:#420000; background:#f5e9c8; font-weight:bold; width:auto; margin:0;">
                 <option value="default">並び順：デフォルト</option>
                 <option value="hp">HP 高順</option>
                 <option value="atk">ATK 高順</option>
@@ -350,19 +359,19 @@
             </select>
         </div>
         <div class="fridge-grid" id="fridgeSpicesGrid"></div>
-        <h3 style="margin-top:25px; color:#d35400; text-align:center;">📖 発見したレシピ履歴</h3>
+        <h3 style="margin-top:25px; color:#d35400; text-align:center;">発見したレシピ履歴</h3>
         <div class="recipe-book" id="recipeBookArea">履歴がありません。</div>
     </div>
 
     <!-- 調理タブ -->
     <div id="pageCook" class="page">
-        <button class="btn btn-rand" onclick="selectRandomIngredients()">🎲 在庫からおまかせランダム選択</button>
+        <button class="btn btn-rand" onclick="selectRandomIngredients()">ランダム選択</button>
         <div id="favRecipeArea" style="margin-bottom:8px; display:none;">
             <select id="favRecipeSelect" class="fav-recipe-select" onchange="applyFavRecipe(this.value)">
                 <option value="">⭐ お気に入りレシピから選択...</option>
             </select>
         </div>
-        <button class="btn btn-cook" onclick="checkCookStock()" style="margin-bottom:18px;">🔥 カレーを調理する！</button>
+        <button class="btn btn-cook" onclick="checkCookStock()" style="margin-bottom:18px;">カレーを調理する</button>
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:2px;">
             <h3 style="font-size:16px; margin:0;">食材 1</h3>
             <span id="statHint1" style="font-size:11px; color:#e67e22; font-weight:bold;"></span>
@@ -396,10 +405,10 @@
             <div style="font-size:64px;" id="curryVisual">🍛</div>
             <div style="font-size:18px; font-weight:bold; color:#c0392b; margin-bottom:10px;" id="curryName">未調理 of カレー</div>
             <div class="status-grid">
-                <div class="status-item" style="background:#ffebef; color:#c0392b;">HP: <span id="statHP">0</span></div>
-                <div class="status-item" style="background:#fff2e6; color:#d35400;">ATK: <span id="statATK">0</span></div>
-                <div class="status-item" style="background:#e6f9ff; color:#2980b9;">DEF: <span id="statDEF">0</span></div>
-                <div class="status-item" style="background:#e6ffe6; color:#27ae60;">SPD: <span id="statSPD">0</span></div>
+                <div class="status-item" style="background:#f5e9c8; color:#420000; border:1px solid #b88742; border-radius:4px; padding:6px 10px; font-weight:bold;">HP: <span id="statHP">0</span></div>
+                <div class="status-item" style="background:#f5e9c8; color:#420000; border:1px solid #b88742; border-radius:4px; padding:6px 10px; font-weight:bold;">ATK: <span id="statATK">0</span></div>
+                <div class="status-item" style="background:#f5e9c8; color:#420000; border:1px solid #b88742; border-radius:4px; padding:6px 10px; font-weight:bold;">DEF: <span id="statDEF">0</span></div>
+                <div class="status-item" style="background:#f5e9c8; color:#420000; border:1px solid #b88742; border-radius:4px; padding:6px 10px; font-weight:bold;">SPD: <span id="statSPD">0</span></div>
             </div>
         </div>
     </div>
@@ -408,27 +417,27 @@
     <div id="pageBattle" class="page">
         <div id="battleSetup">
             <div class="room-section" style="border-color: #e67e22; margin-top:0;">
-                <h4 style="margin:0 0 10px 0; color:#d35400;">🤖 PCと対戦</h4>
-                <button class="btn btn-bot" onclick="startBotBattle()">PC料理人と対戦する</button>
+                <h4 style="margin:0 0 10px 0; color:#d35400;">PCと対戦</h4>
+                <button class="btn btn-bot" onclick="startBotBattle()">PCと対戦する</button>
             </div>
 <div style="margin: 10px 0; text-align: center; padding: 10px; border: 1px solid #ddd; background: #fdfdfd;">
-    <label style="font-weight:bold;">⚔️ 対戦に使用するカレーを選択:</label><br>
+    <label style="font-weight:bold;">使用するカレーを選択:</label><br>
     <select id="globalCurrySelect" class="room-input" style="max-width: 300px; margin: 5px 0;"></select>
 </div>
             <div id="lobbyArea">
                 <div class="room-section">
-                    <h4 style="margin:0 0 10px 0; color:#9b59b6;">🏠 新しい対戦ルームを作る</h4>
+                    <h4 style="margin:0 0 10px 0; color:#9b59b6;">新しい対戦ルームを作る</h4>
                     <label style="font-size:12px;">入室合言葉 (空欄なら誰でも):</label>
                     <input type="text" id="createRoomPassword" class="room-input" placeholder="例: 1234">
-                    <button class="btn btn-battle" id="btnCreateRoom" onclick="createMatchRoom()">部屋を作成して待機</button>
+                    <button class="btn btn-battle" id="btnCreateRoom" onclick="createMatchRoom()">ルームを作成して待機</button>
                 </div>
                 <div class="room-section" style="margin-top:20px; border-color:#34495e;">
-                    <h4 style="margin:0 0 10px 0; color:#34495e;">🌐 対戦相手の募集一覧</h4>
+                    <h4 style="margin:0 0 10px 0; color:#34495e;">対戦相手の募集一覧</h4>
                     <div id="roomListArea" style="font-size:13px; color:#7f8c8d;">部屋を読み込み中...</div>
                 </div>
             </div>
             <div id="waitingArea" style="display:none; padding:20px; background:#fff; border:2px solid #e67e22; border-radius:10px; text-align:center;">
-                <h3 style="color:#e67e22;">⏳ 対戦相手を待っています...</h3>
+                <h3 style="color:#e67e22;">対戦相手を待っています...</h3>
                 <button class="btn btn-cancel" onclick="cancelMatchRoom()" style="width:100%;">募集を取り消す</button>
             </div>
         </div>
@@ -859,7 +868,7 @@ function loadGame() {
 }
 function handleNameChange(val) { if(!val.trim()) val = "名無しの料理人"; playerName = val; document.getElementById("headerPlayerName").innerText = val; saveGame(); }
 function clearSaveData() {
-    showCustomConfirm("⚠️ 全初期化", "セーブデータをすべてリセットします（初期配布チケット2枚になります）。本当によろしいですか？", function() {
+    showCustomConfirm("全初期化", "セーブデータをすべてリセットします（初期配布チケット2枚になります）。本当によろしいですか？", function() {
         localStorage.clear(); inventory = {}; scanHistory = {}; playerG = 0; playerEXP = 0; packTicket = 2; curryStock = []; playerName = "名無しの料理人"; recipeBook = {}; discoveredItems = {}; saveUnlockedIcons(["mayimage01.png","mayimage02.png","mayimage03.png"]); currentIconFile = "mayimage01.png"; localStorage.setItem("selectedPlayerIcon", "mayimage01.png"); loadGame(); updateFridgeUI(); updateCookSelects(); refreshRecipeBookUI(); updateShopButtons(); document.getElementById("resultBox").style.display = "none"; saveGame(); updateLvDisplay(); setupLoadedIconUI();
     });
 }
