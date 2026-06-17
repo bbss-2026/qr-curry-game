@@ -878,7 +878,7 @@ function switchTab(tab, el) {
     }
     document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
     document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-    const hp = document.getElementById('pageGuide'); if(hp) hp.style.display='none';
+    const hp = document.getElementById('pageGuide'); if(hp) hp.classList.remove('active');
     if(el) el.classList.add('active');
     const targetPage = document.getElementById('page' + tab.charAt(0).toUpperCase() + tab.slice(1));
     if(targetPage) targetPage.classList.add('active');
@@ -888,20 +888,21 @@ function switchTab(tab, el) {
 function toggleHelp() {
     const guidePanel = document.getElementById('pageGuide');
     if(!guidePanel) return;
-    const isShowing = guidePanel.style.display === 'block';
+    const isShowing = guidePanel.classList.contains('active');
     if(isShowing) {
-        // 閉じてクエストタブに戻る
-        guidePanel.style.display = 'none';
-        document.querySelectorAll('.page').forEach(p => p.style.display = 'none');
+        // 遊び方を閉じてクエストタブに戻る
+        guidePanel.classList.remove('active');
         const questTab = document.querySelector('[onclick*="quest"]');
         const questPage = document.getElementById('pageQuest');
-        if(questTab) { document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active')); questTab.classList.add('active'); }
-        if(questPage) questPage.style.display = 'block';
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        if(questTab) questTab.classList.add('active');
+        document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+        if(questPage) questPage.classList.add('active');
     } else {
         // 全タブ非表示にして遊び方を表示
-        document.querySelectorAll('.page').forEach(p => p.style.display = 'none');
+        document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
         document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-        guidePanel.style.display = 'block';
+        guidePanel.classList.add('active');
     }
 }
 function saveGame() {
@@ -2113,19 +2114,17 @@ document.addEventListener('visibilitychange', function() {
 
 function forceForfeit() {
     stopBattleBGM();
-    // 結果ボックスを強制表示（負け）
-    document.getElementById("battleResultBox").style.display = "block";
-    const res = document.getElementById("battleVerdict");
-    const rew = document.getElementById("rewardText");
-    res.innerText = "💀 敗北（離脱）"; res.style.color = "#e74c3c";
+    // バトル画面を終了してアリーナから退場
+    endBattleScene();
+    // 負けメッセージをモーダルで表示
     const oldEXP = playerEXP; playerEXP += 1;
-    rew.innerHTML = "✨ +1EXP　※バトル中の離脱は負け扱いです。";
-    setTimeout(() => checkLvUp(oldEXP, playerEXP), 300);
     curryStock.splice(selectedCurryIndex, 1); selectedCurryIndex = curryStock.length ? 0 : -1;
     saveGame(); updateCookSelects(); updateMatchCurrySelects();
+    setTimeout(() => checkLvUp(oldEXP, playerEXP), 300);
     if(!isBotMatch && currentRoomId && database) {
-        setTimeout(() => { database.ref('rooms/'+currentRoomId).remove(); currentRoomId=null; }, 3000);
+        setTimeout(() => { database.ref('rooms/'+currentRoomId).remove(); currentRoomId=null; }, 1000);
     }
+    showCustomAlert("💀 敗北（離脱）", "バトル中にタブを切り替えたため負け扱いになりました。<br>✨ +1EXP");
 }
 
 function updateHP(p, o, om, pm) {
