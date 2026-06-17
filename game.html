@@ -257,7 +257,21 @@
     </div>
     <!-- クエストタブ -->
     <div id="pageQuest" class="page">
-        <div style="padding:20px 0; color:#b88742; font-size:13px; text-align:center;">クエスト機能は間もなく追加予定です。</div>
+        <!-- ログインボーナス -->
+        <div style="border-bottom:1px solid #b88742; padding-bottom:20px; margin-bottom:20px;">
+            <div style="font-size:13px; font-weight:bold; color:#420000; letter-spacing:0.08em; margin-bottom:12px;">ログインボーナス</div>
+            <div id="loginBonusArea"></div>
+        </div>
+        <!-- デイリークエスト -->
+        <div style="border-bottom:1px solid #b88742; padding-bottom:20px; margin-bottom:20px;">
+            <div style="font-size:13px; font-weight:bold; color:#420000; letter-spacing:0.08em; margin-bottom:12px;">デイリークエスト</div>
+            <div id="dailyQuestArea"></div>
+        </div>
+        <!-- 実績 -->
+        <div style="padding-bottom:20px;">
+            <div style="font-size:13px; font-weight:bold; color:#420000; letter-spacing:0.08em; margin-bottom:12px;">実績</div>
+            <div id="achievementsArea"></div>
+        </div>
     </div>
 
     <div id="pageGuide" class="page">
@@ -861,7 +875,7 @@ let onlineRole = 'host'; // 対人戦での自分の役割
 let discoveredItems = {};
 let cachedOpponentName = "";
 let cachedOpponentCurry = null;
-window.onload = function() { loadGame(); updateFridgeUI(); updateCookSelects(); refreshRecipeBookUI(); updateShopButtons(); listenToRooms(); updateMatchCurrySelects(); setupLoadedIconUI(); updateLvDisplay(); loadNotice(); };
+window.onload = function() { loadGame(); updateFridgeUI(); updateCookSelects(); refreshRecipeBookUI(); updateShopButtons(); listenToRooms(); updateMatchCurrySelects(); setupLoadedIconUI(); updateLvDisplay(); loadNotice(); initQuest(); };
 function switchTab(tab, el) {
     const arena = document.getElementById("battleArena");
     // バトル中に別タブへ移動→強制終了（負け）
@@ -886,6 +900,7 @@ function switchTab(tab, el) {
     const targetPage = document.getElementById('page' + tab.charAt(0).toUpperCase() + tab.slice(1));
     if(targetPage) targetPage.classList.add('active');
     cancelScanning();
+    if(tab === 'quest') { renderLoginBonus(); renderDailyQuest(); checkAndRenderAchievements(); }
 }
 
 function toggleHelp() {
@@ -1083,6 +1098,270 @@ function loadNotice() {
     });
 }
 
+// ===================================================
+// クエスト・実績システム
+// ===================================================
+
+// --- デイリークエスト定義 ---
+const DAILY_QUESTS = [
+    { id:'scan3',    text:'QRスキャンで3つのアイテムを入手する',  reward:100, type:'scan',    target:3 },
+    { id:'bot_win',  text:'PCバトル（初級）で勝利する',           reward:100, type:'bot_win', target:1 },
+    { id:'cook1',    text:'調理でカレーを作る',                   reward:100, type:'cook',    target:1 },
+    { id:'hard_win', text:'PCバトル（強敵）で勝利する',           reward:200, type:'hard_win',target:1 },
+    { id:'special',  text:'調理で特殊カレーを作る',               reward:200, type:'special', target:1 },
+    { id:'room_win', text:'ルームバトルで勝利する',               reward:300, type:'room_win',target:1 },
+];
+
+// --- 実績定義 ---
+const ACHIEVEMENTS = [
+    { id:'scan_1',    text:'QRをスキャンする',          check: d => d.scanTotal >= 1 },
+    { id:'scan_50',   text:'QRを50回スキャンする',      check: d => d.scanTotal >= 50 },
+    { id:'scan_100',  text:'QRを100回スキャンする',     check: d => d.scanTotal >= 100 },
+    { id:'scan_500',  text:'QRを500回スキャンする',     check: d => d.scanTotal >= 500 },
+    { id:'scan_1000', text:'QRを1000回スキャンする',    check: d => d.scanTotal >= 1000 },
+    { id:'bot_all',   text:'PC戦(初級)撃破',            check: d => d.botKills >= 4 },
+    { id:'hard_all',  text:'PC戦(強敵)撃破',            check: d => d.hardKills >= 4 },
+    { id:'maharaja',  text:'富豪撃破',                  check: d => d.maharajaKill >= 1 },
+    { id:'win_100',   text:'めっちゃ勝利する',          check: d => d.totalWins >= 100 },
+    { id:'cook_1',    text:'調理をする',                check: d => d.cookTotal >= 1 },
+    { id:'cook_50',   text:'調理を50回する',            check: d => d.cookTotal >= 50 },
+    { id:'cook_100',  text:'調理を100回する',           check: d => d.cookTotal >= 100 },
+    { id:'cook_500',  text:'調理を500回する',           check: d => d.cookTotal >= 500 },
+    { id:'items_10',  text:'アイテム10種類入手',        check: d => d.itemVariety >= 10 },
+    { id:'items_20',  text:'アイテム20種類入手',        check: d => d.itemVariety >= 20 },
+    { id:'items_30',  text:'アイテム30種類入手',        check: d => d.itemVariety >= 30 },
+    { id:'poison_c',  text:'毒毒しいカレー入手',        check: d => d.gotPoison },
+    { id:'illusion_c',text:'惑わしちゃうカレー入手',   check: d => d.gotIllusion },
+    { id:'seed_c',    text:'連続発射カレー入手',        check: d => d.gotSeed },
+    { id:'marg_c',    text:'それってまるでピザ！？',    check: d => d.gotMargherita },
+    { id:'sea_c',     text:'あれ？波の音が聞こえる',   check: d => d.gotSeafood },
+    { id:'bonus_qr',  text:'え、このQR、こんなに！？', check: d => d.gotBonusQR },
+];
+
+// --- 統計データ読み書き ---
+function getStats() {
+    const s = localStorage.getItem('qr_stats');
+    return s ? JSON.parse(s) : {
+        scanTotal:0, cookTotal:0, totalWins:0,
+        botKills:0, hardKills:0, maharajaKill:0,
+        itemVariety:0,
+        gotPoison:false, gotIllusion:false, gotSeed:false,
+        gotMargherita:false, gotSeafood:false, gotBonusQR:false,
+        defeatedBots:[], defeatedHardBots:[]
+    };
+}
+function saveStats(s) { localStorage.setItem('qr_stats', JSON.stringify(s)); }
+
+function getAchievements() {
+    const a = localStorage.getItem('qr_achievements');
+    return a ? JSON.parse(a) : {};
+}
+function saveAchievements(a) { localStorage.setItem('qr_achievements', JSON.stringify(a)); }
+
+function getDailyData() {
+    const today = new Date().toISOString().split('T')[0];
+    const raw = localStorage.getItem('qr_daily');
+    const d = raw ? JSON.parse(raw) : {};
+    if(d.date !== today) {
+        // 日をまたいだらリセット
+        const pool = [...DAILY_QUESTS];
+        const picked = pool[Math.floor(Math.random() * pool.length)];
+        const fresh = { date: today, questId: picked.id, progress: 0, done: false };
+        localStorage.setItem('qr_daily', JSON.stringify(fresh));
+        return fresh;
+    }
+    return d;
+}
+function saveDailyData(d) { localStorage.setItem('qr_daily', JSON.stringify(d)); }
+
+function getLoginData() {
+    const raw = localStorage.getItem('qr_login');
+    return raw ? JSON.parse(raw) : { lastDate:'', streak:0, claimed:false };
+}
+function saveLoginData(d) { localStorage.setItem('qr_login', JSON.stringify(d)); }
+
+// --- 統計更新ヘルパー ---
+function updateStats(fn) {
+    const s = getStats();
+    fn(s);
+    // アイテム種類数を常に最新に
+    s.itemVariety = Object.keys(discoveredItems).length;
+    saveStats(s);
+}
+
+// --- ログインボーナス ---
+function initQuest() {
+    const today = new Date().toISOString().split('T')[0];
+    const ld = getLoginData();
+    const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
+    if(ld.lastDate !== today) {
+        const newStreak = (ld.lastDate === yesterday) ? ld.streak + 1 : 1;
+        saveLoginData({ lastDate: today, streak: newStreak, claimed: false });
+    }
+    getDailyData(); // デイリー初期化
+    renderLoginBonus();
+    renderDailyQuest();
+    checkAndRenderAchievements();
+}
+
+function renderLoginBonus() {
+    const area = document.getElementById('loginBonusArea');
+    if(!area) return;
+    const ld = getLoginData();
+    const streak = ld.streak;
+    const claimed = ld.claimed;
+    const is5th = streak > 0 && streak % 5 === 0;
+    const rewardText = is5th ? 'ノーマルアイテム3個 ＋ パック券1枚' : 'ノーマルアイテム3個';
+    area.innerHTML = `
+        <div style="background:#fff8ee;border:1px solid #b88742;border-radius:4px;padding:14px;">
+            <div style="font-size:12px;color:#b88742;margin-bottom:6px;">連続ログイン: <b style="color:#420000;">${streak}日</b>${is5th?'　🎉 5日達成！':''}</div>
+            <div style="font-size:12px;color:#420000;margin-bottom:10px;">本日の報酬: ${rewardText}</div>
+            <button onclick="claimLoginBonus()" ${claimed?'disabled':''} style="padding:8px 20px;background:${claimed?'#c9b090':'#b88742'};color:#efdeb1;border:none;border-radius:4px;font-weight:bold;font-size:13px;cursor:${claimed?'not-allowed':'pointer'};">${claimed?'受取済み':'受け取る'}</button>
+        </div>`;
+}
+
+function claimLoginBonus() {
+    const ld = getLoginData();
+    if(ld.claimed) return;
+    ld.claimed = true;
+    saveLoginData(ld);
+    // ノーマルアイテム3個
+    const pool = Object.keys(masterIngredients).filter(k => masterIngredients[k].shop === 0);
+    let items = [];
+    for(let i=0;i<3;i++){
+        const it = pool[Math.floor(Math.random()*pool.length)];
+        inventory[it]=(inventory[it]||0)+1; discoveredItems[it]=true; items.push(it);
+    }
+    let msg = `ノーマルアイテム3個入手！<br>${items.map(i=>masterIngredients[i].emoji+i).join('　')}`;
+    // 5日ボーナス
+    if(ld.streak > 0 && ld.streak % 5 === 0) {
+        packTicket++; msg += '<br>🎉 パック券1枚ゲット！';
+    }
+    saveGame(); updateFridgeUI(); updateCookSelects();
+    renderLoginBonus();
+    showCustomAlert('🎁 ログインボーナス', msg);
+}
+
+// --- デイリークエスト ---
+function renderDailyQuest() {
+    const area = document.getElementById('dailyQuestArea');
+    if(!area) return;
+    const d = getDailyData();
+    const q = DAILY_QUESTS.find(q => q.id === d.questId);
+    if(!q) return;
+    const pct = Math.min(100, Math.floor(d.progress / q.target * 100));
+    area.innerHTML = `
+        <div style="background:#fff8ee;border:1px solid #b88742;border-radius:4px;padding:14px;">
+            <div style="font-size:13px;color:#420000;font-weight:bold;margin-bottom:6px;">${q.text}</div>
+            <div style="font-size:12px;color:#b88742;margin-bottom:8px;">報酬: +${q.reward}G</div>
+            <div style="background:#e8d9b8;border-radius:4px;height:8px;overflow:hidden;margin-bottom:6px;">
+                <div style="background:${d.done?'#b88742':'#420000'};height:100%;width:${pct}%;transition:width 0.3s;"></div>
+            </div>
+            <div style="font-size:11px;color:#b88742;">${d.done?'✅ クリア済み！':d.progress+'/'+q.target}</div>
+        </div>`;
+}
+
+function progressDailyQuest(type) {
+    const d = getDailyData();
+    if(d.done) return;
+    const q = DAILY_QUESTS.find(q => q.id === d.questId);
+    if(!q || q.type !== type) return;
+    d.progress = Math.min(q.target, (d.progress||0) + 1);
+    if(d.progress >= q.target && !d.done) {
+        d.done = true;
+        saveDailyData(d);
+        playerG += q.reward;
+        saveGame();
+        renderDailyQuest();
+        showCustomAlert('🎯 デイリークエスト達成！', `「${q.text}」<br>+${q.reward}G 獲得！`);
+    } else {
+        saveDailyData(d);
+        renderDailyQuest();
+    }
+}
+
+// --- 実績 ---
+function checkAndRenderAchievements() {
+    const area = document.getElementById('achievementsArea');
+    if(!area) return;
+    const stats = getStats();
+    const achieved = getAchievements();
+    let newlyAchieved = [];
+    ACHIEVEMENTS.forEach(a => {
+        if(!achieved[a.id] && a.check(stats)) {
+            achieved[a.id] = true;
+            newlyAchieved.push(a);
+        }
+    });
+    if(newlyAchieved.length > 0) {
+        saveAchievements(achieved);
+        playerG += newlyAchieved.length * 100;
+        saveGame();
+        const names = newlyAchieved.map(a=>a.text).join('<br>');
+        showCustomAlert('🏆 実績達成！', `${names}<br><br>+${newlyAchieved.length*100}G 獲得！`);
+    }
+    // 描画
+    area.innerHTML = ACHIEVEMENTS.map(a => {
+        const done = !!achieved[a.id];
+        return `<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid #e8d9b8;">
+            <span style="font-size:16px;">${done?'🏆':'⬜'}</span>
+            <span style="font-size:12px;color:${done?'#420000':'#b0a090'};">${a.text}</span>
+            ${done?'<span style="margin-left:auto;font-size:11px;color:#b88742;">+100G</span>':''}
+        </div>`;
+    }).join('');
+}
+
+// =======================================================
+// 統計更新のフック（各アクション後に呼ぶ）
+// =======================================================
+
+// QRスキャン成功時
+function onQRScanned(isBonusQR) {
+    updateStats(s => {
+        s.scanTotal = (s.scanTotal||0) + 1;
+        if(isBonusQR) s.gotBonusQR = true;
+    });
+    progressDailyQuest('scan');
+}
+
+// 調理完了時
+function onCookDone(curry) {
+    updateStats(s => {
+        s.cookTotal = (s.cookTotal||0) + 1;
+        if(curry.isPoison) s.gotPoison = true;
+        if(curry.isIllusion) s.gotIllusion = true;
+        if(curry.isSeed) s.gotSeed = true;
+        if(curry.isMargherita) s.gotMargherita = true;
+        if(curry.isSeafood) s.gotSeafood = true;
+    });
+    progressDailyQuest('cook');
+    const isSpecial = curry.isPoison||curry.isIllusion||curry.isSeed||curry.isMargherita||curry.isSeafood||curry.isTonTonTon||curry.isSticky;
+    if(isSpecial) progressDailyQuest('special');
+}
+
+// バトル勝利時
+function onBattleWin(type, botName) {
+    updateStats(s => {
+        s.totalWins = (s.totalWins||0) + 1;
+        if(type === 'bot') {
+            if(botName === '大富豪マハラジャ') { s.maharajaKill = (s.maharajaKill||0)+1; }
+            else {
+                if(!s.defeatedBots) s.defeatedBots=[];
+                if(!s.defeatedBots.includes(botName)) s.defeatedBots.push(botName);
+                s.botKills = s.defeatedBots.length;
+            }
+            progressDailyQuest('bot_win');
+        } else if(type === 'hard') {
+            if(!s.defeatedHardBots) s.defeatedHardBots=[];
+            if(!s.defeatedHardBots.includes(botName)) s.defeatedHardBots.push(botName);
+            s.hardKills = s.defeatedHardBots.length;
+            progressDailyQuest('hard_win');
+        } else if(type === 'room') {
+            progressDailyQuest('room_win');
+        }
+    });
+}
+
 function toggleAccordion(header) {
     var arrow = header.querySelector('.accordion-arrow');
     var body = header.nextElementSibling;
@@ -1221,6 +1500,7 @@ function processQRData(text, r, g, b) {
     inventory[itemName] = (inventory[itemName] || 0) + addCount;
     discoveredItems[itemName] = true;
     saveGame();
+    onQRScanned(addCount >= 3); // 実績・デイリー更新（3個入手はボーナスQR）
     const isSpice = masterSpices[itemName]; const emoji = isSpice ? masterSpices[itemName].emoji : masterIngredients[itemName].emoji;
     document.getElementById("getBoxTitle").innerText = "🎉 食材ゲット！"; document.getElementById("getItemEmoji").innerText = emoji; document.getElementById("getItemName").innerText = `${itemName} × ${addCount}つ`; document.getElementById("getBox").style.display = "block";
     updateCookSelects();
@@ -1501,6 +1781,7 @@ function cookCurry() {
     const newCurry = { name: cName, visual: vis, hp: hp, atk: atk, def: def, spd: spd, isPoison, hasGold, isMargherita, isTonTonTon, isSeafood, isIllusion, isSticky, isSeed };
     curryStock.push(newCurry); selectedCurryIndex = curryStock.length - 1;
     saveGame(); updateFridgeUI(); updateCookSelects(); refreshRecipeBookUI(); updateFavRecipeSelect(); clearAllHints();
+    onCookDone(newCurry); // 実績・デイリー更新
     document.getElementById("curryVisual").innerText=vis; document.getElementById("curryName").innerText=cName;
     document.getElementById("statHP").innerText=hp; document.getElementById("statATK").innerText=atk; document.getElementById("statDEF").innerText=def; document.getElementById("statSPD").innerText=spd;
     document.getElementById("resultBox").style.display="block";
@@ -2168,16 +2449,18 @@ function done(pHP, oHP, myC, oppC) {
     if(isWin){
         playWinSound(); res.innerText="🏆 勝利 !!"; res.style.color="#2ecc71";
         let g=30,e=5,loot="";
-        if(isBotMatch&&oppC.isMaharaja){g=300;inventory["金箔"]=(inventory["金箔"]||0)+1;discoveredItems["金箔"]=true;loot="✨金箔ゲット！";}
+        if(isBotMatch&&oppC.isMaharaja){g=300;inventory["金箔"]=(inventory["金箔"]||0)+1;discoveredItems["金箔"]=true;loot="✨金箔ゲット！"; onBattleWin('bot','大富豪マハラジャ');}
         else if(isBotMatch&&oppC.isHardBot){g=60;e=activeBotData.expBonus;
             // 中級・高級ガチャプールからランダム
             const midPool=Object.keys(masterIngredients).filter(k=>masterIngredients[k].shop===1);
             const highPool=Object.keys(masterIngredients).filter(k=>masterIngredients[k].shop===2);
             const combined=[...midPool,...highPool];
             const itm=combined[Math.floor(Math.random()*combined.length)];
-            inventory[itm]=(inventory[itm]||0)+1;discoveredItems[itm]=true;loot=itm+"ゲット！";}
-        else if(isBotMatch){e=activeBotData.expBonus;let drp=Object.keys(masterIngredients).filter(k=>masterIngredients[k].shop===0);let itm=drp[Math.floor(Math.random()*drp.length)];inventory[itm]=(inventory[itm]||0)+1;discoveredItems[itm]=true;loot=itm+"ゲット！";}
-        else{g=50;e=10;}
+            inventory[itm]=(inventory[itm]||0)+1;discoveredItems[itm]=true;loot=itm+"ゲット！";
+            onBattleWin('hard', activeBotData.name);}
+        else if(isBotMatch){e=activeBotData.expBonus;let drp=Object.keys(masterIngredients).filter(k=>masterIngredients[k].shop===0);let itm=drp[Math.floor(Math.random()*drp.length)];inventory[itm]=(inventory[itm]||0)+1;discoveredItems[itm]=true;loot=itm+"ゲット！";
+            onBattleWin('bot', activeBotData.name);}
+        else{g=50;e=10; onBattleWin('room','');}
         playerG+=g; const oldEXP1=playerEXP; playerEXP+=e;
         rew.innerHTML=`💰 +${g}G / ✨ +${e}EXP<br>${loot}`;
         setTimeout(()=>checkLvUp(oldEXP1,playerEXP),800);
