@@ -584,6 +584,7 @@ if(firebaseConfig.apiKey !== "YOUR_API_KEY") {
 }
 const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 function playTone(freq, type, duration) {
+    if(battleAborted) return; // バトル強制終了中は音を鳴らさない
     try {
         const osc = audioCtx.createOscillator(); const gain = audioCtx.createGain();
         osc.type = type; osc.frequency.value = freq; osc.connect(gain); gain.connect(audioCtx.destination);
@@ -605,6 +606,7 @@ function stopBattleBGM() {
     if(battleBGM) { battleBGM.pause(); battleBGM.currentTime = 0; battleBGM = null; }
 }
 function playSoundEffect(src) {
+    if(battleAborted) return;
     const se = new Audio(src);
     se.volume = 0.7;
     se.play().catch(e => console.log("SE play error:", e));
@@ -2136,6 +2138,7 @@ function updateHP(p, o, om, pm) {
     document.getElementById("pWeightBar").style.width=(p/pm*100)+"%"; document.getElementById("oWeightBar").style.width=(o/om*100)+"%";
 }
 function triggerEffect(target, damage) {
+    if(battleAborted) return; // バトル強制終了中は演出しない
     const pop=document.getElementById("damagePop"); pop.innerText=damage; pop.style.display="block"; pop.style.animation="none"; pop.offsetHeight;
     if(target==="enemy"||target==="enemy-gold"||target==="enemy-poison"){
         document.getElementById("enemyZone").classList.add("animate-shake");
