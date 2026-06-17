@@ -465,7 +465,8 @@
             <div style="border-top: 1px solid #b88742; margin: 16px 0;"></div>
             <div style="margin-bottom: 12px;">
                 <label style="font-weight:bold; font-size:13px; color:#420000;">対人戦で使用するカレーを選択</label><br>
-                <select id="globalCurrySelect" class="room-input" style="margin: 8px 0 0 0;"></select>
+                <select id="globalCurrySelect" class="room-input" style="margin: 8px 0 4px 0;" onchange="updateOnlineCurryStatus(this.value)"></select>
+                <div id="onlineCurryStatus" style="font-size:11px; color:#b88742; padding:4px 2px; min-height:16px;"></div>
             </div>
             <div id="lobbyArea">
                 <div class="room-section">
@@ -1592,7 +1593,7 @@ function createFridgeCard(grid, name, emoji, isSpice) {
         };
     } else {
         itemDiv.className = "fridge-item";
-        itemDiv.innerHTML = `<div class="fridge-emoji">${emoji}</div><div>？？？</div><div>0個</div>`;
+        itemDiv.innerHTML = `<div class="fridge-emoji" style="font-size:28px;color:#c9b090;">？</div><div>？？？</div><div>0個</div>`;
     }
     grid.appendChild(itemDiv);
 }
@@ -1656,7 +1657,7 @@ function updateFavRecipeSelect() {
     favKeys.forEach(k => {
         const r = recipeBook[k];
         const opt = document.createElement("option");
-        opt.value = k; opt.innerText = `${r.visual} ${r.name}`;
+        opt.value = k; opt.innerText = r.name;
         sel.appendChild(opt);
     });
 }
@@ -1833,7 +1834,7 @@ function repopulateVsCurrySelector() {
     curryStock.forEach((c, idx) => {
         let opt = document.createElement("option"); opt.value = idx;
         let m = c.isPoison ? "☠️ " : (c.hasGold ? "✨ " : "");
-        opt.innerText = `[🍛${idx+1}] ${m}${c.visual} ${c.name} (HP:${c.hp} / ⚔️ATK:${c.atk} / 🛡️DEF:${c.def} / ⚡SPD:${c.spd})`;
+        opt.innerText = `[${idx+1}] ${m}${c.name}`;
         if (idx === selectedCurryIndex) opt.selected = true;
         select.appendChild(opt);
     });
@@ -1958,7 +1959,18 @@ function updateMatchCurrySelects() {
     if(!sel) return;
     sel.innerHTML = "";
     if (!curryStock || curryStock.length === 0) { sel.innerHTML = "<option value='-1'>カレーを調理してください</option>"; return; }
-    curryStock.forEach((c, idx) => { const opt = document.createElement("option"); opt.value = idx; opt.innerText = `${c.visual} ${c.name}`; sel.appendChild(opt); });
+    curryStock.forEach((c, idx) => { const opt = document.createElement("option"); opt.value = idx; opt.innerText = c.name; sel.appendChild(opt); });
+    // 選択中カレーのステータスを表示
+    updateOnlineCurryStatus(sel.value);
+}
+
+function updateOnlineCurryStatus(idx) {
+    const statusEl = document.getElementById("onlineCurryStatus");
+    if(!statusEl) return;
+    const c = curryStock[parseInt(idx)];
+    if(!c) { statusEl.innerHTML = ""; return; }
+    const iconsHTML = curryIconsHTML(c.materials, c.spice, '16px');
+    statusEl.innerHTML = `${iconsHTML} HP:${c.hp} / ATK:${c.atk} / DEF:${c.def} / SPD:${c.spd}`;
 }
 
 function createMatchRoom() {
@@ -2225,8 +2237,11 @@ function startBattleScene(oppN, oppC, myC) {
     document.getElementById("pOwnerText").innerText = playerName;
     document.getElementById("playerCurryNameText").innerText = myC.name;
     if (!isBotMatch) {
-        document.getElementById("pVisual").innerHTML = `<img src="${cachedMyIconFile}" style="width:36px;height:36px;border-radius:50%;object-fit:cover;display:inline-block;border:2px solid #e67e22;vertical-align:middle;">`;
-        document.getElementById("oVisual").innerHTML = `<img src="${cachedOppIconFile}" style="width:100%;height:100%;border-radius:50%;object-fit:cover;display:block;">`;
+        // 対人戦：自分・相手のカレーをSVGアイコンで表示
+        const myIconsOnline = curryIconsHTML(myC.materials, myC.spice, '18px');
+        document.getElementById("pVisual").innerHTML = myIconsOnline || myC.visual || "🍛";
+        const oppIconsOnline = curryIconsHTML(oppC.materials, oppC.spice, '18px');
+        document.getElementById("oVisual").innerHTML = oppIconsOnline || oppC.visual || "🍛";
         document.getElementById("oppCurryEmojiText").innerText = oppC.emoji || oppC.visual || "🍛";
     } else {
         // Bot戦：自分のカレーアイコン（SVG）
