@@ -429,6 +429,7 @@
         <div id="battleSetup">
             <div style="padding: 16px 0 0 0;">
                 <button class="btn btn-bot" style="width:100%;" onclick="startBotBattle()">PCと対戦する</button>
+                <button class="btn btn-bot" style="width:100%;margin-top:8px;background:#420000;" onclick="startHardBotBattle()">PCと対戦する（強敵）</button>
             </div>
             <div style="border-top: 1px solid #b88742; margin: 16px 0;"></div>
             <div style="margin-bottom: 12px;">
@@ -803,6 +804,12 @@ const botOpponents = [
     { name: "魔術師レオン", curryName: "爆炎のW唐揚げ激辛", emoji: "💥💥❤️", image: "bot02.png", hp: 180, atk: 65, def: 15, spd: 35, expBonus: 10 },
     { name: "ガンコ親父", curryName: "極厚トンカツ重量級", emoji: "🐷🥩🧅", image: "bot03.png", hp: 280, atk: 55, def: 45, spd: 5, expBonus: 15 },
     { name: "宮廷カレー長", curryName: "至高 of シーフード贅沢", emoji: "🐟✨🐚", image: "bot04.png", hp: 350, atk: 90, def: 60, spd: 40, expBonus: 20 }
+];
+const hardBotOpponents = [
+    { name: "イカ星人グニョグニョ", curryName: "イカスミ幻惑カレー", emoji: "🌀🦑🌀", image: "bot06.png", hp: 190, atk: 65, def: 40, spd: 50, expBonus: 25, specialEffect: "illusion" },
+    { name: "種まき婆ちゃん", curryName: "懐かしの豆蟹カレー", emoji: "🌱🫘🦀", image: "bot07.png", hp: 200, atk: 65, def: 85, spd: 10, expBonus: 25, specialEffect: "seed" },
+    { name: "ドラゴン料理長", curryName: "炎獄ドラゴンカレー", emoji: "🐲🐉🔥", image: "bot08.png", hp: 400, atk: 100, def: 60, spd: 20, expBonus: 30, specialEffect: "breath" },
+    { name: "毒舌料理人ミスズ", curryName: "激辛毒毒カレー", emoji: "☠️🌶️☠️", image: "bot09.png", hp: 360, atk: 90, def: 65, spd: 35, expBonus: 30, specialEffect: "poison" }
 ];
 let inventory = {}; let scanHistory = {};
 let playerG = 0; let playerEXP = 0; let packTicket = 0;
@@ -1468,6 +1475,38 @@ function startBotBattle() {
     setTimeout(() => { document.getElementById("vsBadge").style.opacity = "1"; document.getElementById("vsBadge").style.scale = "1"; }, 600);
 }
 
+function startHardBotBattle() {
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+    isBotMatch = true; currentRoomId = null;
+    const bot = hardBotOpponents[Math.floor(Math.random() * hardBotOpponents.length)];
+    const bName = bot.name; const bVisual = bot.image; const bCurryEmoji = bot.emoji;
+    const oppCurryData = {
+        name: bot.curryName, visual: bVisual, emoji: bCurryEmoji,
+        hp: bot.hp, atk: bot.atk, def: bot.def, spd: bot.spd,
+        isBotImage: true, isHardBot: true,
+        // 特殊効果フラグ
+        isIllusion: bot.specialEffect === 'illusion',
+        isSeed:     bot.specialEffect === 'seed',
+        isBreath:   bot.specialEffect === 'breath',
+        isPoison:   bot.specialEffect === 'poison'
+    };
+    activeBotData = bot;
+    cachedOpponentName = bName;
+    cachedOpponentCurry = oppCurryData;
+    const vs = document.getElementById("vsCutIn"); vs.style.display = "flex"; playVsSound();
+    const vsInteractiveBot = vs ? vs.querySelector('.vs-interactive-area') : null;
+    if(vsInteractiveBot) vsInteractiveBot.style.display = "block";
+    document.getElementById("vsPlayerName").innerText = playerName;
+    if (typeof repopulateVsCurrySelector === "function") repopulateVsCurrySelector();
+    document.getElementById("vsEnemyName").innerText = bName;
+    document.getElementById("vsEnemyVisual").innerHTML = `<img src="${bVisual}" alt="${bName}">`;
+    document.getElementById("vsEnemyCurry").innerText = oppCurryData.name;
+    document.getElementById("vsPlayerVisual").innerHTML = `<img src="${currentIconFile}" style="width:100px;height:100px;border-radius:50%;border:3px solid #e67e22;object-fit:cover;">`;
+    setTimeout(() => { document.getElementById("vsPlayerSide").style.transform = "translateX(0)"; }, 100);
+    setTimeout(() => { document.getElementById("vsEnemySide").style.transform = "translateX(0)"; }, 300);
+    setTimeout(() => { document.getElementById("vsBadge").style.opacity = "1"; document.getElementById("vsBadge").style.scale = "1"; }, 600);
+}
+
 function rTrimHtml(str) { return str.replace(/<\/?[^>]+(>|$)/g, ""); }
 
 // Bot戦：出撃ボタンを押したとき
@@ -1777,10 +1816,11 @@ function startBattleScene(oppN, oppC, myC) {
     const log = document.getElementById("battleLog"); log.innerHTML = `⚔️ ${oppN} との決闘開始！
 `;
 
-    // BGM
+    // BGM（特殊カレーBGMが優先、なければ強敵BGM）
     stopBattleBGM();
     if(myC.isMargherita || oppC.isMargherita) setTimeout(()=>playBattleBGM("Guardare_il_cielo.mp3"),300);
     else if(myC.isSeafood || oppC.isSeafood) setTimeout(()=>playBattleBGM("wave.mp3"),300);
+    else if(isBotMatch && activeBotData && activeBotData.image && activeBotData.image.match(/bot0[6-9]/)) setTimeout(()=>playBattleBGM("Revenger.mp3"),300);
 
     if(!isBotMatch) {
         if(onlineRole === 'host') {
@@ -1935,6 +1975,13 @@ function done(pHP, oHP, myC, oppC) {
         playWinSound(); res.innerText="🏆 勝利 !!"; res.style.color="#2ecc71";
         let g=30,e=5,loot="";
         if(isBotMatch&&oppC.isMaharaja){g=300;inventory["金箔"]=(inventory["金箔"]||0)+1;discoveredItems["金箔"]=true;loot="✨金箔ゲット！";}
+        else if(isBotMatch&&oppC.isHardBot){g=60;e=activeBotData.expBonus;
+            // 中級・高級ガチャプールからランダム
+            const midPool=Object.keys(masterIngredients).filter(k=>masterIngredients[k].shop===1);
+            const highPool=Object.keys(masterIngredients).filter(k=>masterIngredients[k].shop===2);
+            const combined=[...midPool,...highPool];
+            const itm=combined[Math.floor(Math.random()*combined.length)];
+            inventory[itm]=(inventory[itm]||0)+1;discoveredItems[itm]=true;loot=itm+"ゲット！";}
         else if(isBotMatch){e=activeBotData.expBonus;let drp=Object.keys(masterIngredients).filter(k=>masterIngredients[k].shop===0);let itm=drp[Math.floor(Math.random()*drp.length)];inventory[itm]=(inventory[itm]||0)+1;discoveredItems[itm]=true;loot=itm+"ゲット！";}
         else{g=50;e=10;}
         playerG+=g; const oldEXP1=playerEXP; playerEXP+=e;
