@@ -13,7 +13,7 @@
         .logo-area { padding: 24px 20px 16px; text-align: center; }
         .logo-area img { width: 240px; max-width: 80%; }
         .tab-menu { display: flex; justify-content: space-around; margin: 0; background: #efdeb1; padding: 16px 0 0 0; gap: 0; flex-wrap: nowrap; }
-        .tab-btn { flex: 1; padding: 0 4px 12px 4px; border: none; background: none; font-size: 11pt; font-weight: bold; cursor: pointer; color: #420000; display: flex; flex-direction: column; align-items: center; gap: 8px; transition: color 0.2s; }
+        .tab-btn { flex: 1; padding: 0 4px 12px 4px; border: none; background: none; font-size: 11pt; font-weight: bold; cursor: pointer; color: #420000; display: flex; flex-direction: column; align-items: center; text-align: center; gap: 8px; transition: color 0.2s; white-space: nowrap; }
         .tab-btn::before { content: ''; display: block; width: 80px; height: 2px; background: #420000; }
         .tab-btn.active { color: #b88742; }
         .tab-btn.active::before { background: #b88742; }
@@ -230,7 +230,7 @@
         <button class="tab-btn" onclick="switchTab('scan', this)">QRスキャン</button>
         <button class="tab-btn" onclick="switchTab('fridge', this)">冷蔵庫</button>
         <button class="tab-btn" onclick="switchTab('cook', this)">調理</button>
-        <button class="tab-btn" onclick="switchTab('battle', this)">対戦アリーナ</button>
+        <button class="tab-btn" onclick="switchTab('battle', this)">対戦</button>
     </div>
 
     <!-- 遊び方タブ -->
@@ -245,14 +245,14 @@
     </div>
     <div id="pageGuide" class="page active">
 
-                <div style="background:#b88742; color:#ffffff; padding:16px; border-radius:4px; margin-bottom:16px; font-size:13px; line-height:1.7;">
-            QRスパイスカレーを遊んでいただきありがとうございます。<br>
+                <!-- お知らせ（Firebaseから取得） -->
+        <div class="notice-box" id="noticeBox"></div>
+        <div style="background:#b88742; color:#ffffff; padding:16px; border-radius:4px; margin-bottom:16px; font-size:13px; line-height:1.7;">
+            Battle Curry（バトルカレー）を遊んでいただきありがとうございます。<br>
             このゲームは生成AIを使って作成したゲームですので、開発者は細かいことよくわかってません。<br>
             おかしな部分も多々あるかと思いますが温かい目で見守ってやってください。<br>
             今後も随時アップデートをする予定です。（AIに頼んで）
         </div>
-        <!-- お知らせ（Firebaseから取得） -->
-        <div class="notice-box" id="noticeBox"></div>
         <div class="accordion-item">
             <div class="accordion-header" onclick="toggleAccordion(this)">
                 1. QRをスキャンしてアイテムを集めよう！
