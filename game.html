@@ -233,8 +233,12 @@
 
 
     
+    <!-- ?ボタン -->
+    <div style="position:relative;">
+        <button id="helpBtn" onclick="toggleHelp()" style="position:absolute;top:-52px;right:12px;width:36px;height:36px;border-radius:50%;border:2px solid #420000;background:#efdeb1;color:#420000;font-size:16px;font-weight:bold;cursor:pointer;z-index:10;display:flex;align-items:center;justify-content:center;">?</button>
+    </div>
     <div class="tab-menu">
-        <button class="tab-btn active" onclick="switchTab('guide', this)">遊び方</button>
+        <button class="tab-btn active" onclick="switchTab('quest', this)">クエスト</button>
         <button class="tab-btn" onclick="switchTab('scan', this)">QRスキャン</button>
         <button class="tab-btn" onclick="switchTab('fridge', this)">冷蔵庫</button>
         <button class="tab-btn" onclick="switchTab('cook', this)">調理</button>
@@ -436,7 +440,7 @@
     <div id="pageBattle" class="page">
         <div id="battleSetup">
             <div style="padding: 16px 0 0 0;">
-                <button class="btn btn-bot" style="width:100%;" onclick="startBotBattle()">PCと対戦する</button>
+                <button class="btn btn-bot" style="width:100%;" onclick="startBotBattle()">PCと対戦する（初級）</button>
                 <button class="btn btn-bot" style="width:100%;margin-top:8px;background:#420000;" onclick="startHardBotBattle()">PCと対戦する（強敵）</button>
             </div>
             <div style="border-top: 1px solid #b88742; margin: 16px 0;"></div>
@@ -856,9 +860,30 @@ function switchTab(tab, el) {
     }
     document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
     document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+    // ヘルプパネルを閉じる
+    const hp = document.getElementById('helpPanel'); if(hp) hp.style.display='none';
     if(el) el.classList.add('active');
     document.getElementById('page' + tab.charAt(0).toUpperCase() + tab.slice(1)).classList.add('active');
     cancelScanning();
+}
+
+function toggleHelp() {
+    const panel = document.getElementById('helpPanel');
+    const allPages = document.querySelectorAll('.page');
+    if(!panel) return;
+    if(panel.style.display === 'none' || panel.style.display === '') {
+        // タブページを全て非表示にしてヘルプを表示
+        allPages.forEach(p => p.style.display = 'none');
+        panel.style.display = 'block';
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    } else {
+        // ヘルプを閉じてクエストタブに戻る
+        panel.style.display = 'none';
+        const questTab = document.querySelector('[onclick*="quest"]');
+        const questPage = document.getElementById('pageQuest');
+        if(questTab) questTab.classList.add('active');
+        if(questPage) questPage.style.display = 'block';
+    }
 }
 function saveGame() {
     localStorage.setItem('qr_curry_inv', JSON.stringify(inventory));
@@ -1407,18 +1432,22 @@ function cookCurry() {
     // マルゲリータ：全ステータス1.2倍
     if(isMargherita) { hp=Math.round(hp*1.2); atk=Math.round(atk*1.2); def=Math.round(def*1.2); spd=Math.round(spd*1.2); }
     // 排他特殊カレー候補をリストアップしてランダム抽選
+    // 毒は最優先（特定食材の確定組み合わせ）
+    let poisonChosen = null;
+    if(countNas >= 1 && hasRaisin) poisonChosen = "poison_nas_raisin";
+    else if((hasSaba || hasTuna) && countNas >= 1 && hasDaikon) poisonChosen = "poison_fish";
+    else if(hasPotato && countNas >= 1 && hasRaisin) poisonChosen = "poison_potato";
+    else if(countNas >= 2) poisonChosen = "poison_nas2";
+    // 毒以外の排他候補（ランダム抽選）
     let exclusiveCandidates = [];
-    if(countNas >= 1 && hasRaisin) exclusiveCandidates.push("poison_nas_raisin");
-    if((hasSaba || hasTuna) && countNas >= 1 && hasDaikon) exclusiveCandidates.push("poison_fish");
-    if(hasPotato && countNas >= 1 && hasRaisin) exclusiveCandidates.push("poison_potato");
-    if(countNas >= 2) exclusiveCandidates.push("poison_nas2");
-    if(isMargherita) exclusiveCandidates.push("margherita");
-    if(isTonTonTon) exclusiveCandidates.push("tonton");
-    if(isIllusion) exclusiveCandidates.push("illusion");
-    if(isSticky) exclusiveCandidates.push("sticky");
-    if(isSeed) exclusiveCandidates.push("seed");
-    // 抽選で1つ選ぶ（重複時はランダム）
-    const chosen = exclusiveCandidates.length > 0 ? exclusiveCandidates[Math.floor(Math.random() * exclusiveCandidates.length)] : null;
+    if(!poisonChosen) {
+        if(isMargherita) exclusiveCandidates.push("margherita");
+        if(isTonTonTon) exclusiveCandidates.push("tonton");
+        if(isIllusion) exclusiveCandidates.push("illusion");
+        if(isSticky) exclusiveCandidates.push("sticky");
+        if(isSeed) exclusiveCandidates.push("seed");
+    }
+    const chosen = poisonChosen || (exclusiveCandidates.length > 0 ? exclusiveCandidates[Math.floor(Math.random() * exclusiveCandidates.length)] : null);
     // フラグリセットして選ばれたものだけ有効化
     isPoison=false; isMargherita=false; isTonTonTon=false; isIllusion=false; isSticky=false; isSeed=false;
     if(chosen === "poison_nas_raisin") { cName = "☠️瘴気漂う毒ナスレーズン"; isPoison = true; }
@@ -1872,6 +1901,30 @@ function startBattleScene(oppN, oppC, myC) {
     else if(isBotMatch && activeBotData && activeBotData.image && activeBotData.image.match(/bot0[6-9]/)) setTimeout(()=>playBattleBGM("Revenger.mp3"),300);
 
     if(!isBotMatch) {
+        // 相手が離脱した場合の検知
+        if(currentRoomId && database) {
+            database.ref('rooms/'+currentRoomId+'/forfeit').on('value', function(snap) {
+                const forfeiter = snap.val();
+                if(!forfeiter) return;
+                if(forfeiter !== onlineRole) {
+                    // 相手が離脱→自分の勝ち
+                    database.ref('rooms/'+currentRoomId+'/forfeit').off();
+                    stopBattleBGM();
+                    showCustomAlert("🏆 相手が離脱しました", "相手プレイヤーが離脱したため勝利扱いになりました！", function() {
+                        const res = document.getElementById("battleVerdict");
+                        const rew = document.getElementById("rewardText");
+                        if(res) { res.innerText = "🏆 勝利（相手離脱）"; res.style.color = "#2ecc71"; }
+                        playerG += 50; const oldEXP = playerEXP; playerEXP += 10;
+                        if(rew) rew.innerHTML = "💰 +50G / ✨ +10EXP";
+                        setTimeout(() => checkLvUp(oldEXP, playerEXP), 300);
+                        curryStock.splice(selectedCurryIndex, 1); selectedCurryIndex = curryStock.length ? 0 : -1;
+                        saveGame(); updateCookSelects(); updateMatchCurrySelects();
+                        document.getElementById("battleResultBox").style.display = "block";
+                        setTimeout(() => { database.ref('rooms/'+currentRoomId).remove(); currentRoomId=null; }, 2000);
+                    });
+                }
+            });
+        }
         if(onlineRole === 'host') {
             // ホスト：全ターン計算→Firebase書き込み→自分も再生
             const allTurns = calcAllBattleTurns(myC, oppC, oppN, playerName);
@@ -2032,11 +2085,45 @@ window.addEventListener('beforeunload', function() {
     if(currentRoomId && myRoomRef && database) database.ref('rooms/'+currentRoomId).remove();
 });
 document.addEventListener('visibilitychange', function() {
+    // 待機中の部屋削除
     if(document.visibilityState==='hidden' && currentRoomId && myRoomRef && database) {
         if(document.getElementById("waitingArea") && document.getElementById("waitingArea").style.display!=="none")
             database.ref('rooms/'+currentRoomId).remove();
     }
+    // バトル中に画面から離れた場合：強制終了→負け扱い
+    if(document.visibilityState==='hidden') {
+        const arena = document.getElementById("battleArena");
+        if(arena && arena.style.display === "block") {
+            const resultBox = document.getElementById("battleResultBox");
+            if(resultBox && resultBox.style.display === "none") {
+                // バトル中（結果未表示）→強制負け
+                if(!isBotMatch && currentRoomId && database) {
+                    // 対人戦：自分が離脱したことをFirebaseに通知
+                    database.ref('rooms/'+currentRoomId+'/forfeit').set(onlineRole);
+                }
+                // 強制負け処理
+                forceForfeit();
+            }
+        }
+    }
 });
+
+function forceForfeit() {
+    stopBattleBGM();
+    // 結果ボックスを強制表示（負け）
+    document.getElementById("battleResultBox").style.display = "block";
+    const res = document.getElementById("battleVerdict");
+    const rew = document.getElementById("rewardText");
+    res.innerText = "💀 敗北（離脱）"; res.style.color = "#e74c3c";
+    const oldEXP = playerEXP; playerEXP += 1;
+    rew.innerHTML = "✨ +1EXP　※バトル中の離脱は負け扱いです。";
+    setTimeout(() => checkLvUp(oldEXP, playerEXP), 300);
+    curryStock.splice(selectedCurryIndex, 1); selectedCurryIndex = curryStock.length ? 0 : -1;
+    saveGame(); updateCookSelects(); updateMatchCurrySelects();
+    if(!isBotMatch && currentRoomId && database) {
+        setTimeout(() => { database.ref('rooms/'+currentRoomId).remove(); currentRoomId=null; }, 3000);
+    }
+}
 
 function updateHP(p, o, om, pm) {
     document.getElementById("pHpText").innerText=`HP: ${p}/${pm}`; document.getElementById("oHpText").innerText=`HP: ${o}/${om}`;
