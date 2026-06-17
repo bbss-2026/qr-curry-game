@@ -144,6 +144,13 @@
         .flash-red { background-color: #c0392b !important; }
         .flash-purple { background-color: #8e44ad !important; }
         .flash-gold { background-color: #ffd700 !important; }
+        /* 毒・幻惑の全画面フラッシュ */
+        .status-flash-overlay { position: fixed; top:0; left:0; width:100%; height:100%; pointer-events:none; z-index:999; opacity:0; transition: opacity 0.15s; }
+        .status-flash-overlay.poison-flash { background: rgba(128,0,128,0.45); }
+        .status-flash-overlay.illusion-flash { background: rgba(0,0,0,0.55); }
+        /* 状態異常による名前カラー */
+        .name-poisoned { color: #9b59b6 !important; }
+        .name-illuded { color: #888 !important; }
         .gold-box { animation: goldGlow 1.5s infinite; border: 3px solid #f1c40f !important; }
         @keyframes goldGlow { 0% { box-shadow: 0 0 5px #f1c40f; } 50% { box-shadow: 0 0 20px #ffd700; } 100% { box-shadow: 0 0 5px #f1c40f; } }
         .poison-box { animation: poisonGlow 1.5s infinite; border: 3px dashed #9b59b6 !important; }
@@ -184,6 +191,7 @@
     </style>
 </head>
 <body>
+<div id="statusFlashOverlay" class="status-flash-overlay"></div>
 <div class="modal-overlay" id="customModal">
     <div class="modal-box">
         <div class="modal-title" id="modalTitle">📢 お知らせ</div>
@@ -581,7 +589,7 @@ function playBattleBGM(src) {
     stopBattleBGM();
     battleBGM = new Audio(src);
     battleBGM.loop = true;
-    battleBGM.volume = 0.5;
+    battleBGM.volume = 0.2;
     battleBGM.play().catch(e => console.log("BGM play error:", e));
 }
 function stopBattleBGM() {
@@ -593,7 +601,15 @@ function playSoundEffect(src) {
     se.play().catch(e => console.log("SE play error:", e));
 }
 // ===== ここまで =====
-function playAttackSound() { playTone(440, 'triangle', 0.1); setTimeout(() => playTone(659.25, 'triangle', 0.1), 50); }
+function playAttackSound() { playSoundEffect('punch.mp3'); }
+function playStatusFlash(type) {
+    // type: 'poison' or 'illusion'
+    const el = document.getElementById('statusFlashOverlay');
+    if(!el) return;
+    el.className = 'status-flash-overlay ' + type + '-flash';
+    el.style.opacity = '1';
+    setTimeout(() => { el.style.opacity = '0'; setTimeout(() => { el.className = 'status-flash-overlay'; }, 200); }, 400);
+}
 function playDamageSound() { playTone(100, 'sawtooth', 0.2); }
 function playPoisonSound() { playTone(180, 'sine', 0.3); setTimeout(() => playTone(150, 'sine', 0.3), 100); }
 function playWinSound() { playTone(523.25, 'square', 0.1); setTimeout(() => playTone(659.25, 'square', 0.1), 80); setTimeout(() => playTone(783.99, 'square', 0.8), 160); }
@@ -1728,7 +1744,24 @@ function playBattleTurns(turns, myC, oppC, oppN, role) {
     // 状態異常テキスト表示
     if(turns.length > 0 && turns[0].statusLines && turns[0].statusLines.length > 0) {
         turns[0].statusLines.forEach(line => { log.innerHTML += '\n' + line; });
-        if(turns[0].statusLines.some(l => l.includes('毒'))) playPoisonSound();
+        const hasPoison = turns[0].statusLines.some(l => l.includes('毒にかかった'));
+        const hasIllusion = turns[0].statusLines.some(l => l.includes('幻惑にかかった'));
+        if(hasPoison) { playSoundEffect('poison.mp3'); playStatusFlash('poison'); }
+        if(hasIllusion) { setTimeout(()=>{ playSoundEffect('genwaku.mp3'); playStatusFlash('illusion'); }, hasPoison ? 600 : 0); }
+        // 毒・幻惑になった側の名前を色変更
+        turns[0].statusLines.forEach(line => {
+            if(line.includes('毒にかかった')) {
+                // 毒になった名前を特定（isGuestで自分か相手か判断）
+                const poisonedIsMe = line.includes(isGuest ? oppN : playerName) === false;
+                const el = poisonedIsMe ? document.getElementById('pOwnerText') : document.getElementById('oppOwnerText');
+                if(el) el.classList.add('name-poisoned');
+            }
+            if(line.includes('幻惑にかかった')) {
+                const illudedIsMe = line.includes(isGuest ? oppN : playerName) === false;
+                const el = illudedIsMe ? document.getElementById('pOwnerText') : document.getElementById('oppOwnerText');
+                if(el) el.classList.add('name-illuded');
+            }
+        });
     }
 
     function playTurn() {
@@ -1760,16 +1793,18 @@ function playBattleTurns(turns, myC, oppC, oppN, role) {
                 else if(ef === 'enemy-poison') ef = 'player-poison';
             }
             triggerEffect(ef, e.dmg);
-            if(ef === 'enemy-gold') playGoldSound();
-            else if(ef.includes('poison')) playPoisonSound();
+            if(ef === 'enemy-gold') { playGoldSound(); playSoundEffect('punch.mp3'); }
+            else if(ef.includes('poison')) playSoundEffect('poison.mp3');
+            else if(e.breath) playSoundEffect('breath.mp3');
             else if((isGuest ? myC : oppC).isTonTonTon && ef === 'player') playSoundEffect('pig1.mp3');
             else if((isGuest ? oppC : myC).isTonTonTon && ef === 'enemy') playSoundEffect('pig2.mp3');
-            else playAttackSound();
+            else playSoundEffect('punch.mp3');
         });
 
         // 種連射エフェクト（連射が終わってから次ターンへ）
         if(seedEffects.length > 0) {
             const totalSeedTime = seedEffects.length * 250;
+            playSoundEffect('machine-gun.mp3');
             seedEffects.forEach((e, i) => {
                 setTimeout(() => {
                     let ef = e.type;
@@ -1794,7 +1829,7 @@ function startBattleScene(oppN, oppC, myC) {
     // バトル画面セットアップ
     document.getElementById("battleResultBox").style.display = "none";
     const overlay2 = document.getElementById("battleResultOverlay"); if(overlay2) overlay2.style.display = "none";
-    ["oppOwnerText","oHpText","pOwnerText","pHpText"].forEach(id => { const el=document.getElementById(id); if(el) el.style.color=""; });
+    ["oppOwnerText","oHpText","pOwnerText","pHpText"].forEach(id => { const el=document.getElementById(id); if(el){ el.style.color=""; el.classList.remove("name-poisoned","name-illuded"); } });
     const pop = document.getElementById("damagePop"); pop.style.display="none"; pop.style.animation="none"; pop.innerText="0";
     document.getElementById("battleSetup").style.display = "none";
     document.getElementById("battleArena").style.display = "block";
