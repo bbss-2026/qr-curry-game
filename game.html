@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>QRスパイスカレー・オンラインアリーナ</title>
+    <title>カレーバトル</title>
     <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
@@ -14,7 +14,7 @@
         .logo-area img { width: 240px; max-width: 80%; }
         .tab-menu { display: flex; justify-content: space-around; margin: 0; background: #efdeb1; padding: 0; gap: 0; flex-wrap: nowrap; }
         .tab-btn { flex: 1; padding: 12px 4px 0 4px; border: none; background: none; font-size: 11pt; font-weight: bold; cursor: pointer; color: #420000; display: flex; flex-direction: column; align-items: center; text-align: center; gap: 8px; transition: color 0.2s; white-space: nowrap; }
-        .tab-btn::after { content: ''; display: block; width: 60%; height: 2px; background: #420000; }
+        .tab-btn::after { content: ''; display: block; width: 90%; height: 2px; background: #420000; }
         .tab-btn.active { color: #b88742; }
         .tab-btn.active::after { background: #b88742; }
         .tab-btn:hover { color: #b88742; }
@@ -58,7 +58,7 @@
         .btn-danger-sm { background: #420000; color: #efdeb1; }
         .btn-staff-sm { background: #b88742; color: #efdeb1; }
         /* ガチャ用デザイン */
-        .shop-box { background: transparent; border: none; border-top: 1px solid #b88742; padding: 20px 0 15px; margin: 15px 0; text-align: left; }
+        .shop-box { background: transparent; border: none; padding: 20px 0 15px; margin: 0; text-align: left; }
         .shop-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 10px; }
         .btn-shop { padding: 12px 8px; font-size: 11px; font-weight: bold; color: #efdeb1; background: #b88742; border: none; border-radius: 4px; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; height: 60px; transition: opacity 0.15s; }
         .btn-shop-30 { background: #b88742; }
@@ -301,7 +301,7 @@
 
     <!-- QRスキャンタブ -->
     <div id="pageScan" class="page" style="text-align:center;">
-        <button id="btnStartCamera" class="btn btn-start" onclick="startCamera()" style="display:flex;align-items:center;justify-content:center;gap:8px;width:80%;color:#efdeb1;font-size:16px;"><img src="camera.svg" style="height:1em;width:auto;filter:brightness(10);" alt="">カメラを起動する</button>
+        <button id="btnStartCamera" class="btn btn-start" onclick="startCamera()" style="display:flex;align-items:center;justify-content:center;gap:8px;width:80%;color:#efdeb1;font-size:16px;"><img src="camera.svg" style="height:1em;width:auto;filter:brightness(10);position:relative;top:2px;" alt="">カメラを起動する</button>
         <div id="statusMessage" style="font-size:14px; color:#7f8c8d; margin-bottom:15px; display:none; text-align:center;">QRを枠内に映してください</div>
         <canvas id="canvas"></canvas>
         <button id="btnCancel" class="btn btn-cancel" onclick="cancelScanning()" style="display:none;">キャンセル</button>
@@ -335,13 +335,13 @@
 
         
         <div class="shop-box">
-            <div style="display:flex;align-items:center;gap:8px;font-weight:bold;color:#420000;font-size:14px;border-bottom:1px solid #b88742;padding-bottom:8px;margin-bottom:8px;"><img src="gatya.svg" style="height:1em;width:auto;" alt="">ガチャショップ</div>
+            <div style="display:flex;align-items:center;justify-content:center;gap:8px;font-weight:bold;color:#420000;font-size:14px;border-bottom:1px solid #b88742;padding-bottom:8px;margin-bottom:8px;border-top:1px solid #b88742;padding-top:8px;"><img src="gatya.svg" style="height:1em;width:auto;" alt="">食材ガチャ<img src="gatya.svg" style="height:1em;width:auto;" alt=""></div>
             <div class="shop-grid">
-                <button class="btn-shop btn-shop-30" id="btnGachaNormal" onclick="buyGacha('normal')">食材ガチャ (30G)<br><span style="font-size:9px;font-weight:normal;">通常QR具材1種</span></button>
-                <button class="btn-shop btn-shop-30s" id="btnGachaSpice" onclick="buyGacha('spice')">スパイスガチャ (30G)<br><span style="font-size:9px;font-weight:normal;">スパイス1種</span></button>
-                <button class="btn-shop btn-shop-100" id="btnGachaMid" onclick="buyGacha('mid')">中級具材ガチャ (100G)<br><span style="font-size:9px;font-weight:normal;">牡蠣・合鴨など1種</span></button>
-                <button class="btn-shop btn-shop-300" id="btnGachaHigh" onclick="buyGacha('high')">最高級ガチャ (300G)<br><span style="font-size:9px;font-weight:normal;">キャビア・海老など1種</span></button>
-                <button class="btn-shop btn-shop-pack" id="btnGachaPack" onclick="buyGachaPack()">🎉 豪華10個パックガチャ (チケット1枚消費)<br><span style="font-size:10px;font-weight:normal;opacity:0.9;">通常具材7個 ＋ スパイス2個 ＋ 中級or最高級1個！</span></button>
+                <button class="btn-shop btn-shop-30" id="btnGachaNormal" onclick="buyGacha('normal')">食材ガチャ（30G）<br><span style="font-size:9px;font-weight:normal;">ノーマル具材1個</span></button>
+                <button class="btn-shop btn-shop-30s" id="btnGachaSpice" onclick="buyGacha('spice')">スパイスガチャ（30G）<br><span style="font-size:9px;font-weight:normal;">ノーマルスパイス1個</span></button>
+                <button class="btn-shop btn-shop-100" id="btnGachaMid" onclick="buyGacha('mid')">中級具材ガチャ（100G）<br><span style="font-size:9px;font-weight:normal;">中級具材1個</span></button>
+                <button class="btn-shop btn-shop-300" id="btnGachaHigh" onclick="buyGacha('high')">高級具材ガチャ（300G）<br><span style="font-size:9px;font-weight:normal;">高級具材1個</span></button>
+                <button class="btn-shop btn-shop-pack" id="btnGachaPack" onclick="buyGachaPack()">10個パックガチャ（チケット1枚）<br><span style="font-size:9px;font-weight:normal;">ノーマル具材7個+ノーマルスパイス2個+中級or高級具材1個</span></button>
             </div>
         </div>
         
@@ -427,23 +427,23 @@
     <!-- 対戦アリーナタブ -->
     <div id="pageBattle" class="page">
         <div id="battleSetup">
-            <div class="room-section" style="border-color: #e67e22; margin-top:0;">
-                <h4 style="margin:0 0 10px 0; color:#d35400;">PCと対戦</h4>
-                <button class="btn btn-bot" onclick="startBotBattle()">PCと対戦する</button>
+            <div style="padding: 16px 0 0 0;">
+                <button class="btn btn-bot" style="width:100%;" onclick="startBotBattle()">PCと対戦する</button>
             </div>
-<div style="margin: 10px 0; text-align: center; padding: 10px; border: 1px solid #ddd; background: #fdfdfd;">
-    <label style="font-weight:bold;">使用するカレーを選択:</label><br>
-    <select id="globalCurrySelect" class="room-input" style="max-width: 300px; margin: 5px 0;"></select>
-</div>
+            <div style="border-top: 1px solid #b88742; margin: 16px 0;"></div>
+            <div style="margin-bottom: 12px;">
+                <label style="font-weight:bold; font-size:13px; color:#420000;">対人戦で使用するカレーを選択</label><br>
+                <select id="globalCurrySelect" class="room-input" style="margin: 8px 0 0 0;"></select>
+            </div>
             <div id="lobbyArea">
                 <div class="room-section">
-                    <h4 style="margin:0 0 10px 0; color:#9b59b6;">新しい対戦ルームを作る</h4>
+                    <h4 style="margin:0 0 10px 0; color:#420000; font-size:13px; font-weight:bold;">新しい対戦ルームを作る</h4>
                     <label style="font-size:12px;">入室合言葉 (空欄なら誰でも):</label>
                     <input type="text" id="createRoomPassword" class="room-input" placeholder="例: 1234">
                     <button class="btn btn-battle" id="btnCreateRoom" onclick="createMatchRoom()">ルームを作成して待機</button>
                 </div>
                 <div class="room-section" style="margin-top:20px; border-color:#34495e;">
-                    <h4 style="margin:0 0 10px 0; color:#34495e;">対戦相手の募集一覧</h4>
+                    <h4 style="margin:0 0 10px 0; color:#420000; font-size:13px; font-weight:bold;">対戦相手の募集一覧</h4>
                     <div id="roomListArea" style="font-size:13px; color:#7f8c8d;">部屋を読み込み中...</div>
                 </div>
             </div>
@@ -1267,7 +1267,8 @@ function applyFavRecipe(key) {
     // materials = [食材1, 食材2, 食材3, スパイス] の順で保存されているが
     // keyが "食材+食材+スパイス" 形式なので materials から復元
     const mats = r.materials || [];
-    const spiceName = mats.find(m => masterSpices[m]);
+    // spiceプロパティ優先、なければmaterialsからmasterSpicesで検索
+    const spiceName = r.spice || mats.find(m => masterSpices[m]);
     const ings = mats.filter(m => masterIngredients[m]);
     // 在庫チェック
     let missing = [];
