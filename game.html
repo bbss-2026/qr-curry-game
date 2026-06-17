@@ -1931,44 +1931,91 @@ function startBattleScene(oppN, oppC, myC) {
 💚 ${playerName} はネバネバにかかった！${oppN} の先攻攻撃！`;}
     else{myTurn=myC.spd>=oppC.spd;}
     let round=1;
+
+    // 毒・幻惑の初期演出（演出が終わってからバトル開始）
+    let battleStartDelay = 300;
+    if(myC.isPoison){
+        log.innerHTML+=`\n☠️ ${oppN} は毒にかかった！毎ターン毒ダメージ！`;
+        setTimeout(()=>{ playSoundEffect('poison.mp3'); playStatusFlash('poison'); document.getElementById('oppOwnerText').classList.add('name-poisoned'); }, battleStartDelay);
+        battleStartDelay += 2200;
+    }
+    if(oppC.isPoison){
+        log.innerHTML+=`\n☠️ ${playerName} は毒にかかった！毎ターン毒ダメージ！`;
+        setTimeout(()=>{ playSoundEffect('poison.mp3'); playStatusFlash('poison'); document.getElementById('pOwnerText').classList.add('name-poisoned'); }, battleStartDelay);
+        battleStartDelay += 2200;
+    }
+    if(myC.isIllusion){
+        log.innerHTML+=`\n🌀 ${oppN} は幻惑にかかった！攻撃命中率ダウン！`;
+        setTimeout(()=>{ playSoundEffect('genwaku.mp3'); playStatusFlash('illusion'); document.getElementById('oppOwnerText').classList.add('name-illuded'); }, battleStartDelay);
+        battleStartDelay += 2200;
+    }
+    if(oppC.isIllusion){
+        log.innerHTML+=`\n🌀 ${playerName} は幻惑にかかった！攻撃命中率ダウン！`;
+        setTimeout(()=>{ playSoundEffect('genwaku.mp3'); playStatusFlash('illusion'); document.getElementById('pOwnerText').classList.add('name-illuded'); }, battleStartDelay);
+        battleStartDelay += 2200;
+    }
+
     function step(){
         if(pHP<=0||oHP<=0||round>20){setTimeout(()=>done(pHP,oHP,myC,oppC),800);return;}
         if(myTurn){
             log.innerHTML=`🔥 自分のターン！`;
-            playTone(440, 'triangle', 0.08);
-            if(isPP){let d=Math.round(myC.hp*0.08);pHP-=d;log.innerHTML+=`
-☠️ 毒ダメージ: ${d}`;triggerEffect("player-poison",d);updateHP(pHP,oHP,oppC.hp,myC.hp);if(pHP<=0){step();return;}}
-            if(myC.hasGold){playGoldSound();log.innerHTML+=`
-🌟 金箔乱舞！`;}else if(myC.isTonTonTon){playSoundEffect('pig2.mp3');}else if(oppC.isTonTonTon){playSoundEffect('pig1.mp3');}else playAttackSound();
-            if(myIsIlluded&&Math.random()>0.7){log.innerHTML+=`
-💨 幻惑で攻撃が外れた！`;setTimeout(()=>{updateHP(pHP,oHP,oppC.hp,myC.hp);myTurn=false;round++;setTimeout(step,1100);},400);}
-            else if(myC.isSeed&&Math.random()<0.3){
+            playTone(440,'triangle',0.08); // ターン表示音
+            if(isPP){let d=Math.round(myC.hp*0.08);pHP-=d;log.innerHTML+=`\n☠️ 毒ダメージ: ${d}`;triggerEffect("player-poison",d);updateHP(pHP,oHP,oppC.hp,myC.hp);if(pHP<=0){step();return;}}
+            // 幻惑ミス（punch.mp3なし）
+            if(myIsIlluded&&Math.random()>0.7){
+                log.innerHTML+=`\n💨 幻惑で攻撃が外れた！`;
+                setTimeout(()=>{updateHP(pHP,oHP,oppC.hp,myC.hp);myTurn=false;round++;setTimeout(step,1100);},400);
+            } else if(myC.isSeed&&Math.random()<0.3){
+                // 種連射（machine-gun.mp3）
                 const hits=Math.floor(Math.random()*5)+2;let damages=[];
                 for(let i=0;i<hits;i++){let sd=Math.max(2,Math.round(myC.atk*0.3-Math.floor(oppC.def/4)));sd=Math.round(sd*(0.9+Math.random()*0.2));damages.push(sd);oHP=Math.max(0,oHP-sd);}
-                log.innerHTML+=`
-🌱 種連続発射 ${hits}連撃！`;
-                damages.forEach((sd,i)=>{setTimeout(()=>{triggerEffect("enemy",sd);if(i===damages.length-1){log.innerHTML+=` 合計: ${damages.reduce((a,b)=>a+b,0)}`;updateHP(pHP,oHP,oppC.hp,myC.hp);myTurn=false;round++;setTimeout(step,1100);}},300+i*250);});
-            }else{setTimeout(()=>{let d=Math.max(8,myC.atk-Math.floor(oppC.def/2));d=Math.round(d*(0.9+Math.random()*0.2));oHP=Math.max(0,oHP-d);log.innerHTML+=`
-💥 ダメージ: ${d}`;triggerEffect(myC.hasGold?"enemy-gold":"enemy",d);updateHP(pHP,oHP,oppC.hp,myC.hp);myTurn=false;round++;setTimeout(step,1100);},400);}
+                log.innerHTML+=`\n🌱 種連続発射 ${hits}連撃！`;
+                setTimeout(()=>playSoundEffect('machine-gun.mp3'),50);
+                damages.forEach((sd,i)=>{setTimeout(()=>{triggerEffect("enemy",sd);if(i===damages.length-1){log.innerHTML+=` 合計: ${damages.reduce((a,b)=>a+b,0)}`;updateHP(pHP,oHP,oppC.hp,myC.hp);myTurn=false;round++;setTimeout(step,1300);}},150+i*250);});
+            } else if(myC.isTonTonTon){
+                playSoundEffect('pig2.mp3');
+                setTimeout(()=>{let d=Math.max(8,myC.atk-Math.floor(oppC.def/2));d=Math.round(d*(0.9+Math.random()*0.2));oHP=Math.max(0,oHP-d);log.innerHTML+=`\n💥 ダメージ: ${d}`;playSoundEffect('punch.mp3');triggerEffect("enemy",d);updateHP(pHP,oHP,oppC.hp,myC.hp);myTurn=false;round++;setTimeout(step,1100);},400);
+            } else if(oppC.isTonTonTon){
+                playSoundEffect('pig1.mp3');
+                setTimeout(()=>{let d=Math.max(8,myC.atk-Math.floor(oppC.def/2));d=Math.round(d*(0.9+Math.random()*0.2));oHP=Math.max(0,oHP-d);log.innerHTML+=`\n💥 ダメージ: ${d}`;playSoundEffect('punch.mp3');triggerEffect("enemy",d);updateHP(pHP,oHP,oppC.hp,myC.hp);myTurn=false;round++;setTimeout(step,1100);},400);
+            } else if(myC.hasGold){
+                playGoldSound();log.innerHTML+=`\n🌟 金箔乱舞！`;
+                setTimeout(()=>{let d=Math.max(8,myC.atk-Math.floor(oppC.def/2));d=Math.round(d*(0.9+Math.random()*0.2));oHP=Math.max(0,oHP-d);log.innerHTML+=`\n💥 ダメージ: ${d}`;playSoundEffect('punch.mp3');triggerEffect("enemy-gold",d);updateHP(pHP,oHP,oppC.hp,myC.hp);myTurn=false;round++;setTimeout(step,1100);},400);
+            } else {
+                // 通常攻撃（ターン音は上で鳴らし済み、ダメージ時にpunch.mp3）
+                setTimeout(()=>{let d=Math.max(8,myC.atk-Math.floor(oppC.def/2));d=Math.round(d*(0.9+Math.random()*0.2));oHP=Math.max(0,oHP-d);log.innerHTML+=`\n💥 ダメージ: ${d}`;playSoundEffect('punch.mp3');triggerEffect("enemy",d);updateHP(pHP,oHP,oppC.hp,myC.hp);myTurn=false;round++;setTimeout(step,1100);},400);
+            }
         }else{
             log.innerHTML=`⚠️ 相手のターン！`;
-            playTone(330, 'triangle', 0.08);
-            if(isOP){let d=Math.round(oppC.hp*0.08);oHP-=d;log.innerHTML+=`
-☠️ 毒ダメージ: ${d}`;triggerEffect("enemy-poison",d);updateHP(pHP,oHP,oppC.hp,myC.hp);if(oHP<=0){step();return;}}
-            if(myC.isTonTonTon){playSoundEffect('pig1.mp3');}else if(oppC.isTonTonTon){playSoundEffect('pig2.mp3');}else playAttackSound();
-            if(oppIsIlluded&&Math.random()>0.7){log.innerHTML+=`
-💨 幻惑で相手の攻撃が外れた！`;setTimeout(()=>{updateHP(pHP,oHP,oppC.hp,myC.hp);myTurn=true;round++;setTimeout(step,1100);},400);}
-            else if(oppC.isSeed&&Math.random()<0.3){
+            playTone(330,'triangle',0.08); // ターン表示音
+            if(isOP){let d=Math.round(oppC.hp*0.08);oHP-=d;log.innerHTML+=`\n☠️ 毒ダメージ: ${d}`;triggerEffect("enemy-poison",d);updateHP(pHP,oHP,oppC.hp,myC.hp);if(oHP<=0){step();return;}}
+            // 幻惑ミス（punch.mp3なし）
+            if(oppIsIlluded&&Math.random()>0.7){
+                log.innerHTML+=`\n💨 幻惑で相手の攻撃が外れた！`;
+                setTimeout(()=>{updateHP(pHP,oHP,oppC.hp,myC.hp);myTurn=true;round++;setTimeout(step,1100);},400);
+            } else if(oppC.isBreath&&Math.random()<(1/3)){
+                // 熱々ブレス（breath.mp3）
+                setTimeout(()=>{pHP=Math.max(0,pHP-80);log.innerHTML+=`\n🔥 熱々ブレス！DEF無視80ダメージ！`;playSoundEffect('breath.mp3');triggerEffect("player",80);updateHP(pHP,oHP,oppC.hp,myC.hp);myTurn=true;round++;setTimeout(step,1100);},400);
+            } else if(oppC.isSeed&&Math.random()<0.3){
+                // 種連射（machine-gun.mp3）
                 const hits=Math.floor(Math.random()*5)+2;let damages=[];
                 for(let i=0;i<hits;i++){let sd=Math.max(2,Math.round(oppC.atk*0.3-Math.floor(myC.def/4)));sd=Math.round(sd*(0.9+Math.random()*0.2));damages.push(sd);pHP=Math.max(0,pHP-sd);}
-                log.innerHTML+=`
-🌱 相手の種連続発射 ${hits}連撃！`;
-                damages.forEach((sd,i)=>{setTimeout(()=>{triggerEffect("player",sd);if(i===damages.length-1){log.innerHTML+=` 合計: ${damages.reduce((a,b)=>a+b,0)}`;updateHP(pHP,oHP,oppC.hp,myC.hp);myTurn=true;round++;setTimeout(step,1100);}},300+i*250);});
-            }else{setTimeout(()=>{let d=Math.max(8,oppC.atk-Math.floor(myC.def/2));d=Math.round(d*(0.9+Math.random()*0.2));pHP=Math.max(0,pHP-d);log.innerHTML+=`
-😢 被弾ダメージ: ${d}`;triggerEffect("player",d);updateHP(pHP,oHP,oppC.hp,myC.hp);myTurn=true;round++;setTimeout(step,1100);},400);}
+                log.innerHTML+=`\n🌱 相手の種連続発射 ${hits}連撃！`;
+                setTimeout(()=>playSoundEffect('machine-gun.mp3'),50);
+                damages.forEach((sd,i)=>{setTimeout(()=>{triggerEffect("player",sd);if(i===damages.length-1){log.innerHTML+=` 合計: ${damages.reduce((a,b)=>a+b,0)}`;updateHP(pHP,oHP,oppC.hp,myC.hp);myTurn=true;round++;setTimeout(step,1300);}},150+i*250);});
+            } else if(myC.isTonTonTon){
+                playSoundEffect('pig1.mp3');
+                setTimeout(()=>{let d=Math.max(8,oppC.atk-Math.floor(myC.def/2));d=Math.round(d*(0.9+Math.random()*0.2));pHP=Math.max(0,pHP-d);log.innerHTML+=`\n😢 被弾ダメージ: ${d}`;playSoundEffect('punch.mp3');triggerEffect("player",d);updateHP(pHP,oHP,oppC.hp,myC.hp);myTurn=true;round++;setTimeout(step,1100);},400);
+            } else if(oppC.isTonTonTon){
+                playSoundEffect('pig2.mp3');
+                setTimeout(()=>{let d=Math.max(8,oppC.atk-Math.floor(myC.def/2));d=Math.round(d*(0.9+Math.random()*0.2));pHP=Math.max(0,pHP-d);log.innerHTML+=`\n😢 被弾ダメージ: ${d}`;playSoundEffect('punch.mp3');triggerEffect("player",d);updateHP(pHP,oHP,oppC.hp,myC.hp);myTurn=true;round++;setTimeout(step,1100);},400);
+            } else {
+                // 通常攻撃
+                setTimeout(()=>{let d=Math.max(8,oppC.atk-Math.floor(myC.def/2));d=Math.round(d*(0.9+Math.random()*0.2));pHP=Math.max(0,pHP-d);log.innerHTML+=`\n😢 被弾ダメージ: ${d}`;playSoundEffect('punch.mp3');triggerEffect("player",d);updateHP(pHP,oHP,oppC.hp,myC.hp);myTurn=true;round++;setTimeout(step,1100);},400);
+            }
         }
     }
-    setTimeout(step,600);
+    setTimeout(step, battleStartDelay);
 }
 
 // proceedToArena は後方互換のためstartBattleSceneに委譲
