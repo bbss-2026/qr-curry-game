@@ -855,34 +855,47 @@ let cachedOpponentName = "";
 let cachedOpponentCurry = null;
 window.onload = function() { loadGame(); updateFridgeUI(); updateCookSelects(); refreshRecipeBookUI(); updateShopButtons(); listenToRooms(); updateMatchCurrySelects(); setupLoadedIconUI(); updateLvDisplay(); loadNotice(); };
 function switchTab(tab, el) {
-    if (document.getElementById("battleArena").style.display === "block") {
-        endBattleScene();
+    const arena = document.getElementById("battleArena");
+    // バトル中に別タブへ移動→強制終了（負け）
+    if(arena && arena.style.display === "block") {
+        const resultBox = document.getElementById("battleResultBox");
+        if(resultBox && resultBox.style.display === "none") {
+            // バトル結果未表示＝バトル中
+            if(!isBotMatch && currentRoomId && database) {
+                database.ref('rooms/'+currentRoomId+'/forfeit').set(onlineRole);
+            }
+            forceForfeit();
+            return; // タブ切り替えはせず強制終了のみ
+        } else {
+            // 結果表示済み（バトル終了後）は通常通りタブ切り替え
+            endBattleScene();
+        }
     }
     document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
     document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-    // ヘルプパネルを閉じる
-    const hp = document.getElementById('helpPanel'); if(hp) hp.style.display='none';
+    const hp = document.getElementById('pageGuide'); if(hp) hp.style.display='none';
     if(el) el.classList.add('active');
     document.getElementById('page' + tab.charAt(0).toUpperCase() + tab.slice(1)).classList.add('active');
     cancelScanning();
 }
 
 function toggleHelp() {
-    const panel = document.getElementById('helpPanel');
-    const allPages = document.querySelectorAll('.page');
-    if(!panel) return;
-    if(panel.style.display === 'none' || panel.style.display === '') {
-        // タブページを全て非表示にしてヘルプを表示
-        allPages.forEach(p => p.style.display = 'none');
-        panel.style.display = 'block';
-        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-    } else {
-        // ヘルプを閉じてクエストタブに戻る
-        panel.style.display = 'none';
+    const guidePanel = document.getElementById('pageGuide');
+    if(!guidePanel) return;
+    const isShowing = guidePanel.style.display === 'block';
+    if(isShowing) {
+        // 閉じてクエストタブに戻る
+        guidePanel.style.display = 'none';
+        document.querySelectorAll('.page').forEach(p => p.style.display = 'none');
         const questTab = document.querySelector('[onclick*="quest"]');
         const questPage = document.getElementById('pageQuest');
-        if(questTab) questTab.classList.add('active');
+        if(questTab) { document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active')); questTab.classList.add('active'); }
         if(questPage) questPage.style.display = 'block';
+    } else {
+        // 全タブ非表示にして遊び方を表示
+        document.querySelectorAll('.page').forEach(p => p.style.display = 'none');
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        guidePanel.style.display = 'block';
     }
 }
 function saveGame() {
@@ -2085,26 +2098,10 @@ window.addEventListener('beforeunload', function() {
     if(currentRoomId && myRoomRef && database) database.ref('rooms/'+currentRoomId).remove();
 });
 document.addEventListener('visibilitychange', function() {
-    // 待機中の部屋削除
+    // 待機中の部屋削除のみ（バトル中の離脱検知はゲーム内タブ切り替えのみ対応）
     if(document.visibilityState==='hidden' && currentRoomId && myRoomRef && database) {
         if(document.getElementById("waitingArea") && document.getElementById("waitingArea").style.display!=="none")
             database.ref('rooms/'+currentRoomId).remove();
-    }
-    // バトル中に画面から離れた場合：強制終了→負け扱い
-    if(document.visibilityState==='hidden') {
-        const arena = document.getElementById("battleArena");
-        if(arena && arena.style.display === "block") {
-            const resultBox = document.getElementById("battleResultBox");
-            if(resultBox && resultBox.style.display === "none") {
-                // バトル中（結果未表示）→強制負け
-                if(!isBotMatch && currentRoomId && database) {
-                    // 対人戦：自分が離脱したことをFirebaseに通知
-                    database.ref('rooms/'+currentRoomId+'/forfeit').set(onlineRole);
-                }
-                // 強制負け処理
-                forceForfeit();
-            }
-        }
     }
 });
 
