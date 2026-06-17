@@ -255,7 +255,12 @@
             <span>パック券: <span id="globalTicket">0</span> 枚</span>
         </div>
     </div>
-    <div id="pageGuide" class="page active">
+    <!-- クエストタブ -->
+    <div id="pageQuest" class="page">
+        <div style="padding:20px 0; color:#b88742; font-size:13px; text-align:center;">クエスト機能は間もなく追加予定です。</div>
+    </div>
+
+    <div id="pageGuide" class="page">
 
                 <!-- お知らせ（Firebaseから取得） -->
         <div class="notice-box" id="noticeBox"></div>
@@ -875,7 +880,8 @@ function switchTab(tab, el) {
     document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
     const hp = document.getElementById('pageGuide'); if(hp) hp.style.display='none';
     if(el) el.classList.add('active');
-    document.getElementById('page' + tab.charAt(0).toUpperCase() + tab.slice(1)).classList.add('active');
+    const targetPage = document.getElementById('page' + tab.charAt(0).toUpperCase() + tab.slice(1));
+    if(targetPage) targetPage.classList.add('active');
     cancelScanning();
 }
 
