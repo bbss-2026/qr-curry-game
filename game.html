@@ -91,7 +91,7 @@
         
         .enemy-zone { display: flex; flex-direction: column; gap: 8px; width: 100%; transition: transform 0.1s; }
         .enemy-upper-row { display: grid; grid-template-columns: 120px 1fr; align-items: center; gap: 12px; }
-        .enemy-lower-row { display: flex; flex-direction: column; align-items: flex-start; padding-left: 132px; margin-top: -12px; gap: 2px; }
+        .enemy-lower-row { display: flex; flex-direction: column; align-items: flex-start; padding-left: 132px; margin-top: -20px; gap: 2px; }
         
         .player-zone { display: flex; justify-content: space-between; align-items: center; background: rgba(0,0,0,0.7); padding: 10px; border-radius: 8px; color: white; font-size: 12px; margin-top: auto; }
         
@@ -414,7 +414,7 @@
             </select>
         </div>
         <button class="btn btn-cook" onclick="checkCookStock()" style="margin-bottom:12px;">カレーを調理する</button>
-        <div class="result-box" id="resultBox" style="display:none; margin-top:16px; padding:15px; background:#fffdf0; border:2px dashed #e67e22; border-radius:10px; text-align:center;">
+        <div class="result-box" id="resultBox" style="display:none; margin-top:16px; margin-bottom:24px; padding:15px; background:#fffdf0; border:2px dashed #e67e22; border-radius:10px; text-align:center;">
             <div id="criticalFlashText" style="color:#d35400; font-weight:bold; font-size:16px; display:none;">✨ 会心の出来！！！ ✨</div>
             <div id="poisonFlashText" style="color:#9b59b6; font-weight:bold; font-size:16px; display:none;">☠️ 危険！怪しい毒気が立ち上っている…！ ☠️</div>
             <div id="goldFlashText" style="color:#f39c12; font-weight:bold; font-size:16px; display:none;">🌟 眩い輝き！最高級金箔仕立て！ 🌟</div>
@@ -1592,9 +1592,8 @@ function createFridgeCard(grid, name, emoji, isSpice) {
             let info = isSpice ? `<br><span style="color:#e67e22; font-weight:bold;">📈 効果: ${data.mul === "hp" ? "HP" : data.mul === "atk" ? "攻撃" : data.mul === "def" ? "防御" : "素早さ"} ${data.val}倍！</span>` : `<br><span style="color:#2ecc71; font-weight:bold;">📊 HP:+${data.hp}/ATK:+${data.atk}/DEF:+${data.def}/SPD:+${data.spd}</span>`;
             const itemDataM = isSpice ? masterSpices[name] : masterIngredients[name];
             const iconM = itemDataM && itemDataM.icon ? `<img src="${itemDataM.icon}" style="width:80px;height:80px;object-fit:contain;display:block;margin:0 auto 8px;">` : '';
-            document.getElementById("modalTitle").innerHTML = `${iconM}${name}`;
             showCustomAlert(
-                name, 
+                `${iconM}${name}`, 
                 `${data.desc}<br><br><b>現在の所持数: <span style="color:#e74c3c;font-size:16px;">${count}</span> 個</b>${info}`, 
                 null, sellItemAction, name
             );
