@@ -2036,6 +2036,7 @@ function syncVsSelection(idx) {
     } else if(statusEl) { statusEl.innerHTML = ""; }
 }
 function startBotBattle() {
+    if (!curryStock || curryStock.length === 0) { showCustomAlert("⚠️ カレーがありません", "先に調理でカレーを作ってください。"); return; }
     if (audioCtx.state === 'suspended') audioCtx.resume();
     isBotMatch = true; currentRoomId = null;
     let oppCurryData = null; let bName = ""; let bVisual = ""; let bCurryEmoji = "🍛";
@@ -2066,6 +2067,7 @@ function startBotBattle() {
 }
 
 function startHardBotBattle() {
+    if (!curryStock || curryStock.length === 0) { showCustomAlert("⚠️ カレーがありません", "先に調理でカレーを作ってください。"); return; }
     if (audioCtx.state === 'suspended') audioCtx.resume();
     isBotMatch = true; currentRoomId = null;
     const bot = hardBotOpponents[Math.floor(Math.random() * hardBotOpponents.length)];
