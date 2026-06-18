@@ -388,6 +388,7 @@
                 <button class="btn-shop btn-shop-30s" id="btnGachaSpice" onclick="buyGacha('spice')">スパイスガチャ（30G）<br><span style="font-size:9px;font-weight:normal;">ノーマルスパイス1個</span></button>
                 <button class="btn-shop btn-shop-100" id="btnGachaMid" onclick="buyGacha('mid')">中級具材ガチャ（100G）<br><span style="font-size:9px;font-weight:normal;">中級具材1個</span></button>
                 <button class="btn-shop btn-shop-300" id="btnGachaHigh" onclick="buyGacha('high')">高級具材ガチャ（300G）<br><span style="font-size:9px;font-weight:normal;">高級具材1個</span></button>
+                <button class="btn-shop btn-shop-300" id="btnGacha10ren" onclick="buyJurenGacha()" style="grid-column:span 2;height:65px;">10連ガチャ（300G）<br><span style="font-size:9px;font-weight:normal;">ノーマル食材10個＋ガチャの気まぐれ</span></button>
                 <button class="btn-shop btn-shop-pack" id="btnGachaPack" onclick="buyGachaPack()">10個パックガチャ（チケット1枚）<br><span style="font-size:9px;font-weight:normal;">ノーマル具材7個+ノーマルスパイス2個+中級or高級具材1個</span></button>
             </div>
         </div>
@@ -574,19 +575,29 @@ function unlockIcon(filename) {
 let currentIconFile = localStorage.getItem("selectedPlayerIcon") || "mayimage01.png";
 
 function togglePlayerIcon() {
+    showIconSelectModal();
+}
+
+function showIconSelectModal() {
+    const allIcons = getUnlockedIcons();
+    let gridHTML = '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;padding:4px;">';
+    allIcons.forEach(icon => {
+        const isSel = icon === currentIconFile;
+        gridHTML += `<div onclick="selectPlayerIcon('${icon}')" style="cursor:pointer;text-align:center;padding:6px;border-radius:6px;border:2px solid ${isSel?'#b88742':'#e0d0b0'};background:${isSel?'#fff8ee':'transparent'};">
+            <img src="${icon}" style="width:60px;height:60px;border-radius:50%;object-fit:cover;display:block;margin:0 auto;">
+        </div>`;
+    });
+    gridHTML += '</div>';
+    showCustomAlert('アイコン選択', gridHTML);
+}
+
+function selectPlayerIcon(icon) {
+    currentIconFile = icon;
     const img = document.getElementById("playerIconImg");
-    if(!img) return;
-    const unlocked = getUnlockedIcons();
-    const curIdx = unlocked.indexOf(currentIconFile);
-    const nextIdx = (curIdx + 1) % unlocked.length;
-    currentIconFile = unlocked[nextIdx];
-    img.src = currentIconFile;
-    // data-index は全リスト内の番号で管理
-    const globalIdx = ALL_ICON_LIST.indexOf(currentIconFile) + 1;
-    img.setAttribute("data-index", globalIdx);
-    localStorage.setItem("selectedPlayerIcon", currentIconFile);
-    img.style.transform = "scale(1.1)";
-    setTimeout(() => { img.style.transform = "scale(1)"; }, 150);
+    if(img) { img.src = icon; const gi = ALL_ICON_LIST.indexOf(icon)+1; img.setAttribute("data-index", gi); }
+    localStorage.setItem("selectedPlayerIcon", icon);
+    saveGame();
+    document.getElementById("customModal").style.display = "none";
 }
 function setupLoadedIconUI() {
     const img = document.getElementById("playerIconImg");
@@ -1468,6 +1479,8 @@ function updateShopButtons() {
     if(bNormal) bNormal.disabled = playerG < 30; if(bSpice) bSpice.disabled = playerG < 30;
     if(bMid) bMid.disabled = playerG < 100; if(bHigh) bHigh.disabled = playerG < 300;
     if(bPack) bPack.disabled = packTicket < 1;
+    const b10ren = document.getElementById("btnGacha10ren");
+    if(b10ren) b10ren.disabled = playerG < 300;
 }
 function buyGacha(type) {
     let cost = 30; if (type === 'mid') cost = 100; if (type === 'high') cost = 300;
@@ -1498,6 +1511,65 @@ function buyGacha(type) {
     playWinSound(); showCustomAlert("🎰 ガチャ結果", `見事！${gachaImg}【${winner}】を引き当てた！`);
     saveGame(); updateFridgeUI(); updateCookSelects();
 }
+function buyJurenGacha() {
+    if(playerG < 300) { showCustomAlert("💸 ゴールド不足", "300G 必要です。"); return; }
+    playerG -= 300;
+    const normalPool = Object.keys(masterIngredients).filter(k => masterIngredients[k].shop === 0);
+    const midPool = Object.keys(masterIngredients).filter(k => masterIngredients[k].shop === 1);
+    const highPool = Object.keys(masterIngredients).filter(k => masterIngredients[k].shop === 2);
+    // ノーマル食材10個
+    let items = [];
+    for(let i = 0; i < 10; i++) {
+        const it = normalPool[Math.floor(Math.random() * normalPool.length)];
+        inventory[it] = (inventory[it] || 0) + 1; discoveredItems[it] = true; items.push(it);
+    }
+    // おまけ抽選
+    const iconGot = localStorage.getItem('qr_icon07_got') === '1';
+    const r = Math.random();
+    let bonusMsg = '';
+    let bonusItem = null;
+    if(!iconGot && r < 0.10) {
+        // プレイヤーアイコン（1回きり）
+        localStorage.setItem('qr_icon07_got', '1');
+        const unlocked = getUnlockedIcons();
+        if(!unlocked.includes('mayimage07.png')) { unlocked.push('mayimage07.png'); saveUnlockedIcons(unlocked); }
+        setupLoadedIconUI();
+        bonusMsg = '🎉 特別！新プレイヤーアイコン解放！';
+    } else {
+        // アイコン取得済みの場合確率再計算
+        const base = iconGot ? r : (r - 0.10) / 0.90;
+        const normThresh = iconGot ? 0.70 : 0.60;
+        if(base < normThresh) {
+            bonusItem = normalPool[Math.floor(Math.random() * normalPool.length)];
+            inventory[bonusItem] = (inventory[bonusItem] || 0) + 1; discoveredItems[bonusItem] = true;
+            const d = masterIngredients[bonusItem]; const ico = d&&d.icon?`<img src="${d.icon}" style="width:1.2em;height:1.2em;vertical-align:middle;object-fit:contain;">`:'' ;
+            bonusMsg = `おまけ: ${ico}${bonusItem} ×1`;
+        } else if(base < normThresh + 0.10) {
+            bonusItem = midPool[Math.floor(Math.random() * midPool.length)];
+            inventory[bonusItem] = (inventory[bonusItem] || 0) + 1; discoveredItems[bonusItem] = true;
+            const d = masterIngredients[bonusItem]; const ico = d&&d.icon?`<img src="${d.icon}" style="width:1.2em;height:1.2em;vertical-align:middle;object-fit:contain;">`:'' ;
+            bonusMsg = `おまけ: ${ico}${bonusItem} ×1（中級）`;
+        } else if(base < normThresh + 0.20) {
+            bonusItem = highPool[Math.floor(Math.random() * highPool.length)];
+            inventory[bonusItem] = (inventory[bonusItem] || 0) + 1; discoveredItems[bonusItem] = true;
+            const d = masterIngredients[bonusItem]; const ico = d&&d.icon?`<img src="${d.icon}" style="width:1.2em;height:1.2em;vertical-align:middle;object-fit:contain;">`:'' ;
+            bonusMsg = `おまけ: ${ico}${bonusItem} ×1（高級）`;
+        } else {
+            let bonus3 = [];
+            for(let i = 0; i < 3; i++) {
+                const it = normalPool[Math.floor(Math.random() * normalPool.length)];
+                inventory[it] = (inventory[it] || 0) + 1; discoveredItems[it] = true; bonus3.push(it);
+            }
+            const b3html = bonus3.map(it => { const d=masterIngredients[it]; const ico=d&&d.icon?`<img src="${d.icon}" style="width:1.2em;height:1.2em;vertical-align:middle;object-fit:contain;">`:'' ; return ico+it; }).join(' ');
+            bonusMsg = `おまけ: ${b3html} ×各1`;
+        }
+    }
+    saveGame(); updateFridgeUI(); updateCookSelects(); updateShopButtons();
+    const itemList = items.map(it => { const d=masterIngredients[it]; const ico=d&&d.icon?`<img src="${d.icon}" style="width:1.2em;height:1.2em;vertical-align:middle;object-fit:contain;">`:'' ; return ico+it; }).join(' ');
+    playWinSound();
+    showCustomAlert('🎰 10連ガチャ結果', `ノーマル食材10個入手！<br><div style="margin:8px 0;">${itemList}</div><br><b>${bonusMsg}</b>`);
+}
+
 function buyGachaPack() {
     if (packTicket < 1) return;
     packTicket--;
@@ -2415,14 +2487,6 @@ function startBattleScene(oppN, oppC, myC) {
     // Bot戦：リアルタイムstep
     let isOP=!!myC.isPoison, isPP=!!oppC.isPoison;
     let myIsIlluded=!!oppC.isIllusion, oppIsIlluded=!!myC.isIllusion;
-    if(myC.isPoison){log.innerHTML+=`
-☠️ ${oppN} は毒にかかった！毎ターン毒ダメージ！`;playPoisonSound();}
-    if(oppC.isPoison){log.innerHTML+=`
-☠️ ${playerName} は毒にかかった！毎ターン毒ダメージ！`;playPoisonSound();}
-    if(myC.isIllusion){log.innerHTML+=`
-🌀 ${oppN} は幻惑にかかった！攻撃命中率ダウン！`;}
-    if(oppC.isIllusion){log.innerHTML+=`
-🌀 ${playerName} は幻惑にかかった！攻撃命中率ダウン！`;}
     let myTurn;
     if(myC.isSticky&&!oppC.isSticky){myTurn=true;log.innerHTML+=`
 💚 ${oppN} はネバネバにかかった！${playerName} の先攻攻撃！`;}
