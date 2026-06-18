@@ -261,7 +261,8 @@
         <img src="topimage01.png" alt="Battle Curry" class="top-image">
         <button class="btn-gamestart" onclick="gameStart()">GAME START</button>
         <div class="top-notice" id="topNoticeBox"></div>
-        <button style="width:88%;max-width:360px;margin-top:16px;padding:10px;background:transparent;color:#420000;border:1px solid #b88742;border-radius:4px;font-size:12px;font-weight:bold;cursor:pointer;" onclick="showBackupCode()">🔑 バックアップコードを発行</button>
+        <a href="https://x.com/BattleCurryGame" target="_blank" style="display:block;width:88%;max-width:360px;margin-top:16px;padding:10px;background:transparent;color:#420000;border:1px solid #b88742;border-radius:4px;font-size:12px;font-weight:bold;cursor:pointer;text-align:center;text-decoration:none;box-sizing:border-box;">𝕏 @BattleCurryGame</a>
+        <button style="width:88%;max-width:360px;margin-top:10px;padding:10px;background:transparent;color:#420000;border:1px solid #b88742;border-radius:4px;font-size:12px;font-weight:bold;cursor:pointer;" onclick="showBackupCode()">🔑 バックアップコードを発行</button>
     </div>
 
     <!-- タブUI（初期画面では非表示） -->
@@ -627,7 +628,7 @@ function showIconSelectModal() {
     allIcons.forEach(icon => {
         const isSel = icon === currentIconFile;
         gridHTML += `<div onclick="selectPlayerIcon('${icon}')" style="cursor:pointer;text-align:center;padding:6px;border-radius:6px;border:2px solid ${isSel?'#b88742':'#e0d0b0'};background:${isSel?'#fff8ee':'transparent'};">
-            <img src="${icon}" style="width:60px;height:60px;border-radius:50%;object-fit:cover;display:block;margin:0 auto;">
+            <img src="${icon}" style="width:64px;height:64px;border-radius:4px;object-fit:cover;display:block;margin:0 auto;">
         </div>`;
     });
     gridHTML += '</div>';
@@ -1024,15 +1025,18 @@ function switchTab(tab, el) {
     // バトル中に別タブへ移動→強制終了（負け）
     if(arena && arena.style.display === "block") {
         const resultBox = document.getElementById("battleResultBox");
-        if(resultBox && resultBox.style.display === "none") {
-            // バトル結果未表示＝バトル中
+        const resultOverlay = document.getElementById("battleResultOverlay");
+        const overlayShowing = resultOverlay && resultOverlay.style.display === "flex";
+        const resultShowing = resultBox && resultBox.style.display !== "none";
+        if(!overlayShowing && !resultShowing) {
+            // バトル中（結果未表示）→強制負け
             if(!isBotMatch && currentRoomId && database) {
                 database.ref('rooms/'+currentRoomId+'/forfeit').set(onlineRole);
             }
             forceForfeit();
-            return; // タブ切り替えはせず強制終了のみ
+            return;
         } else {
-            // 結果表示済み（バトル終了後）は通常通りタブ切り替え
+            // 結果表示済み or 勝敗オーバーレイ表示中→通常通りタブ切り替え
             endBattleScene();
         }
     }
