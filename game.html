@@ -195,10 +195,25 @@
         .btn-gamestart:hover { opacity: 0.85; }
         .btn-gamestart:active { opacity: 0.7; transform: translateY(1px); }
         .top-notice { width: 88%; max-width: 360px; margin-top: 20px; font-size: 11px; color: #420000; line-height: 1.7; display: none; border-left: 3px solid #b88742; padding-left: 12px; }
+        /* アイコン獲得演出 */
+        #iconGetOverlay { position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.75); z-index:99999; display:none; justify-content:center; align-items:center; flex-direction:column; }
+        #iconGetOverlay .icon-get-img { width:160px; height:160px; border-radius:50%; border:6px solid #f1c40f; box-shadow:0 0 40px #f1c40f, 0 0 80px #f39c12; animation:iconPop 0.6s cubic-bezier(0.175,0.885,0.32,1.275) forwards; }
+        #iconGetOverlay .icon-get-text { color:#f1c40f; font-size:22px; font-weight:bold; margin-top:20px; text-align:center; text-shadow:0 0 10px #f39c12; animation:iconFadeIn 0.5s 0.4s both; }
+        #iconGetOverlay .icon-get-sub { color:#efdeb1; font-size:14px; margin-top:8px; animation:iconFadeIn 0.5s 0.7s both; }
+        #iconGetOverlay .icon-get-btn { margin-top:28px; padding:12px 32px; background:#b88742; color:#efdeb1; border:none; border-radius:4px; font-size:15px; font-weight:bold; cursor:pointer; animation:iconFadeIn 0.5s 1s both; }
+        @keyframes iconPop { 0%{transform:scale(0) rotate(-10deg);opacity:0;} 70%{transform:scale(1.15) rotate(3deg);} 100%{transform:scale(1) rotate(0deg);opacity:1;} }
+        @keyframes iconFadeIn { from{opacity:0;transform:translateY(10px);} to{opacity:1;transform:translateY(0);} }
+        @keyframes iconShine { 0%,100%{box-shadow:0 0 40px #f1c40f,0 0 80px #f39c12;} 50%{box-shadow:0 0 60px #f1c40f,0 0 120px #f39c12,0 0 160px #fff;} }
     </style>
 </head>
 <body>
 <div id="statusFlashOverlay" class="status-flash-overlay"></div>
+<div id="iconGetOverlay">
+    <img id="iconGetImg" src="mayimage07.png" class="icon-get-img" alt="">
+    <div class="icon-get-text">🎉 新プレイヤーアイコン獲得！</div>
+    <div class="icon-get-sub" id="iconGetSubText">10連ガチャのガチャの気まぐれ</div>
+    <button class="icon-get-btn" onclick="closeIconGetOverlay()">やった！</button>
+</div>
 <div class="modal-overlay" id="customModal">
     <div class="modal-box">
         <div class="modal-title" id="modalTitle">📢 お知らせ</div>
@@ -576,6 +591,26 @@ let currentIconFile = localStorage.getItem("selectedPlayerIcon") || "mayimage01.
 
 function togglePlayerIcon() {
     showIconSelectModal();
+}
+
+function showIconGetOverlay(iconSrc) {
+    const overlay = document.getElementById('iconGetOverlay');
+    const img = document.getElementById('iconGetImg');
+    if(!overlay || !img) return;
+    img.src = iconSrc;
+    // アニメーションをリセットして再生
+    img.style.animation = 'none';
+    img.offsetHeight; // reflow
+    img.style.animation = 'iconPop 0.6s cubic-bezier(0.175,0.885,0.32,1.275) forwards';
+    // 取得後はシャイン継続
+    setTimeout(() => { img.style.animation = 'iconPop 0.6s cubic-bezier(0.175,0.885,0.32,1.275) forwards, iconShine 1.5s 0.6s infinite'; }, 0);
+    overlay.style.display = 'flex';
+    playSoundEffect('syakiin.mp3');
+}
+
+function closeIconGetOverlay() {
+    const overlay = document.getElementById('iconGetOverlay');
+    if(overlay) overlay.style.display = 'none';
 }
 
 function showIconSelectModal() {
@@ -1535,6 +1570,7 @@ function buyJurenGacha() {
         if(!unlocked.includes('mayimage07.png')) { unlocked.push('mayimage07.png'); saveUnlockedIcons(unlocked); }
         setupLoadedIconUI();
         bonusMsg = '🎉 特別！新プレイヤーアイコン解放！';
+        setTimeout(() => showIconGetOverlay('mayimage07.png'), 300);
     } else {
         // アイコン取得済みの場合確率再計算
         const base = iconGot ? r : (r - 0.10) / 0.90;
