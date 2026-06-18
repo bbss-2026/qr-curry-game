@@ -593,16 +593,17 @@ function togglePlayerIcon() {
     showIconSelectModal();
 }
 
-function showIconGetOverlay(iconSrc) {
+function showIconGetOverlay(iconSrc, subText) {
     const overlay = document.getElementById('iconGetOverlay');
     const img = document.getElementById('iconGetImg');
+    const sub = document.getElementById('iconGetSubText');
     if(!overlay || !img) return;
     img.src = iconSrc;
+    if(sub) sub.innerText = subText || 'ガチャの気まぐれ';
     // アニメーションをリセットして再生
     img.style.animation = 'none';
     img.offsetHeight; // reflow
     img.style.animation = 'iconPop 0.6s cubic-bezier(0.175,0.885,0.32,1.275) forwards';
-    // 取得後はシャイン継続
     setTimeout(() => { img.style.animation = 'iconPop 0.6s cubic-bezier(0.175,0.885,0.32,1.275) forwards, iconShine 1.5s 0.6s infinite'; }, 0);
     overlay.style.display = 'flex';
     playSoundEffect('syakiin.mp3');
@@ -813,6 +814,8 @@ function grantLvUpReward(lv) {
         const unlocked = unlockIcon(LV_UNLOCK_ICONS[lv]);
         if (unlocked) {
             resultLines.push(`🖼️ プレイヤーアイコンが1つ解放されました！`);
+            // 派手演出（レベルアップモーダルの後に表示）
+            setTimeout(() => showIconGetOverlay(LV_UNLOCK_ICONS[lv], 'レベルアップ報酬'), 1500);
         }
     }
 
@@ -1570,7 +1573,7 @@ function buyJurenGacha() {
         if(!unlocked.includes('mayimage07.png')) { unlocked.push('mayimage07.png'); saveUnlockedIcons(unlocked); }
         setupLoadedIconUI();
         bonusMsg = '🎉 特別！新プレイヤーアイコン解放！';
-        setTimeout(() => showIconGetOverlay('mayimage07.png'), 300);
+        setTimeout(() => showIconGetOverlay('mayimage07.png', '10連ガチャの気まぐれ'), 300);
     } else {
         // アイコン取得済みの場合確率再計算
         const base = iconGot ? r : (r - 0.10) / 0.90;
