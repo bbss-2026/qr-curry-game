@@ -261,6 +261,7 @@
         <img src="topimage01.png" alt="Battle Curry" class="top-image">
         <button class="btn-gamestart" onclick="gameStart()">GAME START</button>
         <div class="top-notice" id="topNoticeBox"></div>
+        <button style="width:88%;max-width:360px;margin-top:16px;padding:10px;background:transparent;color:#420000;border:1px solid #b88742;border-radius:4px;font-size:12px;font-weight:bold;cursor:pointer;" onclick="showBackupCode()">🔑 バックアップコードを発行</button>
     </div>
 
     <!-- タブUI（初期画面では非表示） -->
@@ -397,6 +398,10 @@
         
 
         
+        <div style="border-top:1px solid #b88742; padding:14px 0 4px;">
+            <div style="font-size:12px;color:#420000;margin-bottom:8px;">定期的にコードをコピーしてメモなどに保存しておきましょう。データが消えた場合に復元できます。</div>
+            <button class="btn-sm" style="width:100%;padding:10px;background:#b88742;color:#efdeb1;border:none;border-radius:4px;font-weight:bold;font-size:13px;cursor:pointer;" onclick="showBackupCode()">🔑 バックアップコードを発行</button>
+        </div>
         <div class="shop-box">
             <div style="display:flex;align-items:center;justify-content:center;gap:8px;font-weight:bold;color:#420000;font-size:14px;border-bottom:1px solid #b88742;padding-bottom:8px;margin-bottom:8px;border-top:1px solid #b88742;padding-top:8px;"><img src="gatya.svg" style="height:1em;width:auto;" alt="">食材ガチャ<img src="gatya.svg" style="height:1em;width:auto;" alt=""></div>
             <div class="shop-grid">
@@ -435,6 +440,7 @@
         <div class="btn-admin-group" style="margin-top:24px; padding-top:16px; border-top:1px solid #b88742;">
             <button class="btn-sm btn-danger-sm" onclick="clearSaveData()">全初期化</button>
             <button class="btn-sm btn-staff-sm" onclick="triggerStaffOnly()">Staff Only</button>
+            <button class="btn-sm" style="background:#420000;color:#efdeb1;flex:1.5;" onclick="restoreFromBackupCode()">バックアップコードで復元</button>
         </div>
     </div>
 
@@ -1508,6 +1514,86 @@ function onBattleWin(type, botName) {
     });
 }
 
+// ============================================================
+// バックアップコード
+// ============================================================
+function generateBackupCode() {
+    const saveData = {
+        inventory, scanHistory, playerG, playerEXP, packTicket,
+        playerName, curryStock, recipeBook, discoveredItems,
+        selectedIcon: currentIconFile,
+        unlockedIcons: getUnlockedIcons(),
+        stats: localStorage.getItem('qr_stats') || '{}',
+        achievements: localStorage.getItem('qr_achievements') || '{}',
+        loginData: localStorage.getItem('qr_login') || '{}',
+        icon07got: localStorage.getItem('qr_icon07_got') || '',
+        stockLimit: localStorage.getItem('qr_curry_stock_limit') || '',
+        ver: 1
+    };
+    return btoa(unescape(encodeURIComponent(JSON.stringify(saveData))));
+}
+
+function showBackupCode() {
+    const code = generateBackupCode();
+    const msg = `<div style="margin-bottom:10px;font-size:12px;color:#420000;">このコードをコピーしてメモアプリなどに保存してください。<br>データが消えたときにこのコードで復元できます。</div>`
+        + `<textarea id="backupCodeArea" style="width:100%;height:100px;font-size:10px;padding:8px;border:1px solid #b88742;border-radius:4px;box-sizing:border-box;background:#f5e9c8;color:#420000;resize:none;" readonly>${code}</textarea>`
+        + `<button onclick="copyBackupCode()" style="width:100%;margin-top:8px;padding:8px;background:#b88742;color:#efdeb1;border:none;border-radius:4px;font-weight:bold;cursor:pointer;">📋 コピーする</button>`;
+    showCustomAlert('🔑 バックアップコード', msg);
+}
+
+function copyBackupCode() {
+    const ta = document.getElementById('backupCodeArea');
+    if(!ta) return;
+    ta.select(); ta.setSelectionRange(0, 99999);
+    navigator.clipboard.writeText(ta.value).then(() => {
+        showCustomAlert('✅ コピー完了', 'バックアップコードをコピーしました！<br>メモアプリや安全な場所に保存してください。');
+    }).catch(() => {
+        // フォールバック
+        document.execCommand('copy');
+        showCustomAlert('✅ コピー完了', 'バックアップコードをコピーしました！');
+    });
+}
+
+function restoreFromBackupCode() {
+    showCustomConfirm(
+        '🔑 バックアップコードで復元',
+        '<div style="margin-bottom:8px;font-size:12px;color:#420000;">バックアップコードを貼り付けてください。</div>'
+        + '<textarea id="restoreCodeArea" style="width:100%;height:100px;font-size:10px;padding:8px;border:1px solid #b88742;border-radius:4px;box-sizing:border-box;background:#f5e9c8;color:#420000;resize:none;" placeholder="バックアップコードをここに貼り付け..."></textarea>',
+        function() {
+            const ta = document.getElementById('restoreCodeArea');
+            if(!ta || !ta.value.trim()) { showCustomAlert('❌ エラー', 'コードを入力してください。'); return; }
+            try {
+                const decoded = JSON.parse(decodeURIComponent(escape(atob(ta.value.trim()))));
+                inventory = decoded.inventory || {};
+                scanHistory = decoded.scanHistory || {};
+                playerG = decoded.playerG || 0;
+                playerEXP = decoded.playerEXP || 0;
+                packTicket = decoded.packTicket || 0;
+                playerName = decoded.playerName || '名無しの料理人';
+                curryStock = decoded.curryStock || [];
+                recipeBook = decoded.recipeBook || {};
+                discoveredItems = decoded.discoveredItems || {};
+                currentIconFile = decoded.selectedIcon || 'mayimage01.png';
+                if(decoded.unlockedIcons) saveUnlockedIcons(decoded.unlockedIcons);
+                if(decoded.stats) localStorage.setItem('qr_stats', decoded.stats);
+                if(decoded.achievements) localStorage.setItem('qr_achievements', decoded.achievements);
+                if(decoded.loginData) localStorage.setItem('qr_login', decoded.loginData);
+                if(decoded.icon07got) localStorage.setItem('qr_icon07_got', decoded.icon07got);
+                if(decoded.stockLimit) localStorage.setItem('qr_curry_stock_limit', decoded.stockLimit);
+                else localStorage.removeItem('qr_curry_stock_limit');
+                localStorage.setItem('selectedPlayerIcon', currentIconFile);
+                saveGame();
+                updateFridgeUI(); updateCookSelects(); refreshRecipeBookUI();
+                updateShopButtons(); updateMatchCurrySelects();
+                setupLoadedIconUI(); updateLvDisplay();
+                showCustomAlert('✅ 復元完了', 'バックアップコードからデータを復元しました！');
+            } catch(e) {
+                showCustomAlert('❌ 復元失敗', 'コードが正しくありません。コードを確認してください。');
+            }
+        }
+    );
+}
+
 function toggleAccordion(header) {
     var arrow = header.querySelector('.accordion-arrow');
     var body = header.nextElementSibling;
@@ -1535,7 +1621,7 @@ function buyGacha(type) {
         const pool = Object.keys(masterIngredients).filter(k => masterIngredients[k].shop === 0);
         winner = pool[Math.floor(Math.random() * pool.length)]; emoji = masterIngredients[winner].emoji;
     } else if (type === 'spice') {
-        const pool = Object.keys(masterSpices);
+        const pool = Object.keys(masterSpices).filter(k => k !== "マンゴーチャツネ");
         winner = pool[Math.floor(Math.random() * pool.length)]; emoji = masterSpices[winner].emoji;
     } else if (type === 'mid') {
         const pool = Object.keys(masterIngredients).filter(k => masterIngredients[k].shop === 1);
