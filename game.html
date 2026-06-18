@@ -914,6 +914,7 @@ window.onload = function() { loadGame(); updateCookSelects(); refreshRecipeBookU
 function gameStart() {
     document.getElementById("pageTop").style.display = "none";
     document.getElementById("gameUI").style.display = "block";
+    updateFridgeUI();
     // 冷蔵庫タブをアクティブに
     const fridgeTab = document.querySelector('[onclick*="fridge"]');
     const fridgePage = document.getElementById("pageFridge");
@@ -929,9 +930,14 @@ function goToTop() {
     // バトル中は無効
     const arena = document.getElementById("battleArena");
     if(arena && arena.style.display === "block") return;
-    document.getElementById("pageTop").style.display = "flex";
+    // 初期画面を表示
+    const pageTop = document.getElementById("pageTop");
+    pageTop.style.display = "flex";
     document.getElementById("gameUI").style.display = "none";
-    // お知らせを初期画面にも表示
+    // ボタン・お知らせを確実に表示
+    const btn = pageTop.querySelector(".btn-gamestart");
+    if(btn) btn.style.display = "block";
+    // お知らせを再取得して表示
     loadTopNotice();
 }
 
