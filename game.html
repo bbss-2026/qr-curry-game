@@ -227,12 +227,21 @@
     </div>
 
     <!-- ★タイトル。アイコンブロックはここから削除 -->
-    <div class="logo-area">
+    <div class="logo-area" onclick="goToTop()" title="タイトルへ">
         <img src="battlecurry-logo.svg" alt="Battle Curry">
     </div>
 
 
     
+    <!-- 初期画面 -->
+    <div id="pageTop">
+        <img src="topimage01.png" alt="Battle Curry" class="top-image">
+        <button class="btn-gamestart" onclick="gameStart()">GAME START</button>
+        <div class="top-notice" id="topNoticeBox"></div>
+    </div>
+
+    <!-- タブUI（初期画面では非表示） -->
+    <div id="gameUI" style="display:none;">
     <!-- ?ボタン -->
     <div style="position:relative;">
         <button id="helpBtn" onclick="toggleHelp()" style="position:absolute;top:-52px;right:12px;width:36px;height:36px;border-radius:50%;border:2px solid #420000;background:#efdeb1;color:#420000;font-size:16px;font-weight:bold;cursor:pointer;z-index:10;display:flex;align-items:center;justify-content:center;">?</button>
@@ -901,7 +910,46 @@ let onlineRole = 'host'; // 対人戦での自分の役割
 let discoveredItems = {};
 let cachedOpponentName = "";
 let cachedOpponentCurry = null;
-window.onload = function() { loadGame(); updateFridgeUI(); updateCookSelects(); refreshRecipeBookUI(); updateShopButtons(); listenToRooms(); updateMatchCurrySelects(); setupLoadedIconUI(); updateLvDisplay(); loadNotice(); initQuest(); };
+window.onload = function() { loadGame(); updateCookSelects(); refreshRecipeBookUI(); updateShopButtons(); listenToRooms(); updateMatchCurrySelects(); setupLoadedIconUI(); updateLvDisplay(); loadNotice(); initQuest(); loadTopNotice(); };
+function gameStart() {
+    document.getElementById("pageTop").style.display = "none";
+    document.getElementById("gameUI").style.display = "block";
+    // 冷蔵庫タブをアクティブに
+    const fridgeTab = document.querySelector('[onclick*="fridge"]');
+    const fridgePage = document.getElementById("pageFridge");
+    document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
+    document.querySelectorAll(".page").forEach(p => p.classList.remove("active"));
+    if(fridgeTab) fridgeTab.classList.add("active");
+    if(fridgePage) fridgePage.classList.add("active");
+    updateFridgeUI();
+    loadNotice();
+}
+
+function goToTop() {
+    // バトル中は無効
+    const arena = document.getElementById("battleArena");
+    if(arena && arena.style.display === "block") return;
+    document.getElementById("pageTop").style.display = "flex";
+    document.getElementById("gameUI").style.display = "none";
+    // お知らせを初期画面にも表示
+    loadTopNotice();
+}
+
+function loadTopNotice() {
+    if(!database) return;
+    database.ref("notice").once("value").then(function(snap) {
+        const text = snap.val() || "";
+        const box = document.getElementById("topNoticeBox");
+        if(!box) return;
+        if(text) {
+            box.innerHTML = text.replace(/\n/g, "<br>");
+            box.style.display = "block";
+        } else {
+            box.style.display = "none";
+        }
+    });
+}
+
 function switchTab(tab, el) {
     const arena = document.getElementById("battleArena");
     // バトル中に別タブへ移動→強制終了（負け）
@@ -2573,5 +2621,6 @@ function endBattleScene() {
 }
 </script>
 <div style="height:80px;"></div>
+</div><!-- /gameUI -->
 </body>
 </html>
