@@ -91,7 +91,7 @@
         
         .enemy-zone { display: flex; flex-direction: column; gap: 8px; width: 100%; transition: transform 0.1s; }
         .enemy-upper-row { display: grid; grid-template-columns: 120px 1fr; align-items: center; gap: 12px; }
-        .enemy-lower-row { display: flex; flex-direction: column; align-items: flex-start; padding-left: 132px; margin-top: -5px; gap: 4px; }
+        .enemy-lower-row { display: flex; flex-direction: column; align-items: flex-start; padding-left: 132px; margin-top: -12px; gap: 2px; }
         
         .player-zone { display: flex; justify-content: space-between; align-items: center; background: rgba(0,0,0,0.7); padding: 10px; border-radius: 8px; color: white; font-size: 12px; margin-top: auto; }
         
@@ -339,9 +339,9 @@
         <div style="margin: 16px auto 10px auto; max-width: 420px; background: #fffdf0; border: 1px solid #e0c080; border-radius: 8px; padding: 10px 14px; text-align: left; font-size: 12px; color: #7a6040; line-height: 1.7;">
             <div style="font-weight: bold; margin-bottom: 4px; color: #b8860b;">⚠️ QRスキャンに関するご注意</div>
             ルールとマナーを守って楽しくお遊びください。<br>
-            ・歩きスマホや、公共の場で交通の邪魔になるスキャンはやめましょう。<br>
+            ・歩きスマホや、公共の場などで交通の邪魔になるスキャンはやめましょう。<br>
             ・お店のレジにある「QR決済コード」へのスキャンは、店員さんの誤解を招くためご遠慮ください。<br>
-            ・購入前の商品のQRスキャンは、特典の不当な取得にあたります。必ず商品を購入した後にスキャンをお楽しみください。
+            ・購入前の商品のQRスキャンは、特典の不当な取得に当たる可能性もあります。必ず商品を購入した後にスキャンをお楽しみください。
         </div>
         <div class="get-box" id="getBox" style="display:none; margin-top:20px; padding:15px; background:#fffdf0; border:2px dashed #e67e22; border-radius:10px; text-align:center;">
             <div style="font-size:14px; color:#e67e22; font-weight:bold;" id="getBoxTitle">🎉 食材ゲット！</div>
@@ -413,7 +413,26 @@
                 <option value="">⭐ お気に入りレシピから選択...</option>
             </select>
         </div>
-        <button class="btn btn-cook" onclick="checkCookStock()" style="margin-bottom:18px;">カレーを調理する</button>
+        <button class="btn btn-cook" onclick="checkCookStock()" style="margin-bottom:12px;">カレーを調理する</button>
+        <div class="result-box" id="resultBox" style="display:none; margin-top:16px; padding:15px; background:#fffdf0; border:2px dashed #e67e22; border-radius:10px; text-align:center;">
+            <div id="criticalFlashText" style="color:#d35400; font-weight:bold; font-size:16px; display:none;">✨ 会心の出来！！！ ✨</div>
+            <div id="poisonFlashText" style="color:#9b59b6; font-weight:bold; font-size:16px; display:none;">☠️ 危険！怪しい毒気が立ち上っている…！ ☠️</div>
+            <div id="goldFlashText" style="color:#f39c12; font-weight:bold; font-size:16px; display:none;">🌟 眩い輝き！最高級金箔仕立て！ 🌟</div>
+            <div id="margheritaFlashText" style="color:#e74c3c; font-weight:bold; font-size:16px; display:none;">🍅🧀 マルゲリータの奇跡！全ステータス上昇！ 🧀🍅</div>
+            <div id="tontonFlashText" style="color:#f39c12; font-weight:bold; font-size:16px; display:none;">🐷🐷🐷 3匹のトントントン！ブヒィ！ 🐷🐷🐷</div>
+            <div id="waveFlashText" style="color:#3498db; font-weight:bold; font-size:16px; display:none;">🌊 海の幸が集結！海鮮スペシャルカレー！ 🌊</div>
+            <div id="illusionFlashText" style="color:#1abc9c; font-weight:bold; font-size:16px; display:none;">🦑🍄 幻惑の霧が漂う…敵の命中率が下がる！ 🍄🦑</div>
+            <div id="stickyFlashText" style="color:#2ecc71; font-weight:bold; font-size:16px; display:none;">🫛🧀 ネバネバが敵を封じる！必ず先攻を取れる！ 🧀🫛</div>
+            <div id="seedFlashText" style="color:#27ae60; font-weight:bold; font-size:16px; display:none;">🌱 種の力が炸裂！連続発射カレー爆誕！ 🌱</div>
+            <div style="font-size:64px;" id="curryVisual">🍛</div>
+            <div style="font-size:18px; font-weight:bold; color:#c0392b; margin-bottom:10px;" id="curryName">未調理 of カレー</div>
+            <div class="status-grid">
+                <div class="status-item" style="background:#f5e9c8; color:#420000; border:1px solid #b88742; border-radius:4px; padding:6px 10px; font-weight:bold;">HP: <span id="statHP">0</span></div>
+                <div class="status-item" style="background:#f5e9c8; color:#420000; border:1px solid #b88742; border-radius:4px; padding:6px 10px; font-weight:bold;">ATK: <span id="statATK">0</span></div>
+                <div class="status-item" style="background:#f5e9c8; color:#420000; border:1px solid #b88742; border-radius:4px; padding:6px 10px; font-weight:bold;">DEF: <span id="statDEF">0</span></div>
+                <div class="status-item" style="background:#f5e9c8; color:#420000; border:1px solid #b88742; border-radius:4px; padding:6px 10px; font-weight:bold;">SPD: <span id="statSPD">0</span></div>
+            </div>
+        </div>
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:2px;">
             <h3 style="font-size:16px; margin:0;">食材 1</h3>
             <span id="statHint1" style="font-size:11px; color:#e67e22; font-weight:bold;"></span>
@@ -434,25 +453,6 @@
             <span id="statHintSpice" style="font-size:11px; color:#9b59b6; font-weight:bold;"></span>
         </div>
         <select id="spice" onchange="updateSpiceHint()"></select>
-        <div class="result-box" id="resultBox" style="display:none; margin-top:20px; padding:15px; background:#fffdf0; border:2px dashed #e67e22; border-radius:10px; text-align:center;">
-            <div id="criticalFlashText" style="color:#d35400; font-weight:bold; font-size:16px; display:none;">✨ 会心の出来！！！ ✨</div>
-            <div id="poisonFlashText" style="color:#9b59b6; font-weight:bold; font-size:16px; display:none;">☠️ 危険！怪しい毒気が立ち上っている…！ ☠️</div>
-            <div id="goldFlashText" style="color:#f39c12; font-weight:bold; font-size:16px; display:none;">🌟 眩い輝き！最高級金箔仕立て！ 🌟</div>
-            <div id="margheritaFlashText" style="color:#e74c3c; font-weight:bold; font-size:16px; display:none;">🍅🧀 マルゲリータの奇跡！全ステータス上昇！ 🧀🍅</div>
-            <div id="tontonFlashText" style="color:#f39c12; font-weight:bold; font-size:16px; display:none;">🐷🐷🐷 3匹のトントントン！ブヒィ！ 🐷🐷🐷</div>
-            <div id="waveFlashText" style="color:#3498db; font-weight:bold; font-size:16px; display:none;">🌊 海の幸が集結！海鮮スペシャルカレー！ 🌊</div>
-            <div id="illusionFlashText" style="color:#1abc9c; font-weight:bold; font-size:16px; display:none;">🦑🍄 幻惑の霧が漂う…敵の命中率が下がる！ 🍄🦑</div>
-            <div id="stickyFlashText" style="color:#2ecc71; font-weight:bold; font-size:16px; display:none;">🫛🧀 ネバネバが敵を封じる！必ず先攻を取れる！ 🧀🫛</div>
-            <div id="seedFlashText" style="color:#27ae60; font-weight:bold; font-size:16px; display:none;">🌱 種の力が炸裂！連続発射カレー爆誕！ 🌱</div>
-            <div style="font-size:64px;" id="curryVisual">🍛</div>
-            <div style="font-size:18px; font-weight:bold; color:#c0392b; margin-bottom:10px;" id="curryName">未調理 of カレー</div>
-            <div class="status-grid">
-                <div class="status-item" style="background:#f5e9c8; color:#420000; border:1px solid #b88742; border-radius:4px; padding:6px 10px; font-weight:bold;">HP: <span id="statHP">0</span></div>
-                <div class="status-item" style="background:#f5e9c8; color:#420000; border:1px solid #b88742; border-radius:4px; padding:6px 10px; font-weight:bold;">ATK: <span id="statATK">0</span></div>
-                <div class="status-item" style="background:#f5e9c8; color:#420000; border:1px solid #b88742; border-radius:4px; padding:6px 10px; font-weight:bold;">DEF: <span id="statDEF">0</span></div>
-                <div class="status-item" style="background:#f5e9c8; color:#420000; border:1px solid #b88742; border-radius:4px; padding:6px 10px; font-weight:bold;">SPD: <span id="statSPD">0</span></div>
-            </div>
-        </div>
     </div>
 
     <!-- 対戦アリーナタブ -->
@@ -1591,10 +1591,10 @@ function createFridgeCard(grid, name, emoji, isSpice) {
             const data = isSpice ? masterSpices[name] : masterIngredients[name];
             let info = isSpice ? `<br><span style="color:#e67e22; font-weight:bold;">📈 効果: ${data.mul === "hp" ? "HP" : data.mul === "atk" ? "攻撃" : data.mul === "def" ? "防御" : "素早さ"} ${data.val}倍！</span>` : `<br><span style="color:#2ecc71; font-weight:bold;">📊 HP:+${data.hp}/ATK:+${data.atk}/DEF:+${data.def}/SPD:+${data.spd}</span>`;
             const itemDataM = isSpice ? masterSpices[name] : masterIngredients[name];
-            const iconM = itemDataM && itemDataM.icon ? `<img src="${itemDataM.icon}" style="width:1.2em;height:1.2em;vertical-align:middle;object-fit:contain;">` : emoji;
-            document.getElementById("modalTitle").innerHTML = `${iconM} ${name} の解説`;
+            const iconM = itemDataM && itemDataM.icon ? `<img src="${itemDataM.icon}" style="width:80px;height:80px;object-fit:contain;display:block;margin:0 auto 8px;">` : '';
+            document.getElementById("modalTitle").innerHTML = `${iconM}${name}`;
             showCustomAlert(
-                `${name} の解説`, 
+                name, 
                 `${data.desc}<br><br><b>現在の所持数: <span style="color:#e74c3c;font-size:16px;">${count}</span> 個</b>${info}`, 
                 null, sellItemAction, name
             );
@@ -1966,7 +1966,7 @@ function updateMatchCurrySelects() {
     const sel = document.getElementById("globalCurrySelect");
     if(!sel) return;
     sel.innerHTML = "";
-    if (!curryStock || curryStock.length === 0) { sel.innerHTML = "<option value='-1'>カレーを調理してください</option>"; return; }
+    if (!curryStock || curryStock.length === 0) { sel.innerHTML = "<option value='-1'>カレーを調理してください</option>"; updateOnlineCurryStatus(-1); return; }
     curryStock.forEach((c, idx) => { const opt = document.createElement("option"); opt.value = idx; opt.innerText = c.name; sel.appendChild(opt); });
     // 選択中カレーのステータスを表示
     updateOnlineCurryStatus(sel.value);
@@ -1975,8 +1975,9 @@ function updateMatchCurrySelects() {
 function updateOnlineCurryStatus(idx) {
     const statusEl = document.getElementById("onlineCurryStatus");
     if(!statusEl) return;
-    const c = curryStock[parseInt(idx)];
-    if(!c) { statusEl.innerHTML = ""; return; }
+    const idxN = parseInt(idx);
+    if(isNaN(idxN) || idxN < 0 || !curryStock || !curryStock[idxN]) { statusEl.innerHTML = ""; return; }
+    const c = curryStock[idxN];
     const iconsHTML = curryIconsHTML(c.materials, c.spice, '16px');
     statusEl.innerHTML = `${iconsHTML} HP:${c.hp} / ATK:${c.atk} / DEF:${c.def} / SPD:${c.spd}`;
 }
