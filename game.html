@@ -241,8 +241,9 @@
             </div>
         </div>
         <div class="vs-interactive-area">
-            <label style="font-weight:bold; color:#f39c12; font-size:13px; display:block; margin-bottom:6px;">🎒 出撃させるカレーを選択（全ステータス確認）:</label>
+            <label style="font-weight:bold; color:#f39c12; font-size:13px; display:block; margin-bottom:6px;">🎒 出撃させるカレーを選択:</label>
             <select id="vsCurrySelect" style="color:#333; font-weight:bold; width:100%; border-color:#f39c12;" onchange="syncVsSelection(this.value)"></select>
+            <div id="vsCurryStatus" style="font-size:11px;color:#f1c40f;padding:4px 2px;min-height:16px;"></div>
             <button class="btn btn-cook" style="margin:10px 0 0 0; width:100%; background:#2ecc71; box-shadow:0 4px 0 #27ae60;" onclick="confirmVsDeploy()">🔥 このカレーで出撃する！</button>
             <button class="btn btn-cancel" style="margin:8px 0 0 0; width:100%; padding:6px; font-size:12px; box-shadow:0 3px 0 #c0392b;" onclick="abortMatchDeployment()">🏳️ 撤退（キャンセル）</button>
         </div>
@@ -491,8 +492,8 @@
     <div id="pageBattle" class="page">
         <div id="battleSetup">
             <div style="padding: 16px 0 0 0;">
-                <button class="btn btn-bot" style="width:100%;" onclick="startBotBattle()">PCと対戦する（初級）</button>
-                <button class="btn btn-bot" style="width:100%;margin-top:8px;background:#420000;" onclick="startHardBotBattle()">PCと対戦する（強敵）</button>
+                <button id="btnBotNormal" class="btn btn-bot" style="width:100%;" onclick="startBotBattle()">PCと対戦する（初級）</button>
+                <button id="btnBotHard" class="btn btn-bot" style="width:100%;margin-top:8px;background:#420000;" onclick="startHardBotBattle()">PCと対戦する（強敵）</button>
             </div>
             <div style="border-top: 1px solid #b88742; margin: 16px 0;"></div>
             <div style="margin-bottom: 12px;">
@@ -561,7 +562,7 @@
             <div id="battleResultBox" style="display:none; background:#fffdf0; padding:15px; border-radius:10px; border:2px dashed #9b59b6; margin-top:15px; text-align:center;">
                 <h2 id="battleVerdict" style="color:#e74c3c;">VICTORY!</h2>
                 <p id="rewardText" style="font-size:14px; font-weight:bold;"></p>
-                <button class="btn btn-start" onclick="endBattleScene()" style="width:100%;">アリーナを退場する</button>
+                <button class="btn btn-start" onclick="endBattleScene()" style="width:100%;">もう一度対戦する</button>
             </div>
         </div>
     </div>
@@ -1037,6 +1038,11 @@ function switchTab(tab, el) {
     if(targetPage) targetPage.classList.add('active');
     cancelScanning();
     if(tab === 'quest') { renderLoginBonus(); renderDailyQuest(); checkAndRenderAchievements(); }
+    if(tab === 'cook') {
+        // プルダウンがなしならヒントをクリア
+        [1,2,3].forEach(n => { const sel = document.getElementById("ingredient"+n); if(sel && !sel.value) { const h = document.getElementById("statHint"+n); if(h) h.innerText=""; } });
+        const spSel = document.getElementById("spice"); if(spSel && !spSel.value) { const hs = document.getElementById("statHintSpice"); if(hs) hs.innerText=""; }
+    }
 }
 
 function toggleHelp() {
@@ -2022,8 +2028,12 @@ function repopulateVsCurrySelector() {
 }
 function syncVsSelection(idx) {
     selectedCurryIndex = parseInt(idx, 10);
-    // ★Bot戦ではプレイヤーアイコンを変えない（カレー絵文字で上書きしない）
-    // アイコンはstartBotBattle()で設定済みなので何もしない
+    const c = curryStock[selectedCurryIndex];
+    const statusEl = document.getElementById("vsCurryStatus");
+    if(statusEl && c) {
+        const iconsHTML = curryIconsHTML(c.materials, c.spice, '16px');
+        statusEl.innerHTML = `${iconsHTML} HP:${c.hp} / ATK:${c.atk} / DEF:${c.def} / SPD:${c.spd}`;
+    } else if(statusEl) { statusEl.innerHTML = ""; }
 }
 function startBotBattle() {
     if (audioCtx.state === 'suspended') audioCtx.resume();
@@ -2139,8 +2149,11 @@ function updateMatchCurrySelects() {
     sel.innerHTML = "";
     if (!curryStock || curryStock.length === 0) { sel.innerHTML = "<option value='-1'>カレーを調理してください</option>"; updateOnlineCurryStatus(-1); return; }
     curryStock.forEach((c, idx) => { const opt = document.createElement("option"); opt.value = idx; opt.innerText = c.name; sel.appendChild(opt); });
-    // 選択中カレーのステータスを表示
     updateOnlineCurryStatus(sel.value);
+    // PC対戦ボタンの有効/無効
+    const hasStock = curryStock && curryStock.length > 0;
+    const bn = document.getElementById("btnBotNormal"); if(bn) bn.disabled = !hasStock;
+    const bh = document.getElementById("btnBotHard"); if(bh) bh.disabled = !hasStock;
 }
 
 function updateOnlineCurryStatus(idx) {
