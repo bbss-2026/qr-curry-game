@@ -2243,17 +2243,22 @@ function startBattleScene(oppN, oppC, myC) {
     document.getElementById("playerCurryNameText").innerText = myC.name;
     if (!isBotMatch) {
         // 対人戦：大きい円にはプレイヤーアイコン画像
-        document.getElementById("pVisual").innerHTML = `<img src="${cachedMyIconFile}" style="width:100%;height:100%;border-radius:50%;object-fit:cover;display:block;">`;
+        document.getElementById("pVisual").innerHTML = `<img src="${cachedMyIconFile}" style="width:36px;height:36px;border-radius:50%;object-fit:cover;display:inline-block;border:2px solid #e67e22;vertical-align:middle;">`;
         document.getElementById("oVisual").innerHTML = `<img src="${cachedOppIconFile}" style="width:100%;height:100%;border-radius:50%;object-fit:cover;display:block;">`;
         // カレー名の上の小アイコンエリアに食材SVGを表示
-        const oppCurryIcons = curryIconsHTML(oppC.materials, oppC.spice, '20px');
-        document.getElementById("oppCurryEmojiText").innerHTML = oppCurryIcons || '';
+        const oppCurryIcons = curryIconsHTML(oppC.materials, oppC.spice, '22px');
+        if(oppCurryIcons) {
+            document.getElementById("oppCurryEmojiText").innerHTML = oppCurryIcons;
+        } else {
+            // materials が無い場合はカレー名から絵文字を表示
+            document.getElementById("oppCurryEmojiText").innerText = oppC.emoji || '';
+        }
     } else {
         // Bot戦：自分のカレーアイコン（SVG）
         const myMaterials = curryStock[selectedCurryIndex] ? curryStock[selectedCurryIndex].materials : null;
         const mySpice = curryStock[selectedCurryIndex] ? curryStock[selectedCurryIndex].spice : null;
-        const myIconsHtml = myMaterials ? curryIconsHTML(myMaterials, mySpice, '20px') : myC.visual;
-        document.getElementById("pVisual").innerHTML = myIconsHtml || myC.visual || "🍛";
+        const myIconsHtml = myMaterials ? curryIconsHTML(myMaterials, mySpice, '22px') : '';
+        document.getElementById("pVisual").innerHTML = myIconsHtml || myC.visual || '';
         if(oppC.isBotImage) document.getElementById("oVisual").innerHTML = `<img src="${oppC.visual}" alt="${oppN}">`;
         else document.getElementById("oVisual").innerHTML = oppC.visual || "🍛";
         // Bot戦：相手カレーの絵文字エリアはBotのemoji（🌀🦑🌀など）を表示
