@@ -231,6 +231,29 @@
         .btn-gamestart:hover { opacity: 0.85; }
         .btn-gamestart:active { opacity: 0.7; transform: translateY(1px); }
         .top-notice { width: 88%; max-width: 360px; margin-top: 20px; font-size: 11px; color: #420000; line-height: 1.7; display: none; border-left: 3px solid #b88742; padding-left: 12px; }
+
+        /* イベントバナー */
+        .event-banner { width: 100%; cursor: pointer; border-radius: 6px; margin-bottom: 12px; display: block; transition: opacity 0.15s; }
+        .event-banner:hover { opacity: 0.9; }
+
+        /* イベント戦闘画面 */
+        .event-battle-stage { position: relative; width: 100%; border-radius: 10px; overflow: hidden; margin-bottom: 15px; background: #87ceeb; }
+        .event-battle-stage img { width: 100%; display: block; }
+        .event-hp-overlay { position: absolute; top: 0; left: 0; width: 100%; padding: 10px 12px; box-sizing: border-box; background: linear-gradient(to bottom, rgba(0,0,0,0.55), rgba(0,0,0,0)); }
+        .event-hp-bar-bg { width: 100%; height: 16px; background: #555; border-radius: 8px; overflow: hidden; border: 2px solid #222; }
+        .event-hp-bar-fill { height: 100%; background: linear-gradient(to right, #2ecc71, #27ae60); transition: width 0.4s; }
+        .event-enemy-name { color: #fff; font-weight: bold; font-size: 16px; margin-top: 6px; text-shadow: 1px 1px 3px rgba(0,0,0,0.8); }
+        .event-player-zone { display: flex; align-items: center; gap: 14px; background: rgba(20,20,20,0.85); padding: 12px 14px; }
+        .event-player-cushion { background: #1a1a1a; border-radius: 50%; flex-shrink: 0; }
+        .event-player-info { flex: 1; min-width: 0; }
+        .event-player-name { color: #ff6b6b; font-weight: bold; font-size: 14px; }
+        .event-player-curry-icons { display: flex; gap: 2px; margin: 4px 0; }
+        .event-player-curryname { color: #f1c40f; font-size: 12px; }
+        .event-player-hp-area { width: 110px; flex-shrink: 0; text-align: right; }
+        .event-player-hp-text { color: #fff; font-size: 12px; font-weight: bold; margin-bottom: 4px; }
+        .event-player-hp-bar-bg { width: 100%; height: 10px; background: #555; border-radius: 5px; overflow: hidden; }
+        .event-player-hp-bar-fill { height: 100%; background: linear-gradient(to right, #2ecc71, #27ae60); transition: width 0.4s; }
+
         /* アイコン獲得演出 */
         #iconGetOverlay { position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.75); z-index:99999; display:none; justify-content:center; align-items:center; flex-direction:column; }
         #iconGetOverlay .icon-get-img { width:160px; height:160px; border-radius:50%; border:6px solid #f1c40f; box-shadow:0 0 40px #f1c40f, 0 0 80px #f39c12; animation:iconPop 0.6s cubic-bezier(0.175,0.885,0.32,1.275) forwards; }
@@ -599,6 +622,7 @@
     <!-- 対戦アリーナタブ -->
     <div id="pageBattle" class="page">
         <div id="battleSetup">
+            <img id="eventBannerImg" src="eventbanner01.jpg" class="event-banner" style="display:none;" onclick="startEventBattle()" alt="イベント">
             <div style="padding: 16px 0 0 0;">
                 <button id="btnBotNormal" class="btn btn-bot" style="width:100%;" onclick="startBotBattle()">PCと対戦する（初級）</button>
                 <button id="btnBotHard" class="btn btn-bot" style="width:100%;margin-top:8px;background:#420000;" onclick="startHardBotBattle()">PCと対戦する（強敵）</button>
@@ -678,6 +702,35 @@
                 <h2 id="battleVerdict" style="color:#e74c3c;">VICTORY!</h2>
                 <p id="rewardText" style="font-size:14px; font-weight:bold;"></p>
                 <button class="btn btn-start" onclick="endBattleScene()" style="width:100%;">もう一度対戦する</button>
+            </div>
+        </div>
+
+        <!-- イベント専用バトル画面 -->
+        <div id="eventBattleArena" style="display:none;">
+            <div class="event-battle-stage">
+                <img src="tokumori001.jpg" alt="浪花のカレーライスベイビー">
+                <div class="event-hp-overlay">
+                    <div class="event-hp-bar-bg"><div class="event-hp-bar-fill" id="eventEnemyHpBar" style="width:100%;"></div></div>
+                    <div class="event-enemy-name" id="eventEnemyName">浪花のカレーライスベイビー</div>
+                </div>
+            </div>
+            <div class="event-player-zone">
+                <img id="eventPlayerCushion" class="event-player-cushion" src="mayimage01.png" style="width:60px;height:60px;object-fit:cover;">
+                <div class="event-player-info">
+                    <div class="event-player-name" id="eventPlayerName">プレイヤー名</div>
+                    <div class="event-player-curry-icons" id="eventPlayerCurryIcons"></div>
+                    <div class="event-player-curryname" id="eventPlayerCurryName">カレー名</div>
+                </div>
+                <div class="event-player-hp-area">
+                    <div class="event-player-hp-text" id="eventPlayerHpText">HP: 0/0</div>
+                    <div class="event-player-hp-bar-bg"><div class="event-player-hp-bar-fill" id="eventPlayerHpBar" style="width:100%;"></div></div>
+                </div>
+            </div>
+            <div class="battle-monitor" id="eventBattleLog">⚔️ 浪花のカレーライスベイビーとの決戦開始！</div>
+            <div id="eventBattleResultBox" style="display:none; background:#fffdf0; padding:15px; border-radius:10px; border:2px dashed #9b59b6; margin-top:15px; text-align:center;">
+                <h2 id="eventBattleVerdict" style="color:#e74c3c;">RESULT</h2>
+                <p id="eventRewardText" style="font-size:14px; font-weight:bold;"></p>
+                <button class="btn btn-start" onclick="endEventBattleScene()" style="width:100%;">もう一度挑む</button>
             </div>
         </div>
     </div>
@@ -1183,7 +1236,7 @@ let onlineRole = 'host'; // 対人戦での自分の役割
 let discoveredItems = {};
 let cachedOpponentName = "";
 let cachedOpponentCurry = null;
-window.onload = function() { loadGame(); updateCookSelects(); refreshRecipeBookUI(); updateShopButtons(); listenToRooms(); updateMatchCurrySelects(); setupLoadedIconUI(); updateLvDisplay(); loadNotice(); initQuest(); loadTopNotice(); updateMuteIcon(); initPlayerId(); };
+window.onload = function() { loadGame(); updateCookSelects(); refreshRecipeBookUI(); updateShopButtons(); listenToRooms(); updateMatchCurrySelects(); setupLoadedIconUI(); updateLvDisplay(); loadNotice(); initQuest(); loadTopNotice(); updateMuteIcon(); initPlayerId(); checkEventBannerVisibility(); };
 function gameStart() {
     // 初回のみ音声確認モーダルを出す
     if(localStorage.getItem('qr_sound_asked') !== '1') {
@@ -1302,6 +1355,7 @@ function switchTab(tab, el) {
     if(targetPage) targetPage.classList.add('active');
     cancelScanning();
     if(tab === 'quest') { renderLoginBonus(); renderDailyQuest(); checkAndRenderAchievements(); }
+    if(tab === 'battle') { checkEventBannerVisibility(); }
     if(tab === 'cook') {
         // プルダウンがなしならヒントをクリア
         [1,2,3].forEach(n => { const sel = document.getElementById("ingredient"+n); if(sel && !sel.value) { const h = document.getElementById("statHint"+n); if(h) h.innerText=""; } });
@@ -1507,6 +1561,12 @@ function showStaffMenu() {
     btnDebug.onclick = function() { staffAction("debugmode"); };
     msg.appendChild(btnDebug);
 
+    const btnEvent = document.createElement("button");
+    btnEvent.style.cssText = "width:100%;margin-bottom:12px;padding:8px;background:" + (eventEnabled ? "#27ae60" : "#7f8c8d") + ";color:white;border:none;border-radius:6px;font-weight:bold;cursor:pointer;";
+    btnEvent.innerHTML = "🐙 特盛りイベント: " + (eventEnabled ? "ON（全員に公開中）" : "OFF（デバッグのみ表示）");
+    btnEvent.onclick = function() { staffAction("eventtoggle"); };
+    msg.appendChild(btnEvent);
+
     // レベル設定ボタン
     const btnLv = document.createElement("button");
     btnLv.style.cssText = "width:100%;margin-bottom:12px;padding:8px;background:#3498db;color:white;border:none;border-radius:6px;font-weight:bold;cursor:pointer;";
@@ -1647,6 +1707,12 @@ function staffAction(action) {
     } else if(action === 'debugmode') {
         isDebugMode = !isDebugMode;
         localStorage.setItem('qr_debug_mode', isDebugMode ? '1' : '0');
+        document.getElementById("customModal").style.display = "none";
+        showStaffMenu();
+    } else if(action === 'eventtoggle') {
+        eventEnabled = !eventEnabled;
+        localStorage.setItem('qr_event_enabled', eventEnabled ? '1' : '0');
+        checkEventBannerVisibility();
         document.getElementById("customModal").style.display = "none";
         showStaffMenu();
     } else if(action === 'setnotice') {
@@ -3041,6 +3107,216 @@ function playBattleTurns(turns, myC, oppC, oppN, role) {
 
 // ===== メインのバトル開始関数（Bot戦・対人戦共通）=====
 let guestBattleRef = null;
+// ============================================================
+// イベント：特盛りモンスターから街を守れ！
+// ============================================================
+const EVENT_MONSTER = {
+    name: "浪花のカレーライスベイビー",
+    hp: 5000, atk: 120, def: 60, spd: 60
+};
+let eventEnabled = (localStorage.getItem('qr_event_enabled') === '1');
+let eventMonsterHP = EVENT_MONSTER.hp;
+let eventBattleAborted = false;
+let eventTotalDamageThisBattle = 0;
+
+function checkEventBannerVisibility() {
+    const banner = document.getElementById('eventBannerImg');
+    if(!banner) return;
+    if(eventEnabled || isDebugMode) {
+        banner.style.display = 'block';
+    } else {
+        banner.style.display = 'none';
+    }
+}
+
+function startEventBattle() {
+    if (!curryStock || curryStock.length === 0) { showCustomAlert("⚠️ カレーがありません", "先に調理でカレーを作ってください。"); return; }
+    if (!eventEnabled && !isDebugMode) { showCustomAlert("⚠️ イベント終了", "このイベントは現在開催されていません。"); return; }
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+
+    const myC = curryStock[selectedCurryIndex] || curryStock[0];
+    eventMonsterHP = EVENT_MONSTER.hp;
+    eventBattleAborted = false;
+    eventTotalDamageThisBattle = 0;
+
+    document.getElementById("battleSetup").style.display = "none";
+    document.getElementById("battleArena").style.display = "none";
+    document.getElementById("eventBattleArena").style.display = "block";
+    document.getElementById("eventBattleResultBox").style.display = "none";
+
+    requestAnimationFrame(() => {
+        const arena = document.getElementById("eventBattleArena");
+        if(arena) arena.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+
+    // プレイヤー側表示
+    document.getElementById("eventPlayerCushion").src = currentIconFile;
+    document.getElementById("eventPlayerName").innerText = playerName;
+    document.getElementById("eventPlayerCurryName").innerText = myC.name;
+    const iconsHtml = curryIconsHTML(myC.materials, myC.spice, '20px');
+    document.getElementById("eventPlayerCurryIcons").innerHTML = iconsHtml || '';
+
+    let pHP = myC.hp;
+    updateEventHP(pHP, myC.hp, eventMonsterHP);
+
+    const log = document.getElementById("eventBattleLog");
+    log.innerHTML = `⚔️ ${EVENT_MONSTER.name}との決戦開始！`;
+
+    let round = 1;
+    let myTurn = myC.spd >= EVENT_MONSTER.spd;
+    let isPlayerPoisoned = false;
+    let isPlayerIlluded = false;
+
+    function eventStep() {
+        if(eventBattleAborted) return;
+        if(pHP <= 0) { eventBattleEnd(false, false); return; }
+        if(round > 10) { eventBattleEnd(false, false); return; }
+
+        if(myTurn) {
+            log.innerHTML = `🔥 ${playerName} のターン！`;
+            playTone(440, 'triangle', 0.08);
+            if(isPlayerPoisoned) {
+                let d = Math.round(myC.hp * 0.08);
+                pHP = Math.max(0, pHP - d);
+                log.innerHTML += `\n☠️ 毒ダメージ: ${d}`;
+                updateEventHP(pHP, myC.hp, eventMonsterHP);
+                if(pHP <= 0) { eventBattleEnd(false, false); return; }
+            }
+            const illudedMiss = isPlayerIlluded && Math.random() < 0.4;
+            if(illudedMiss) {
+                log.innerHTML += `\n💨 幻惑で攻撃が外れた！`;
+                setTimeout(() => { myTurn = false; round++; setTimeout(eventStep, 1100); }, 400);
+                return;
+            }
+            setTimeout(() => {
+                const isCrit = Math.random() < getCritRate(myC.spd, EVENT_MONSTER.spd);
+                let d = isCrit ? Math.max(8, myC.atk) : Math.max(8, myC.atk - Math.floor(EVENT_MONSTER.def/2));
+                d = Math.round(d * (0.9 + Math.random()*0.2));
+                eventMonsterHP = Math.max(1, eventMonsterHP - d); // 絶対0にならない
+                eventTotalDamageThisBattle += d;
+                playSoundEffect('punch.mp3');
+                if(isCrit) { log.innerHTML += `\n🌶️ Spicy Hit!!!!!!!! 💥 ダメージ: ${d}`; playSoundEffect('spicyhit.mp3'); }
+                else { log.innerHTML += `\n💥 ダメージ: ${d}`; }
+                updateEventHP(pHP, myC.hp, eventMonsterHP);
+                myTurn = false; round++;
+                setTimeout(eventStep, 1100);
+            }, 400);
+        } else {
+            log.innerHTML = `⚠️ ${EVENT_MONSTER.name} のターン！`;
+            playTone(330, 'triangle', 0.08);
+            const r = Math.random();
+            if(round >= 10) {
+                // 10ターン目で強制：なんでやねん乱舞
+                setTimeout(() => {
+                    log.innerHTML += `\n💨 なんでやねん乱舞！吹き飛ばされた！`;
+                    playSoundEffect('ransya.mp3');
+                    eventBattleEnd(false, true);
+                }, 400);
+                return;
+            } else if(r < 0.40) {
+                // 通常攻撃
+                setTimeout(() => {
+                    let d = Math.max(8, EVENT_MONSTER.atk - Math.floor(myC.def/2));
+                    d = Math.round(d * (0.9 + Math.random()*0.2));
+                    pHP = Math.max(0, pHP - d);
+                    playSoundEffect('punch.mp3');
+                    log.innerHTML += `\n😢 被弾ダメージ: ${d}`;
+                    updateEventHP(pHP, myC.hp, eventMonsterHP);
+                    if(pHP <= 0) { eventBattleEnd(false, false); return; }
+                    myTurn = true; round++;
+                    setTimeout(eventStep, 1100);
+                }, 400);
+            } else if(r < 0.60) {
+                // 熱々のカレーの雨が街に降り注ぐ（熱々ブレスと同じ：DEF無視固定80）
+                setTimeout(() => {
+                    pHP = Math.max(0, pHP - 80);
+                    playSoundEffect('breath.mp3');
+                    log.innerHTML += `\n🔥 熱々のカレーの雨が街に降り注ぐ！DEF無視80ダメージ！`;
+                    updateEventHP(pHP, myC.hp, eventMonsterHP);
+                    if(pHP <= 0) { eventBattleEnd(false, false); return; }
+                    myTurn = true; round++;
+                    setTimeout(eventStep, 1100);
+                }, 400);
+            } else if(r < 0.80) {
+                // 特大スプーンで五月雨突き（種連射と同じ）
+                const hits = rollSeedHits(EVENT_MONSTER.spd, myC.spd);
+                let total = 0;
+                for(let i=0;i<hits;i++){ let sd=Math.max(2,Math.round(EVENT_MONSTER.atk*0.3-Math.floor(myC.def/4))); sd=Math.round(sd*(0.9+Math.random()*0.2)); total+=sd; pHP=Math.max(0,pHP-sd); }
+                log.innerHTML += `\n🥄 特大スプーンで五月雨突き！${hits}連撃！`;
+                setTimeout(() => playSoundEffect('machine-gun.mp3'), 50);
+                setTimeout(() => {
+                    log.innerHTML += ` 合計: ${total}`;
+                    updateEventHP(pHP, myC.hp, eventMonsterHP);
+                    if(pHP <= 0) { eventBattleEnd(false, false); return; }
+                    myTurn = true; round++;
+                    setTimeout(eventStep, 1300);
+                }, 150 + hits*250);
+            } else {
+                // たこ焼きを食べる：毒・幻惑解除、HP500回復
+                isPlayerPoisoned = false; isPlayerIlluded = false;
+                eventMonsterHP = Math.min(EVENT_MONSTER.hp, eventMonsterHP + 500);
+                setTimeout(() => {
+                    playSoundEffect('healing.mp3');
+                    log.innerHTML += `\n🐙 たこ焼きを食べた！HPが500回復！状態異常も解除！`;
+                    updateEventHP(pHP, myC.hp, eventMonsterHP);
+                    myTurn = true; round++;
+                    setTimeout(eventStep, 1100);
+                }, 400);
+            }
+        }
+    }
+    setTimeout(eventStep, 600);
+}
+
+function updateEventHP(pHP, pMaxHP, monsterHP) {
+    const monsterPct = Math.max(1, Math.round(monsterHP / EVENT_MONSTER.hp * 100));
+    document.getElementById("eventEnemyHpBar").style.width = monsterPct + "%";
+    const playerPct = Math.max(0, Math.round(pHP / pMaxHP * 100));
+    document.getElementById("eventPlayerHpBar").style.width = playerPct + "%";
+    document.getElementById("eventPlayerHpText").innerText = `HP: ${pHP}/${pMaxHP}`;
+}
+
+function eventBattleEnd(isWin, wasBlownAway) {
+    eventBattleAborted = true;
+    // ダメージ集計をFirebaseに保存（バトル終了後）
+    if(database && playerId && eventTotalDamageThisBattle > 0) {
+        database.ref('events/tokumori001/damages/' + playerId).transaction(function(current) {
+            return (current || 0) + eventTotalDamageThisBattle;
+        });
+        database.ref('events/tokumori001/participants/' + playerId).set({ name: playerName, lastPlayed: Date.now() });
+    }
+    // 報酬：ノーマル素材3つ＋ノーマルスパイス1つ
+    const normalPool = Object.keys(masterIngredients).filter(k => masterIngredients[k].shop === 0);
+    const spicePool = Object.keys(masterSpices).filter(k => k !== "マンゴーチャツネ");
+    let gotItems = [];
+    for(let i=0;i<3;i++){ const it = normalPool[Math.floor(Math.random()*normalPool.length)]; inventory[it]=(inventory[it]||0)+1; discoveredItems[it]=true; gotItems.push(it); }
+    const spIt = spicePool[Math.floor(Math.random()*spicePool.length)]; inventory[spIt]=(inventory[spIt]||0)+1; discoveredItems[spIt]=true; gotItems.push(spIt);
+    saveGame(); updateFridgeUI(); updateCookSelects();
+
+    const resBox = document.getElementById("eventBattleResultBox");
+    const verdict = document.getElementById("eventBattleVerdict");
+    const rewardText = document.getElementById("eventRewardText");
+    if(wasBlownAway) {
+        verdict.innerText = "💨 吹き飛ばされた...";
+        verdict.style.color = "#9b59b6";
+    } else {
+        verdict.innerText = "💀 敗北...";
+        verdict.style.color = "#e74c3c";
+    }
+    const itemsHtml = gotItems.map(it => {
+        const d = masterIngredients[it] || masterSpices[it];
+        const ico = d && d.icon ? `<img src="${d.icon}" style="width:1.2em;height:1.2em;vertical-align:middle;object-fit:contain;">` : '';
+        return ico + it;
+    }).join(' ');
+    rewardText.innerHTML = `与えたダメージ: <b>${eventTotalDamageThisBattle}</b><br>報酬: ${itemsHtml}`;
+    resBox.style.display = "block";
+}
+
+function endEventBattleScene() {
+    document.getElementById("eventBattleArena").style.display = "none";
+    document.getElementById("battleSetup").style.display = "block";
+}
+
 function startBattleScene(oppN, oppC, myC) {
     // バトル画面セットアップ
     battleAborted = false; // バトル開始時にリセット
