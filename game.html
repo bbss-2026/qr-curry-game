@@ -3007,7 +3007,10 @@ function startBattleScene(oppN, oppC, myC) {
             database.ref('rooms/' + currentRoomId).update({
                 turns: allTurns,
                 battleResult: { winner: hostWin ? 'host' : 'guest' }
-            }).catch(e => console.error("Firebase書き込みエラー:", e));
+            }).catch(e => {
+                console.error("Firebase書き込みエラー:", e);
+                showCustomAlert("⚠️ 通信エラー", "対戦相手への通信に失敗しました。");
+            });
             playBattleTurns(allTurns, myC, oppC, oppN, 'host');
         } else {
             // ゲスト：Firebaseを監視してturnsが来たら再生
@@ -3032,9 +3035,13 @@ function startBattleScene(oppN, oppC, myC) {
             setTimeout(() => {
                 if(!started && guestBattleRef) {
                     guestBattleRef.off(); guestBattleRef = null;
-                    log.innerHTML += '\n⚠️ タイムアウト。';
+                    log.innerHTML += '\n⚠️ 通信エラーが発生しました。';
+                    showCustomAlert("⚠️ 通信エラー", "ホストとの通信に問題が発生しました。<br>バトルを終了します。", function() {
+                        endBattleScene();
+                        if(currentRoomId && database) { database.ref('rooms/'+currentRoomId).remove(); currentRoomId = null; }
+                    });
                 }
-            }, 20000);
+            }, 12000);
         }
         return;
     }
@@ -3202,7 +3209,7 @@ function triggerEffect(target, damage) {
         pop.style.top="240px"; pop.style.left="45%";
         pop.style.color=target==="player-poison"?"#9b59b6":(isCritHit?"#ff4500":"#ff4757");
         pop.style.animation = isCritHit ? "critPopUp 0.9s forwards" : "popUp 0.6s forwards";
-        setTimeout(()=>document.getElementById("battleStage").classList.remove("flash-red","flash-purple","animate-shake"),200);
+        setTimeout(()=>document.getElementById("battleStage").classList.remove("flash-red","flash-purple","flash-crit","animate-shake"),isCritHit?350:200);
     }
 }
 function done(pHP, oHP, myC, oppC) {
