@@ -3016,6 +3016,18 @@ function updateHP(p, o, om, pm) {
     document.getElementById("pHpText").innerText=`HP: ${p}/${pm}`; document.getElementById("oHpText").innerText=`HP: ${o}/${om}`;
     document.getElementById("pWeightBar").style.width=(p/pm*100)+"%"; document.getElementById("oWeightBar").style.width=(o/om*100)+"%";
 }
+function getPopPosition(zoneSelector) {
+    // damagePopの基準（battle-stage）に対する相対位置を動的計算
+    const stage = document.getElementById("battleStage");
+    const zone = document.querySelector(zoneSelector);
+    if(!stage || !zone) return { top: 100, left: 100 };
+    const stageRect = stage.getBoundingClientRect();
+    const zoneRect = zone.getBoundingClientRect();
+    return {
+        top: (zoneRect.top - stageRect.top) + (zoneRect.height / 2) - 20,
+        left: (zoneRect.left - stageRect.left) + (zoneRect.width / 2) - 20
+    };
+}
 function triggerEffect(target, damage) {
     if(battleAborted) return; // バトル強制終了中は演出しない
     const isCritHit = (target === "enemy-crit" || target === "player-crit");
@@ -3025,7 +3037,8 @@ function triggerEffect(target, damage) {
     pop.offsetHeight;
     if(target==="enemy"||target==="enemy-gold"||target==="enemy-poison"||target==="enemy-crit"){
         document.getElementById("enemyZone").classList.add("animate-shake");
-        pop.style.top="130px"; pop.style.left="25%";
+        const pos = getPopPosition("#enemyZone .enemy-visual-box");
+        pop.style.top = pos.top + "px"; pop.style.left = pos.left + "px";
         if(target==="enemy") pop.style.color="#f1c40f";
         else if(target==="enemy-gold"){pop.style.color="#fff"; document.getElementById("battleStage").classList.add("flash-gold"); setTimeout(()=>document.getElementById("battleStage").classList.remove("flash-gold"),200);}
         else if(target==="enemy-crit"){ pop.style.color="#ff4500"; document.getElementById("battleStage").classList.add("flash-crit"); setTimeout(()=>document.getElementById("battleStage").classList.remove("flash-crit"),350); }
@@ -3035,7 +3048,8 @@ function triggerEffect(target, damage) {
         setTimeout(()=>document.getElementById("enemyZone").classList.remove("animate-shake"),200);
     }else{
         document.getElementById("battleStage").classList.add(target==="player-poison"?"flash-purple":(isCritHit?"flash-crit":"flash-red"),"animate-shake");
-        pop.style.top="240px"; pop.style.left="45%";
+        const pos = getPopPosition(".player-zone .char-visual");
+        pop.style.top = pos.top + "px"; pop.style.left = pos.left + "px";
         pop.style.color=target==="player-poison"?"#9b59b6":(isCritHit?"#ff4500":"#ff4757");
         pop.style.animation = isCritHit ? "critPopUp 0.9s forwards" : "popUp 0.6s forwards";
         setTimeout(()=>document.getElementById("battleStage").classList.remove("flash-red","flash-purple","animate-shake"),200);
