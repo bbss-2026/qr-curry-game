@@ -11,7 +11,7 @@
         .container { max-width: 500px; margin: 0 auto; background: #efdeb1; padding: 0; box-sizing: border-box; position: relative; min-height: 100vh; }
         h1 { display: none; }
         .logo-area { padding: 24px 20px 16px; text-align: center; }
-        .logo-area img { width: 240px; max-width: 80%; }
+        .logo-area img { width: 192px; max-width: 80%; }
         .tab-menu { display: flex; justify-content: space-around; margin: 0; background: #efdeb1; padding: 0; gap: 0; flex-wrap: nowrap; }
         .tab-btn { flex: 1; padding: 12px 4px 0 4px; border: none; background: none; font-size: 11pt; font-weight: bold; cursor: pointer; color: #420000; display: flex; flex-direction: column; align-items: center; text-align: center; gap: 8px; transition: color 0.2s; white-space: nowrap; }
         .tab-btn::after { content: ''; display: block; width: 90%; height: 2px; background: #420000; }
@@ -976,6 +976,7 @@ let cachedMyIconFile = "mayimage01.png";
 let cachedOppIconFile = "mayimage01.png";
 let isBotMatch = false; let activeBotData = null;
 let isMuted = (localStorage.getItem('qr_muted') === '1');
+let isDebugMode = (localStorage.getItem('qr_debug_mode') === '1');
 let battleAborted = false; // バトル強制終了フラグ
 let onlineRole = 'host'; // 対人戦での自分の役割
 let discoveredItems = {};
@@ -1025,8 +1026,8 @@ function proceedGameStart() {
     document.getElementById("pageTop").style.display = "none";
     document.getElementById("gameUI").style.display = "block";
     updateFridgeUI();
-    // アクセスカウント
-    if(database) {
+    // アクセスカウント（デバッグモード中はカウントしない）
+    if(database && !isDebugMode) {
         const today = new Date(Date.now() + 9*60*60*1000).toISOString().split('T')[0];
         database.ref('analytics/total').transaction(v => (v||0)+1);
         database.ref('analytics/daily/'+today).transaction(v => (v||0)+1);
@@ -1219,10 +1220,16 @@ function showStaffMenu() {
     msg.appendChild(btnFull);
 
     const btnAnalytics = document.createElement("button");
-    btnAnalytics.style.cssText = "width:100%;margin-bottom:12px;padding:8px;background:#2c3e50;color:white;border:none;border-radius:6px;font-weight:bold;cursor:pointer;";
+    btnAnalytics.style.cssText = "width:100%;margin-bottom:8px;padding:8px;background:#2c3e50;color:white;border:none;border-radius:6px;font-weight:bold;cursor:pointer;";
     btnAnalytics.innerHTML = "📊 アクセス数を見る";
     btnAnalytics.onclick = function() { staffAction("analytics"); };
     msg.appendChild(btnAnalytics);
+
+    const btnDebug = document.createElement("button");
+    btnDebug.style.cssText = "width:100%;margin-bottom:12px;padding:8px;background:" + (isDebugMode ? "#e74c3c" : "#7f8c8d") + ";color:white;border:none;border-radius:6px;font-weight:bold;cursor:pointer;";
+    btnDebug.innerHTML = "🐛 デバッグモード: " + (isDebugMode ? "ON（カウント対象外）" : "OFF");
+    btnDebug.onclick = function() { staffAction("debugmode"); };
+    msg.appendChild(btnDebug);
 
     // レベル設定ボタン
     const btnLv = document.createElement("button");
@@ -1323,6 +1330,11 @@ function staffAction(action) {
                 + rows
             );
         });
+    } else if(action === 'debugmode') {
+        isDebugMode = !isDebugMode;
+        localStorage.setItem('qr_debug_mode', isDebugMode ? '1' : '0');
+        document.getElementById("customModal").style.display = "none";
+        showStaffMenu();
     } else if(action === 'setnotice') {
         var ta = document.getElementById("staffNoticeInput");
         var text = ta ? ta.value.trim() : '';
