@@ -924,26 +924,49 @@ function play開運Sound() { playTone(880, 'square', 0.1); setTimeout(() => play
 function playGoldSound() { playTone(987.77, 'sine', 0.1); setTimeout(() => playTone(1318.51, 'sine', 0.1), 50); setTimeout(() => playTone(1975.53, 'sine', 0.4), 100); }
 function playCriticalSound() { playTone(880, 'square', 0.1); setTimeout(() => playTone(1320, 'square', 0.1), 60); setTimeout(() => playTone(1760, 'square', 0.3), 120); }
 // ===== Lv機能 =====
-const MAX_LV = 8;
-const EXP_PER_LV = 100;
+const MAX_LV = 10;
+// 各レベルに上がるために必要な経験値（Lv1→2, Lv2→3, ... Lv9→10）
+const LV_EXP_TABLE = { 2:50, 3:100, 4:100, 5:150, 6:150, 7:200, 8:200, 9:200, 10:200 };
+
+// 累計EXPからレベルを算出するための累計テーブルを構築
+function buildCumulativeExpTable() {
+    const table = { 1: 0 };
+    let cum = 0;
+    for (let lv = 2; lv <= MAX_LV; lv++) {
+        cum += LV_EXP_TABLE[lv];
+        table[lv] = cum;
+    }
+    return table;
+}
+const CUM_EXP_TABLE = buildCumulativeExpTable();
 
 function calcLv(exp) {
-    return Math.min(MAX_LV, Math.floor(exp / EXP_PER_LV) + 1);
+    let lv = 1;
+    for (let l = MAX_LV; l >= 1; l--) {
+        if (exp >= CUM_EXP_TABLE[l]) { lv = l; break; }
+    }
+    return Math.min(MAX_LV, lv);
 }
 function expForNextLv(exp) {
     const lv = calcLv(exp);
     if (lv >= MAX_LV) return null; // 上限
-    const nextBorder = (lv) * EXP_PER_LV; // lv→lv+1 に必要な累計EXP
+    const nextBorder = CUM_EXP_TABLE[lv + 1];
     return nextBorder - exp;
 }
 function expCurrentInLv(exp) {
     const lv = calcLv(exp);
-    if (lv >= MAX_LV) return EXP_PER_LV;
-    return exp % EXP_PER_LV;
+    if (lv >= MAX_LV) return getLvExpNeed(MAX_LV);
+    return exp - CUM_EXP_TABLE[lv];
+}
+function getLvExpNeed(lv) {
+    // lvからlv+1に必要な経験値（表示用）。MAX_LVの場合は最後の必要値を返す
+    if (lv >= MAX_LV) return LV_EXP_TABLE[MAX_LV] || 200;
+    return LV_EXP_TABLE[lv + 1];
 }
 function updateLvDisplay() {
     const lv = calcLv(playerEXP);
     const inLvExp = expCurrentInLv(playerEXP);
+    const need = getLvExpNeed(lv);
     const lvEl = document.getElementById("headerLv");
     const barEl = document.getElementById("headerEXPBar");
     if (lvEl) lvEl.innerText = `Lv.${lv}`;
@@ -951,17 +974,19 @@ function updateLvDisplay() {
         if (lv >= MAX_LV) {
             barEl.innerText = `EXP:MAX`;
         } else {
-            barEl.innerText = `EXP:${inLvExp}/${EXP_PER_LV}`;
+            barEl.innerText = `EXP:${inLvExp}/${need}`;
         }
     }
 }
 
 // Lvごとの解放アイコン定義
-const LV_UNLOCK_ICONS = { 2: "mayimage04.png", 3: "mayimage05.png", 4: "mayimage06.png" };
+const LV_UNLOCK_ICONS = { 2: "mayimage04.png", 3: "mayimage05.png", 4: "mayimage06.png", 7: "mayimage08.png", 9: "mayimage09.png" };
 
 function getLvUpReward(lv) {
-    if (lv === 5) return { type: 'stock' };
-    if (lv >= 2 && lv <= MAX_LV) return { type: 'items' };
+    if (lv === 5) return { type: 'stock', limit: 8 };
+    if (lv === 10) return { type: 'stock', limit: 10 };
+    if (lv >= 6 && lv <= 9) return { type: 'ticket' };
+    if (lv >= 2 && lv <= 4) return { type: 'items' };
     return null;
 }
 
@@ -970,8 +995,12 @@ function grantLvUpReward(lv) {
     let resultLines = [];
 
     if (reward && reward.type === 'stock') {
-        localStorage.setItem('qr_curry_stock_limit', '8');
-        resultLines.push('🍛 カレーストック上限が<b>8個</b>に拡張されました！');
+        localStorage.setItem('qr_curry_stock_limit', String(reward.limit));
+        resultLines.push(`🍛 カレーストック上限が<b>${reward.limit}個</b>に拡張されました！`);
+    }
+    if (reward && reward.type === 'ticket') {
+        packTicket = (packTicket || 0) + 1;
+        resultLines.push('🎟️ パック券を<b>1枚</b>入手しました！');
     }
     if (reward && reward.type === 'items') {
         const ingPool = Object.keys(masterIngredients).filter(k => !["金箔","赤パプリカ","黄パプリカ"].includes(k));
@@ -1461,7 +1490,7 @@ function staffAction(action) {
             if(lvInput !== null) {
                 var targetLv = parseInt(lvInput, 10);
                 if(!isNaN(targetLv) && targetLv >= 1 && targetLv <= MAX_LV) {
-                    playerEXP = (targetLv - 1) * EXP_PER_LV;
+                    playerEXP = CUM_EXP_TABLE[targetLv];
                     var newUnlocked = ["mayimage01.png","mayimage02.png","mayimage03.png"];
                     Object.keys(LV_UNLOCK_ICONS).forEach(function(lvKey) { if(parseInt(lvKey) <= targetLv) newUnlocked.push(LV_UNLOCK_ICONS[lvKey]); });
                     saveUnlockedIcons(newUnlocked);
@@ -2350,6 +2379,11 @@ function clearAllHints() {
 }
 
 function updateCookPreview() {
+    // 食材・スパイス設定が変わったら前回の調理結果を非表示にする
+    const prevResultBox = document.getElementById("resultBox");
+    if(prevResultBox && prevResultBox.style.display !== "none") {
+        prevResultBox.style.display = "none";
+    }
     const i1 = document.getElementById("ingredient1").value;
     const i2 = document.getElementById("ingredient2").value;
     const i3 = document.getElementById("ingredient3").value;
