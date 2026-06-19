@@ -269,7 +269,12 @@
     <div id="gameUI" style="display:none;">
     <!-- ?ボタン -->
     <div style="position:relative;">
-        <button id="helpBtn" onclick="toggleHelp()" style="position:absolute;top:-52px;right:12px;width:36px;height:36px;border-radius:50%;border:2px solid #420000;background:#efdeb1;color:#420000;font-size:16px;font-weight:bold;cursor:pointer;z-index:10;display:flex;align-items:center;justify-content:center;">?</button>
+        <button id="helpBtn" onclick="toggleHelp()" style="position:absolute;top:-52px;right:12px;width:36px;height:36px;border-radius:50%;border:2px solid #420000;background:#efdeb1;cursor:pointer;z-index:10;display:flex;align-items:center;justify-content:center;padding:0;">
+            <img src="help.svg" style="width:20px;height:20px;" alt="?">
+        </button>
+        <button id="muteBtn" onclick="toggleMute()" style="position:absolute;top:-4px;right:12px;width:36px;height:36px;border-radius:50%;border:2px solid #420000;background:#efdeb1;cursor:pointer;z-index:10;display:flex;align-items:center;justify-content:center;padding:0;">
+            <img id="muteIcon" src="sound-on.svg" style="width:20px;height:20px;" alt="sound">
+        </button>
     </div>
     <div class="tab-menu">
         <button class="tab-btn active" onclick="switchTab('quest', this)">クエスト</button>
@@ -673,7 +678,7 @@ if(firebaseConfig.apiKey !== "YOUR_API_KEY") {
 }
 const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 function playTone(freq, type, duration) {
-    if(battleAborted) return; // バトル強制終了中は音を鳴らさない
+    if(battleAborted || isMuted) return;
     try {
         const osc = audioCtx.createOscillator(); const gain = audioCtx.createGain();
         osc.type = type; osc.frequency.value = freq; osc.connect(gain); gain.connect(audioCtx.destination);
@@ -685,6 +690,7 @@ function playTone(freq, type, duration) {
 // ===== BGM・特殊効果音管理 =====
 let battleBGM = null;
 function playBattleBGM(src) {
+    if(isMuted) return;
     stopBattleBGM();
     battleBGM = new Audio(src);
     battleBGM.loop = true;
@@ -695,7 +701,7 @@ function stopBattleBGM() {
     if(battleBGM) { battleBGM.pause(); battleBGM.currentTime = 0; battleBGM = null; }
 }
 function playSoundEffect(src) {
-    if(battleAborted) return;
+    if(battleAborted || isMuted) return;
     const se = new Audio(src);
     se.volume = 0.7;
     se.play().catch(e => console.log("SE play error:", e));
@@ -969,16 +975,62 @@ let recipeBook = {}; let myRoomRef = null; let currentRoomId = null;
 let cachedMyIconFile = "mayimage01.png";
 let cachedOppIconFile = "mayimage01.png";
 let isBotMatch = false; let activeBotData = null;
+let isMuted = (localStorage.getItem('qr_muted') === '1');
 let battleAborted = false; // バトル強制終了フラグ
 let onlineRole = 'host'; // 対人戦での自分の役割
 let discoveredItems = {};
 let cachedOpponentName = "";
 let cachedOpponentCurry = null;
-window.onload = function() { loadGame(); updateCookSelects(); refreshRecipeBookUI(); updateShopButtons(); listenToRooms(); updateMatchCurrySelects(); setupLoadedIconUI(); updateLvDisplay(); loadNotice(); initQuest(); loadTopNotice(); };
+window.onload = function() { loadGame(); updateCookSelects(); refreshRecipeBookUI(); updateShopButtons(); listenToRooms(); updateMatchCurrySelects(); setupLoadedIconUI(); updateLvDisplay(); loadNotice(); initQuest(); loadTopNotice(); updateMuteIcon(); };
 function gameStart() {
+    // 初回のみ音声確認モーダルを出す
+    if(localStorage.getItem('qr_sound_asked') !== '1') {
+        showSoundCheckModal();
+        return; // モーダルのボタンからproceedGameStartを呼ぶ
+    }
+    proceedGameStart();
+}
+
+function showSoundCheckModal() {
+    const msg = '<div style="font-size:14px;color:#420000;margin-bottom:16px;line-height:1.6;">このゲームは音ありを推奨しています。<br>今、音を出しても大丈夫ですか？</div>'
+        + '<div style="display:flex;gap:10px;">'
+        + '<button onclick="confirmSoundOn()" style="flex:1;padding:12px;background:#b88742;color:#efdeb1;border:none;border-radius:4px;font-weight:bold;font-size:14px;cursor:pointer;">大丈夫！</button>'
+        + '<button onclick="confirmSoundOff()" style="flex:1;padding:12px;background:#420000;color:#efdeb1;border:none;border-radius:4px;font-weight:bold;font-size:14px;cursor:pointer;">ミュートにする</button>'
+        + '</div>';
+    document.getElementById("modalTitle").innerHTML = "🔊 音声について";
+    document.getElementById("modalMessage").innerHTML = msg;
+    document.getElementById("modalBtnGroup").innerHTML = '';
+    document.getElementById("customModal").style.display = "flex";
+}
+
+function confirmSoundOn() {
+    isMuted = false;
+    localStorage.setItem('qr_muted', '0');
+    localStorage.setItem('qr_sound_asked', '1');
+    document.getElementById("customModal").style.display = "none";
+    updateMuteIcon();
+    proceedGameStart();
+}
+
+function confirmSoundOff() {
+    isMuted = true;
+    localStorage.setItem('qr_muted', '1');
+    localStorage.setItem('qr_sound_asked', '1');
+    document.getElementById("customModal").style.display = "none";
+    updateMuteIcon();
+    proceedGameStart();
+}
+
+function proceedGameStart() {
     document.getElementById("pageTop").style.display = "none";
     document.getElementById("gameUI").style.display = "block";
     updateFridgeUI();
+    // アクセスカウント
+    if(database) {
+        const today = new Date(Date.now() + 9*60*60*1000).toISOString().split('T')[0];
+        database.ref('analytics/total').transaction(v => (v||0)+1);
+        database.ref('analytics/daily/'+today).transaction(v => (v||0)+1);
+    }
     // 冷蔵庫タブをアクティブに
     const fridgeTab = document.querySelector('[onclick*="fridge"]');
     const fridgePage = document.getElementById("pageFridge");
@@ -1053,6 +1105,19 @@ function switchTab(tab, el) {
         [1,2,3].forEach(n => { const sel = document.getElementById("ingredient"+n); if(sel && !sel.value) { const h = document.getElementById("statHint"+n); if(h) h.innerText=""; } });
         const spSel = document.getElementById("spice"); if(spSel && !spSel.value) { const hs = document.getElementById("statHintSpice"); if(hs) hs.innerText=""; }
     }
+}
+
+function toggleMute() {
+    isMuted = !isMuted;
+    localStorage.setItem('qr_muted', isMuted ? '1' : '0');
+    if(isMuted && battleBGM) { battleBGM.pause(); }
+    updateMuteIcon();
+}
+
+function updateMuteIcon() {
+    const icon = document.getElementById('muteIcon');
+    if(!icon) return;
+    icon.src = isMuted ? 'sound-off.svg' : 'sound-on.svg';
 }
 
 function toggleHelp() {
@@ -1153,6 +1218,12 @@ function showStaffMenu() {
     btnFull.onclick = function() { staffAction("fullcharge"); };
     msg.appendChild(btnFull);
 
+    const btnAnalytics = document.createElement("button");
+    btnAnalytics.style.cssText = "width:100%;margin-bottom:12px;padding:8px;background:#2c3e50;color:white;border:none;border-radius:6px;font-weight:bold;cursor:pointer;";
+    btnAnalytics.innerHTML = "📊 アクセス数を見る";
+    btnAnalytics.onclick = function() { staffAction("analytics"); };
+    msg.appendChild(btnAnalytics);
+
     // レベル設定ボタン
     const btnLv = document.createElement("button");
     btnLv.style.cssText = "width:100%;margin-bottom:12px;padding:8px;background:#3498db;color:white;border:none;border-radius:6px;font-weight:bold;cursor:pointer;";
@@ -1224,6 +1295,34 @@ function staffAction(action) {
                 } else showCustomAlert("❌ 入力エラー", "1〜" + MAX_LV + " の数字を入力してください。");
             }
         }, 300);
+    } else if(action === 'analytics') {
+        if(!database) { showCustomAlert("❌ Firebase未接続"); return; }
+        database.ref('analytics').once('value').then(function(snap) {
+            const data = snap.val() || {};
+            const total = data.total || 0;
+            const daily = data.daily || {};
+            // 直近14日分を表示
+            let rows = '';
+            const days = [];
+            for(let i = 0; i < 14; i++) {
+                const d = new Date(Date.now() + 9*60*60*1000 - i*86400000);
+                days.push(d.toISOString().split('T')[0]);
+            }
+            days.forEach(function(day) {
+                const cnt = daily[day] || 0;
+                const bar = '█'.repeat(Math.min(cnt, 20));
+                rows += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;font-size:11px;">'
+                    + '<span style="color:#888;min-width:80px;">' + day + '</span>'
+                    + '<span style="color:#b88742;">' + bar + '</span>'
+                    + '<span style="color:#420000;font-weight:bold;">' + cnt + '</span>'
+                    + '</div>';
+            });
+            showCustomAlert('📊 アクセス数',
+                '<div style="margin-bottom:12px;font-size:15px;font-weight:bold;color:#420000;">累計: <span style="font-size:22px;color:#b88742;">' + total + '</span> 回</div>'
+                + '<div style="font-size:12px;color:#888;margin-bottom:8px;">直近14日（日本時間）</div>'
+                + rows
+            );
+        });
     } else if(action === 'setnotice') {
         var ta = document.getElementById("staffNoticeInput");
         var text = ta ? ta.value.trim() : '';
