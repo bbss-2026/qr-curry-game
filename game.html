@@ -481,7 +481,8 @@
 
         <!-- ★プレイヤーアイコン＋名前エリア（移動後） -->
         <div class="profile-area">
-            <img id="playerIconImg" src="mayimage01.png" data-index="1" onclick="togglePlayerIcon()" style="width: 80px; height: 80px; border: 3px solid #e67e22; border-radius: 50%; cursor: pointer; margin-bottom: 10px; transition: transform 0.2s;">
+            <img id="playerIconImg" src="mayimage01.png" data-index="1" onclick="togglePlayerIcon()" style="width: 80px; height: 80px; border: 3px solid #e67e22; border-radius: 50%; cursor: pointer; margin-bottom: 6px; transition: transform 0.2s;">
+            <div id="playerIdDisplay" style="font-size:10px; color:#b88742; margin-bottom:10px;">ID: ----------</div>
             <br>
             <input type="text" id="playerNameInput" class="input-name" placeholder="料理人の名前を入力" onchange="handleNameChange(this.value)">
             <p class="profile-hint">※プレイヤーアイコン、名前はタップで変更できます。</p>
@@ -1175,12 +1176,14 @@ let cachedOppIconFile = "mayimage01.png";
 let isBotMatch = false; let activeBotData = null;
 let isMuted = (localStorage.getItem('qr_muted') === '1');
 let isDebugMode = (localStorage.getItem('qr_debug_mode') === '1');
+let playerId = localStorage.getItem('qr_player_id') || '';
+let playerSecretKey = localStorage.getItem('qr_secret_key') || '';
 let battleAborted = false; // バトル強制終了フラグ
 let onlineRole = 'host'; // 対人戦での自分の役割
 let discoveredItems = {};
 let cachedOpponentName = "";
 let cachedOpponentCurry = null;
-window.onload = function() { loadGame(); updateCookSelects(); refreshRecipeBookUI(); updateShopButtons(); listenToRooms(); updateMatchCurrySelects(); setupLoadedIconUI(); updateLvDisplay(); loadNotice(); initQuest(); loadTopNotice(); updateMuteIcon(); };
+window.onload = function() { loadGame(); updateCookSelects(); refreshRecipeBookUI(); updateShopButtons(); listenToRooms(); updateMatchCurrySelects(); setupLoadedIconUI(); updateLvDisplay(); loadNotice(); initQuest(); loadTopNotice(); updateMuteIcon(); initPlayerId(); };
 function gameStart() {
     // 初回のみ音声確認モーダルを出す
     if(localStorage.getItem('qr_sound_asked') !== '1') {
@@ -1354,6 +1357,74 @@ function saveGame() {
     updateShopButtons();
     updateLvDisplay();
 }
+function generateSecretKey() {
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+        const r = Math.random() * 16 | 0;
+        const v = c === 'x' ? r : (r & 0x3 | 0x8);
+        return v.toString(16);
+    });
+}
+
+function generateRandomIdSuffix() {
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // 紛らわしい文字(0,O,1,I)を除外
+    let s = '';
+    for (let i = 0; i < 8; i++) s += chars[Math.floor(Math.random() * chars.length)];
+    return s;
+}
+
+function initPlayerId() {
+    if (!playerSecretKey) {
+        playerSecretKey = generateSecretKey();
+        localStorage.setItem('qr_secret_key', playerSecretKey);
+    }
+    if (playerId) {
+        // 既にローカルにIDがあればそのまま表示
+        updatePlayerIdDisplay();
+        // Firebaseに登録済みか確認（未登録ならこの機会に登録）
+        if (database) {
+            database.ref('players/' + playerId).once('value').then(function(snap) {
+                if (!snap.exists()) {
+                    database.ref('players/' + playerId).set({ secretKey: playerSecretKey, name: playerName, createdAt: Date.now() });
+                }
+            });
+        }
+        return;
+    }
+    if (!database) {
+        // Firebase未接続の場合はローカルのみでID発行（後で同期される可能性あり）
+        playerId = 'BC-' + generateRandomIdSuffix();
+        localStorage.setItem('qr_player_id', playerId);
+        updatePlayerIdDisplay();
+        return;
+    }
+    // 新規ID発行：重複しないIDを探して登録
+    function tryAssign() {
+        const candidate = 'BC-' + generateRandomIdSuffix();
+        database.ref('players/' + candidate).once('value').then(function(snap) {
+            if (snap.exists()) {
+                tryAssign(); // 重複したら再試行（極めて低確率）
+            } else {
+                database.ref('players/' + candidate).set({ secretKey: playerSecretKey, name: playerName, createdAt: Date.now() }).then(function() {
+                    playerId = candidate;
+                    localStorage.setItem('qr_player_id', playerId);
+                    updatePlayerIdDisplay();
+                });
+            }
+        }).catch(function() {
+            // Firebase通信エラー時はローカルのみでID発行
+            playerId = candidate;
+            localStorage.setItem('qr_player_id', playerId);
+            updatePlayerIdDisplay();
+        });
+    }
+    tryAssign();
+}
+
+function updatePlayerIdDisplay() {
+    const el = document.getElementById('playerIdDisplay');
+    if (el) el.innerText = 'ID: ' + (playerId || '発行中...');
+}
+
 function loadGame() {
     const savedInv = localStorage.getItem('qr_curry_inv');
     const savedHistory = localStorage.getItem('qr_curry_history');
@@ -1389,7 +1460,13 @@ function loadGame() {
     document.getElementById("globalG").innerText = playerG;
     document.getElementById("globalTicket").innerText = packTicket;
 }
-function handleNameChange(val) { if(!val.trim()) val = "名無しの料理人"; playerName = val; document.getElementById("headerPlayerName").innerText = val; saveGame(); }
+function handleNameChange(val) {
+    if(!val.trim()) val = "名無しの料理人";
+    playerName = val;
+    document.getElementById("headerPlayerName").innerText = val;
+    saveGame();
+    if (database && playerId) { database.ref('players/' + playerId + '/name').set(val); }
+}
 function clearSaveData() {
     showCustomConfirm("全初期化", "セーブデータをすべてリセットします（初期配布チケット2枚になります）。本当によろしいですか？", function() {
         localStorage.clear(); inventory = {}; scanHistory = {}; playerG = 0; playerEXP = 0; packTicket = 2; curryStock = []; playerName = "名無しの料理人"; recipeBook = {}; discoveredItems = {}; saveUnlockedIcons(["mayimage01.png","mayimage02.png","mayimage03.png"]); currentIconFile = "mayimage01.png"; localStorage.setItem("selectedPlayerIcon", "mayimage01.png"); loadGame(); updateFridgeUI(); updateCookSelects(); refreshRecipeBookUI(); updateShopButtons(); document.getElementById("resultBox").style.display = "none"; saveGame(); updateLvDisplay(); setupLoadedIconUI();
@@ -1904,7 +1981,9 @@ function generateBackupCode() {
         loginData: localStorage.getItem('qr_login') || '{}',
         icon07got: localStorage.getItem('qr_icon07_got') || '',
         stockLimit: localStorage.getItem('qr_curry_stock_limit') || '',
-        ver: 1
+        playerId: playerId || '',
+        secretKey: playerSecretKey || '',
+        ver: 2
     };
     return btoa(unescape(encodeURIComponent(JSON.stringify(saveData))));
 }
@@ -1958,6 +2037,15 @@ function restoreFromBackupCode() {
                 if(decoded.stockLimit) localStorage.setItem('qr_curry_stock_limit', decoded.stockLimit);
                 else localStorage.removeItem('qr_curry_stock_limit');
                 localStorage.setItem('selectedPlayerIcon', currentIconFile);
+                // プレイヤーID・シークレットキーの復元（ver2以降）
+                if(decoded.playerId && decoded.secretKey) {
+                    playerId = decoded.playerId;
+                    playerSecretKey = decoded.secretKey;
+                    localStorage.setItem('qr_player_id', playerId);
+                    localStorage.setItem('qr_secret_key', playerSecretKey);
+                    updatePlayerIdDisplay();
+                    if(database) { database.ref('players/' + playerId).update({ secretKey: playerSecretKey, name: playerName }); }
+                }
                 saveGame();
                 updateFridgeUI(); updateCookSelects(); refreshRecipeBookUI();
                 updateShopButtons(); updateMatchCurrySelects();
