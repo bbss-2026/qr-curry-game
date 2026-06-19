@@ -2965,6 +2965,11 @@ function startBattleScene(oppN, oppC, myC) {
     const pop = document.getElementById("damagePop"); pop.style.display="none"; pop.style.animation="none"; pop.innerText="0";
     document.getElementById("battleSetup").style.display = "none";
     document.getElementById("battleArena").style.display = "block";
+    // バトル画面が見えるようにスクロール
+    requestAnimationFrame(() => {
+        const arena = document.getElementById("battleArena");
+        if(arena) arena.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
     document.getElementById("pOwnerText").innerText = playerName;
     document.getElementById("playerCurryNameText").innerText = myC.name;
     if (!isBotMatch) {
