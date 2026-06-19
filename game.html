@@ -2922,6 +2922,9 @@ let guestBattleRef = null;
 function startBattleScene(oppN, oppC, myC) {
     // バトル画面セットアップ
     battleAborted = false; // バトル開始時にリセット
+    // 古いリスナーが残っていれば解除（リスナー重複防止）
+    if(guestBattleRef) { guestBattleRef.off(); guestBattleRef = null; }
+    if(currentRoomId && database) { database.ref('rooms/'+currentRoomId+'/forfeit').off(); }
     document.getElementById("battleResultBox").style.display = "none";
     const overlay2 = document.getElementById("battleResultOverlay"); if(overlay2) overlay2.style.display = "none";
     ["oppOwnerText","oHpText","pOwnerText","pHpText"].forEach(id => { const el=document.getElementById(id); if(el){ el.style.color=""; el.classList.remove("name-poisoned","name-illuded"); } });
@@ -3015,7 +3018,9 @@ function startBattleScene(oppN, oppC, myC) {
         } else {
             // ゲスト：Firebaseを監視してturnsが来たら再生
             let started = false;
-            guestBattleRef = database.ref('rooms/' + currentRoomId + '/turns');
+            const turnsRefPath = database.ref('rooms/' + currentRoomId + '/turns');
+            turnsRefPath.off(); // 念のため古いリスナーを解除してから新規登録
+            guestBattleRef = turnsRefPath;
             guestBattleRef.on('value', snap => {
                 if(started) return;
                 const data = snap.val();
@@ -3194,6 +3199,9 @@ function triggerEffect(target, damage) {
     pop.innerHTML = isCritHit ? `<div class="crit-label">Spicy Hit!!!!!!!!</div><div class="crit-dmg">${damage}</div>` : damage;
     pop.style.display="block"; pop.style.animation="none"; pop.className="damage-pop";
     pop.offsetHeight;
+    // 前回のフラッシュ系クラスが残っていれば強制的にクリア（タイマー競合対策）
+    const stageEl = document.getElementById("battleStage");
+    if(stageEl) stageEl.classList.remove("flash-red","flash-purple","flash-gold","flash-crit");
     if(target==="enemy"||target==="enemy-gold"||target==="enemy-poison"||target==="enemy-crit"){
         document.getElementById("enemyZone").classList.add("animate-shake");
         pop.style.top="130px"; pop.style.left="25%";
@@ -3214,6 +3222,9 @@ function triggerEffect(target, damage) {
 }
 function done(pHP, oHP, myC, oppC) {
     stopBattleBGM();
+    // バトル終了時にフラッシュ系クラスを完全クリア（次バトルへの影響防止）
+    const stageElDone = document.getElementById("battleStage");
+    if(stageElDone) stageElDone.classList.remove("flash-red","flash-purple","flash-gold","flash-crit","animate-shake");
     const isWin = pHP > oHP;
     const overlay=document.getElementById("battleResultOverlay"); const bigText=document.getElementById("battleResultBig");
     if(overlay&&bigText){bigText.innerText=isWin?"🏆 勝利!!":"💀 敗北..."; bigText.style.color=isWin?"#2ecc71":"#ff4444"; overlay.style.display="flex"; setTimeout(()=>{overlay.style.display="none"; document.getElementById("battleResultBox").style.display="block";},2000);}
@@ -3264,6 +3275,8 @@ function done(pHP, oHP, myC, oppC) {
 function endBattleScene() {
     stopBattleBGM();
     if(guestBattleRef){guestBattleRef.off();guestBattleRef=null;}
+    // forfeitリスナーも確実に解除（リスナー重複防止）
+    if(currentRoomId && database) { database.ref('rooms/'+currentRoomId+'/forfeit').off(); }
     document.getElementById("battleResultBox").style.display="none";
     document.getElementById("battleSetup").style.display="block";
     document.getElementById("lobbyArea").style.display="block";
