@@ -1198,10 +1198,11 @@ function clearSaveData() {
     });
 }
 function triggerStaffOnly() {
+    if(isDebugMode) { showStaffMenu(); return; }
     showCustomAlert("🔒 Staff Only", "パスワードを入力してください", function() {
         setTimeout(() => {
             const pass = prompt("🔑 パスワード:");
-            if (pass !== "5555") { if(pass !== null) showCustomAlert("❌ パスワード不一致"); return; }
+            if (pass !== "55551") { if(pass !== null) showCustomAlert("❌ パスワード不一致"); return; }
             showStaffMenu();
         }, 300);
     });
@@ -1221,7 +1222,7 @@ function showStaffMenu() {
 
     const btnAnalytics = document.createElement("button");
     btnAnalytics.style.cssText = "width:100%;margin-bottom:8px;padding:8px;background:#2c3e50;color:white;border:none;border-radius:6px;font-weight:bold;cursor:pointer;";
-    btnAnalytics.innerHTML = "📊 アクセス数を見る";
+    btnAnalytics.innerHTML = "📊 アナリティクス";
     btnAnalytics.onclick = function() { staffAction("analytics"); };
     msg.appendChild(btnAnalytics);
 
@@ -1308,8 +1309,21 @@ function staffAction(action) {
             const data = snap.val() || {};
             const total = data.total || 0;
             const daily = data.daily || {};
-            // 直近14日分を表示
-            let rows = '';
+            const scan = data.scan || {};
+            const cook = data.cook || {};
+            const battle = data.battle || {};
+
+            function row(label, val) {
+                return '<div style="display:flex;justify-content:space-between;padding:3px 0;font-size:12px;">'
+                    + '<span style="color:#5a3a1a;">' + label + '</span>'
+                    + '<span style="color:#420000;font-weight:bold;">' + (val||0) + '</span></div>';
+            }
+            function section(title) {
+                return '<div style="font-size:13px;font-weight:bold;color:#420000;margin:14px 0 6px;border-bottom:1px solid #b88742;padding-bottom:4px;">' + title + '</div>';
+            }
+
+            // 直近14日のアクセス
+            let dailyRows = '';
             const days = [];
             for(let i = 0; i < 14; i++) {
                 const d = new Date(Date.now() + 9*60*60*1000 - i*86400000);
@@ -1318,17 +1332,42 @@ function staffAction(action) {
             days.forEach(function(day) {
                 const cnt = daily[day] || 0;
                 const bar = '█'.repeat(Math.min(cnt, 20));
-                rows += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;font-size:11px;">'
+                dailyRows += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;font-size:11px;">'
                     + '<span style="color:#888;min-width:80px;">' + day + '</span>'
                     + '<span style="color:#b88742;">' + bar + '</span>'
                     + '<span style="color:#420000;font-weight:bold;">' + cnt + '</span>'
                     + '</div>';
             });
-            showCustomAlert('📊 アクセス数',
-                '<div style="margin-bottom:12px;font-size:15px;font-weight:bold;color:#420000;">累計: <span style="font-size:22px;color:#b88742;">' + total + '</span> 回</div>'
-                + '<div style="font-size:12px;color:#888;margin-bottom:8px;">直近14日（日本時間）</div>'
-                + rows
-            );
+
+            const html = '<div style="text-align:left;max-height:60vh;overflow-y:auto;">'
+                + '<div style="margin-bottom:8px;font-size:15px;font-weight:bold;color:#420000;">累計アクセス: <span style="font-size:22px;color:#b88742;">' + total + '</span> 回</div>'
+
+                + section('📷 QRスキャン')
+                + row('通常スキャン', scan.normal)
+                + row('ボーナス(3個入手)', scan.bonus)
+                + row('合計', scan.total)
+
+                + section('🍛 調理')
+                + row('合計調理回数', cook.total)
+                + row('ノーマル', cook.normal)
+                + row('☠️ 毒', cook.poison)
+                + row('🌀 幻惑', cook.illusion)
+                + row('🌱 種連発', cook.seed)
+                + row('🍅 マルゲリータ', cook.margherita)
+                + row('🌊 海の幸', cook.seafood)
+                + row('🐷 トントントン', cook.tonton)
+                + row('✨ 金箔', cook.gold)
+
+                + section('⚔️ バトル')
+                + row('PC戦（初級）', battle.bot)
+                + row('PC戦（強敵）', battle.hard)
+                + row('ルーム対戦', battle.room)
+
+                + section('📅 直近14日アクセス（日本時間）')
+                + dailyRows
+                + '</div>';
+
+            showCustomAlert('📊 アナリティクス', html);
         });
     } else if(action === 'debugmode') {
         isDebugMode = !isDebugMode;
@@ -1400,6 +1439,12 @@ const ACHIEVEMENTS = [
     { id:'sea_c',     text:'あれ？波の音が聞こえる',   check: d => d.gotSeafood },
     { id:'bonus_qr',  text:'え、このQR、こんなに！？', check: d => d.gotBonusQR },
 ];
+
+// --- グローバル統計（Firebaseに全プレイヤー分集計） ---
+function incrementGlobalStat(path) {
+    if(!database || isDebugMode) return;
+    database.ref('analytics/' + path).transaction(v => (v||0) + 1);
+}
 
 // --- 統計データ読み書き ---
 function getStats() {
@@ -1589,6 +1634,9 @@ function onQRScanned(isBonusQR) {
         if(isBonusQR) s.gotBonusQR = true;
     });
     progressDailyQuest('scan');
+    // グローバル集計
+    incrementGlobalStat('scan/total');
+    incrementGlobalStat(isBonusQR ? 'scan/bonus' : 'scan/normal');
 }
 
 // 調理完了時
@@ -1604,10 +1652,25 @@ function onCookDone(curry) {
     progressDailyQuest('cook');
     const isSpecial = curry.isPoison||curry.isIllusion||curry.isSeed||curry.isMargherita||curry.isSeafood||curry.isTonTonTon||curry.isSticky;
     if(isSpecial) progressDailyQuest('special');
+    // グローバル集計
+    incrementGlobalStat('cook/total');
+    if(curry.isPoison) incrementGlobalStat('cook/poison');
+    if(curry.isIllusion) incrementGlobalStat('cook/illusion');
+    if(curry.isSeed) incrementGlobalStat('cook/seed');
+    if(curry.isMargherita) incrementGlobalStat('cook/margherita');
+    if(curry.isSeafood) incrementGlobalStat('cook/seafood');
+    if(curry.isTonTonTon) incrementGlobalStat('cook/tonton');
+    if(curry.isSticky) incrementGlobalStat('cook/sticky');
+    if(curry.hasGold) incrementGlobalStat('cook/gold');
+    if(!isSpecial) incrementGlobalStat('cook/normal');
 }
 
 // バトル勝利時
 function onBattleWin(type, botName) {
+    // グローバル集計（バトル実施数として）
+    if(type === 'bot') incrementGlobalStat('battle/bot');
+    else if(type === 'hard') incrementGlobalStat('battle/hard');
+    else if(type === 'room') incrementGlobalStat('battle/room');
     updateStats(s => {
         s.totalWins = (s.totalWins||0) + 1;
         if(type === 'bot') {
@@ -2933,6 +2996,10 @@ function done(pHP, oHP, myC, oppC) {
         res.innerText="💀 敗北 ..."; res.style.color="#e74c3c";
         const oldEXP2=playerEXP; playerEXP+=1;
         rew.innerHTML=`✨ +1EXP どんまい！`;
+        // 敗北時もバトル実施数として集計
+        if(isBotMatch && oppC.isHardBot) incrementGlobalStat('battle/hard');
+        else if(isBotMatch) incrementGlobalStat('battle/bot');
+        else incrementGlobalStat('battle/room');
         setTimeout(()=>checkLvUp(oldEXP2,playerEXP),800);
     }
     curryStock.splice(selectedCurryIndex,1); selectedCurryIndex=curryStock.length?0:-1;
