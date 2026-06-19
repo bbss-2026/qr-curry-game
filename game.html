@@ -489,6 +489,7 @@
     <!-- 調理タブ -->
     <div id="pageCook" class="page">
         <button class="btn btn-rand" onclick="selectRandomIngredients()">ランダム選択</button>
+        <button class="btn btn-rand" style="background:#9a6e30;" onclick="showRecommendModal()">おすすめセット</button>
         <div id="favRecipeArea" style="margin-bottom:8px; display:none;">
             <select id="favRecipeSelect" class="fav-recipe-select" onchange="applyFavRecipe(this.value)">
                 <option value="">⭐ お気に入りレシピから選択...</option>
@@ -534,6 +535,15 @@
             <span id="statHintSpice" style="font-size:11px; color:#9b59b6; font-weight:bold;"></span>
         </div>
         <select id="spice" onchange="updateSpiceHint()"></select>
+        <div id="cookPreviewBox" style="margin-top:14px; padding:10px 12px; background:#f5e9c8; border:1px solid #b88742; border-radius:4px; display:none;">
+            <div style="font-size:11px; color:#b88742; font-weight:bold; margin-bottom:6px;">完成時ステータス（合計値）</div>
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:6px; font-size:12px; color:#420000; font-weight:bold;">
+                <div>HP: <span id="previewHP">0</span></div>
+                <div>ATK: <span id="previewATK">0</span></div>
+                <div>DEF: <span id="previewDEF">0</span></div>
+                <div>SPD: <span id="previewSPD">0</span></div>
+            </div>
+        </div>
     </div>
 
     <!-- 対戦アリーナタブ -->
@@ -661,6 +671,73 @@ function showIconGetOverlay(iconSrc, subText) {
 function closeIconGetOverlay() {
     const overlay = document.getElementById('iconGetOverlay');
     if(overlay) overlay.style.display = 'none';
+}
+
+function showRecommendModal() {
+    const msg = '<div style="font-size:12px;color:#420000;margin-bottom:12px;">優先したいステータスを選んでください（複数選択可）</div>'
+        + '<div style="display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin-bottom:4px;">'
+        + ['HP','ATK','DEF','SPD'].map(s =>
+            '<label style="display:flex;align-items:center;gap:4px;padding:8px 12px;background:#f5e9c8;border:1px solid #b88742;border-radius:4px;font-size:13px;font-weight:bold;color:#420000;cursor:pointer;">'
+            + '<input type="checkbox" id="recChk' + s + '" style="width:16px;height:16px;">' + s
+            + '</label>'
+        ).join('')
+        + '</div>';
+    showCustomConfirm('🍛 おすすめセット', msg, function() {
+        const stats = [];
+        ['HP','ATK','DEF','SPD'].forEach(s => { const c = document.getElementById('recChk'+s); if(c && c.checked) stats.push(s.toLowerCase()); });
+        if(stats.length === 0) { showCustomAlert('⚠️ 未選択', '優先したいステータスを1つ以上選んでください。'); return; }
+        applyRecommendedSet(stats);
+    });
+}
+
+function applyRecommendedSet(priorityStats) {
+    // 在庫1個以上の食材・スパイスのみ対象
+    const availIngredients = Object.keys(masterIngredients).filter(k => (inventory[k]||0) > 0);
+    const availSpices = Object.keys(masterSpices).filter(k => (inventory[k]||0) > 0);
+
+    if(availIngredients.length === 0) {
+        showCustomAlert('⚠️ 食材不足', '食材の在庫がありません。');
+        return;
+    }
+
+    // 各食材のスコアを計算（優先ステータスの合計）
+    function scoreOf(d) {
+        let s = 0;
+        priorityStats.forEach(st => { s += d[st] || 0; });
+        return s;
+    }
+
+    // 食材をスコア降順にソートし、上位3つ（重複可）を採用
+    // 計算量を絞るため、上位5件からランダム性を持たせつつ高スコアを優先
+    const sortedIngredients = [...availIngredients].sort((a,b) => scoreOf(masterIngredients[b]) - scoreOf(masterIngredients[a]));
+    const topPool = sortedIngredients.slice(0, Math.min(5, sortedIngredients.length));
+    const picks = [];
+    for(let i = 0; i < 3; i++) {
+        picks.push(topPool[Math.floor(Math.random() * topPool.length)]);
+    }
+
+    // スパイス選定：優先ステータスに対応するmulを持つスパイスを優先
+    let bestSpice = '';
+    if(availSpices.length > 0) {
+        const matchSpices = availSpices.filter(k => priorityStats.includes(masterSpices[k].mul));
+        if(matchSpices.length > 0) {
+            // valが一番高いものを選ぶ
+            bestSpice = matchSpices.sort((a,b) => masterSpices[b].val - masterSpices[a].val)[0];
+        } else {
+            // 該当なしならランダム
+            bestSpice = availSpices[Math.floor(Math.random() * availSpices.length)];
+        }
+    }
+
+    // プルダウンに反映
+    document.getElementById("ingredient1").value = picks[0] || "";
+    document.getElementById("ingredient2").value = picks[1] || "";
+    document.getElementById("ingredient3").value = picks[2] || "";
+    document.getElementById("spice").value = bestSpice;
+    [1,2,3].forEach(n => updateIngredientHint(n));
+    updateSpiceHint();
+
+    showCustomAlert('🍛 おすすめセット完了', '優先ステータス（' + priorityStats.map(s=>s.toUpperCase()).join('・') + '）を重視した組み合わせをセットしました！<br>※あくまでおすすめです。最適解ではありません。');
 }
 
 function showIconSelectModal() {
@@ -2195,23 +2272,52 @@ function updateCookSelects() {
 function updateIngredientHint(num) {
     const val = document.getElementById("ingredient" + num).value;
     const el = document.getElementById("statHint" + num);
-    if (!el) return;
-    if (!val || !masterIngredients[val]) { el.innerText = ""; return; }
-    const d = masterIngredients[val];
-    el.innerText = `HP+${d.hp} / ATK+${d.atk} / DEF+${d.def} / SPD+${d.spd}`;
+    if (el) {
+        if (!val || !masterIngredients[val]) { el.innerText = ""; }
+        else { const d = masterIngredients[val]; el.innerText = `HP+${d.hp} / ATK+${d.atk} / DEF+${d.def} / SPD+${d.spd}`; }
+    }
+    updateCookPreview();
 }
 function updateSpiceHint() {
     const val = document.getElementById("spice").value;
     const el = document.getElementById("statHintSpice");
-    if (!el) return;
-    if (!val || !masterSpices[val]) { el.innerText = ""; return; }
-    const d = masterSpices[val];
-    const statName = d.mul === "hp" ? "HP" : d.mul === "atk" ? "ATK" : d.mul === "def" ? "DEF" : "SPD";
-    el.innerText = `${statName} ${d.val}倍`;
+    if (el) {
+        if (!val || !masterSpices[val]) { el.innerText = ""; }
+        else { const d = masterSpices[val]; const statName = d.mul === "hp" ? "HP" : d.mul === "atk" ? "ATK" : d.mul === "def" ? "DEF" : "SPD"; el.innerText = `${statName} ${d.val}倍`; }
+    }
+    updateCookPreview();
 }
 function clearAllHints() {
     [1,2,3].forEach(n => { const el = document.getElementById("statHint"+n); if(el) el.innerText=""; });
     const es = document.getElementById("statHintSpice"); if(es) es.innerText="";
+    updateCookPreview();
+}
+
+function updateCookPreview() {
+    const i1 = document.getElementById("ingredient1").value;
+    const i2 = document.getElementById("ingredient2").value;
+    const i3 = document.getElementById("ingredient3").value;
+    const sp = document.getElementById("spice").value;
+    const box = document.getElementById("cookPreviewBox");
+    if(!box) return;
+    if(!i1 && !i2 && !i3 && !sp) { box.style.display = "none"; return; }
+    let hp=0, atk=0, def=0, spd=0;
+    [i1,i2,i3].forEach(name => {
+        const d = masterIngredients[name];
+        if(d) { hp+=d.hp; atk+=d.atk; def+=d.def; spd+=d.spd; }
+    });
+    if(sp && masterSpices[sp]) {
+        const sd = masterSpices[sp];
+        if(sd.mul === "hp") hp = Math.round(hp * sd.val);
+        else if(sd.mul === "atk") atk = Math.round(atk * sd.val);
+        else if(sd.mul === "def") def = Math.round(def * sd.val);
+        else if(sd.mul === "spd") spd = Math.round(spd * sd.val);
+    }
+    document.getElementById("previewHP").innerText = hp;
+    document.getElementById("previewATK").innerText = atk;
+    document.getElementById("previewDEF").innerText = def;
+    document.getElementById("previewSPD").innerText = spd;
+    box.style.display = "block";
 }
 function checkCookStock() {
     const i1 = document.getElementById("ingredient1").value; const i2 = document.getElementById("ingredient2").value; const i3 = document.getElementById("ingredient3").value; const sp = document.getElementById("spice").value;
