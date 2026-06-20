@@ -240,12 +240,26 @@
         .battle-stage.event-mode { padding: 0; overflow: hidden; }
         .battle-stage.event-mode .enemy-zone { gap: 0; }
         .battle-stage.event-mode .enemy-upper-row { display: block; position: relative; }
-        .battle-stage.event-mode .enemy-visual-box { width: 100%; height: 180px; background-size: cover; background-position: center; border-radius: 0; }
-        .battle-stage.event-mode .enemy-visual-box .char-visual { display: none; }
-        .battle-stage.event-mode .hp-container.enemy-hp { position: absolute; top: 0; left: 0; width: 100%; box-sizing: border-box; background: linear-gradient(to bottom, rgba(0,0,0,0.6), rgba(0,0,0,0)); border-radius: 0; padding: 10px 12px; }
+        .battle-stage.event-mode .enemy-visual-box { display: none; }
+        #eventBgWrap { display: none; }
+        .battle-stage.event-mode .hp-container.enemy-hp {
+            position: relative; width: 100%; box-sizing: border-box;
+            background: transparent !important; border-radius: 0; padding: 10px 12px 0;
+            display: flex; flex-direction: column;
+        }
+        .battle-stage.event-mode #oppOwnerText {
+            order: 1; font-size: 15px; color: #fff !important;
+            -webkit-text-stroke: 2px #000; text-shadow: 1px 1px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000;
+            margin-bottom: 4px !important;
+        }
+        .battle-stage.event-mode .hp-bar-bg { order: 2; }
+        .battle-stage.event-mode #oHpText { display: none; }
         .battle-stage.event-mode .enemy-lower-row { display: none; }
-        .battle-stage.event-mode #oppOwnerText { font-size: 15px; }
-        .battle-stage.event-mode .player-zone { margin-top: 8px; }
+        .battle-stage.event-mode .event-bg-wrap { width: 100%; padding-top: 6px; }
+        .battle-stage.event-mode .event-bg-wrap img { width: 100%; display: block; border-radius: 6px; }
+        .battle-stage.event-mode .player-zone { margin-top: 8px; align-items: center; }
+        .battle-stage.event-mode .player-zone > div:nth-child(2) { max-width: 56% !important; }
+        .battle-stage.event-mode .player-zone .hp-container:not(.enemy-hp) { width: 26% !important; }
 
         /* アイコン獲得演出 */
         #iconGetOverlay { position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.75); z-index:99999; display:none; justify-content:center; align-items:center; flex-direction:column; }
@@ -654,7 +668,7 @@
             <div class="battle-stage" id="battleStage">
                 <div class="damage-pop" id="damagePop" style="display:none;">0</div>
                 <div id="battleResultOverlay" style="display:none; position:absolute; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.6); z-index:20; display:none; flex-direction:column; justify-content:center; align-items:center; border-radius:8px;">
-                    <div id="battleResultBig" style="font-size:52px; font-weight:900; font-family:'Impact',Arial,sans-serif; -webkit-text-stroke:2px #000; text-shadow:0 0 20px rgba(0,0,0,0.8); animation:resultPop 0.4s ease-out;"></div>
+                    <div id="battleResultBig" style="font-size:52px; font-weight:900; font-family:'Impact',Arial,sans-serif; -webkit-text-stroke:2px #000; text-shadow:0 0 20px rgba(0,0,0,0.8); animation:resultPop 0.4s ease-out; white-space:nowrap; max-width:92%; text-align:center;"></div>
                 </div>
                 
                 <div class="enemy-zone" id="enemyZone">
@@ -668,6 +682,9 @@
                             <div id="oHpText" style="font-size:11px; text-align:right; font-weight:bold; margin-top:2px;">HP: --/--</div>
                         </div>
                     </div>
+                    <div class="event-bg-wrap" id="eventBgWrap" style="display:none;">
+                        <img id="eventBgImg" src="" alt="">
+                    </div>
                     <div class="enemy-lower-row">
                         <div class="enemy-curry-emoji" id="oppCurryEmojiText">🍛</div>
                         <div class="sub-name-label" id="oppCurryNameText">相手のカレー名</div>
@@ -675,6 +692,7 @@
                 </div>
                 
                 <div class="player-zone">
+                    <img id="eventPlayerIcon" src="" style="display:none; width:44px; height:44px; border-radius:50%; border:2px solid #e67e22; object-fit:cover; flex-shrink:0;" alt="">
                     <div style="text-align:left; max-width:55%;">
                         <div style="font-weight:bold; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:13px;" id="pOwnerText">プレイヤー名</div>
                         <div style="display:flex; align-items:center; gap:4px; margin:4px 0; flex-wrap:wrap;">
@@ -3174,7 +3192,11 @@ function launchEventBattle(myC, startHp) {
     document.getElementById("battleSetup").style.display = "none";
     document.getElementById("battleArena").style.display = "block";
     document.getElementById("battleStage").classList.add("event-mode");
-    document.querySelector("#enemyZone .enemy-visual-box").style.backgroundImage = "url(tokumori001.jpg)";
+    const bgWrap = document.getElementById("eventBgWrap");
+    const bgImg = document.getElementById("eventBgImg");
+    if(bgWrap && bgImg) { bgImg.src = "tokumori001.jpg"; bgWrap.style.display = "block"; }
+    const evPlayerIcon = document.getElementById("eventPlayerIcon");
+    if(evPlayerIcon) { evPlayerIcon.src = currentIconFile; evPlayerIcon.style.display = "block"; }
 
     requestAnimationFrame(() => {
         const arena = document.getElementById("battleArena");
@@ -3320,7 +3342,7 @@ function eventBattleFinish(pHP, oHP, myC, wasBlownAway){
     const overlay=document.getElementById("battleResultOverlay"); const bigText=document.getElementById("battleResultBig");
     const verdictText = wasBlownAway ? "💨 吹き飛ばされた..." : "💀 敗北...";
     const verdictColor = wasBlownAway ? "#9b59b6" : "#ff4444";
-    if(overlay&&bigText){ bigText.innerText=verdictText; bigText.style.color=verdictColor; overlay.style.display="flex"; setTimeout(()=>{ overlay.style.display="none"; document.getElementById("battleResultBox").style.display="block"; },2000); }
+    if(overlay&&bigText){ bigText.innerText=verdictText; bigText.style.color=verdictColor; bigText.style.fontSize = wasBlownAway ? "34px" : "52px"; overlay.style.display="flex"; setTimeout(()=>{ overlay.style.display="none"; document.getElementById("battleResultBox").style.display="block"; bigText.style.fontSize="52px"; },2000); }
     else document.getElementById("battleResultBox").style.display="block";
     document.getElementById("pOwnerText").style.color="#ff4444"; document.getElementById("pHpText").style.color="#ff4444";
 
@@ -3342,8 +3364,10 @@ function eventBattleFinish(pHP, oHP, myC, wasBlownAway){
 function endEventMode(){
     const stageEl = document.getElementById("battleStage");
     if(stageEl) stageEl.classList.remove("event-mode");
-    const vBox = document.querySelector("#enemyZone .enemy-visual-box");
-    if(vBox) vBox.style.backgroundImage = "";
+    const bgWrap = document.getElementById("eventBgWrap");
+    if(bgWrap) bgWrap.style.display = "none";
+    const evPlayerIcon = document.getElementById("eventPlayerIcon");
+    if(evPlayerIcon) evPlayerIcon.style.display = "none";
 }
 
 function startBattleScene(oppN, oppC, myC) {
