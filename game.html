@@ -331,6 +331,7 @@
         <img src="topimage01.png" alt="Battle Curry" class="top-image">
         <button class="btn-gamestart" onclick="gameStart()">GAME START</button>
         <div class="top-notice" id="topNoticeBox"></div>
+        <div class="top-notice" id="topInfoTextBox" style="margin-top:12px;"></div>
         <a href="https://x.com/BattleCurryGame" target="_blank" style="display:block;width:88%;max-width:360px;margin-top:16px;padding:10px;background:transparent;color:#420000;border:1px solid #b88742;border-radius:4px;font-size:12px;font-weight:bold;cursor:pointer;text-align:center;text-decoration:none;box-sizing:border-box;">𝕏 @BattleCurryGame</a>
         <button style="width:88%;max-width:360px;margin-top:10px;padding:10px;background:transparent;color:#420000;border:1px solid #b88742;border-radius:4px;font-size:12px;font-weight:bold;cursor:pointer;" onclick="showBackupCode()">🔑 バックアップコードを発行</button>
     </div>
@@ -1300,11 +1301,25 @@ function goToTop() {
     loadTopNotice();
 }
 
+const DEFAULT_TOP_INFO_TEXT = "プレイデータはブラウザごとに記憶されるので、同じ環境でプレイしないと続きから遊べません！\nLINEやX、Instagramでアクセスしてきた人はChromeやSafariなどブラウザで開き直してからプレイするのをオススメします！\nまた、プレイされているブラウザのキャッシュや履歴の削除によりデータが消える可能性があります。\nキャラクターIDを控え、定期的にバックアップコードを発行し、メモなどにコピペ保存してください。\nお手数おかけして申し訳ありません...";
+
 function loadTopNotice() {
     if(!database) return;
     database.ref("notice").once("value").then(function(snap) {
         const text = snap.val() || "";
         const box = document.getElementById("topNoticeBox");
+        if(!box) return;
+        if(text) {
+            box.innerHTML = text.replace(/\n/g, "<br>");
+            box.style.display = "block";
+        } else {
+            box.style.display = "none";
+        }
+    });
+    database.ref("topInfoText").once("value").then(function(snap) {
+        const val = snap.val();
+        const text = (val === null || val === undefined) ? DEFAULT_TOP_INFO_TEXT : val;
+        const box = document.getElementById("topInfoTextBox");
         if(!box) return;
         if(text) {
             box.innerHTML = text.replace(/\n/g, "<br>");
@@ -1590,10 +1605,30 @@ function showStaffMenu() {
 
     // 保存ボタン
     const btnSave = document.createElement("button");
-    btnSave.style.cssText = "width:100%;margin-top:6px;padding:8px;background:#2ecc71;color:white;border:none;border-radius:6px;font-weight:bold;cursor:pointer;";
+    btnSave.style.cssText = "width:100%;margin-top:6px;margin-bottom:16px;padding:8px;background:#2ecc71;color:white;border:none;border-radius:6px;font-weight:bold;cursor:pointer;";
     btnSave.innerHTML = "💾 お知らせを保存・反映";
     btnSave.onclick = function() { staffAction("setnotice"); };
     msg.appendChild(btnSave);
+
+    // TOP画面テキストラベル
+    const infoLabel = document.createElement("div");
+    infoLabel.style.cssText = "margin:0 0 4px 0;font-weight:bold;color:#555;font-size:12px;";
+    infoLabel.innerText = "📋 TOP画面テキスト設定";
+    msg.appendChild(infoLabel);
+
+    // TOP画面テキストエリア
+    const taInfo = document.createElement("textarea");
+    taInfo.id = "staffTopInfoInput";
+    taInfo.style.cssText = "width:100%;height:100px;padding:8px;border:2px solid #e67e22;border-radius:6px;font-size:12px;box-sizing:border-box;resize:vertical;";
+    taInfo.placeholder = "TOP画面に表示するテキスト（空欄で非表示）";
+    msg.appendChild(taInfo);
+
+    // TOP画面テキスト保存ボタン
+    const btnSaveInfo = document.createElement("button");
+    btnSaveInfo.style.cssText = "width:100%;margin-top:6px;padding:8px;background:#2ecc71;color:white;border:none;border-radius:6px;font-weight:bold;cursor:pointer;";
+    btnSaveInfo.innerHTML = "💾 TOP画面テキストを保存・反映";
+    btnSaveInfo.onclick = function() { staffAction("settopinfo"); };
+    msg.appendChild(btnSaveInfo);
 
     // 現在のお知らせを読み込む
     if(database) {
@@ -1601,6 +1636,12 @@ function showStaffMenu() {
             var cur = snap.val() || '';
             var textarea = document.getElementById("staffNoticeInput");
             if(textarea) textarea.value = cur;
+        });
+        database.ref('topInfoText').once('value').then(function(snap) {
+            var val = snap.val();
+            var cur = (val === null || val === undefined) ? DEFAULT_TOP_INFO_TEXT : val;
+            var textareaInfo = document.getElementById("staffTopInfoInput");
+            if(textareaInfo) textareaInfo.value = cur;
         });
     }
 
@@ -1741,6 +1782,14 @@ function staffAction(action) {
         database.ref('notice').set(text).then(function() {
             loadNotice();
             showCustomAlert("✅ お知らせを保存しました！");
+        }).catch(function(e) { showCustomAlert("❌ 保存失敗", e.message); });
+    } else if(action === 'settopinfo') {
+        var taInfo = document.getElementById("staffTopInfoInput");
+        var textInfo = taInfo ? taInfo.value.trim() : '';
+        if(!database) { showCustomAlert("❌ Firebase未接続"); return; }
+        database.ref('topInfoText').set(textInfo).then(function() {
+            loadTopNotice();
+            showCustomAlert("✅ TOP画面テキストを保存しました！");
         }).catch(function(e) { showCustomAlert("❌ 保存失敗", e.message); });
     }
 }
