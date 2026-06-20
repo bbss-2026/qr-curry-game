@@ -236,6 +236,17 @@
         .event-banner { width: 100%; cursor: pointer; border-radius: 6px; margin-bottom: 12px; display: block; transition: opacity 0.15s; }
         .event-banner:hover { opacity: 0.9; }
 
+        /* イベント戦闘画面（event-modeクラスでbattleArenaの見た目を上書き） */
+        .battle-stage.event-mode { padding: 0; overflow: hidden; }
+        .battle-stage.event-mode .enemy-zone { gap: 0; }
+        .battle-stage.event-mode .enemy-upper-row { display: block; position: relative; }
+        .battle-stage.event-mode .enemy-visual-box { width: 100%; height: 180px; background-size: cover; background-position: center; border-radius: 0; }
+        .battle-stage.event-mode .enemy-visual-box .char-visual { display: none; }
+        .battle-stage.event-mode .hp-container.enemy-hp { position: absolute; top: 0; left: 0; width: 100%; box-sizing: border-box; background: linear-gradient(to bottom, rgba(0,0,0,0.6), rgba(0,0,0,0)); border-radius: 0; padding: 10px 12px; }
+        .battle-stage.event-mode .enemy-lower-row { display: none; }
+        .battle-stage.event-mode #oppOwnerText { font-size: 15px; }
+        .battle-stage.event-mode .player-zone { margin-top: 8px; }
+
         /* アイコン獲得演出 */
         #iconGetOverlay { position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.75); z-index:99999; display:none; justify-content:center; align-items:center; flex-direction:column; }
         #iconGetOverlay .icon-get-img { width:160px; height:160px; border-radius:50%; border:6px solid #f1c40f; box-shadow:0 0 40px #f1c40f, 0 0 80px #f39c12; animation:iconPop 0.6s cubic-bezier(0.175,0.885,0.32,1.275) forwards; }
@@ -2790,7 +2801,11 @@ function confirmVsDeploy() {
     document.getElementById("vsEnemySide").style.transform = "translateX(100%)";
     document.getElementById("vsBadge").style.opacity = "0";
     document.getElementById("vsBadge").style.scale = "3";
-    startBattleScene(cachedOpponentName, cachedOpponentCurry, currentCurry);
+    if(cachedOpponentCurry && cachedOpponentCurry.isEventBoss) {
+        startEventBattleScene(currentCurry);
+    } else {
+        startBattleScene(cachedOpponentName, cachedOpponentCurry, currentCurry);
+    }
 }
 
 function abortMatchDeployment() {
@@ -3133,6 +3148,204 @@ function playBattleTurns(turns, myC, oppC, oppN, role) {
 
 // ===== メインのバトル開始関数（Bot戦・対人戦共通）=====
 let guestBattleRef = null;
+// ===== イベント専用バトルシーン（既存battleArenaを流用、見た目だけevent-modeで上書き） =====
+function startEventBattleScene(myC) {
+    if(!database) { showCustomAlert("⚠️ 接続エラー", "イベントに参加できません。"); return; }
+    // Firebaseから現在の共有HPを取得（なければ満タンで初期化）
+    database.ref('events/tokumori001/currentHp').once('value').then(function(snap){
+        let curHp = snap.val();
+        if(curHp === null || curHp === undefined) curHp = EVENT_MONSTER_DATA.hp;
+        curHp = Math.max(1, Math.min(EVENT_MONSTER_DATA.hp, curHp));
+        launchEventBattle(myC, curHp);
+    }).catch(function(){
+        launchEventBattle(myC, EVENT_MONSTER_DATA.hp);
+    });
+}
+
+function launchEventBattle(myC, startHp) {
+    window.__eventStartHp = startHp; // ランキング集計用に開始時HPを保持
+    battleAborted = false;
+    if(guestBattleRef) { guestBattleRef.off(); guestBattleRef = null; }
+    document.getElementById("battleResultBox").style.display = "none";
+    const overlay2 = document.getElementById("battleResultOverlay"); if(overlay2) overlay2.style.display = "none";
+    ["oppOwnerText","oHpText","pOwnerText","pHpText"].forEach(id => { const el=document.getElementById(id); if(el){ el.style.color=""; el.classList.remove("name-poisoned","name-illuded"); } });
+    const pop = document.getElementById("damagePop"); pop.style.display="none"; pop.style.animation="none"; pop.innerText="0";
+
+    document.getElementById("battleSetup").style.display = "none";
+    document.getElementById("battleArena").style.display = "block";
+    document.getElementById("battleStage").classList.add("event-mode");
+    document.querySelector("#enemyZone .enemy-visual-box").style.backgroundImage = "url(tokumori001.jpg)";
+
+    requestAnimationFrame(() => {
+        const arena = document.getElementById("battleArena");
+        if(arena) arena.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+
+    document.getElementById("pOwnerText").innerText = playerName;
+    document.getElementById("playerCurryNameText").innerText = myC.name;
+    const myMaterials = myC.materials, mySpice = myC.spice;
+    const myIconsHtml = curryIconsHTML(myMaterials, mySpice, '22px');
+    document.getElementById("pVisual").innerHTML = '';
+    const pCurryIconsEl = document.getElementById("pCurryIcons");
+    if(pCurryIconsEl) pCurryIconsEl.innerHTML = myIconsHtml || myC.visual || '';
+
+    document.getElementById("oppOwnerText").innerText = EVENT_MONSTER_DATA.name;
+    document.getElementById("oppCurryNameText").innerText = "";
+    document.getElementById("oppCurryEmojiText").innerText = "";
+
+    let pHP = myC.hp;
+    let oHP = startHp;
+    const oppC = { hp: EVENT_MONSTER_DATA.hp, atk: EVENT_MONSTER_DATA.atk, def: EVENT_MONSTER_DATA.def, spd: EVENT_MONSTER_DATA.spd, isEventBoss: true };
+    updateHP(pHP, oHP, oppC.hp, myC.hp);
+    const log = document.getElementById("battleLog"); log.innerHTML = `⚔️ ${EVENT_MONSTER_DATA.name}との決戦開始！`;
+
+    stopBattleBGM();
+    setTimeout(()=>playBattleBGM("bossbgm.mp3"),300);
+
+    let isPP = false; // 自分の毒
+    let isPlayerIlluded = false;
+    let myTurn = myC.spd >= oppC.spd;
+    let round = 1;
+
+    function eventStep(){
+        if(battleAborted) return;
+        if(pHP<=0){ eventBattleFinish(pHP, oHP, myC, false); return; }
+        if(round>20){ eventBattleFinish(pHP, oHP, myC, false); return; }
+        if(myTurn){
+            log.innerHTML=`🔥 自分のターン！`;
+            playTone(440,'triangle',0.08);
+            if(isPP){ let d=Math.round(myC.hp*0.08); pHP=Math.max(0,pHP-d); log.innerHTML+=`\n☠️ 毒ダメージ: ${d}`; triggerEffect("player-poison",d); updateHP(pHP,oHP,oppC.hp,myC.hp); if(pHP<=0){ eventBattleFinish(pHP,oHP,myC,false); return; } }
+            const illudedMiss = isPlayerIlluded && Math.random() < getIllusionMissRate(myC.spd, oppC.spd);
+            if(illudedMiss){
+                log.innerHTML+=`\n💨 幻惑で攻撃が外れた！`;
+                setTimeout(()=>{ myTurn=false; round++; setTimeout(eventStep,1100); },400);
+            } else {
+                setTimeout(()=>{
+                    const isCrit = Math.random() < getCritRate(myC.spd, oppC.spd);
+                    let d = isCrit ? Math.max(8, myC.atk) : Math.max(8, myC.atk - Math.floor(oppC.def/2));
+                    d = Math.round(d*(0.9+Math.random()*0.2));
+                    oHP = Math.max(1, oHP - d); // 絶対0にならない
+                    playSoundEffect('punch.mp3');
+                    if(isCrit){ log.innerHTML+=`\n🌶️ Spicy Hit!!!!!!!! 💥 ダメージ: ${d}`; triggerEffect("enemy-crit",d); }
+                    else { log.innerHTML+=`\n💥 ダメージ: ${d}`; triggerEffect("enemy",d); }
+                    updateHP(pHP,oHP,oppC.hp,myC.hp);
+                    myTurn=false; round++; setTimeout(eventStep,1100);
+                },400);
+            }
+        } else {
+            log.innerHTML=`⚠️ ${EVENT_MONSTER_DATA.name} のターン！`;
+            playTone(330,'triangle',0.08);
+            if(round>=20){
+                setTimeout(()=>{
+                    log.innerHTML+=`\n💨 なんでやねん乱舞！吹き飛ばされた！`;
+                    playSoundEffect('ransya.mp3');
+                    eventBattleFinish(pHP,oHP,myC,true);
+                },400);
+                return;
+            }
+            const er=Math.random();
+            if(er<0.50){
+                setTimeout(()=>{
+                    const isCrit = Math.random() < getCritRate(oppC.spd, myC.spd);
+                    let d = isCrit ? Math.max(8, oppC.atk) : Math.max(8, oppC.atk - Math.floor(myC.def/2));
+                    d = Math.round(d*(0.9+Math.random()*0.2));
+                    pHP = Math.max(0, pHP - d);
+                    playSoundEffect('punch.mp3');
+                    if(isCrit){ log.innerHTML+=`\n🌶️ Spicy Hit!!!!!!!! 💥 ダメージ: ${d}`; triggerEffect("player-crit",d); }
+                    else { log.innerHTML+=`\n😢 被弾ダメージ: ${d}`; triggerEffect("player",d); }
+                    updateHP(pHP,oHP,oppC.hp,myC.hp);
+                    if(pHP<=0){ eventBattleFinish(pHP,oHP,myC,false); return; }
+                    myTurn=true; round++; setTimeout(eventStep,1100);
+                },400);
+            } else if(er<0.70){
+                setTimeout(()=>{
+                    pHP=Math.max(0,pHP-80);
+                    playSoundEffect('breath.mp3');
+                    log.innerHTML+=`\n🔥 熱々のカレーの雨が街に降り注ぐ！DEF無視80ダメージ！`;
+                    triggerEffect("player",80);
+                    updateHP(pHP,oHP,oppC.hp,myC.hp);
+                    if(pHP<=0){ eventBattleFinish(pHP,oHP,myC,false); return; }
+                    myTurn=true; round++; setTimeout(eventStep,1100);
+                },400);
+            } else if(er<0.90){
+                const hits = rollSeedHits(oppC.spd, myC.spd);
+                let damages=[];
+                for(let i=0;i<hits;i++){ let sd=Math.max(2,Math.round(oppC.atk*0.3-Math.floor(myC.def/4))); sd=Math.round(sd*(0.9+Math.random()*0.2)); damages.push(sd); pHP=Math.max(0,pHP-sd); }
+                log.innerHTML+=`\n🥄 特大スプーンで五月雨突き！${hits}連撃！`;
+                setTimeout(()=>playSoundEffect('machine-gun.mp3'),50);
+                damages.forEach((sd,i)=>{ setTimeout(()=>{
+                    triggerEffect("player",sd);
+                    if(i===damages.length-1){
+                        log.innerHTML+=` 合計: ${damages.reduce((a,b)=>a+b,0)}`;
+                        updateHP(pHP,oHP,oppC.hp,myC.hp);
+                        if(pHP<=0){ eventBattleFinish(pHP,oHP,myC,false); return; }
+                        myTurn=true; round++; setTimeout(eventStep,1300);
+                    }
+                },150+i*250); });
+            } else {
+                isPP=false; isPlayerIlluded=false;
+                oHP=Math.min(oppC.hp, oHP+500);
+                setTimeout(()=>{
+                    playSoundEffect('healing.mp3');
+                    log.innerHTML+=`\n🐙 たこ焼きを食べた！HPが500回復！状態異常も解除！`;
+                    updateHP(pHP,oHP,oppC.hp,myC.hp);
+                    myTurn=true; round++; setTimeout(eventStep,1100);
+                },400);
+            }
+        }
+    }
+    setTimeout(eventStep, 600);
+}
+
+function eventBattleFinish(pHP, oHP, myC, wasBlownAway){
+    battleAborted = true;
+    stopBattleBGM();
+    const stageEl = document.getElementById("battleStage");
+    if(stageEl) stageEl.classList.remove("flash-red","flash-purple","flash-gold","flash-crit","animate-shake");
+
+    // 共有HPをFirebaseに保存
+    if(database){
+        database.ref('events/tokumori001/currentHp').set(oHP);
+        if(playerId) {
+            database.ref('events/tokumori001/participants/'+playerId).set({ name: playerName, lastPlayed: Date.now() });
+            // このバトルで実際に削ったダメージ量をランキング用に加算（たこ焼き回復分は反映済み）
+            const startHp = window.__eventStartHp || EVENT_MONSTER_DATA.hp;
+            const netDamage = Math.max(0, startHp - oHP);
+            if(netDamage > 0) {
+                database.ref('events/tokumori001/damages/'+playerId).transaction(function(cur){ return (cur||0) + netDamage; });
+            }
+        }
+    }
+
+    const overlay=document.getElementById("battleResultOverlay"); const bigText=document.getElementById("battleResultBig");
+    const verdictText = wasBlownAway ? "💨 吹き飛ばされた..." : "💀 敗北...";
+    const verdictColor = wasBlownAway ? "#9b59b6" : "#ff4444";
+    if(overlay&&bigText){ bigText.innerText=verdictText; bigText.style.color=verdictColor; overlay.style.display="flex"; setTimeout(()=>{ overlay.style.display="none"; document.getElementById("battleResultBox").style.display="block"; },2000); }
+    else document.getElementById("battleResultBox").style.display="block";
+    document.getElementById("pOwnerText").style.color="#ff4444"; document.getElementById("pHpText").style.color="#ff4444";
+
+    const res=document.getElementById("battleVerdict"); const rew=document.getElementById("rewardText");
+    res.innerText=verdictText; res.style.color=verdictColor;
+
+    const normalPool=Object.keys(masterIngredients).filter(k=>masterIngredients[k].shop===0);
+    const spicePool=Object.keys(masterSpices).filter(k=>k!=="マンゴーチャツネ");
+    let gotItems=[];
+    for(let i=0;i<3;i++){ const it=normalPool[Math.floor(Math.random()*normalPool.length)]; inventory[it]=(inventory[it]||0)+1; discoveredItems[it]=true; gotItems.push(it); }
+    const spIt=spicePool[Math.floor(Math.random()*spicePool.length)]; inventory[spIt]=(inventory[spIt]||0)+1; discoveredItems[spIt]=true; gotItems.push(spIt);
+    const itemsHtml=gotItems.map(it=>{ const d=masterIngredients[it]||masterSpices[it]; const ico=d&&d.icon?`<img src="${d.icon}" style="width:1.2em;height:1.2em;vertical-align:middle;object-fit:contain;">`:''; return ico+it; }).join(' ');
+    rew.innerHTML=`報酬: ${itemsHtml}`;
+
+    curryStock.splice(selectedCurryIndex,1); selectedCurryIndex=curryStock.length?0:-1;
+    saveGame(); updateFridgeUI(); updateCookSelects(); updateShopButtons();
+}
+
+function endEventMode(){
+    const stageEl = document.getElementById("battleStage");
+    if(stageEl) stageEl.classList.remove("event-mode");
+    const vBox = document.querySelector("#enemyZone .enemy-visual-box");
+    if(vBox) vBox.style.backgroundImage = "";
+}
+
 function startBattleScene(oppN, oppC, myC) {
     // バトル画面セットアップ
     battleAborted = false; // バトル開始時にリセット
@@ -3176,26 +3389,22 @@ function startBattleScene(oppN, oppC, myC) {
         document.getElementById("pVisual").innerHTML = ''; // アイコンはpCurryIconsに表示
         const pCurryIconsEl = document.getElementById("pCurryIcons");
         if(pCurryIconsEl) pCurryIconsEl.innerHTML = myIconsHtml || myC.visual || '';
-        if(oppC.isEventBoss) {
-            document.getElementById("oVisual").innerHTML = `<div style="width:100%;height:100%;background:#111;border-radius:50%;display:flex;align-items:center;justify-content:center;"><span style="color:#e74c3c;font-size:32px;font-weight:bold;">？</span></div>`;
-        } else if(oppC.isBotImage) {
+        if(oppC.isBotImage) {
             document.getElementById("oVisual").innerHTML = `<img src="${oppC.visual}" alt="${oppN}">`;
         } else {
             document.getElementById("oVisual").innerHTML = oppC.visual || "🍛";
         }
-        // Bot戦：相手カレーの絵文字エリアはBotのemoji（🌀🦑🌀など）を表示（イベントボスは非表示）
-        document.getElementById("oppCurryEmojiText").innerText = oppC.isEventBoss ? '' : (oppC.emoji || '');
+        document.getElementById("oppCurryEmojiText").innerText = oppC.emoji || '';
     }
     document.getElementById("oppOwnerText").innerText = oppN;
-    document.getElementById("oppCurryNameText").innerText = oppC.isEventBoss ? "" : oppC.name;
+    document.getElementById("oppCurryNameText").innerText = oppC.name;
     let pHP = myC.hp; let oHP = oppC.hp; updateHP(pHP, oHP, oppC.hp, myC.hp);
-    const log = document.getElementById("battleLog"); log.innerHTML = `⚔️ ${oppC.isEventBoss ? EVENT_MONSTER_DATA.name : oppN} との決闘開始！
+    const log = document.getElementById("battleLog"); log.innerHTML = `⚔️ ${oppN} との決闘開始！
 `;
 
-    // BGM（特殊カレーBGMが優先、なければ強敵BGM／イベントボスBGM）
+    // BGM（特殊カレーBGMが優先、なければ強敵BGM）
     stopBattleBGM();
-    if(oppC.isEventBoss) setTimeout(()=>playBattleBGM("bossbgm.mp3"),300);
-    else if(myC.isMargherita || oppC.isMargherita) setTimeout(()=>playBattleBGM("Guardare_il_cielo.mp3"),300);
+    if(myC.isMargherita || oppC.isMargherita) setTimeout(()=>playBattleBGM("Guardare_il_cielo.mp3"),300);
     else if(myC.isSeafood || oppC.isSeafood) setTimeout(()=>playBattleBGM("wave.mp3"),300);
     else if(isBotMatch && activeBotData && activeBotData.image && activeBotData.image.match(/bot0[6-9]/)) setTimeout(()=>playBattleBGM("Revenger.mp3"),300);
 
@@ -3324,59 +3533,26 @@ function startBattleScene(oppN, oppC, myC) {
             } else if(myC.isSeed&&Math.random()<0.3){
                 // 種連射（machine-gun.mp3、SPD比較で回数変動）
                 const hits=rollSeedHits(myC.spd,oppC.spd);let damages=[];
-                for(let i=0;i<hits;i++){let sd=Math.max(2,Math.round(myC.atk*0.3-Math.floor(oppC.def/4)));sd=Math.round(sd*(0.9+Math.random()*0.2));damages.push(sd);if(oppC.isEventBoss)eventTotalDamageThisBattle+=sd;oHP=Math.max(oppC.isEventBoss?1:0,oHP-sd);}
+                for(let i=0;i<hits;i++){let sd=Math.max(2,Math.round(myC.atk*0.3-Math.floor(oppC.def/4)));sd=Math.round(sd*(0.9+Math.random()*0.2));damages.push(sd);oHP=Math.max(0,oHP-sd);}
                 log.innerHTML+=`\n🌱 種連続発射 ${hits}連撃！`;
                 setTimeout(()=>playSoundEffect('machine-gun.mp3'),50);
                 damages.forEach((sd,i)=>{setTimeout(()=>{triggerEffect("enemy",sd);if(i===damages.length-1){log.innerHTML+=` 合計: ${damages.reduce((a,b)=>a+b,0)}`;updateHP(pHP,oHP,oppC.hp,myC.hp);myTurn=false;round++;setTimeout(step,1300);}},150+i*250);});
             } else if(myC.isTonTonTon){
                 playSoundEffect('pig2.mp3');
-                setTimeout(()=>{const isCrit=Math.random()<getCritRate(myC.spd,oppC.spd);let d=isCrit?Math.max(8,myC.atk):Math.max(8,myC.atk-Math.floor(oppC.def/2));d=Math.round(d*(0.9+Math.random()*0.2));if(oppC.isEventBoss)eventTotalDamageThisBattle+=d;oHP=Math.max(oppC.isEventBoss?1:0,oHP-d);playSoundEffect('punch.mp3');if(isCrit){log.innerHTML+=`\n🌶️ Spicy Hit!!!!!!!! 💥 ダメージ: ${d}`;triggerEffect("enemy-crit",d);}else{log.innerHTML+=`\n💥 ダメージ: ${d}`;triggerEffect("enemy",d);}updateHP(pHP,oHP,oppC.hp,myC.hp);myTurn=false;round++;setTimeout(step,1100);},400);
+                setTimeout(()=>{const isCrit=Math.random()<getCritRate(myC.spd,oppC.spd);let d=isCrit?Math.max(8,myC.atk):Math.max(8,myC.atk-Math.floor(oppC.def/2));d=Math.round(d*(0.9+Math.random()*0.2));oHP=Math.max(0,oHP-d);playSoundEffect('punch.mp3');if(isCrit){log.innerHTML+=`\n🌶️ Spicy Hit!!!!!!!! 💥 ダメージ: ${d}`;triggerEffect("enemy-crit",d);}else{log.innerHTML+=`\n💥 ダメージ: ${d}`;triggerEffect("enemy",d);}updateHP(pHP,oHP,oppC.hp,myC.hp);myTurn=false;round++;setTimeout(step,1100);},400);
             } else if(oppC.isTonTonTon){
                 playSoundEffect('pig1.mp3');
-                setTimeout(()=>{const isCrit=Math.random()<getCritRate(myC.spd,oppC.spd);let d=isCrit?Math.max(8,myC.atk):Math.max(8,myC.atk-Math.floor(oppC.def/2));d=Math.round(d*(0.9+Math.random()*0.2));if(oppC.isEventBoss)eventTotalDamageThisBattle+=d;oHP=Math.max(oppC.isEventBoss?1:0,oHP-d);playSoundEffect('punch.mp3');if(isCrit){log.innerHTML+=`\n🌶️ Spicy Hit!!!!!!!! 💥 ダメージ: ${d}`;triggerEffect("enemy-crit",d);}else{log.innerHTML+=`\n💥 ダメージ: ${d}`;triggerEffect("enemy",d);}updateHP(pHP,oHP,oppC.hp,myC.hp);myTurn=false;round++;setTimeout(step,1100);},400);
+                setTimeout(()=>{const isCrit=Math.random()<getCritRate(myC.spd,oppC.spd);let d=isCrit?Math.max(8,myC.atk):Math.max(8,myC.atk-Math.floor(oppC.def/2));d=Math.round(d*(0.9+Math.random()*0.2));oHP=Math.max(0,oHP-d);playSoundEffect('punch.mp3');if(isCrit){log.innerHTML+=`\n🌶️ Spicy Hit!!!!!!!! 💥 ダメージ: ${d}`;triggerEffect("enemy-crit",d);}else{log.innerHTML+=`\n💥 ダメージ: ${d}`;triggerEffect("enemy",d);}updateHP(pHP,oHP,oppC.hp,myC.hp);myTurn=false;round++;setTimeout(step,1100);},400);
             } else if(myC.hasGold){
                 playGoldSound();log.innerHTML+=`\n🌟 金箔乱舞！`;
-                setTimeout(()=>{const isCrit=Math.random()<getCritRate(myC.spd,oppC.spd);let d=isCrit?Math.max(8,myC.atk):Math.max(8,myC.atk-Math.floor(oppC.def/2));d=Math.round(d*(0.9+Math.random()*0.2));if(oppC.isEventBoss)eventTotalDamageThisBattle+=d;oHP=Math.max(oppC.isEventBoss?1:0,oHP-d);playSoundEffect('punch.mp3');if(isCrit){log.innerHTML+=`\n🌶️ Spicy Hit!!!!!!!! 💥 ダメージ: ${d}`;triggerEffect("enemy-crit",d);}else{log.innerHTML+=`\n💥 ダメージ: ${d}`;triggerEffect("enemy-gold",d);}updateHP(pHP,oHP,oppC.hp,myC.hp);myTurn=false;round++;setTimeout(step,1100);},400);
+                setTimeout(()=>{const isCrit=Math.random()<getCritRate(myC.spd,oppC.spd);let d=isCrit?Math.max(8,myC.atk):Math.max(8,myC.atk-Math.floor(oppC.def/2));d=Math.round(d*(0.9+Math.random()*0.2));oHP=Math.max(0,oHP-d);playSoundEffect('punch.mp3');if(isCrit){log.innerHTML+=`\n🌶️ Spicy Hit!!!!!!!! 💥 ダメージ: ${d}`;triggerEffect("enemy-crit",d);}else{log.innerHTML+=`\n💥 ダメージ: ${d}`;triggerEffect("enemy-gold",d);}updateHP(pHP,oHP,oppC.hp,myC.hp);myTurn=false;round++;setTimeout(step,1100);},400);
             } else {
                 // 通常攻撃（ターン音は上で鳴らし済み、ダメージ時にpunch.mp3）
-                setTimeout(()=>{const isCrit=Math.random()<getCritRate(myC.spd,oppC.spd);let d=isCrit?Math.max(8,myC.atk):Math.max(8,myC.atk-Math.floor(oppC.def/2));d=Math.round(d*(0.9+Math.random()*0.2));if(oppC.isEventBoss)eventTotalDamageThisBattle+=d;oHP=Math.max(oppC.isEventBoss?1:0,oHP-d);playSoundEffect('punch.mp3');if(isCrit){log.innerHTML+=`\n🌶️ Spicy Hit!!!!!!!! 💥 ダメージ: ${d}`;triggerEffect("enemy-crit",d);}else{log.innerHTML+=`\n💥 ダメージ: ${d}`;triggerEffect("enemy",d);}updateHP(pHP,oHP,oppC.hp,myC.hp);myTurn=false;round++;setTimeout(step,1100);},400);
+                setTimeout(()=>{const isCrit=Math.random()<getCritRate(myC.spd,oppC.spd);let d=isCrit?Math.max(8,myC.atk):Math.max(8,myC.atk-Math.floor(oppC.def/2));d=Math.round(d*(0.9+Math.random()*0.2));oHP=Math.max(0,oHP-d);playSoundEffect('punch.mp3');if(isCrit){log.innerHTML+=`\n🌶️ Spicy Hit!!!!!!!! 💥 ダメージ: ${d}`;triggerEffect("enemy-crit",d);}else{log.innerHTML+=`\n💥 ダメージ: ${d}`;triggerEffect("enemy",d);}updateHP(pHP,oHP,oppC.hp,myC.hp);myTurn=false;round++;setTimeout(step,1100);},400);
             }
         }else{
             log.innerHTML=`⚠️ 相手のターン！`;
             playTone(330,'triangle',0.08); // ターン表示音
-            // ===== イベントボス専用行動パターン =====
-            if(oppC.isEventBoss){
-                if(round>=20){
-                    // 20ターン目で強制：なんでやねん乱舞
-                    setTimeout(()=>{
-                        log.innerHTML+=`\n💨 なんでやねん乱舞！吹き飛ばされた！`;
-                        playSoundEffect('ransya.mp3');
-                        done(pHP,oHP,myC,oppC,true);
-                    },400);
-                    return;
-                }
-                const er=Math.random();
-                if(er<0.40){
-                    // 通常攻撃
-                    setTimeout(()=>{const isCrit=Math.random()<getCritRate(oppC.spd,myC.spd);let d=isCrit?Math.max(8,oppC.atk):Math.max(8,oppC.atk-Math.floor(myC.def/2));d=Math.round(d*(0.9+Math.random()*0.2));pHP=Math.max(0,pHP-d);playSoundEffect('punch.mp3');if(isCrit){log.innerHTML+=`\n🌶️ Spicy Hit!!!!!!!! 💥 ダメージ: ${d}`;triggerEffect("player-crit",d);}else{log.innerHTML+=`\n😢 被弾ダメージ: ${d}`;triggerEffect("player",d);}updateHP(pHP,oHP,oppC.hp,myC.hp);if(pHP<=0){done(pHP,oHP,myC,oppC,false);return;}myTurn=true;round++;setTimeout(step,1100);},400);
-                } else if(er<0.60){
-                    // 熱々のカレーの雨が街に降り注ぐ（熱々ブレスと同じ：DEF無視固定80）
-                    setTimeout(()=>{pHP=Math.max(0,pHP-80);log.innerHTML+=`\n🔥 熱々のカレーの雨が街に降り注ぐ！DEF無視80ダメージ！`;playSoundEffect('breath.mp3');triggerEffect("player",80);updateHP(pHP,oHP,oppC.hp,myC.hp);if(pHP<=0){done(pHP,oHP,myC,oppC,false);return;}myTurn=true;round++;setTimeout(step,1100);},400);
-                } else if(er<0.80){
-                    // 特大スプーンで五月雨突き（種連射と同じ）
-                    const hits=rollSeedHits(oppC.spd,myC.spd);let damages=[];
-                    for(let i=0;i<hits;i++){let sd=Math.max(2,Math.round(oppC.atk*0.3-Math.floor(myC.def/4)));sd=Math.round(sd*(0.9+Math.random()*0.2));damages.push(sd);pHP=Math.max(0,pHP-sd);}
-                    log.innerHTML+=`\n🥄 特大スプーンで五月雨突き！${hits}連撃！`;
-                    setTimeout(()=>playSoundEffect('machine-gun.mp3'),50);
-                    damages.forEach((sd,i)=>{setTimeout(()=>{triggerEffect("player",sd);if(i===damages.length-1){log.innerHTML+=` 合計: ${damages.reduce((a,b)=>a+b,0)}`;updateHP(pHP,oHP,oppC.hp,myC.hp);if(pHP<=0){done(pHP,oHP,myC,oppC,false);return;}myTurn=true;round++;setTimeout(step,1300);}},150+i*250);});
-                } else {
-                    // たこ焼きを食べる：毒・幻惑解除、HP500回復
-                    isOP=false; oppIsIlluded=false;
-                    oHP=Math.min(oppC.hp, oHP+500);
-                    setTimeout(()=>{playSoundEffect('healing.mp3');log.innerHTML+=`\n🐙 たこ焼きを食べた！HPが500回復！状態異常も解除！`;updateHP(pHP,oHP,oppC.hp,myC.hp);myTurn=true;round++;setTimeout(step,1100);},400);
-                }
-                return;
-            }
             if(isOP){let d=Math.round(oppC.hp*0.08);oHP-=d;log.innerHTML+=`\n☠️ 毒ダメージ: ${d}`;triggerEffect("enemy-poison",d);updateHP(pHP,oHP,oppC.hp,myC.hp);if(oHP<=0){step();return;}}
             // 幻惑ミス（punch.mp3なし、SPD比較で50%/30%）
             if(oppIsIlluded&&Math.random()<getIllusionMissRate(oppC.spd,myC.spd)){
@@ -3431,6 +3607,24 @@ document.addEventListener('visibilitychange', function() {
 function forceForfeit() {
     battleAborted = true; // step関数を即停止
     stopBattleBGM();
+    // イベント戦闘中だった場合、現在の共有HPをFirebaseに保存
+    const wasEventMode = document.getElementById("battleStage") && document.getElementById("battleStage").classList.contains("event-mode");
+    if(wasEventMode && database) {
+        const oHpTextEl = document.getElementById("oHpText");
+        if(oHpTextEl) {
+            const match = oHpTextEl.innerText.match(/HP:\s*(\d+)\//);
+            if(match) {
+                const curOHP = parseInt(match[1], 10);
+                database.ref('events/tokumori001/currentHp').set(curOHP);
+                if(playerId) {
+                    const startHp = window.__eventStartHp || EVENT_MONSTER_DATA.hp;
+                    const netDamage = Math.max(0, startHp - curOHP);
+                    if(netDamage > 0) database.ref('events/tokumori001/damages/'+playerId).transaction(function(cur){ return (cur||0) + netDamage; });
+                }
+            }
+        }
+        if(playerId) database.ref('events/tokumori001/participants/'+playerId).set({ name: playerName, lastPlayed: Date.now() });
+    }
     // バトル画面を終了してアリーナから退場
     endBattleScene();
     // 負けメッセージをモーダルで表示
@@ -3485,34 +3679,6 @@ function done(pHP, oHP, myC, oppC, wasBlownAway) {
     const stageElDone = document.getElementById("battleStage");
     if(stageElDone) stageElDone.classList.remove("flash-red","flash-purple","flash-gold","flash-crit","animate-shake");
 
-    // ===== イベントボス専用終了処理 =====
-    if(oppC.isEventBoss){
-        // ダメージ集計をFirebaseに保存
-        if(database && playerId && eventTotalDamageThisBattle > 0){
-            database.ref('events/tokumori001/damages/'+playerId).transaction(function(cur){ return (cur||0)+eventTotalDamageThisBattle; });
-            database.ref('events/tokumori001/participants/'+playerId).set({ name: playerName, lastPlayed: Date.now() });
-        }
-        const overlayE=document.getElementById("battleResultOverlay"); const bigTextE=document.getElementById("battleResultBig");
-        const verdictText = wasBlownAway ? "💨 吹き飛ばされた..." : "💀 敗北...";
-        const verdictColor = wasBlownAway ? "#9b59b6" : "#ff4444";
-        if(overlayE&&bigTextE){bigTextE.innerText=verdictText; bigTextE.style.color=verdictColor; overlayE.style.display="flex"; setTimeout(()=>{overlayE.style.display="none"; document.getElementById("battleResultBox").style.display="block";},2000);}
-        else document.getElementById("battleResultBox").style.display="block";
-        document.getElementById("pOwnerText").style.color="#ff4444"; document.getElementById("pHpText").style.color="#ff4444";
-        const resE=document.getElementById("battleVerdict"); const rewE=document.getElementById("rewardText");
-        resE.innerText=verdictText; resE.style.color=verdictColor;
-        // 報酬：ノーマル素材3つ＋ノーマルスパイス1つ
-        const normalPool=Object.keys(masterIngredients).filter(k=>masterIngredients[k].shop===0);
-        const spicePool=Object.keys(masterSpices).filter(k=>k!=="マンゴーチャツネ");
-        let gotItems=[];
-        for(let i=0;i<3;i++){const it=normalPool[Math.floor(Math.random()*normalPool.length)];inventory[it]=(inventory[it]||0)+1;discoveredItems[it]=true;gotItems.push(it);}
-        const spIt=spicePool[Math.floor(Math.random()*spicePool.length)];inventory[spIt]=(inventory[spIt]||0)+1;discoveredItems[spIt]=true;gotItems.push(spIt);
-        const itemsHtml=gotItems.map(it=>{const d=masterIngredients[it]||masterSpices[it];const ico=d&&d.icon?`<img src="${d.icon}" style="width:1.2em;height:1.2em;vertical-align:middle;object-fit:contain;">`:'' ;return ico+it;}).join(' ');
-        rewE.innerHTML=`与えたダメージ: <b>${eventTotalDamageThisBattle}</b><br>報酬: ${itemsHtml}`;
-        curryStock.splice(selectedCurryIndex,1); selectedCurryIndex=curryStock.length?0:-1;
-        saveGame(); updateFridgeUI(); updateCookSelects();
-        return;
-    }
-
     const isWin = pHP > oHP;
     const overlay=document.getElementById("battleResultOverlay"); const bigText=document.getElementById("battleResultBig");
     if(overlay&&bigText){bigText.innerText=isWin?"🏆 勝利!!":"💀 敗北..."; bigText.style.color=isWin?"#2ecc71":"#ff4444"; overlay.style.display="flex"; setTimeout(()=>{overlay.style.display="none"; document.getElementById("battleResultBox").style.display="block";},2000);}
@@ -3565,6 +3731,7 @@ function endBattleScene() {
     if(guestBattleRef){guestBattleRef.off();guestBattleRef=null;}
     // forfeitリスナーも確実に解除（リスナー重複防止）
     if(currentRoomId && database) { database.ref('rooms/'+currentRoomId+'/forfeit').off(); }
+    endEventMode(); // イベント専用見た目をリセット
     document.getElementById("battleResultBox").style.display="none";
     document.getElementById("battleSetup").style.display="block";
     document.getElementById("lobbyArea").style.display="block";
