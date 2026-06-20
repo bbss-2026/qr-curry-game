@@ -10,7 +10,7 @@
     <style>        body { font-family: 'Helvetica Neue', Arial, sans-serif; background-color: #efdeb1; color: #420000; padding: 0; text-align: center; margin: 0; }
         .container { max-width: 500px; margin: 0 auto; background: #efdeb1; padding: 0; box-sizing: border-box; position: relative; min-height: 100vh; }
         h1 { display: none; }
-        .logo-area { padding: 24px 20px 16px; text-align: center; }
+        .logo-area { padding: 24px 20px 16px; text-align: center; position: relative; }
         .logo-area img { width: 192px; max-width: 80%; }
         .lunchtime-banner {
             display: none; text-align: center; font-size: 12px; font-weight: bold;
@@ -330,8 +330,14 @@
     </div>
 
     <!-- ★タイトル。アイコンブロックはここから削除 -->
-    <div class="logo-area" onclick="goToTop()" title="タイトルへ">
-        <img src="battlecurry-logo.svg" alt="Battle Curry">
+    <div class="logo-area" id="logoAreaWrap" title="タイトルへ">
+        <img src="battlecurry-logo.svg" alt="Battle Curry" onclick="goToTop()" style="cursor:pointer;">
+        <button id="helpBtn" onclick="toggleHelp()" style="position:absolute;top:8px;right:46px;width:32px;height:32px;border:none;background:transparent;cursor:pointer;z-index:10;display:flex;align-items:center;justify-content:center;padding:0;">
+            <img src="help.svg" style="width:28px;height:28px;" alt="?">
+        </button>
+        <button id="muteBtn" onclick="toggleMute()" style="position:absolute;top:8px;right:8px;width:32px;height:32px;border:none;background:transparent;cursor:pointer;z-index:10;display:flex;align-items:center;justify-content:center;padding:0;">
+            <img id="muteIcon" src="sound-on.svg" style="width:28px;height:28px;" alt="sound">
+        </button>
     </div>
     <div class="lunchtime-banner" id="lunchtimeBanner">🍛 ランチタイムボーナス発生中 QR入手アイテム2倍 🍛</div>
 
@@ -349,15 +355,6 @@
 
     <!-- タブUI（初期画面では非表示） -->
     <div id="gameUI" style="display:none;">
-    <!-- ?ボタン -->
-    <div style="position:relative;">
-        <button id="helpBtn" onclick="toggleHelp()" style="position:absolute;top:-50px;right:46px;width:32px;height:32px;border:none;background:transparent;cursor:pointer;z-index:10;display:flex;align-items:center;justify-content:center;padding:0;">
-            <img src="help.svg" style="width:28px;height:28px;" alt="?">
-        </button>
-        <button id="muteBtn" onclick="toggleMute()" style="position:absolute;top:-50px;right:8px;width:32px;height:32px;border:none;background:transparent;cursor:pointer;z-index:10;display:flex;align-items:center;justify-content:center;padding:0;">
-            <img id="muteIcon" src="sound-on.svg" style="width:28px;height:28px;" alt="sound">
-        </button>
-    </div>
     <div class="tab-menu">
         <button class="tab-btn active" onclick="switchTab('quest', this)">クエスト</button>
         <button class="tab-btn" onclick="switchTab('scan', this)">QRスキャン</button>
