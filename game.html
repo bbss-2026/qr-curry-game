@@ -562,7 +562,7 @@
         
         <div style="display:flex; align-items:center; justify-content:space-between; margin:18px 0 8px 0;">
             <div class="category-title" style="margin:0;">🌿 所持スパイス</div>
-            <select id="sortSpices" onchange="updateFridgeUI()" style="font-size:11px; padding:3px 5px; border-radius:6px; border:1px solid #e67e22; color:#d35400; font-weight:bold; width:auto; margin:0;">
+            <select id="sortSpices" onchange="updateFridgeUI()" style="font-size:11px; padding:3px 5px; border-radius:6px; border:1px solid #b88742; color:#420000; background:#f5e9c8; font-weight:bold; width:auto; margin:0;">
                 <option value="default">並び順：デフォルト</option>
                 <option value="count">所持数 多順</option>
             </select>
@@ -605,6 +605,7 @@
                 <div class="status-item" style="background:#f5e9c8; color:#420000; border:1px solid #b88742; border-radius:4px; padding:6px 10px; font-weight:bold;">DEF: <span id="statDEF">0</span></div>
                 <div class="status-item" style="background:#f5e9c8; color:#420000; border:1px solid #b88742; border-radius:4px; padding:6px 10px; font-weight:bold;">SPD: <span id="statSPD">0</span></div>
             </div>
+            <button id="favRegisterBtn" onclick="registerLastCookedAsFavorite()" style="margin-top:12px;width:100%;padding:8px;background:#b88742;color:#efdeb1;border:none;border-radius:4px;font-weight:bold;font-size:13px;cursor:pointer;">⭐ お気に入り登録</button>
         </div>
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:2px;">
             <h3 style="font-size:16px; margin:0;">食材 1</h3>
@@ -1986,6 +1987,9 @@ const ACHIEVEMENTS = [
     { id:'marg_c',    text:'それってまるでピザ！？',    check: d => d.gotMargherita },
     { id:'sea_c',     text:'あれ？波の音が聞こえる',   check: d => d.gotSeafood },
     { id:'bonus_qr',  text:'え、このQR、こんなに！？', check: d => d.gotBonusQR },
+    { id:'event_join', text:'イベントバトルに参加',     check: d => d.eventBattleJoined },
+    { id:'poison_win', text:'毒ダメージで勝利',         check: d => d.wonByPoison },
+    { id:'seed_7hit',  text:'種7連続発射',              check: d => d.seedMaxHits >= 7 },
 ];
 
 // --- グローバル統計（Firebaseに全プレイヤー分集計） ---
@@ -2003,7 +2007,8 @@ function getStats() {
         itemVariety:0,
         gotPoison:false, gotIllusion:false, gotSeed:false,
         gotMargherita:false, gotSeafood:false, gotBonusQR:false,
-        defeatedBots:[], defeatedHardBots:[]
+        defeatedBots:[], defeatedHardBots:[],
+        eventBattleJoined:false, wonByPoison:false, seedMaxHits:0
     };
 }
 function saveStats(s) { localStorage.setItem('qr_stats', JSON.stringify(s)); }
@@ -2702,6 +2707,38 @@ function refreshRecipeBookUI() {
     updateFavRecipeSelect();
 }
 
+function registerLastCookedAsFavorite() {
+    const key = window.__lastCookedRecipeKey;
+    if(!key || !recipeBook[key]) { showCustomAlert("⚠️ エラー", "対象のレシピが見つかりません。"); return; }
+    if(recipeBook[key].fav) { showCustomAlert("⭐ お気に入り済み", "このレシピはすでにお気に入りに登録されています。"); return; }
+    const favKeys = Object.keys(recipeBook).filter(k => recipeBook[k].fav);
+    if(favKeys.length < 10) {
+        recipeBook[key].fav = true;
+        saveGame(); refreshRecipeBookUI();
+        showCustomAlert("⭐ お気に入り登録完了", `「${recipeBook[key].name}」をお気に入りに登録しました！`);
+        return;
+    }
+    // 10個すでに登録済み → 解除候補を選ばせる
+    const options = favKeys.map(k => {
+        const r = recipeBook[k];
+        return `<option value="${k}">${r.name}</option>`;
+    }).join('');
+    const msg = `<div style="font-size:13px;color:#420000;margin-bottom:10px;">お気に入りは最大10個までです。<br>1つお気に入りを解除してください。</div>
+        <select id="favReplaceSelect" style="width:100%;padding:8px;border:1px solid #b88742;border-radius:4px;background:#f5e9c8;color:#420000;font-size:13px;">
+            <option value="">解除しない（登録しない）</option>
+            ${options}
+        </select>`;
+    showCustomConfirm("⭐ お気に入り上限", msg, function() {
+        const sel = document.getElementById("favReplaceSelect");
+        const removeKey = sel ? sel.value : "";
+        if(!removeKey) { return; } // 解除しない場合は何もしない
+        recipeBook[removeKey].fav = false;
+        recipeBook[key].fav = true;
+        saveGame(); refreshRecipeBookUI();
+        showCustomAlert("⭐ お気に入り更新完了", `「${recipeBook[removeKey].name}」を解除し、「${recipeBook[key].name}」を登録しました！`);
+    });
+}
+
 function toggleFavRecipe(key) {
     if(!recipeBook[key]) return;
     const isFav = !!(recipeBook[key].fav);
@@ -2835,6 +2872,19 @@ function updateCookPreview() {
 function checkCookStock() {
     const i1 = document.getElementById("ingredient1").value; const i2 = document.getElementById("ingredient2").value; const i3 = document.getElementById("ingredient3").value; const sp = document.getElementById("spice").value;
     if(!i1 && !i2 && !i3 && !sp) return;
+
+    // 同じ食材を複数箇所にセットしている場合、所持数が足りているか確認
+    const ingredientCounts = {};
+    [i1, i2, i3].forEach(name => { if(name) ingredientCounts[name] = (ingredientCounts[name]||0) + 1; });
+    for(const name in ingredientCounts) {
+        const needed = ingredientCounts[name];
+        const have = inventory[name] || 0;
+        if(needed > have) {
+            showCustomAlert("⚠️ 食材が足りません", `「${name}」は${have}個しか持っていません。<br>同じ食材を${needed}箇所にセットすることはできません。`);
+            return;
+        }
+    }
+
     if(curryStock.length >= getCurryStockLimit()) showCustomConfirm("⚠️ ストック満杯の警告", "新しく調理すると<span style='color:#e74c3c;'>【一番古いカレー】</span>が自動消去されますがよろしいですか？", function() { cookCurry(); });
     else cookCurry();
 }
@@ -2908,6 +2958,7 @@ function cookCurry() {
     else if(chosen === "seed") { cName = `🌱種連発${cName}`; isSeed = true; }
     const rKey=[...acts, sp].filter(Boolean).sort().join("+");
     if(!recipeBook[rKey]) { recipeBook[rKey]={name:cName, visual:vis, materials:acts.length?acts:["なし"], spice:sp||""}; pruneRecipeBook(); }
+    window.__lastCookedRecipeKey = rKey; // お気に入り登録ボタン用に直近のレシピキーを保持
     document.getElementById("resultBox").classList.remove("critical-box","poison-box","gold-box","margherita-box","tonton-box","wave-box","illusion-box","sticky-box","seed-box");
     ["criticalFlashText","poisonFlashText","goldFlashText","margheritaFlashText","tontonFlashText","waveFlashText","illusionFlashText","stickyFlashText","seedFlashText"].forEach(id=>{ const el=document.getElementById(id); if(el) el.style.display="none"; });
     // 重複OK：金箔・海鮮・会心
@@ -3368,7 +3419,11 @@ function getSeedHitsRange(mySpd, oppSpd) {
 }
 function rollSeedHits(mySpd, oppSpd) {
     const r = getSeedHitsRange(mySpd, oppSpd);
-    return Math.floor(Math.random() * (r.max - r.min + 1)) + r.min;
+    const hits = Math.floor(Math.random() * (r.max - r.min + 1)) + r.min;
+    // 種連射の最大連撃数を記録（実績用）
+    const s = getStats();
+    if(hits > (s.seedMaxHits || 0)) { updateStats(st => { st.seedMaxHits = hits; }); }
+    return hits;
 }
 
 // ===== バトル全ターン事前計算 =====
@@ -3417,7 +3472,7 @@ function calcAllBattleTurns(myC, oppC, oppN, myName) {
         } else {
             turn.log = `{{TURNICON}} {{ACTOR}} のターン！`;
             if(isOP) { let d=Math.round(oppC.hp*0.08);oHP=Math.max(0,oHP-d);turn.log+=`
-☠️ 毒ダメージ: ${d}`; if(!turn.effects) turn.effects=[]; turn.effects.push({type:'enemy-poison',dmg:d}); if(oHP<=0){ turn.hostHP=pHP; turn.guestHP=oHP; turns.push(turn); break; } }
+☠️ 毒ダメージ: ${d}`; if(!turn.effects) turn.effects=[]; turn.effects.push({type:'enemy-poison',dmg:d}); if(oHP<=0){ turn.hostHP=pHP; turn.guestHP=oHP; turn.finishedByPoison=true; turns.push(turn); break; } }
             if(oppIsIlluded && Math.random() < getIllusionMissRate(oppC.spd, myC.spd)) {
                 turn.log+=`
 💨 幻惑で{{ACTOR}}の攻撃が外れた！`;
@@ -3483,6 +3538,8 @@ function playBattleTurns(turns, myC, oppC, oppN, role) {
             const last = turns[turns.length-1];
             const myHP = isGuest ? last.guestHP : last.hostHP;
             const oppHP = isGuest ? last.hostHP : last.guestHP;
+            // 毒で相手を倒した場合の実績（毒カレーを使っていた側=ホストでのみ記録）
+            if(last.finishedByPoison && !isGuest) { window.__defeatedByPoison = true; }
             setTimeout(() => done(myHP, oppHP, myC, oppC), 800);
             return;
         }
@@ -3572,6 +3629,7 @@ function startEventBattleScene(myC) {
 
 function launchEventBattle(myC, startHp) {
     window.__eventStartHp = startHp; // ランキング集計用に開始時HPを保持
+    updateStats(s => { s.eventBattleJoined = true; });
     battleAborted = false;
     battleLogHistory = []; // 戦闘ログ蓄積をリセット
     if(guestBattleRef) { guestBattleRef.off(); guestBattleRef = null; }
@@ -4058,7 +4116,7 @@ function startBattleScene(oppN, oppC, myC) {
         }else{
             log.innerHTML=`⚠️ 相手のターン！`;
             playTone(330,'triangle',0.08); // ターン表示音
-            if(isOP){let d=Math.round(oppC.hp*0.08);oHP-=d;log.innerHTML+=`\n☠️ 毒ダメージ: ${d}`;triggerEffect("enemy-poison",d);updateHP(pHP,oHP,oppC.hp,myC.hp);if(oHP<=0){step();return;}}
+            if(isOP){let d=Math.round(oppC.hp*0.08);oHP-=d;log.innerHTML+=`\n☠️ 毒ダメージ: ${d}`;triggerEffect("enemy-poison",d);updateHP(pHP,oHP,oppC.hp,myC.hp);if(oHP<=0){window.__defeatedByPoison=true;step();return;}}
             // 幻惑ミス（punch.mp3なし、SPD比較で50%/30%）
             if(oppIsIlluded&&Math.random()<getIllusionMissRate(oppC.spd,myC.spd)){
                 log.innerHTML+=`\n💨 幻惑で相手の攻撃が外れた！`;
@@ -4185,6 +4243,13 @@ function done(pHP, oHP, myC, oppC, wasBlownAway) {
     if(stageElDone) stageElDone.classList.remove("flash-red","flash-purple","flash-gold","flash-crit","animate-shake");
 
     const isWin = pHP > oHP;
+    // 毒ダメージで勝利した実績
+    if(isWin && window.__defeatedByPoison) {
+        updateStats(s => { s.wonByPoison = true; });
+        window.__defeatedByPoison = false;
+    } else {
+        window.__defeatedByPoison = false;
+    }
     const overlay=document.getElementById("battleResultOverlay"); const bigText=document.getElementById("battleResultBig");
     if(overlay&&bigText){bigText.innerText=isWin?"🏆 勝利!!":"💀 敗北..."; bigText.style.color=isWin?"#2ecc71":"#ff4444"; overlay.style.display="flex"; setTimeout(()=>{overlay.style.display="none"; document.getElementById("battleResultBox").style.display="block";},2000);}
     else document.getElementById("battleResultBox").style.display="block";
