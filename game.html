@@ -3408,11 +3408,11 @@ function calcAllBattleTurns(myC, oppC, oppN, myName) {
                 let d = isCrit ? Math.max(8, myC.atk) : Math.max(8,myC.atk-Math.floor(oppC.def/2));
                 d=Math.round(d*(0.9+Math.random()*0.2)); oHP=Math.max(0,oHP-d);
                 if(isCrit){turn.log+=`
-🌶️ Spicy Hit!!!!!!!! 💥 ダメージ: ${d}`;turn.effects.push({type:'enemy-crit',dmg:d});}
+🌶️ Spicy Hit!!!!!!!! {{DMGLABEL}}: ${d}`;turn.effects.push({type:'enemy-crit',dmg:d});}
                 else if(myC.hasGold){turn.log+=`
-🌟 金箔乱舞！💥 ダメージ: ${d}`;turn.effects.push({type:'enemy-gold',dmg:d});}
+🌟 金箔乱舞！{{DMGLABEL}}: ${d}`;turn.effects.push({type:'enemy-gold',dmg:d});}
                 else{turn.log+=`
-💥 ダメージ: ${d}`;turn.effects.push({type:'enemy',dmg:d});}
+{{DMGLABEL}}: ${d}`;turn.effects.push({type:'enemy',dmg:d});}
             }
         } else {
             turn.log = `⚠️ {{ACTOR}} のターン！`;
@@ -3433,9 +3433,9 @@ function calcAllBattleTurns(myC, oppC, oppN, myName) {
                 d=Math.round(d*(0.9+Math.random()*0.2));
                 pHP=Math.max(0,pHP-d);
                 if(isCrit){turn.log+=`
-🌶️ Spicy Hit!!!!!!!! 💥 ダメージ: ${d}`;turn.effects.push({type:'player-crit',dmg:d});}
+🌶️ Spicy Hit!!!!!!!! {{DMGLABEL}}: ${d}`;turn.effects.push({type:'player-crit',dmg:d});}
                 else{turn.log+=`
-😢 被弾ダメージ: ${d}`;turn.effects.push({type:'player',dmg:d});}
+{{DMGLABEL}}: ${d}`;turn.effects.push({type:'player',dmg:d});}
             }
         }
         // ターン終了時に必ず最新HPを確定（幻惑ミス含む全ケース対応）
@@ -3493,9 +3493,11 @@ function playBattleTurns(turns, myC, oppC, oppN, role) {
         // プレースホルダーを各視点の名前に変換（ホストかゲストかで自分/相手が入れ替わる）
         // turn.actorIsHost: ホストが行動者か。isGuest: 自分がゲストか。
         // {{ACTOR}}は常に「ターンを取っている行動者」を指す。行動者が自分ならplayerName、相手ならoppN
+        // {{DMGLABEL}}は行動者が自分なら「💥 ダメージ」、相手なら「😢 被弾ダメージ」
         const isMyTurnNow = (turn.actorIsHost === !isGuest);
         let resolvedLog = turn.log
-            .replace(/\{\{ACTOR\}\}/g, isMyTurnNow ? playerName : oppN);
+            .replace(/\{\{ACTOR\}\}/g, isMyTurnNow ? playerName : oppN)
+            .replace(/\{\{DMGLABEL\}\}/g, isMyTurnNow ? '💥 ダメージ' : '😢 被弾ダメージ');
 
         log.innerHTML = resolvedLog;
         battleLogHistory.push(resolvedLog.replace(/<br\s*\/?>/gi, '\n'));
