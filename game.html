@@ -1225,7 +1225,7 @@ let onlineRole = 'host'; // 対人戦での自分の役割
 let discoveredItems = {};
 let cachedOpponentName = "";
 let cachedOpponentCurry = null;
-window.onload = function() { loadGame(); updateCookSelects(); refreshRecipeBookUI(); updateShopButtons(); listenToRooms(); updateMatchCurrySelects(); setupLoadedIconUI(); updateLvDisplay(); loadNotice(); initQuest(); loadTopNotice(); updateMuteIcon(); initPlayerId(); checkEventBannerVisibility(); };
+window.onload = function() { loadGame(); updateCookSelects(); refreshRecipeBookUI(); updateShopButtons(); listenToRooms(); updateMatchCurrySelects(); setupLoadedIconUI(); updateLvDisplay(); loadNotice(); initQuest(); loadTopNotice(); updateMuteIcon(); initPlayerId(); loadEventEnabledStatus(); };
 function gameStart() {
     // 初回のみ音声確認モーダルを出す
     if(localStorage.getItem('qr_sound_asked') !== '1') {
@@ -1358,7 +1358,7 @@ function switchTab(tab, el) {
     if(targetPage) targetPage.classList.add('active');
     cancelScanning();
     if(tab === 'quest') { renderLoginBonus(); renderDailyQuest(); checkAndRenderAchievements(); }
-    if(tab === 'battle') { checkEventBannerVisibility(); }
+    if(tab === 'battle') { loadEventEnabledStatus(); }
     if(tab === 'cook') {
         // プルダウンがなしならヒントをクリア
         [1,2,3].forEach(n => { const sel = document.getElementById("ingredient"+n); if(sel && !sel.value) { const h = document.getElementById("statHint"+n); if(h) h.innerText=""; } });
@@ -1545,50 +1545,26 @@ function showStaffMenu() {
     document.getElementById("modalMessage").innerHTML = "";
     const msg = document.getElementById("modalMessage");
 
-    // アイテム全補充ボタン
-    const btnFull = document.createElement("button");
-    btnFull.style.cssText = "width:100%;margin-bottom:8px;padding:8px;background:#e67e22;color:white;border:none;border-radius:6px;font-weight:bold;cursor:pointer;";
-    btnFull.innerHTML = "✨ アイテム全補充";
-    btnFull.onclick = function() { staffAction("fullcharge"); };
-    msg.appendChild(btnFull);
+    // 2列グリッドボタンエリア
+    const btnGrid = document.createElement("div");
+    btnGrid.style.cssText = "display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px;";
+    msg.appendChild(btnGrid);
 
-    const btnAnalytics = document.createElement("button");
-    btnAnalytics.style.cssText = "width:100%;margin-bottom:8px;padding:8px;background:#2c3e50;color:white;border:none;border-radius:6px;font-weight:bold;cursor:pointer;";
-    btnAnalytics.innerHTML = "📊 アナリティクス";
-    btnAnalytics.onclick = function() { staffAction("analytics"); };
-    msg.appendChild(btnAnalytics);
+    function makeGridBtn(label, bg, onClickAction) {
+        const b = document.createElement("button");
+        b.style.cssText = "padding:8px 6px;background:" + bg + ";color:white;border:none;border-radius:6px;font-weight:bold;font-size:12px;cursor:pointer;line-height:1.3;";
+        b.innerHTML = label;
+        b.onclick = function() { staffAction(onClickAction); };
+        return b;
+    }
 
-    const btnDebug = document.createElement("button");
-    btnDebug.style.cssText = "width:100%;margin-bottom:12px;padding:8px;background:" + (isDebugMode ? "#e74c3c" : "#7f8c8d") + ";color:white;border:none;border-radius:6px;font-weight:bold;cursor:pointer;";
-    btnDebug.innerHTML = "🐛 デバッグモード: " + (isDebugMode ? "ON（カウント対象外）" : "OFF");
-    btnDebug.onclick = function() { staffAction("debugmode"); };
-    msg.appendChild(btnDebug);
-
-    const btnEvent = document.createElement("button");
-    btnEvent.style.cssText = "width:100%;margin-bottom:12px;padding:8px;background:" + (eventEnabled ? "#27ae60" : "#7f8c8d") + ";color:white;border:none;border-radius:6px;font-weight:bold;cursor:pointer;";
-    btnEvent.innerHTML = "🐙 特盛りイベント: " + (eventEnabled ? "ON（全員に公開中）" : "OFF（デバッグのみ表示）");
-    btnEvent.onclick = function() { staffAction("eventtoggle"); };
-    msg.appendChild(btnEvent);
-
-    const btnEventDmg = document.createElement("button");
-    btnEventDmg.style.cssText = "width:100%;margin-bottom:8px;padding:8px;background:#8e44ad;color:white;border:none;border-radius:6px;font-weight:bold;cursor:pointer;";
-    btnEventDmg.innerHTML = "📊 特盛りイベント ダメージ集計";
-    btnEventDmg.onclick = function() { staffAction("eventdamage"); };
-    msg.appendChild(btnEventDmg);
-
-    const btnEventSetHp = document.createElement("button");
-    btnEventSetHp.style.cssText = "width:100%;margin-bottom:8px;padding:8px;background:#16a085;color:white;border:none;border-radius:6px;font-weight:bold;cursor:pointer;";
-    btnEventSetHp.innerHTML = "🩹 モンスターHPを変更（デバッグ）";
-    btnEventSetHp.onclick = function() { staffAction("eventsethp"); };
-    msg.appendChild(btnEventSetHp);
-
-
-    // レベル設定ボタン
-    const btnLv = document.createElement("button");
-    btnLv.style.cssText = "width:100%;margin-bottom:12px;padding:8px;background:#3498db;color:white;border:none;border-radius:6px;font-weight:bold;cursor:pointer;";
-    btnLv.innerHTML = "🎮 レベル設定";
-    btnLv.onclick = function() { staffAction("setlevel"); };
-    msg.appendChild(btnLv);
+    btnGrid.appendChild(makeGridBtn("✨ アイテム全補充", "#e67e22", "fullcharge"));
+    btnGrid.appendChild(makeGridBtn("📊 アナリティクス", "#2c3e50", "analytics"));
+    btnGrid.appendChild(makeGridBtn("🐛 デバッグモード: " + (isDebugMode ? "ON" : "OFF"), (isDebugMode ? "#e74c3c" : "#7f8c8d"), "debugmode"));
+    btnGrid.appendChild(makeGridBtn("🐙 特盛りイベント: " + (eventEnabled ? "ON" : "OFF"), (eventEnabled ? "#27ae60" : "#7f8c8d"), "eventtoggle"));
+    btnGrid.appendChild(makeGridBtn("📊 イベント ダメージ集計", "#8e44ad", "eventdamage"));
+    btnGrid.appendChild(makeGridBtn("🩹 モンスターHP変更", "#16a085", "eventsethp"));
+    btnGrid.appendChild(makeGridBtn("🎮 レベル設定", "#3498db", "setlevel"));
 
     // お知らせラベル
     const noticeLabel = document.createElement("div");
@@ -1753,7 +1729,7 @@ function staffAction(action) {
         showStaffMenu();
     } else if(action === 'eventtoggle') {
         eventEnabled = !eventEnabled;
-        localStorage.setItem('qr_event_enabled', eventEnabled ? '1' : '0');
+        if(database) { database.ref('events/tokumori001/enabled').set(eventEnabled); }
         checkEventBannerVisibility();
         document.getElementById("customModal").style.display = "none";
         showStaffMenu();
@@ -2788,8 +2764,18 @@ function startBotBattle() {
 // イベント：特盛りモンスターから街を守れ！
 // ============================================================
 const EVENT_MONSTER_DATA = { hp: 5000, atk: 120, def: 60, spd: 60, name: "浪花のカレーライスベイビー" };
-let eventEnabled = (localStorage.getItem('qr_event_enabled') === '1');
+let eventEnabled = false; // Firebaseから読み込むまでの仮値
 let eventTotalDamageThisBattle = 0;
+
+function loadEventEnabledStatus() {
+    if(!database) { checkEventBannerVisibility(); return; }
+    database.ref('events/tokumori001/enabled').once('value').then(function(snap){
+        eventEnabled = (snap.val() === true);
+        checkEventBannerVisibility();
+    }).catch(function(){
+        checkEventBannerVisibility();
+    });
+}
 
 function checkEventBannerVisibility() {
     const banner = document.getElementById('eventBannerImg');
