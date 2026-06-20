@@ -120,8 +120,9 @@
         .vs-center-badge { font-size: 44px; font-weight: 900; color: #f1c40f; text-shadow: 0 0 15px #f1c40f; opacity: 0; scale: 3; transition: 0.3s; font-style: italic; margin: 0 10px; }
         .vs-interactive-area { width: 100%; max-width: 420px; background: rgba(255,255,255,0.1); padding: 15px; border-radius: 12px; border: 2px solid #e67e22; margin-top: 25px; box-sizing: border-box; text-align: left; }
         
-        .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(66,0,0,0.5); z-index: 9999; display: none; justify-content: center; align-items: center; }
-        .modal-box { background: #efdeb1; width: 85%; max-width: 380px; padding: 24px; border-radius: 4px; border: 1px solid #b88742; box-shadow: 0 8px 32px rgba(66,0,0,0.2); text-align: center; box-sizing: border-box; }
+        .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(66,0,0,0.5); z-index: 9999; display: none; justify-content: center; align-items: center; overscroll-behavior: contain; }
+        body.modal-open { overflow: hidden; position: fixed; width: 100%; }
+        .modal-box { background: #efdeb1; width: 85%; max-width: 380px; max-height: 85vh; overflow-y: auto; padding: 24px; border-radius: 4px; border: 1px solid #b88742; box-shadow: 0 8px 32px rgba(66,0,0,0.2); text-align: center; box-sizing: border-box; -webkit-overflow-scrolling: touch; }
         .modal-title { font-size: 16px; font-weight: bold; color: #420000; margin-bottom: 12px; letter-spacing: 0.05em; }
         .modal-message { font-size: 13px; color: #420000; margin-bottom: 20px; line-height: 1.6; }
         .modal-btn-group { display: flex; justify-content: center; gap: 10px; flex-wrap: wrap; }
@@ -725,6 +726,7 @@
                 <h2 id="battleVerdict" style="color:#e74c3c;">VICTORY!</h2>
                 <p id="rewardText" style="font-size:14px; font-weight:bold;"></p>
                 <button class="btn btn-start" onclick="endBattleScene()" style="width:100%;">もう一度対戦する</button>
+                <button class="btn btn-start" onclick="showBattleLogHistory()" style="width:100%;margin-top:8px;background:#7f8c8d;">📜 戦闘ログ</button>
             </div>
         </div>
     </div>
@@ -1226,11 +1228,40 @@ let isDebugMode = (localStorage.getItem('qr_debug_mode') === '1');
 let playerId = localStorage.getItem('qr_player_id') || '';
 let playerSecretKey = localStorage.getItem('qr_secret_key') || '';
 let battleAborted = false; // バトル強制終了フラグ
+let battleLogHistory = []; // 戦闘ログ蓄積用
+
+function updateBattleLog(logEl, text) {
+    logEl.innerHTML = text;
+    battleLogHistory.push(text.replace(/<br\s*\/?>/gi, "\n"));
+}
+
+function showBattleLogHistory() {
+    if(battleLogHistory.length === 0) {
+        showCustomAlert("📜 戦闘ログ", "ログがありません。");
+        return;
+    }
+    const rows = battleLogHistory.map(function(entry, i) {
+        const lines = entry.split("\n").filter(function(l){ return l.trim() !== ""; }).join("<br>");
+        return '<div style="padding:8px 0;border-bottom:1px solid #e0d0b0;font-size:12px;color:#420000;text-align:left;line-height:1.6;">' + lines + '</div>';
+    }).join('');
+    showCustomAlert("📜 戦闘ログ", '<div style="max-height:55vh;overflow-y:auto;text-align:left;">' + rows + '</div>');
+}
 let onlineRole = 'host'; // 対人戦での自分の役割
 let discoveredItems = {};
 let cachedOpponentName = "";
 let cachedOpponentCurry = null;
-window.onload = function() { loadGame(); updateCookSelects(); refreshRecipeBookUI(); updateShopButtons(); listenToRooms(); updateMatchCurrySelects(); setupLoadedIconUI(); updateLvDisplay(); loadNotice(); initQuest(); loadTopNotice(); updateMuteIcon(); initPlayerId(); loadEventEnabledStatus(); };
+window.onload = function() { loadGame(); updateCookSelects(); refreshRecipeBookUI(); updateShopButtons(); listenToRooms(); updateMatchCurrySelects(); setupLoadedIconUI(); updateLvDisplay(); loadNotice(); initQuest(); loadTopNotice(); updateMuteIcon(); initPlayerId(); loadEventEnabledStatus(); setupModalScrollLock(); };
+
+// モーダル表示中は背後のページスクロールをロック
+function setupModalScrollLock() {
+    const modal = document.getElementById('customModal');
+    if(!modal) return;
+    const observer = new MutationObserver(function() {
+        const isOpen = modal.style.display === 'flex';
+        document.body.classList.toggle('modal-open', isOpen);
+    });
+    observer.observe(modal, { attributes: true, attributeFilter: ['style'] });
+}
 function gameStart() {
     // 初回のみ音声確認モーダルを出す
     if(localStorage.getItem('qr_sound_asked') !== '1') {
@@ -3460,6 +3491,7 @@ function playBattleTurns(turns, myC, oppC, oppN, role) {
         const oppHP = isGuest ? turn.hostHP : turn.guestHP;
 
         log.innerHTML = turn.log;
+        battleLogHistory.push(turn.log.replace(/<br\s*\/?>/gi, '\n'));
         if(turn.log.includes('のターン！')) { playTone(turn.log.includes('自分') || (!isGuest && turn.log.includes(playerName)) ? 440 : 330, 'triangle', 0.08); }
         updateHP(myHP, oppHP, oppC.hp, myC.hp);
 
@@ -3530,6 +3562,7 @@ function startEventBattleScene(myC) {
 function launchEventBattle(myC, startHp) {
     window.__eventStartHp = startHp; // ランキング集計用に開始時HPを保持
     battleAborted = false;
+    battleLogHistory = []; // 戦闘ログ蓄積をリセット
     if(guestBattleRef) { guestBattleRef.off(); guestBattleRef = null; }
     document.getElementById("battleResultBox").style.display = "none";
     const overlay2 = document.getElementById("battleResultOverlay"); if(overlay2) overlay2.style.display = "none";
@@ -3609,7 +3642,7 @@ function launchEventBattle(myC, startHp) {
             const illudedMiss = isPlayerIlluded && Math.random() < getIllusionMissRate(myC.spd, oppC.spd);
             if(illudedMiss){
                 log.innerHTML+=`\n💨 幻惑で攻撃が外れた！`;
-                setTimeout(()=>{ myTurn=false; round++; setTimeout(eventStep,1100); },400);
+                setTimeout(()=>{ battleLogHistory.push(log.innerHTML.replace(/<br\s*\/?>/gi,"\n")); myTurn=false; round++; setTimeout(eventStep,1100); },400);
             } else {
                 setTimeout(()=>{
                     const isCrit = Math.random() < getCritRate(myC.spd, oppC.spd);
@@ -3621,7 +3654,7 @@ function launchEventBattle(myC, startHp) {
                     else { log.innerHTML+=`\n💥 ダメージ: ${d}`; triggerEffect("enemy",d); }
                     updateHP(pHP,oHP,oppC.hp,myC.hp);
                     checkEnragedTransition();
-                    myTurn=false; round++; setTimeout(eventStep,1100);
+                    battleLogHistory.push(log.innerHTML.replace(/<br\s*\/?>/gi,"\n")); myTurn=false; round++; setTimeout(eventStep,1100);
                 },400);
             }
         } else {
@@ -3649,7 +3682,7 @@ function launchEventBattle(myC, startHp) {
                         else { log.innerHTML+=`\n😢 被弾ダメージ: ${d}`; triggerEffect("player",d); }
                         updateHP(pHP,oHP,oppC.hp,myC.hp);
                         if(pHP<=0){ eventBattleFinish(pHP,oHP,myC,false); return; }
-                        myTurn=true; round++; setTimeout(eventStep,1100);
+                        battleLogHistory.push(log.innerHTML.replace(/<br\s*\/?>/gi,"\n")); myTurn=true; round++; setTimeout(eventStep,1100);
                     },400);
                 } else if(er<0.70){
                     setTimeout(()=>{
@@ -3659,7 +3692,7 @@ function launchEventBattle(myC, startHp) {
                         triggerEffect("player",80);
                         updateHP(pHP,oHP,oppC.hp,myC.hp);
                         if(pHP<=0){ eventBattleFinish(pHP,oHP,myC,false); return; }
-                        myTurn=true; round++; setTimeout(eventStep,1100);
+                        battleLogHistory.push(log.innerHTML.replace(/<br\s*\/?>/gi,"\n")); myTurn=true; round++; setTimeout(eventStep,1100);
                     },400);
                 } else if(er<0.90){
                     const hits = rollSeedHits(oppC.spd, myC.spd);
@@ -3673,7 +3706,7 @@ function launchEventBattle(myC, startHp) {
                             log.innerHTML+=` 合計: ${damages.reduce((a,b)=>a+b,0)}`;
                             updateHP(pHP,oHP,oppC.hp,myC.hp);
                             if(pHP<=0){ eventBattleFinish(pHP,oHP,myC,false); return; }
-                            myTurn=true; round++; setTimeout(eventStep,1300);
+                            battleLogHistory.push(log.innerHTML.replace(/<br\s*\/?>/gi,"\n")); myTurn=true; round++; setTimeout(eventStep,1300);
                         }
                     },150+i*250); });
                 } else {
@@ -3683,7 +3716,7 @@ function launchEventBattle(myC, startHp) {
                         log.innerHTML+=`\n🐙 たこ焼きを食べた！HPが800回復！`;
                         updateHP(pHP,oHP,oppC.hp,myC.hp);
                         checkEnragedTransition();
-                        myTurn=true; round++; setTimeout(eventStep,1100);
+                        battleLogHistory.push(log.innerHTML.replace(/<br\s*\/?>/gi,"\n")); myTurn=true; round++; setTimeout(eventStep,1100);
                     },400);
                 }
             } else {
@@ -3699,7 +3732,7 @@ function launchEventBattle(myC, startHp) {
                         else { log.innerHTML+=`\n😢 被弾ダメージ: ${d}`; triggerEffect("player",d); }
                         updateHP(pHP,oHP,oppC.hp,myC.hp);
                         if(pHP<=0){ eventBattleFinish(pHP,oHP,myC,false); return; }
-                        myTurn=true; round++; setTimeout(eventStep,1100);
+                        battleLogHistory.push(log.innerHTML.replace(/<br\s*\/?>/gi,"\n")); myTurn=true; round++; setTimeout(eventStep,1100);
                     },400);
                 } else if(er<0.40){
                     // 確定Spicy Hit：怒りのSpicy Hit!!!!!!!!!!!!!!!
@@ -3712,7 +3745,7 @@ function launchEventBattle(myC, startHp) {
                         triggerEffect("player-crit",d);
                         updateHP(pHP,oHP,oppC.hp,myC.hp);
                         if(pHP<=0){ eventBattleFinish(pHP,oHP,myC,false); return; }
-                        myTurn=true; round++; setTimeout(eventStep,1100);
+                        battleLogHistory.push(log.innerHTML.replace(/<br\s*\/?>/gi,"\n")); myTurn=true; round++; setTimeout(eventStep,1100);
                     },400);
                 } else if(er<0.60){
                     setTimeout(()=>{
@@ -3722,7 +3755,7 @@ function launchEventBattle(myC, startHp) {
                         triggerEffect("player",80);
                         updateHP(pHP,oHP,oppC.hp,myC.hp);
                         if(pHP<=0){ eventBattleFinish(pHP,oHP,myC,false); return; }
-                        myTurn=true; round++; setTimeout(eventStep,1100);
+                        battleLogHistory.push(log.innerHTML.replace(/<br\s*\/?>/gi,"\n")); myTurn=true; round++; setTimeout(eventStep,1100);
                     },400);
                 } else if(er<0.80){
                     const hits = rollSeedHits(oppC.spd, myC.spd);
@@ -3736,7 +3769,7 @@ function launchEventBattle(myC, startHp) {
                             log.innerHTML+=` 合計: ${damages.reduce((a,b)=>a+b,0)}`;
                             updateHP(pHP,oHP,oppC.hp,myC.hp);
                             if(pHP<=0){ eventBattleFinish(pHP,oHP,myC,false); return; }
-                            myTurn=true; round++; setTimeout(eventStep,1300);
+                            battleLogHistory.push(log.innerHTML.replace(/<br\s*\/?>/gi,"\n")); myTurn=true; round++; setTimeout(eventStep,1300);
                         }
                     },150+i*250); });
                 } else {
@@ -3746,7 +3779,7 @@ function launchEventBattle(myC, startHp) {
                         log.innerHTML+=`\n🐙 たこ焼きを食べた！HPが800回復！`;
                         updateHP(pHP,oHP,oppC.hp,myC.hp);
                         checkEnragedTransition();
-                        myTurn=true; round++; setTimeout(eventStep,1100);
+                        battleLogHistory.push(log.innerHTML.replace(/<br\s*\/?>/gi,"\n")); myTurn=true; round++; setTimeout(eventStep,1100);
                     },400);
                 }
             }
@@ -3809,6 +3842,7 @@ function endEventMode(){
 function startBattleScene(oppN, oppC, myC) {
     // バトル画面セットアップ
     battleAborted = false; // バトル開始時にリセット
+    battleLogHistory = []; // 戦闘ログ蓄積をリセット
     // 古いリスナーが残っていれば解除（リスナー重複防止）
     if(guestBattleRef) { guestBattleRef.off(); guestBattleRef = null; }
     if(currentRoomId && database) { database.ref('rooms/'+currentRoomId+'/forfeit').off(); }
@@ -3989,26 +4023,26 @@ function startBattleScene(oppN, oppC, myC) {
             // 幻惑ミス（punch.mp3なし、SPD比較で50%/30%）
             if(myIsIlluded&&Math.random()<getIllusionMissRate(myC.spd,oppC.spd)){
                 log.innerHTML+=`\n💨 幻惑で攻撃が外れた！`;
-                setTimeout(()=>{updateHP(pHP,oHP,oppC.hp,myC.hp);myTurn=false;round++;setTimeout(step,1100);},400);
+                setTimeout(()=>{updateHP(pHP,oHP,oppC.hp,myC.hp);battleLogHistory.push(log.innerHTML.replace(/<br\s*\/?>/gi,"\n"));myTurn=false;round++;setTimeout(step,1100);},400);
             } else if(myC.isSeed&&Math.random()<0.3){
                 // 種連射（machine-gun.mp3、SPD比較で回数変動）
                 const hits=rollSeedHits(myC.spd,oppC.spd);let damages=[];
                 for(let i=0;i<hits;i++){let sd=Math.max(2,Math.round(myC.atk*0.3-Math.floor(oppC.def/4)));sd=Math.round(sd*(0.9+Math.random()*0.2));damages.push(sd);oHP=Math.max(0,oHP-sd);}
                 log.innerHTML+=`\n🌱 種連続発射 ${hits}連撃！`;
                 setTimeout(()=>playSoundEffect('machine-gun.mp3'),50);
-                damages.forEach((sd,i)=>{setTimeout(()=>{triggerEffect("enemy",sd);if(i===damages.length-1){log.innerHTML+=` 合計: ${damages.reduce((a,b)=>a+b,0)}`;updateHP(pHP,oHP,oppC.hp,myC.hp);myTurn=false;round++;setTimeout(step,1300);}},150+i*250);});
+                damages.forEach((sd,i)=>{setTimeout(()=>{triggerEffect("enemy",sd);if(i===damages.length-1){log.innerHTML+=` 合計: ${damages.reduce((a,b)=>a+b,0)}`;updateHP(pHP,oHP,oppC.hp,myC.hp);battleLogHistory.push(log.innerHTML.replace(/<br\s*\/?>/gi,"\n"));myTurn=false;round++;setTimeout(step,1300);}},150+i*250);});
             } else if(myC.isTonTonTon){
                 playSoundEffect('pig2.mp3');
-                setTimeout(()=>{const isCrit=Math.random()<getCritRate(myC.spd,oppC.spd);let d=isCrit?Math.max(8,myC.atk):Math.max(8,myC.atk-Math.floor(oppC.def/2));d=Math.round(d*(0.9+Math.random()*0.2));oHP=Math.max(0,oHP-d);playSoundEffect('punch.mp3');if(isCrit){log.innerHTML+=`\n🌶️ Spicy Hit!!!!!!!! 💥 ダメージ: ${d}`;triggerEffect("enemy-crit",d);}else{log.innerHTML+=`\n💥 ダメージ: ${d}`;triggerEffect("enemy",d);}updateHP(pHP,oHP,oppC.hp,myC.hp);myTurn=false;round++;setTimeout(step,1100);},400);
+                setTimeout(()=>{const isCrit=Math.random()<getCritRate(myC.spd,oppC.spd);let d=isCrit?Math.max(8,myC.atk):Math.max(8,myC.atk-Math.floor(oppC.def/2));d=Math.round(d*(0.9+Math.random()*0.2));oHP=Math.max(0,oHP-d);playSoundEffect('punch.mp3');if(isCrit){log.innerHTML+=`\n🌶️ Spicy Hit!!!!!!!! 💥 ダメージ: ${d}`;triggerEffect("enemy-crit",d);}else{log.innerHTML+=`\n💥 ダメージ: ${d}`;triggerEffect("enemy",d);}updateHP(pHP,oHP,oppC.hp,myC.hp);battleLogHistory.push(log.innerHTML.replace(/<br\s*\/?>/gi,"\n"));myTurn=false;round++;setTimeout(step,1100);},400);
             } else if(oppC.isTonTonTon){
                 playSoundEffect('pig1.mp3');
-                setTimeout(()=>{const isCrit=Math.random()<getCritRate(myC.spd,oppC.spd);let d=isCrit?Math.max(8,myC.atk):Math.max(8,myC.atk-Math.floor(oppC.def/2));d=Math.round(d*(0.9+Math.random()*0.2));oHP=Math.max(0,oHP-d);playSoundEffect('punch.mp3');if(isCrit){log.innerHTML+=`\n🌶️ Spicy Hit!!!!!!!! 💥 ダメージ: ${d}`;triggerEffect("enemy-crit",d);}else{log.innerHTML+=`\n💥 ダメージ: ${d}`;triggerEffect("enemy",d);}updateHP(pHP,oHP,oppC.hp,myC.hp);myTurn=false;round++;setTimeout(step,1100);},400);
+                setTimeout(()=>{const isCrit=Math.random()<getCritRate(myC.spd,oppC.spd);let d=isCrit?Math.max(8,myC.atk):Math.max(8,myC.atk-Math.floor(oppC.def/2));d=Math.round(d*(0.9+Math.random()*0.2));oHP=Math.max(0,oHP-d);playSoundEffect('punch.mp3');if(isCrit){log.innerHTML+=`\n🌶️ Spicy Hit!!!!!!!! 💥 ダメージ: ${d}`;triggerEffect("enemy-crit",d);}else{log.innerHTML+=`\n💥 ダメージ: ${d}`;triggerEffect("enemy",d);}updateHP(pHP,oHP,oppC.hp,myC.hp);battleLogHistory.push(log.innerHTML.replace(/<br\s*\/?>/gi,"\n"));myTurn=false;round++;setTimeout(step,1100);},400);
             } else if(myC.hasGold){
                 playGoldSound();log.innerHTML+=`\n🌟 金箔乱舞！`;
-                setTimeout(()=>{const isCrit=Math.random()<getCritRate(myC.spd,oppC.spd);let d=isCrit?Math.max(8,myC.atk):Math.max(8,myC.atk-Math.floor(oppC.def/2));d=Math.round(d*(0.9+Math.random()*0.2));oHP=Math.max(0,oHP-d);playSoundEffect('punch.mp3');if(isCrit){log.innerHTML+=`\n🌶️ Spicy Hit!!!!!!!! 💥 ダメージ: ${d}`;triggerEffect("enemy-crit",d);}else{log.innerHTML+=`\n💥 ダメージ: ${d}`;triggerEffect("enemy-gold",d);}updateHP(pHP,oHP,oppC.hp,myC.hp);myTurn=false;round++;setTimeout(step,1100);},400);
+                setTimeout(()=>{const isCrit=Math.random()<getCritRate(myC.spd,oppC.spd);let d=isCrit?Math.max(8,myC.atk):Math.max(8,myC.atk-Math.floor(oppC.def/2));d=Math.round(d*(0.9+Math.random()*0.2));oHP=Math.max(0,oHP-d);playSoundEffect('punch.mp3');if(isCrit){log.innerHTML+=`\n🌶️ Spicy Hit!!!!!!!! 💥 ダメージ: ${d}`;triggerEffect("enemy-crit",d);}else{log.innerHTML+=`\n💥 ダメージ: ${d}`;triggerEffect("enemy-gold",d);}updateHP(pHP,oHP,oppC.hp,myC.hp);battleLogHistory.push(log.innerHTML.replace(/<br\s*\/?>/gi,"\n"));myTurn=false;round++;setTimeout(step,1100);},400);
             } else {
                 // 通常攻撃（ターン音は上で鳴らし済み、ダメージ時にpunch.mp3）
-                setTimeout(()=>{const isCrit=Math.random()<getCritRate(myC.spd,oppC.spd);let d=isCrit?Math.max(8,myC.atk):Math.max(8,myC.atk-Math.floor(oppC.def/2));d=Math.round(d*(0.9+Math.random()*0.2));oHP=Math.max(0,oHP-d);playSoundEffect('punch.mp3');if(isCrit){log.innerHTML+=`\n🌶️ Spicy Hit!!!!!!!! 💥 ダメージ: ${d}`;triggerEffect("enemy-crit",d);}else{log.innerHTML+=`\n💥 ダメージ: ${d}`;triggerEffect("enemy",d);}updateHP(pHP,oHP,oppC.hp,myC.hp);myTurn=false;round++;setTimeout(step,1100);},400);
+                setTimeout(()=>{const isCrit=Math.random()<getCritRate(myC.spd,oppC.spd);let d=isCrit?Math.max(8,myC.atk):Math.max(8,myC.atk-Math.floor(oppC.def/2));d=Math.round(d*(0.9+Math.random()*0.2));oHP=Math.max(0,oHP-d);playSoundEffect('punch.mp3');if(isCrit){log.innerHTML+=`\n🌶️ Spicy Hit!!!!!!!! 💥 ダメージ: ${d}`;triggerEffect("enemy-crit",d);}else{log.innerHTML+=`\n💥 ダメージ: ${d}`;triggerEffect("enemy",d);}updateHP(pHP,oHP,oppC.hp,myC.hp);battleLogHistory.push(log.innerHTML.replace(/<br\s*\/?>/gi,"\n"));myTurn=false;round++;setTimeout(step,1100);},400);
             }
         }else{
             log.innerHTML=`⚠️ 相手のターン！`;
@@ -4017,26 +4051,26 @@ function startBattleScene(oppN, oppC, myC) {
             // 幻惑ミス（punch.mp3なし、SPD比較で50%/30%）
             if(oppIsIlluded&&Math.random()<getIllusionMissRate(oppC.spd,myC.spd)){
                 log.innerHTML+=`\n💨 幻惑で相手の攻撃が外れた！`;
-                setTimeout(()=>{updateHP(pHP,oHP,oppC.hp,myC.hp);myTurn=true;round++;setTimeout(step,1100);},400);
+                setTimeout(()=>{updateHP(pHP,oHP,oppC.hp,myC.hp);battleLogHistory.push(log.innerHTML.replace(/<br\s*\/?>/gi,"\n"));myTurn=true;round++;setTimeout(step,1100);},400);
             } else if(oppC.isBreath&&Math.random()<(1/3)){
                 // 熱々ブレス（breath.mp3）
-                setTimeout(()=>{pHP=Math.max(0,pHP-80);log.innerHTML+=`\n🔥 熱々ブレス！DEF無視80ダメージ！`;playSoundEffect('breath.mp3');triggerEffect("player",80);updateHP(pHP,oHP,oppC.hp,myC.hp);myTurn=true;round++;setTimeout(step,1100);},400);
+                setTimeout(()=>{pHP=Math.max(0,pHP-80);log.innerHTML+=`\n🔥 熱々ブレス！DEF無視80ダメージ！`;playSoundEffect('breath.mp3');triggerEffect("player",80);updateHP(pHP,oHP,oppC.hp,myC.hp);battleLogHistory.push(log.innerHTML.replace(/<br\s*\/?>/gi,"\n"));myTurn=true;round++;setTimeout(step,1100);},400);
             } else if(oppC.isSeed&&Math.random()<0.3){
                 // 種連射（machine-gun.mp3、SPD比較で回数変動）
                 const hits=rollSeedHits(oppC.spd,myC.spd);let damages=[];
                 for(let i=0;i<hits;i++){let sd=Math.max(2,Math.round(oppC.atk*0.3-Math.floor(myC.def/4)));sd=Math.round(sd*(0.9+Math.random()*0.2));damages.push(sd);pHP=Math.max(0,pHP-sd);}
                 log.innerHTML+=`\n🌱 相手の種連続発射 ${hits}連撃！`;
                 setTimeout(()=>playSoundEffect('machine-gun.mp3'),50);
-                damages.forEach((sd,i)=>{setTimeout(()=>{triggerEffect("player",sd);if(i===damages.length-1){log.innerHTML+=` 合計: ${damages.reduce((a,b)=>a+b,0)}`;updateHP(pHP,oHP,oppC.hp,myC.hp);myTurn=true;round++;setTimeout(step,1300);}},150+i*250);});
+                damages.forEach((sd,i)=>{setTimeout(()=>{triggerEffect("player",sd);if(i===damages.length-1){log.innerHTML+=` 合計: ${damages.reduce((a,b)=>a+b,0)}`;updateHP(pHP,oHP,oppC.hp,myC.hp);battleLogHistory.push(log.innerHTML.replace(/<br\s*\/?>/gi,"\n"));myTurn=true;round++;setTimeout(step,1300);}},150+i*250);});
             } else if(myC.isTonTonTon){
                 playSoundEffect('pig1.mp3');
-                setTimeout(()=>{const isCrit=Math.random()<getCritRate(oppC.spd,myC.spd);let d=isCrit?Math.max(8,oppC.atk):Math.max(8,oppC.atk-Math.floor(myC.def/2));d=Math.round(d*(0.9+Math.random()*0.2));pHP=Math.max(0,pHP-d);playSoundEffect('punch.mp3');if(isCrit){log.innerHTML+=`\n🌶️ Spicy Hit!!!!!!!! 💥 ダメージ: ${d}`;triggerEffect("player-crit",d);}else{log.innerHTML+=`\n😢 被弾ダメージ: ${d}`;triggerEffect("player",d);}updateHP(pHP,oHP,oppC.hp,myC.hp);myTurn=true;round++;setTimeout(step,1100);},400);
+                setTimeout(()=>{const isCrit=Math.random()<getCritRate(oppC.spd,myC.spd);let d=isCrit?Math.max(8,oppC.atk):Math.max(8,oppC.atk-Math.floor(myC.def/2));d=Math.round(d*(0.9+Math.random()*0.2));pHP=Math.max(0,pHP-d);playSoundEffect('punch.mp3');if(isCrit){log.innerHTML+=`\n🌶️ Spicy Hit!!!!!!!! 💥 ダメージ: ${d}`;triggerEffect("player-crit",d);}else{log.innerHTML+=`\n😢 被弾ダメージ: ${d}`;triggerEffect("player",d);}updateHP(pHP,oHP,oppC.hp,myC.hp);battleLogHistory.push(log.innerHTML.replace(/<br\s*\/?>/gi,"\n"));myTurn=true;round++;setTimeout(step,1100);},400);
             } else if(oppC.isTonTonTon){
                 playSoundEffect('pig2.mp3');
-                setTimeout(()=>{const isCrit=Math.random()<getCritRate(oppC.spd,myC.spd);let d=isCrit?Math.max(8,oppC.atk):Math.max(8,oppC.atk-Math.floor(myC.def/2));d=Math.round(d*(0.9+Math.random()*0.2));pHP=Math.max(0,pHP-d);playSoundEffect('punch.mp3');if(isCrit){log.innerHTML+=`\n🌶️ Spicy Hit!!!!!!!! 💥 ダメージ: ${d}`;triggerEffect("player-crit",d);}else{log.innerHTML+=`\n😢 被弾ダメージ: ${d}`;triggerEffect("player",d);}updateHP(pHP,oHP,oppC.hp,myC.hp);myTurn=true;round++;setTimeout(step,1100);},400);
+                setTimeout(()=>{const isCrit=Math.random()<getCritRate(oppC.spd,myC.spd);let d=isCrit?Math.max(8,oppC.atk):Math.max(8,oppC.atk-Math.floor(myC.def/2));d=Math.round(d*(0.9+Math.random()*0.2));pHP=Math.max(0,pHP-d);playSoundEffect('punch.mp3');if(isCrit){log.innerHTML+=`\n🌶️ Spicy Hit!!!!!!!! 💥 ダメージ: ${d}`;triggerEffect("player-crit",d);}else{log.innerHTML+=`\n😢 被弾ダメージ: ${d}`;triggerEffect("player",d);}updateHP(pHP,oHP,oppC.hp,myC.hp);battleLogHistory.push(log.innerHTML.replace(/<br\s*\/?>/gi,"\n"));myTurn=true;round++;setTimeout(step,1100);},400);
             } else {
                 // 通常攻撃
-                setTimeout(()=>{const isCrit=Math.random()<getCritRate(oppC.spd,myC.spd);let d=isCrit?Math.max(8,oppC.atk):Math.max(8,oppC.atk-Math.floor(myC.def/2));d=Math.round(d*(0.9+Math.random()*0.2));pHP=Math.max(0,pHP-d);playSoundEffect('punch.mp3');if(isCrit){log.innerHTML+=`\n🌶️ Spicy Hit!!!!!!!! 💥 ダメージ: ${d}`;triggerEffect("player-crit",d);}else{log.innerHTML+=`\n😢 被弾ダメージ: ${d}`;triggerEffect("player",d);}updateHP(pHP,oHP,oppC.hp,myC.hp);myTurn=true;round++;setTimeout(step,1100);},400);
+                setTimeout(()=>{const isCrit=Math.random()<getCritRate(oppC.spd,myC.spd);let d=isCrit?Math.max(8,oppC.atk):Math.max(8,oppC.atk-Math.floor(myC.def/2));d=Math.round(d*(0.9+Math.random()*0.2));pHP=Math.max(0,pHP-d);playSoundEffect('punch.mp3');if(isCrit){log.innerHTML+=`\n🌶️ Spicy Hit!!!!!!!! 💥 ダメージ: ${d}`;triggerEffect("player-crit",d);}else{log.innerHTML+=`\n😢 被弾ダメージ: ${d}`;triggerEffect("player",d);}updateHP(pHP,oHP,oppC.hp,myC.hp);battleLogHistory.push(log.innerHTML.replace(/<br\s*\/?>/gi,"\n"));myTurn=true;round++;setTimeout(step,1100);},400);
             }
         }
     }
