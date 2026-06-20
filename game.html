@@ -1567,11 +1567,6 @@ function showStaffMenu() {
     btnEventSetHp.onclick = function() { staffAction("eventsethp"); };
     msg.appendChild(btnEventSetHp);
 
-    const btnEventSetDmg = document.createElement("button");
-    btnEventSetDmg.style.cssText = "width:100%;margin-bottom:12px;padding:8px;background:#d35400;color:white;border:none;border-radius:6px;font-weight:bold;cursor:pointer;";
-    btnEventSetDmg.innerHTML = "✏️ 自分の総ダメージを変更（デバッグ）";
-    btnEventSetDmg.onclick = function() { staffAction("eventsetdmg"); };
-    msg.appendChild(btnEventSetDmg);
 
     // レベル設定ボタン
     const btnLv = document.createElement("button");
@@ -1722,29 +1717,7 @@ function staffAction(action) {
         document.getElementById("customModal").style.display = "none";
         showStaffMenu();
     } else if(action === 'eventdamage') {
-        if(!database) { showCustomAlert("❌ Firebase未接続"); return; }
-        database.ref('events/tokumori001/damages').once('value').then(function(snap){
-            const data = snap.val() || {};
-            const entries = Object.keys(data).map(function(pid){ return { pid: pid, dmg: data[pid] }; });
-            entries.sort(function(a,b){ return b.dmg - a.dmg; });
-            database.ref('events/tokumori001/participants').once('value').then(function(pSnap){
-                const pData = pSnap.val() || {};
-                let rows = '';
-                if(entries.length === 0) { rows = '<div style="font-size:12px;color:#888;">まだデータがありません。</div>'; }
-                entries.forEach(function(e, i){
-                    const name = (pData[e.pid] && pData[e.pid].name) ? pData[e.pid].name : '名無し';
-                    rows += '<div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid #eee;font-size:12px;">'
-                        + '<span>' + (i+1) + '. ' + name + ' <span style="color:#999;">(' + e.pid + ')</span></span>'
-                        + '<span style="font-weight:bold;color:#420000;">' + e.dmg + '</span></div>';
-                });
-                const totalParticipants = Object.keys(pData).length;
-                showCustomAlert('📊 特盛りイベント ダメージ集計',
-                    '<div style="text-align:left;max-height:60vh;overflow-y:auto;">'
-                    + '<div style="margin-bottom:10px;font-size:13px;font-weight:bold;color:#420000;">参加人数: ' + totalParticipants + '人</div>'
-                    + rows + '</div>'
-                );
-            });
-        });
+        showEventDamageRanking();
     } else if(action === 'eventsethp') {
         if(!database) { showCustomAlert("❌ Firebase未接続"); return; }
         database.ref('events/tokumori001/currentHp').once('value').then(function(snap){
@@ -1758,22 +1731,6 @@ function staffAction(action) {
                 const clamped = Math.min(EVENT_MONSTER_DATA.hp, newHp);
                 database.ref('events/tokumori001/currentHp').set(clamped).then(function(){
                     showCustomAlert("✅ 設定完了", "モンスターHPを " + clamped + " に設定しました。");
-                });
-            }, 300);
-        });
-    } else if(action === 'eventsetdmg') {
-        if(!database || !playerId) { showCustomAlert("❌ Firebase未接続またはプレイヤーID未発行"); return; }
-        database.ref('events/tokumori001/damages/' + playerId).once('value').then(function(snap){
-            const curDmg = snap.val() || 0;
-            document.getElementById("customModal").style.display = "none";
-            setTimeout(function(){
-                const input = prompt("✏️ 自分の総ダメージを入力してください\n現在値: " + curDmg);
-                if(input === null) return;
-                const newDmg = parseInt(input, 10);
-                if(isNaN(newDmg) || newDmg < 0) { showCustomAlert("❌ 入力エラー", "0以上の数値を入力してください。"); return; }
-                database.ref('events/tokumori001/damages/' + playerId).set(newDmg).then(function(){
-                    database.ref('events/tokumori001/participants/' + playerId).set({ name: playerName, lastPlayed: Date.now() });
-                    showCustomAlert("✅ 設定完了", "自分の総ダメージを " + newDmg + " に設定しました。");
                 });
             }, 300);
         });
@@ -2797,6 +2754,50 @@ function checkEventBannerVisibility() {
     }
     const infoBtn = document.getElementById('eventInfoBtn');
     if(infoBtn) infoBtn.style.display = visible ? 'block' : 'none';
+}
+
+function showEventDamageRanking() {
+    if(!database) { showCustomAlert("❌ Firebase未接続"); return; }
+    database.ref('events/tokumori001/damages').once('value').then(function(snap){
+        const data = snap.val() || {};
+        const entries = Object.keys(data).map(function(pid){ return { pid: pid, dmg: data[pid] }; });
+        entries.sort(function(a,b){ return b.dmg - a.dmg; });
+        database.ref('events/tokumori001/participants').once('value').then(function(pSnap){
+            const pData = pSnap.val() || {};
+            let rows = '';
+            if(entries.length === 0) { rows = '<div style="font-size:12px;color:#888;">まだデータがありません。</div>'; }
+            entries.forEach(function(e, i){
+                const name = (pData[e.pid] && pData[e.pid].name) ? pData[e.pid].name : '名無し';
+                rows += '<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;border-bottom:1px solid #eee;font-size:12px;gap:6px;">'
+                    + '<span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;">' + (i+1) + '. ' + name + ' <span style="color:#999;">(' + e.pid + ')</span></span>'
+                    + '<span style="font-weight:bold;color:#420000;flex-shrink:0;">' + e.dmg + '</span>'
+                    + '<button onclick="editEventPlayerDamage(\'' + e.pid + '\',' + e.dmg + ',\'' + name.replace(/'/g,"\\'") + '\')" style="flex-shrink:0;padding:3px 8px;background:#d35400;color:white;border:none;border-radius:4px;font-size:11px;cursor:pointer;">編集</button>'
+                    + '</div>';
+            });
+            const totalParticipants = Object.keys(pData).length;
+            showCustomAlert('📊 特盛りイベント ダメージ集計',
+                '<div style="text-align:left;max-height:60vh;overflow-y:auto;">'
+                + '<div style="margin-bottom:10px;font-size:13px;font-weight:bold;color:#420000;">参加人数: ' + totalParticipants + '人</div>'
+                + rows + '</div>'
+            );
+        });
+    });
+}
+
+function editEventPlayerDamage(pid, currentDmg, name) {
+    document.getElementById("customModal").style.display = "none";
+    setTimeout(function(){
+        const input = prompt("✏️ " + name + " (" + pid + ") の総ダメージを入力してください\n現在値: " + currentDmg);
+        if(input === null) { showEventDamageRanking(); return; }
+        const newDmg = parseInt(input, 10);
+        if(isNaN(newDmg) || newDmg < 0) {
+            showCustomAlert("❌ 入力エラー", "0以上の数値を入力してください。", function(){ showEventDamageRanking(); });
+            return;
+        }
+        database.ref('events/tokumori001/damages/' + pid).set(newDmg).then(function(){
+            showCustomAlert("✅ 設定完了", name + " の総ダメージを " + newDmg + " に設定しました。", function(){ showEventDamageRanking(); });
+        });
+    }, 300);
 }
 
 function showEventInfo() {
