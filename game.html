@@ -634,7 +634,8 @@
     <div id="pageBattle" class="page">
         <div id="battleSetup">
             <img id="eventBannerImg" src="eventbanner01.jpg" class="event-banner" style="display:none;" onclick="startEventBattle()" alt="イベント">
-            <button id="eventReplayBtn" style="display:none;width:100%;margin-bottom:12px;padding:8px;background:transparent;color:#b88742;border:1px solid #b88742;border-radius:4px;font-size:12px;font-weight:bold;cursor:pointer;" onclick="replayEventMovie()">🎬 オープニングムービーをもう一度見る</button>
+            <button id="eventReplayBtn" style="display:none;width:100%;margin-bottom:8px;padding:8px;background:transparent;color:#b88742;border:1px solid #b88742;border-radius:4px;font-size:12px;font-weight:bold;cursor:pointer;" onclick="replayEventMovie()">🎬 オープニングムービーをもう一度見る</button>
+            <button id="eventInfoBtn" style="display:none;width:100%;margin-bottom:12px;padding:8px;background:transparent;color:#b88742;border:1px solid #b88742;border-radius:4px;font-size:12px;font-weight:bold;cursor:pointer;" onclick="showEventInfo()">📖 特盛りモンスターについて</button>
             <div style="padding: 16px 0 0 0;">
                 <button id="btnBotNormal" class="btn btn-bot" style="width:100%;" onclick="startBotBattle()">PCと対戦する（初級）</button>
                 <button id="btnBotHard" class="btn btn-bot" style="width:100%;margin-top:8px;background:#420000;" onclick="startHardBotBattle()">PCと対戦する（強敵）</button>
@@ -2794,6 +2795,24 @@ function checkEventBannerVisibility() {
         const hasWatched = localStorage.getItem('qr_event_movie_watched') === '1';
         replayBtn.style.display = (visible && hasWatched) ? 'block' : 'none';
     }
+    const infoBtn = document.getElementById('eventInfoBtn');
+    if(infoBtn) infoBtn.style.display = visible ? 'block' : 'none';
+}
+
+function showEventInfo() {
+    const msg = '<div style="text-align:left;font-size:13px;line-height:1.8;color:#420000;">'
+        + '試験的にイベントを実施します！<br>'
+        + '特盛りモンスターが街にやってきた！<br>'
+        + 'みんなで協力して討伐しよう！<br><br>'
+        + '特盛りモンスターは一人では倒せないくらい強いので、全プレイヤーでじわじわHPを削って行きましょう！<br><br>'
+        + '勝っても負けても報酬で調理1回分のアイテム（食材3つとスパイス1つ）をお返しします！<br><br>'
+        + 'イベント終了後に与えた総ダメージでランキング発表<br>'
+        + '上位のプレイヤーには特典や報酬があるかも！？<br><br>'
+        + '本来ならイベント期間や、報酬を先に発表すべきなのですが<br>'
+        + '今回はテストイベントなのでまだ未定です！<br><br>'
+        + 'みんなどしどしチャレンジしてみてね！'
+        + '</div>';
+    showCustomAlert('【特盛りモンスターから街を守れ！】', msg);
 }
 
 function playEventMovie(onFinishCallback) {
