@@ -1550,10 +1550,22 @@ function showStaffMenu() {
     msg.appendChild(btnEvent);
 
     const btnEventDmg = document.createElement("button");
-    btnEventDmg.style.cssText = "width:100%;margin-bottom:12px;padding:8px;background:#8e44ad;color:white;border:none;border-radius:6px;font-weight:bold;cursor:pointer;";
+    btnEventDmg.style.cssText = "width:100%;margin-bottom:8px;padding:8px;background:#8e44ad;color:white;border:none;border-radius:6px;font-weight:bold;cursor:pointer;";
     btnEventDmg.innerHTML = "📊 特盛りイベント ダメージ集計";
     btnEventDmg.onclick = function() { staffAction("eventdamage"); };
     msg.appendChild(btnEventDmg);
+
+    const btnEventSetHp = document.createElement("button");
+    btnEventSetHp.style.cssText = "width:100%;margin-bottom:8px;padding:8px;background:#16a085;color:white;border:none;border-radius:6px;font-weight:bold;cursor:pointer;";
+    btnEventSetHp.innerHTML = "🩹 モンスターHPを変更（デバッグ）";
+    btnEventSetHp.onclick = function() { staffAction("eventsethp"); };
+    msg.appendChild(btnEventSetHp);
+
+    const btnEventSetDmg = document.createElement("button");
+    btnEventSetDmg.style.cssText = "width:100%;margin-bottom:12px;padding:8px;background:#d35400;color:white;border:none;border-radius:6px;font-weight:bold;cursor:pointer;";
+    btnEventSetDmg.innerHTML = "✏️ 自分の総ダメージを変更（デバッグ）";
+    btnEventSetDmg.onclick = function() { staffAction("eventsetdmg"); };
+    msg.appendChild(btnEventSetDmg);
 
     // レベル設定ボタン
     const btnLv = document.createElement("button");
@@ -1726,6 +1738,38 @@ function staffAction(action) {
                     + rows + '</div>'
                 );
             });
+        });
+    } else if(action === 'eventsethp') {
+        if(!database) { showCustomAlert("❌ Firebase未接続"); return; }
+        database.ref('events/tokumori001/currentHp').once('value').then(function(snap){
+            const curHp = snap.val();
+            document.getElementById("customModal").style.display = "none";
+            setTimeout(function(){
+                const input = prompt("🩹 モンスターの現在HPを入力してください（最大: " + EVENT_MONSTER_DATA.hp + "）\n現在値: " + (curHp === null ? "未設定（満タン扱い）" : curHp));
+                if(input === null) return;
+                const newHp = parseInt(input, 10);
+                if(isNaN(newHp) || newHp < 1) { showCustomAlert("❌ 入力エラー", "1以上の数値を入力してください。"); return; }
+                const clamped = Math.min(EVENT_MONSTER_DATA.hp, newHp);
+                database.ref('events/tokumori001/currentHp').set(clamped).then(function(){
+                    showCustomAlert("✅ 設定完了", "モンスターHPを " + clamped + " に設定しました。");
+                });
+            }, 300);
+        });
+    } else if(action === 'eventsetdmg') {
+        if(!database || !playerId) { showCustomAlert("❌ Firebase未接続またはプレイヤーID未発行"); return; }
+        database.ref('events/tokumori001/damages/' + playerId).once('value').then(function(snap){
+            const curDmg = snap.val() || 0;
+            document.getElementById("customModal").style.display = "none";
+            setTimeout(function(){
+                const input = prompt("✏️ 自分の総ダメージを入力してください\n現在値: " + curDmg);
+                if(input === null) return;
+                const newDmg = parseInt(input, 10);
+                if(isNaN(newDmg) || newDmg < 0) { showCustomAlert("❌ 入力エラー", "0以上の数値を入力してください。"); return; }
+                database.ref('events/tokumori001/damages/' + playerId).set(newDmg).then(function(){
+                    database.ref('events/tokumori001/participants/' + playerId).set({ name: playerName, lastPlayed: Date.now() });
+                    showCustomAlert("✅ 設定完了", "自分の総ダメージを " + newDmg + " に設定しました。");
+                });
+            }, 300);
         });
     } else if(action === 'setnotice') {
         var ta = document.getElementById("staffNoticeInput");
