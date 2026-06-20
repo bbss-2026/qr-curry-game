@@ -1352,6 +1352,7 @@ function goToTop() {
     if(btn) btn.style.display = "block";
     // お知らせを再取得して表示
     loadTopNotice();
+    hideQuestGuideChar();
 }
 
 const DEFAULT_TOP_INFO_TEXT = "プレイデータはブラウザごとに記憶されるので、同じ環境でプレイしないと続きから遊べません！\nLINEやX、Instagramでアクセスしてきた人はChromeやSafariなどブラウザで開き直してからプレイするのをオススメします！\nまた、プレイされているブラウザのキャッシュや履歴の削除によりデータが消える可能性があります。\nキャラクターIDを控え、定期的にバックアップコードを発行し、メモなどにコピペ保存してください。\nお手数おかけして申し訳ありません...";
@@ -1449,11 +1450,13 @@ function toggleHelp() {
         if(questTab) questTab.classList.add('active');
         document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
         if(questPage) questPage.classList.add('active');
+        showQuestGuideChar();
     } else {
         // 全タブ非表示にして遊び方を表示
         document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
         document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
         guidePanel.classList.add('active');
+        hideQuestGuideChar();
     }
 }
 function saveGame() {
@@ -3179,12 +3182,24 @@ function showGuideChar(imageSet) {
     const img = document.getElementById('questGuideImg');
     if(!wrap || !img) return;
     const pick = imageSet[Math.floor(Math.random() * imageSet.length)];
-    img.src = pick;
-    wrap.style.display = 'block';
-    // 一旦非表示状態を確定させてから、アニメーションでスライドイン
-    wrap.classList.remove('show');
-    void wrap.offsetWidth; // reflow強制
-    requestAnimationFrame(() => { wrap.classList.add('show'); });
+
+    if(wrap.classList.contains('show')) {
+        // すでに表示中（別タブのキャラ）→ 先に引っ込めてから新しいキャラを出す
+        wrap.classList.remove('show');
+        setTimeout(() => {
+            img.src = pick;
+            wrap.style.display = 'block';
+            void wrap.offsetWidth; // reflow強制
+            requestAnimationFrame(() => { wrap.classList.add('show'); });
+        }, 500);
+    } else {
+        // 非表示状態から新規に登場
+        img.src = pick;
+        wrap.style.display = 'block';
+        wrap.classList.remove('show');
+        void wrap.offsetWidth; // reflow強制
+        requestAnimationFrame(() => { wrap.classList.add('show'); });
+    }
 }
 
 function showQuestGuideChar() { showGuideChar(QUEST_GUIDE_IMAGES); }
@@ -3225,11 +3240,12 @@ function showEventDamageRanking() {
         const data = snap.val() || {};
         const entries = Object.keys(data).map(function(pid){ return { pid: pid, dmg: data[pid] }; });
         entries.sort(function(a,b){ return b.dmg - a.dmg; });
+        const top15 = entries.slice(0, 15);
         database.ref('events/tokumori001/participants').once('value').then(function(pSnap){
             const pData = pSnap.val() || {};
             let rows = '';
-            if(entries.length === 0) { rows = '<div style="font-size:12px;color:#888;">まだデータがありません。</div>'; }
-            entries.forEach(function(e, i){
+            if(top15.length === 0) { rows = '<div style="font-size:12px;color:#888;">まだデータがありません。</div>'; }
+            top15.forEach(function(e, i){
                 const name = (pData[e.pid] && pData[e.pid].name) ? pData[e.pid].name : '名無し';
                 rows += '<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;border-bottom:1px solid #eee;font-size:12px;gap:6px;">'
                     + '<span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;">' + (i+1) + '. ' + name + ' <span style="color:#999;">(' + e.pid + ')</span></span>'
@@ -3240,7 +3256,8 @@ function showEventDamageRanking() {
             const totalParticipants = Object.keys(pData).length;
             showCustomAlert('📊 特盛りイベント ダメージ集計',
                 '<div style="text-align:left;max-height:60vh;overflow-y:auto;">'
-                + '<div style="margin-bottom:10px;font-size:13px;font-weight:bold;color:#420000;">参加人数: ' + totalParticipants + '人</div>'
+                + '<div style="margin-bottom:4px;font-size:13px;font-weight:bold;color:#420000;">参加人数: ' + totalParticipants + '人</div>'
+                + '<div style="margin-bottom:10px;font-size:11px;color:#888;">上位15位まで表示</div>'
                 + rows + '</div>'
             );
         });
@@ -3780,6 +3797,7 @@ function startEventBattleScene(myC) {
 }
 
 function launchEventBattle(myC, startHp) {
+    hideQuestGuideChar(); // 対戦中は案内人を非表示
     window.__eventStartHp = startHp; // ランキング集計用に開始時HPを保持
     updateStats(s => { s.eventBattleJoined = true; });
     battleAborted = false;
@@ -4062,6 +4080,7 @@ function endEventMode(){
 
 function startBattleScene(oppN, oppC, myC) {
     // バトル画面セットアップ
+    hideQuestGuideChar(); // 対戦中は案内人を非表示
     battleAborted = false; // バトル開始時にリセット
     battleLogHistory = []; // 戦闘ログ蓄積をリセット
     // 古いリスナーが残っていれば解除（リスナー重複防止）
@@ -4459,6 +4478,7 @@ function endBattleScene() {
     document.getElementById("lobbyArea").style.display="block";
     document.getElementById("waitingArea").style.display="none";
     document.getElementById("battleArena").style.display="none";
+    showBattleGuideChar(); // 対戦タブに戻ったので案内人を再表示
 }
 </script>
 <div style="height:80px;"></div>
