@@ -121,7 +121,7 @@
         .vs-interactive-area { width: 100%; max-width: 420px; background: rgba(255,255,255,0.1); padding: 15px; border-radius: 12px; border: 2px solid #e67e22; margin-top: 25px; box-sizing: border-box; text-align: left; }
         
         .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(66,0,0,0.5); z-index: 9999; display: none; justify-content: center; align-items: center; overscroll-behavior: contain; }
-        body.modal-open { overflow: hidden; position: fixed; width: 100%; }
+        body.modal-open { overflow: hidden; }
         .modal-box { background: #efdeb1; width: 85%; max-width: 380px; max-height: 85vh; overflow-y: auto; padding: 24px; border-radius: 4px; border: 1px solid #b88742; box-shadow: 0 8px 32px rgba(66,0,0,0.2); text-align: center; box-sizing: border-box; -webkit-overflow-scrolling: touch; }
         .modal-title { font-size: 16px; font-weight: bold; color: #420000; margin-bottom: 12px; letter-spacing: 0.05em; }
         .modal-message { font-size: 13px; color: #420000; margin-bottom: 20px; line-height: 1.6; }
@@ -3391,7 +3391,7 @@ function calcAllBattleTurns(myC, oppC, oppN, myName) {
         if(pHP <= 0 || oHP <= 0) break;
         let turn = { round, hostHP: pHP, guestHP: oHP, log: '', effects: [], statusLines: round===1 ? statusLines : [], actorIsHost: myTurn };
         if(myTurn) {
-            turn.log = `🔥 {{ACTOR}} のターン！`;
+            turn.log = `{{TURNICON}} {{ACTOR}} のターン！`;
             if(isPP) { let d=Math.round(myC.hp*0.08); pHP=Math.max(0,pHP-d); turn.log+=`
 ☠️ 毒ダメージ: ${d}`; if(!turn.effects) turn.effects=[]; turn.effects.push({type:'player-poison',dmg:d}); if(pHP<=0){ turn.hostHP=pHP; turn.guestHP=oHP; turns.push(turn); break; } }
             if(myIsIlluded && Math.random() < getIllusionMissRate(myC.spd, oppC.spd)) {
@@ -3415,7 +3415,7 @@ function calcAllBattleTurns(myC, oppC, oppN, myName) {
 {{DMGLABEL}}: ${d}`;turn.effects.push({type:'enemy',dmg:d});}
             }
         } else {
-            turn.log = `⚠️ {{ACTOR}} のターン！`;
+            turn.log = `{{TURNICON}} {{ACTOR}} のターン！`;
             if(isOP) { let d=Math.round(oppC.hp*0.08);oHP=Math.max(0,oHP-d);turn.log+=`
 ☠️ 毒ダメージ: ${d}`; if(!turn.effects) turn.effects=[]; turn.effects.push({type:'enemy-poison',dmg:d}); if(oHP<=0){ turn.hostHP=pHP; turn.guestHP=oHP; turns.push(turn); break; } }
             if(oppIsIlluded && Math.random() < getIllusionMissRate(oppC.spd, myC.spd)) {
@@ -3494,10 +3494,12 @@ function playBattleTurns(turns, myC, oppC, oppN, role) {
         // turn.actorIsHost: ホストが行動者か。isGuest: 自分がゲストか。
         // {{ACTOR}}は常に「ターンを取っている行動者」を指す。行動者が自分ならplayerName、相手ならoppN
         // {{DMGLABEL}}は行動者が自分なら「💥 ダメージ」、相手なら「😢 被弾ダメージ」
+        // {{TURNICON}}は行動者が自分なら🔥、相手なら⚠️
         const isMyTurnNow = (turn.actorIsHost === !isGuest);
         let resolvedLog = turn.log
             .replace(/\{\{ACTOR\}\}/g, isMyTurnNow ? playerName : oppN)
-            .replace(/\{\{DMGLABEL\}\}/g, isMyTurnNow ? '💥 ダメージ' : '😢 被弾ダメージ');
+            .replace(/\{\{DMGLABEL\}\}/g, isMyTurnNow ? '💥 ダメージ' : '😢 被弾ダメージ')
+            .replace(/\{\{TURNICON\}\}/g, isMyTurnNow ? '🔥' : '⚠️');
 
         log.innerHTML = resolvedLog;
         battleLogHistory.push(resolvedLog.replace(/<br\s*\/?>/gi, '\n'));
