@@ -237,7 +237,7 @@
         .event-banner:hover { opacity: 0.9; }
 
         /* イベント戦闘画面（event-modeクラスでbattleArenaの見た目を上書き） */
-        .battle-stage.event-mode { padding: 0; overflow: hidden; }
+        .battle-stage.event-mode { padding: 0; overflow: visible; height: auto; min-height: 350px; }
         .battle-stage.event-mode .enemy-zone { gap: 0; }
         .battle-stage.event-mode .enemy-upper-row { display: block; position: relative; }
         .battle-stage.event-mode .enemy-visual-box { display: none; }
@@ -2731,7 +2731,7 @@ function startBotBattle() {
 // ============================================================
 // イベント：特盛りモンスターから街を守れ！
 // ============================================================
-const EVENT_MONSTER_DATA = { hp: 4000, atk: 120, def: 60, spd: 60, name: "浪花のカレーライスベイビー" };
+const EVENT_MONSTER_DATA = { hp: 5000, atk: 120, def: 60, spd: 60, name: "浪花のカレーライスベイビー" };
 let eventEnabled = (localStorage.getItem('qr_event_enabled') === '1');
 let eventTotalDamageThisBattle = 0;
 
