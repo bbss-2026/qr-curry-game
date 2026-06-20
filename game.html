@@ -3491,12 +3491,12 @@ function playBattleTurns(turns, myC, oppC, oppN, role) {
         const oppHP = isGuest ? turn.hostHP : turn.guestHP;
 
         // プレースホルダーを各視点の名前に変換（ホストかゲストかで自分/相手が入れ替わる）
-        // turn.actorIsHost: ホストが行動者か。isGuest: 自分がゲストか。
-        // 行動者が自分なら playerName、行動者が相手なら oppN
         const isMyTurnNow = (turn.actorIsHost === !isGuest);
+        console.log('[DEBUG]', 'round:', turn.round, 'actorIsHost:', turn.actorIsHost, 'isGuest:', isGuest, 'isMyTurnNow:', isMyTurnNow, 'rawLog:', turn.log);
         let resolvedLog = turn.log
             .replace(/\{\{ACTOR\}\}/g, isMyTurnNow ? playerName : oppN)
             .replace(/\{\{TARGET\}\}/g, isMyTurnNow ? oppN : playerName);
+        console.log('[DEBUG] resolvedLog:', resolvedLog);
 
         log.innerHTML = resolvedLog;
         battleLogHistory.push(resolvedLog.replace(/<br\s*\/?>/gi, '\n'));
