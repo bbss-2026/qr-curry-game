@@ -274,6 +274,10 @@
 </head>
 <body>
 <div id="statusFlashOverlay" class="status-flash-overlay"></div>
+<div id="eventMovieOverlay" style="position:fixed;top:0;left:0;width:100%;height:100%;background:#000;z-index:99998;display:none;justify-content:center;align-items:center;flex-direction:column;">
+    <video id="eventMovieVideo" src="tokumoritoujyo.mp4" playsinline style="max-width:100%;max-height:100%;"></video>
+    <button id="eventMovieSkipBtn" onclick="skipEventMovie()" style="position:absolute;bottom:24px;right:20px;padding:8px 18px;background:rgba(255,255,255,0.15);color:#fff;border:1px solid rgba(255,255,255,0.6);border-radius:20px;font-size:12px;font-weight:bold;cursor:pointer;">スキップ ▶</button>
+</div>
 <div id="iconGetOverlay">
     <img id="iconGetImg" src="mayimage07.png" class="icon-get-img" alt="">
     <div class="icon-get-text">🎉 新プレイヤーアイコン獲得！</div>
@@ -630,6 +634,7 @@
     <div id="pageBattle" class="page">
         <div id="battleSetup">
             <img id="eventBannerImg" src="eventbanner01.jpg" class="event-banner" style="display:none;" onclick="startEventBattle()" alt="イベント">
+            <button id="eventReplayBtn" style="display:none;width:100%;margin-bottom:12px;padding:8px;background:transparent;color:#b88742;border:1px solid #b88742;border-radius:4px;font-size:12px;font-weight:bold;cursor:pointer;" onclick="replayEventMovie()">🎬 オープニングムービーをもう一度見る</button>
             <div style="padding: 16px 0 0 0;">
                 <button id="btnBotNormal" class="btn btn-bot" style="width:100%;" onclick="startBotBattle()">PCと対戦する（初級）</button>
                 <button id="btnBotHard" class="btn btn-bot" style="width:100%;margin-top:8px;background:#420000;" onclick="startHardBotBattle()">PCと対戦する（強敵）</button>
@@ -2782,13 +2787,62 @@ let eventTotalDamageThisBattle = 0;
 function checkEventBannerVisibility() {
     const banner = document.getElementById('eventBannerImg');
     if(!banner) return;
-    banner.style.display = (eventEnabled || isDebugMode) ? 'block' : 'none';
+    const visible = (eventEnabled || isDebugMode);
+    banner.style.display = visible ? 'block' : 'none';
+    const replayBtn = document.getElementById('eventReplayBtn');
+    if(replayBtn) {
+        const hasWatched = localStorage.getItem('qr_event_movie_watched') === '1';
+        replayBtn.style.display = (visible && hasWatched) ? 'block' : 'none';
+    }
+}
+
+function playEventMovie(onFinishCallback) {
+    const overlay = document.getElementById('eventMovieOverlay');
+    const video = document.getElementById('eventMovieVideo');
+    if(!overlay || !video) { onFinishCallback(); return; }
+    let finished = false;
+    function finishOnce() {
+        if(finished) return;
+        finished = true;
+        overlay.style.display = 'none';
+        video.pause();
+        video.currentTime = 0;
+        video.onended = null;
+        onFinishCallback();
+    }
+    video.muted = isMuted;
+    video.currentTime = 0;
+    overlay.style.display = 'flex';
+    video.onended = finishOnce;
+    window.__skipEventMovie = finishOnce;
+    video.play().catch(() => { finishOnce(); });
+}
+
+function skipEventMovie() {
+    if(window.__skipEventMovie) window.__skipEventMovie();
+}
+
+function replayEventMovie() {
+    playEventMovie(() => {});
 }
 
 function startEventBattle() {
     if (!curryStock || curryStock.length === 0) { showCustomAlert("⚠️ カレーがありません", "先に調理でカレーを作ってください。"); return; }
     if (!eventEnabled && !isDebugMode) { showCustomAlert("⚠️ イベント終了", "このイベントは現在開催されていません。"); return; }
     if (audioCtx.state === 'suspended') audioCtx.resume();
+    const hasWatched = localStorage.getItem('qr_event_movie_watched') === '1';
+    if(!hasWatched) {
+        playEventMovie(() => {
+            localStorage.setItem('qr_event_movie_watched', '1');
+            checkEventBannerVisibility();
+            showEventVsScreen();
+        });
+    } else {
+        showEventVsScreen();
+    }
+}
+
+function showEventVsScreen() {
     isBotMatch = true; currentRoomId = null;
     eventTotalDamageThisBattle = 0;
 
