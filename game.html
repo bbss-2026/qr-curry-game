@@ -367,6 +367,11 @@
     </div>
     <!-- クエストタブ -->
     <div id="pageQuest" class="page">
+        <!-- 特別ボーナス -->
+        <div id="specialBonusWrap" style="border-bottom:1px solid #b88742; padding-bottom:20px; margin-bottom:20px; display:none;">
+            <div style="font-size:13px; font-weight:bold; color:#420000; letter-spacing:0.08em; margin-bottom:12px;">特別ボーナス</div>
+            <div id="specialBonusArea"></div>
+        </div>
         <!-- ログインボーナス -->
         <div style="border-bottom:1px solid #b88742; padding-bottom:20px; margin-bottom:20px;">
             <div style="font-size:13px; font-weight:bold; color:#420000; letter-spacing:0.08em; margin-bottom:12px;">ログインボーナス</div>
@@ -517,7 +522,7 @@
         <!-- ★プレイヤーアイコン＋名前エリア（移動後） -->
         <div class="profile-area">
             <img id="playerIconImg" src="mayimage01.png" data-index="1" onclick="togglePlayerIcon()" style="width: 80px; height: 80px; border: 3px solid #e67e22; border-radius: 50%; cursor: pointer; margin-bottom: 6px; transition: transform 0.2s;">
-            <div id="playerIdDisplay" style="font-size:10px; color:#b88742; margin-bottom:10px;">ID: ----------</div>
+            <div id="playerIdDisplay" onclick="copyPlayerId()" style="font-size:10px; color:#b88742; margin-bottom:10px; cursor:pointer; text-decoration:underline dotted;" title="タップでコピー">ID: ----------</div>
             <br>
             <input type="text" id="playerNameInput" class="input-name" placeholder="料理人の名前を入力" onchange="handleNameChange(this.value)">
             <p class="profile-hint">※プレイヤーアイコン、名前はタップで変更できます。</p>
@@ -1357,7 +1362,7 @@ function switchTab(tab, el) {
     const targetPage = document.getElementById('page' + tab.charAt(0).toUpperCase() + tab.slice(1));
     if(targetPage) targetPage.classList.add('active');
     cancelScanning();
-    if(tab === 'quest') { renderLoginBonus(); renderDailyQuest(); checkAndRenderAchievements(); }
+    if(tab === 'quest') { renderLoginBonus(); renderDailyQuest(); checkAndRenderAchievements(); loadSpecialBonus(); }
     if(tab === 'battle') { loadEventEnabledStatus(); }
     if(tab === 'cook') {
         // プルダウンがなしならヒントをクリア
@@ -1429,6 +1434,35 @@ function generateRandomIdSuffix() {
     return s;
 }
 
+function checkGiftQueue() {
+    if(!database || !playerId) return;
+    database.ref('giftQueue/' + playerId).once('value').then(function(snap){
+        const gifts = snap.val();
+        if(!gifts) return;
+        const normalPool = Object.keys(masterIngredients).filter(k => masterIngredients[k].shop === 0);
+        const midHighPool = Object.keys(masterIngredients).filter(k => masterIngredients[k].shop === 1 || masterIngredients[k].shop === 2);
+        const spicePool = Object.keys(masterSpices).filter(k => k !== "マンゴーチャツネ");
+        let allItems = [];
+        let totalGold = 0, totalTicket = 0;
+        Object.keys(gifts).forEach(function(giftKey){
+            const g = gifts[giftKey];
+            for(let i=0;i<(g.normalCount||0);i++){ const it=normalPool[Math.floor(Math.random()*normalPool.length)]; inventory[it]=(inventory[it]||0)+1; discoveredItems[it]=true; allItems.push(it); }
+            for(let i=0;i<(g.midHighCount||0);i++){ if(midHighPool.length===0) break; const it=midHighPool[Math.floor(Math.random()*midHighPool.length)]; inventory[it]=(inventory[it]||0)+1; discoveredItems[it]=true; allItems.push(it); }
+            for(let i=0;i<(g.spiceCount||0);i++){ const it=spicePool[Math.floor(Math.random()*spicePool.length)]; inventory[it]=(inventory[it]||0)+1; discoveredItems[it]=true; allItems.push(it); }
+            totalGold += (g.gold||0); totalTicket += (g.ticket||0);
+        });
+        playerG += totalGold; packTicket += totalTicket;
+        saveGame(); updateFridgeUI(); updateCookSelects(); updateShopButtons();
+        database.ref('giftQueue/' + playerId).remove();
+        const itemsHtml = allItems.map(it=>{ const d=masterIngredients[it]||masterSpices[it]; const ico=d&&d.icon?`<img src="${d.icon}" style="width:1.2em;height:1.2em;vertical-align:middle;object-fit:contain;">`:''; return ico+it; }).join(' ');
+        let msg = '';
+        if(allItems.length) msg += `アイテム: ${itemsHtml}<br>`;
+        if(totalGold) msg += `💰 +${totalGold}G<br>`;
+        if(totalTicket) msg += `🎟️ +${totalTicket}枚`;
+        showCustomAlert('🎁 プレゼントが届きました！', msg || '届きました！');
+    });
+}
+
 function initPlayerId() {
     if (!playerSecretKey) {
         playerSecretKey = generateSecretKey();
@@ -1444,6 +1478,7 @@ function initPlayerId() {
                     database.ref('players/' + playerId).set({ secretKey: playerSecretKey, name: playerName, createdAt: Date.now() });
                 }
             });
+            checkGiftQueue();
         }
         return;
     }
@@ -1480,6 +1515,15 @@ function initPlayerId() {
 function updatePlayerIdDisplay() {
     const el = document.getElementById('playerIdDisplay');
     if (el) el.innerText = 'ID: ' + (playerId || '発行中...');
+}
+
+function copyPlayerId() {
+    if(!playerId) return;
+    navigator.clipboard.writeText(playerId).then(function(){
+        showCustomAlert('✅ コピー完了', 'プレイヤーIDをコピーしました！<br>' + playerId);
+    }).catch(function(){
+        showCustomAlert('❌ コピー失敗', 'お使いの環境ではコピーできませんでした。');
+    });
 }
 
 function loadGame() {
@@ -1565,6 +1609,56 @@ function showStaffMenu() {
     btnGrid.appendChild(makeGridBtn("📊 イベント ダメージ集計", "#8e44ad", "eventdamage"));
     btnGrid.appendChild(makeGridBtn("🩹 モンスターHP変更", "#16a085", "eventsethp"));
     btnGrid.appendChild(makeGridBtn("🎮 レベル設定", "#3498db", "setlevel"));
+
+    // ===== 特別ボーナス補充 =====
+    const sbLabel = document.createElement("div");
+    sbLabel.style.cssText = "margin:0 0 8px 0;font-weight:bold;color:#555;font-size:12px;";
+    sbLabel.innerText = "🎁 特別ボーナス補充";
+    msg.appendChild(sbLabel);
+
+    const sbGrid = document.createElement("div");
+    sbGrid.style.cssText = "display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:8px;";
+    msg.appendChild(sbGrid);
+
+    function makeSbInput(id, labelText, placeholder) {
+        const wrap = document.createElement("div");
+        const lbl = document.createElement("div");
+        lbl.style.cssText = "font-size:10px;color:#888;margin-bottom:2px;";
+        lbl.innerText = labelText;
+        wrap.appendChild(lbl);
+        const inp = document.createElement("input");
+        inp.type = "number"; inp.id = id; inp.placeholder = placeholder || "0"; inp.min = "0";
+        inp.style.cssText = "width:100%;padding:6px;border:1px solid #ccc;border-radius:4px;font-size:13px;box-sizing:border-box;";
+        wrap.appendChild(inp);
+        return wrap;
+    }
+
+    sbGrid.appendChild(makeSbInput("sbNormalCount", "ノーマル素材(個)"));
+    sbGrid.appendChild(makeSbInput("sbMidHighCount", "中級/高級素材(個)"));
+    sbGrid.appendChild(makeSbInput("sbSpiceCount", "ノーマルスパイス(個)"));
+    sbGrid.appendChild(makeSbInput("sbGold", "ゴールド(G)"));
+    sbGrid.appendChild(makeSbInput("sbTicket", "パック券(枚)"));
+
+    const sbBtnGrid = document.createElement("div");
+    sbBtnGrid.style.cssText = "display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;";
+    msg.appendChild(sbBtnGrid);
+
+    const btnSbAll = document.createElement("button");
+    btnSbAll.style.cssText = "padding:8px 6px;background:#d35400;color:white;border:none;border-radius:6px;font-weight:bold;font-size:12px;cursor:pointer;";
+    btnSbAll.innerHTML = "🌍 全体補充";
+    btnSbAll.onclick = function() { staffAction("specialbonusall"); };
+    sbBtnGrid.appendChild(btnSbAll);
+
+    const btnSbIndiv = document.createElement("button");
+    btnSbIndiv.style.cssText = "padding:8px 6px;background:#c0392b;color:white;border:none;border-radius:6px;font-weight:bold;font-size:12px;cursor:pointer;";
+    btnSbIndiv.innerHTML = "👤 個別補充（ID指定）";
+    btnSbIndiv.onclick = function() { staffAction("specialbonusindiv"); };
+    sbBtnGrid.appendChild(btnSbIndiv);
+
+    const sbHint = document.createElement("div");
+    sbHint.style.cssText = "font-size:10px;color:#999;margin-bottom:14px;line-height:1.5;";
+    sbHint.innerHTML = "全体補充: 上記の数値で「特別ボーナス」を更新し、全員の受取状況をリセットします。<br>個別補充: 上記の数値を、入力したIDのプレイヤーに直接プレゼントします（特別ボーナスには影響しません）。";
+    msg.appendChild(sbHint);
 
     // お知らせラベル
     const noticeLabel = document.createElement("div");
@@ -1751,6 +1845,44 @@ function staffAction(action) {
                 });
             }, 300);
         });
+    } else if(action === 'specialbonusall') {
+        if(!database) { showCustomAlert("❌ Firebase未接続"); return; }
+        const normalCount = parseInt(document.getElementById("sbNormalCount").value, 10) || 0;
+        const midHighCount = parseInt(document.getElementById("sbMidHighCount").value, 10) || 0;
+        const spiceCount = parseInt(document.getElementById("sbSpiceCount").value, 10) || 0;
+        const gold = parseInt(document.getElementById("sbGold").value, 10) || 0;
+        const ticket = parseInt(document.getElementById("sbTicket").value, 10) || 0;
+        database.ref('specialBonus').once('value').then(function(snap){
+            const cur = snap.val();
+            const newVersion = (cur && cur.version ? cur.version : 0) + 1;
+            database.ref('specialBonus').set({
+                version: newVersion, normalCount: normalCount, midHighCount: midHighCount,
+                spiceCount: spiceCount, gold: gold, ticket: ticket, updatedAt: Date.now()
+            }).then(function(){
+                showCustomAlert("✅ 全体補充完了", "特別ボーナスを更新しました（v" + newVersion + "）。<br>全プレイヤーが再度受け取れます。");
+            });
+        });
+    } else if(action === 'specialbonusindiv') {
+        const normalCount = parseInt(document.getElementById("sbNormalCount").value, 10) || 0;
+        const midHighCount = parseInt(document.getElementById("sbMidHighCount").value, 10) || 0;
+        const spiceCount = parseInt(document.getElementById("sbSpiceCount").value, 10) || 0;
+        const gold = parseInt(document.getElementById("sbGold").value, 10) || 0;
+        const ticket = parseInt(document.getElementById("sbTicket").value, 10) || 0;
+        document.getElementById("customModal").style.display = "none";
+        setTimeout(function(){
+            const targetId = prompt("👤 プレゼントするプレイヤーのIDを入力してください（例: BC-XXXXXXXX）");
+            if(!targetId) return;
+            if(!database) { showCustomAlert("❌ Firebase未接続"); return; }
+            database.ref('players/' + targetId).once('value').then(function(snap){
+                if(!snap.exists()) { showCustomAlert("❌ エラー", "そのIDのプレイヤーは見つかりません。"); return; }
+                database.ref('giftQueue/' + targetId).push({
+                    normalCount: normalCount, midHighCount: midHighCount, spiceCount: spiceCount,
+                    gold: gold, ticket: ticket, grantedAt: Date.now()
+                }).then(function(){
+                    showCustomAlert("✅ 個別補充完了", "ID: " + targetId + " にプレゼントを送りました。<br>次回そのプレイヤーがアクセスした際に反映されます。");
+                });
+            });
+        }, 300);
     } else if(action === 'setnotice') {
         var ta = document.getElementById("staffNoticeInput");
         var text = ta ? ta.value.trim() : '';
@@ -1895,6 +2027,68 @@ function initQuest() {
     renderLoginBonus();
     renderDailyQuest();
     checkAndRenderAchievements();
+    loadSpecialBonus();
+}
+
+// ===== 特別ボーナス =====
+function loadSpecialBonus() {
+    const wrap = document.getElementById('specialBonusWrap');
+    if(!wrap) return;
+    if(!database) { wrap.style.display = 'none'; return; }
+    database.ref('specialBonus').once('value').then(function(snap){
+        const data = snap.val();
+        if(!data || !data.version) { wrap.style.display = 'none'; return; }
+        const claimedVersion = parseInt(localStorage.getItem('qr_special_bonus_claimed_version') || '0', 10);
+        const alreadyClaimed = claimedVersion >= data.version;
+        wrap.style.display = 'block';
+        renderSpecialBonus(data, alreadyClaimed);
+    }).catch(function(){ wrap.style.display = 'none'; });
+}
+
+function renderSpecialBonus(data, alreadyClaimed) {
+    const area = document.getElementById('specialBonusArea');
+    if(!area) return;
+    const rewardParts = [];
+    if(data.normalCount > 0) rewardParts.push(`ノーマル素材${data.normalCount}個`);
+    if(data.midHighCount > 0) rewardParts.push(`中級/高級素材${data.midHighCount}個`);
+    if(data.spiceCount > 0) rewardParts.push(`ノーマルスパイス${data.spiceCount}個`);
+    if(data.gold > 0) rewardParts.push(`${data.gold}G`);
+    if(data.ticket > 0) rewardParts.push(`パック券${data.ticket}枚`);
+    const rewardText = rewardParts.length ? rewardParts.join('、') : '報酬なし';
+    area.innerHTML = `
+        <div style="background:#fff0d8;border:1px solid #d35400;border-radius:4px;padding:14px;">
+            <div style="font-size:12px;color:#d35400;font-weight:bold;margin-bottom:6px;">🎁 各プレイヤー1回限り！</div>
+            <div style="font-size:12px;color:#420000;margin-bottom:10px;">報酬: ${rewardText}</div>
+            <button onclick="claimSpecialBonus(${data.version})" ${alreadyClaimed?'disabled':''} style="padding:8px 20px;background:${alreadyClaimed?'#c9b090':'#d35400'};color:#efdeb1;border:none;border-radius:4px;font-weight:bold;font-size:13px;cursor:${alreadyClaimed?'not-allowed':'pointer'};">${alreadyClaimed?'受取済み':'受け取る'}</button>
+        </div>`;
+}
+
+function claimSpecialBonus(version) {
+    const claimedVersion = parseInt(localStorage.getItem('qr_special_bonus_claimed_version') || '0', 10);
+    if(claimedVersion >= version) return;
+    if(!database) return;
+    database.ref('specialBonus').once('value').then(function(snap){
+        const data = snap.val();
+        if(!data || data.version !== version) { showCustomAlert('⚠️ エラー', '特別ボーナスの内容が更新されました。再読み込みしてください。'); loadSpecialBonus(); return; }
+        let gotItems = [];
+        const normalPool = Object.keys(masterIngredients).filter(k => masterIngredients[k].shop === 0);
+        const midHighPool = Object.keys(masterIngredients).filter(k => masterIngredients[k].shop === 1 || masterIngredients[k].shop === 2);
+        const spicePool = Object.keys(masterSpices).filter(k => k !== "マンゴーチャツネ");
+        for(let i=0;i<(data.normalCount||0);i++){ const it=normalPool[Math.floor(Math.random()*normalPool.length)]; inventory[it]=(inventory[it]||0)+1; discoveredItems[it]=true; gotItems.push(it); }
+        for(let i=0;i<(data.midHighCount||0);i++){ if(midHighPool.length===0) break; const it=midHighPool[Math.floor(Math.random()*midHighPool.length)]; inventory[it]=(inventory[it]||0)+1; discoveredItems[it]=true; gotItems.push(it); }
+        for(let i=0;i<(data.spiceCount||0);i++){ const it=spicePool[Math.floor(Math.random()*spicePool.length)]; inventory[it]=(inventory[it]||0)+1; discoveredItems[it]=true; gotItems.push(it); }
+        playerG += (data.gold||0);
+        packTicket += (data.ticket||0);
+        localStorage.setItem('qr_special_bonus_claimed_version', String(version));
+        saveGame(); updateFridgeUI(); updateCookSelects(); updateShopButtons();
+        const itemsHtml = gotItems.map(it=>{ const d=masterIngredients[it]||masterSpices[it]; const ico=d&&d.icon?`<img src="${d.icon}" style="width:1.2em;height:1.2em;vertical-align:middle;object-fit:contain;">`:''; return ico+it; }).join(' ');
+        let msg = '';
+        if(gotItems.length) msg += `アイテム: ${itemsHtml}<br>`;
+        if(data.gold) msg += `💰 +${data.gold}G<br>`;
+        if(data.ticket) msg += `🎟️ +${data.ticket}枚`;
+        showCustomAlert('🎁 特別ボーナス獲得！', msg || '受け取りました！');
+        loadSpecialBonus();
+    });
 }
 
 function renderLoginBonus() {
