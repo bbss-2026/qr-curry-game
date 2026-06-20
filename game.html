@@ -1412,6 +1412,8 @@ function switchTab(tab, el) {
     cancelScanning();
     if(tab === 'quest') { renderLoginBonus(); renderDailyQuest(); checkAndRenderAchievements(); loadSpecialBonus(); showQuestGuideChar(); }
     else if(tab === 'fridge') { showFridgeGuideChar(); }
+    else if(tab === 'cook') { showCookGuideChar(); }
+    else if(tab === 'battle') { showBattleGuideChar(); }
     else { hideQuestGuideChar(); }
     if(tab === 'battle') { loadEventEnabledStatus(); }
     if(tab === 'cook') {
@@ -3157,6 +3159,20 @@ const FRIDGE_GUIDE_IMAGES = [
     'annainin/con2-4.png',
     'annainin/con2-5.png'
 ];
+const COOK_GUIDE_IMAGES = [
+    'annainin/con3-1.png',
+    'annainin/con3-2.png',
+    'annainin/con3-3.png',
+    'annainin/con3-4.png',
+    'annainin/con3-5.png'
+];
+const BATTLE_GUIDE_IMAGES = [
+    'annainin/con4-1.png',
+    'annainin/con4-2.png',
+    'annainin/con4-3.png',
+    'annainin/con4-4.png',
+    'annainin/con4-5.png'
+];
 
 function showGuideChar(imageSet) {
     const wrap = document.getElementById('questGuideChar');
@@ -3173,6 +3189,8 @@ function showGuideChar(imageSet) {
 
 function showQuestGuideChar() { showGuideChar(QUEST_GUIDE_IMAGES); }
 function showFridgeGuideChar() { showGuideChar(FRIDGE_GUIDE_IMAGES); }
+function showCookGuideChar() { showGuideChar(COOK_GUIDE_IMAGES); }
+function showBattleGuideChar() { showGuideChar(BATTLE_GUIDE_IMAGES); }
 
 function hideQuestGuideChar() {
     const wrap = document.getElementById('questGuideChar');
