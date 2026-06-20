@@ -107,6 +107,7 @@
         .hp-bar-bg { background: #555; width: 100%; height: 10px; border-radius: 5px; overflow: hidden; margin-top: 5px; border: 1px solid #000; }
         .hp-bar { background: #2ecc71; height: 100%; width: 100%; transition: width 0.4s ease-out; }
         .hp-bar.danger { background: #e74c3c; }
+        .hp-bar.event-enraged { background: #f1c40f; }
         .hp-bar.poisoned-bar { background: #9b59b6 !important; }
         
         .damage-pop { position: absolute; font-family: 'Impact', Arial, sans-serif; font-size: 42px; color: #f1c40f; -webkit-text-stroke: 1.5px #000; font-weight: bold; display: none; pointer-events: none; z-index: 10; }
@@ -249,7 +250,6 @@
         }
         .battle-stage.event-mode #oppOwnerText {
             order: 1; font-size: 15px; color: #fff !important;
-            -webkit-text-stroke: 2px #000; text-shadow: 1px 1px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000;
             margin-bottom: 4px !important;
         }
         .battle-stage.event-mode .hp-bar-bg { order: 2; }
@@ -3211,23 +3211,45 @@ function launchEventBattle(myC, startHp) {
     const pCurryIconsEl = document.getElementById("pCurryIcons");
     if(pCurryIconsEl) pCurryIconsEl.innerHTML = myIconsHtml || myC.visual || '';
 
-    document.getElementById("oppOwnerText").innerText = EVENT_MONSTER_DATA.name;
     document.getElementById("oppCurryNameText").innerText = "";
     document.getElementById("oppCurryEmojiText").innerText = "";
 
     let pHP = myC.hp;
     let oHP = startHp;
     const oppC = { hp: EVENT_MONSTER_DATA.hp, atk: EVENT_MONSTER_DATA.atk, def: EVENT_MONSTER_DATA.def, spd: EVENT_MONSTER_DATA.spd, isEventBoss: true };
+
+    // 怒りモード（HP50%以下）の状態管理
+    let isEnraged = (oHP / oppC.hp) <= 0.5;
+
+    function applyEnragedDisplay() {
+        const nameEl = document.getElementById("oppOwnerText");
+        if(nameEl) nameEl.innerText = EVENT_MONSTER_DATA.name + (isEnraged ? " 💢💢💢" : "");
+        const barEl = document.getElementById("oWeightBar");
+        if(barEl) { if(isEnraged) barEl.classList.add("event-enraged"); else barEl.classList.remove("event-enraged"); }
+    }
+    applyEnragedDisplay();
+
     updateHP(pHP, oHP, oppC.hp, myC.hp);
     const log = document.getElementById("battleLog"); log.innerHTML = `⚔️ ${EVENT_MONSTER_DATA.name}との決戦開始！`;
 
     stopBattleBGM();
-    setTimeout(()=>playBattleBGM("bossbgm.mp3"),300);
+    setTimeout(()=>playBattleBGM(isEnraged ? "bossbgm2.mp3" : "bossbgm.mp3"),300);
 
     let isPP = false; // 自分の毒
     let isPlayerIlluded = false;
     let myTurn = myC.spd >= oppC.spd;
     let round = 1;
+
+    // HP変化時に怒り状態をチェックし、変化があればBGM・表示・行動パターンを切り替える
+    function checkEnragedTransition() {
+        const nowEnraged = (oHP / oppC.hp) <= 0.5;
+        if(nowEnraged !== isEnraged) {
+            isEnraged = nowEnraged;
+            applyEnragedDisplay();
+            stopBattleBGM();
+            setTimeout(()=>playBattleBGM(isEnraged ? "bossbgm2.mp3" : "bossbgm.mp3"),200);
+        }
+    }
 
     function eventStep(){
         if(battleAborted) return;
@@ -3251,6 +3273,7 @@ function launchEventBattle(myC, startHp) {
                     if(isCrit){ log.innerHTML+=`\n🌶️ Spicy Hit!!!!!!!! 💥 ダメージ: ${d}`; triggerEffect("enemy-crit",d); }
                     else { log.innerHTML+=`\n💥 ダメージ: ${d}`; triggerEffect("enemy",d); }
                     updateHP(pHP,oHP,oppC.hp,myC.hp);
+                    checkEnragedTransition();
                     myTurn=false; round++; setTimeout(eventStep,1100);
                 },400);
             }
@@ -3266,53 +3289,119 @@ function launchEventBattle(myC, startHp) {
                 return;
             }
             const er=Math.random();
-            if(er<0.50){
-                setTimeout(()=>{
-                    const isCrit = Math.random() < getCritRate(oppC.spd, myC.spd);
-                    let d = isCrit ? Math.max(8, oppC.atk) : Math.max(8, oppC.atk - Math.floor(myC.def/2));
-                    d = Math.round(d*(0.9+Math.random()*0.2));
-                    pHP = Math.max(0, pHP - d);
-                    playSoundEffect('punch.mp3');
-                    if(isCrit){ log.innerHTML+=`\n🌶️ Spicy Hit!!!!!!!! 💥 ダメージ: ${d}`; triggerEffect("player-crit",d); }
-                    else { log.innerHTML+=`\n😢 被弾ダメージ: ${d}`; triggerEffect("player",d); }
-                    updateHP(pHP,oHP,oppC.hp,myC.hp);
-                    if(pHP<=0){ eventBattleFinish(pHP,oHP,myC,false); return; }
-                    myTurn=true; round++; setTimeout(eventStep,1100);
-                },400);
-            } else if(er<0.70){
-                setTimeout(()=>{
-                    pHP=Math.max(0,pHP-80);
-                    playSoundEffect('breath.mp3');
-                    log.innerHTML+=`\n🔥 熱々のカレーの雨が街に降り注ぐ！DEF無視80ダメージ！`;
-                    triggerEffect("player",80);
-                    updateHP(pHP,oHP,oppC.hp,myC.hp);
-                    if(pHP<=0){ eventBattleFinish(pHP,oHP,myC,false); return; }
-                    myTurn=true; round++; setTimeout(eventStep,1100);
-                },400);
-            } else if(er<0.90){
-                const hits = rollSeedHits(oppC.spd, myC.spd);
-                let damages=[];
-                for(let i=0;i<hits;i++){ let sd=Math.max(2,Math.round(oppC.atk*0.3-Math.floor(myC.def/4))); sd=Math.round(sd*(0.9+Math.random()*0.2)); damages.push(sd); pHP=Math.max(0,pHP-sd); }
-                log.innerHTML+=`\n🥄 特大スプーンで五月雨突き！${hits}連撃！`;
-                setTimeout(()=>playSoundEffect('machine-gun.mp3'),50);
-                damages.forEach((sd,i)=>{ setTimeout(()=>{
-                    triggerEffect("player",sd);
-                    if(i===damages.length-1){
-                        log.innerHTML+=` 合計: ${damages.reduce((a,b)=>a+b,0)}`;
+            if(!isEnraged) {
+                // ===== 通常モード：通常50% / 熱々ブレス20% / 五月雨突き20% / たこ焼き10% =====
+                if(er<0.50){
+                    setTimeout(()=>{
+                        const isCrit = Math.random() < getCritRate(oppC.spd, myC.spd);
+                        let d = isCrit ? Math.max(8, oppC.atk) : Math.max(8, oppC.atk - Math.floor(myC.def/2));
+                        d = Math.round(d*(0.9+Math.random()*0.2));
+                        pHP = Math.max(0, pHP - d);
+                        playSoundEffect('punch.mp3');
+                        if(isCrit){ log.innerHTML+=`\n🌶️ Spicy Hit!!!!!!!! 💥 ダメージ: ${d}`; triggerEffect("player-crit",d); }
+                        else { log.innerHTML+=`\n😢 被弾ダメージ: ${d}`; triggerEffect("player",d); }
                         updateHP(pHP,oHP,oppC.hp,myC.hp);
                         if(pHP<=0){ eventBattleFinish(pHP,oHP,myC,false); return; }
-                        myTurn=true; round++; setTimeout(eventStep,1300);
-                    }
-                },150+i*250); });
+                        myTurn=true; round++; setTimeout(eventStep,1100);
+                    },400);
+                } else if(er<0.70){
+                    setTimeout(()=>{
+                        pHP=Math.max(0,pHP-80);
+                        playSoundEffect('breath.mp3');
+                        log.innerHTML+=`\n🔥 熱々のカレーの雨が街に降り注ぐ！DEF無視80ダメージ！`;
+                        triggerEffect("player",80);
+                        updateHP(pHP,oHP,oppC.hp,myC.hp);
+                        if(pHP<=0){ eventBattleFinish(pHP,oHP,myC,false); return; }
+                        myTurn=true; round++; setTimeout(eventStep,1100);
+                    },400);
+                } else if(er<0.90){
+                    const hits = rollSeedHits(oppC.spd, myC.spd);
+                    let damages=[];
+                    for(let i=0;i<hits;i++){ let sd=Math.max(2,Math.round(oppC.atk*0.3-Math.floor(myC.def/4))); sd=Math.round(sd*(0.9+Math.random()*0.2)); damages.push(sd); pHP=Math.max(0,pHP-sd); }
+                    log.innerHTML+=`\n🥄 特大スプーンで五月雨突き！${hits}連撃！`;
+                    setTimeout(()=>playSoundEffect('machine-gun.mp3'),50);
+                    damages.forEach((sd,i)=>{ setTimeout(()=>{
+                        triggerEffect("player",sd);
+                        if(i===damages.length-1){
+                            log.innerHTML+=` 合計: ${damages.reduce((a,b)=>a+b,0)}`;
+                            updateHP(pHP,oHP,oppC.hp,myC.hp);
+                            if(pHP<=0){ eventBattleFinish(pHP,oHP,myC,false); return; }
+                            myTurn=true; round++; setTimeout(eventStep,1300);
+                        }
+                    },150+i*250); });
+                } else {
+                    oHP=Math.min(oppC.hp, oHP+800);
+                    setTimeout(()=>{
+                        playSoundEffect('healing.mp3');
+                        log.innerHTML+=`\n🐙 たこ焼きを食べた！HPが800回復！`;
+                        updateHP(pHP,oHP,oppC.hp,myC.hp);
+                        checkEnragedTransition();
+                        myTurn=true; round++; setTimeout(eventStep,1100);
+                    },400);
+                }
             } else {
-                isPP=false; isPlayerIlluded=false;
-                oHP=Math.min(oppC.hp, oHP+500);
-                setTimeout(()=>{
-                    playSoundEffect('healing.mp3');
-                    log.innerHTML+=`\n🐙 たこ焼きを食べた！HPが500回復！状態異常も解除！`;
-                    updateHP(pHP,oHP,oppC.hp,myC.hp);
-                    myTurn=true; round++; setTimeout(eventStep,1100);
-                },400);
+                // ===== 怒りモード（HP50%以下）：通常25% / 怒りSpicyHit15% / 熱々ブレス20% / 五月雨突き20% / たこ焼き20% =====
+                if(er<0.25){
+                    setTimeout(()=>{
+                        const isCrit = Math.random() < getCritRate(oppC.spd, myC.spd);
+                        let d = isCrit ? Math.max(8, oppC.atk) : Math.max(8, oppC.atk - Math.floor(myC.def/2));
+                        d = Math.round(d*(0.9+Math.random()*0.2));
+                        pHP = Math.max(0, pHP - d);
+                        playSoundEffect('punch.mp3');
+                        if(isCrit){ log.innerHTML+=`\n🌶️ Spicy Hit!!!!!!!! 💥 ダメージ: ${d}`; triggerEffect("player-crit",d); }
+                        else { log.innerHTML+=`\n😢 被弾ダメージ: ${d}`; triggerEffect("player",d); }
+                        updateHP(pHP,oHP,oppC.hp,myC.hp);
+                        if(pHP<=0){ eventBattleFinish(pHP,oHP,myC,false); return; }
+                        myTurn=true; round++; setTimeout(eventStep,1100);
+                    },400);
+                } else if(er<0.40){
+                    // 確定Spicy Hit：怒りのSpicy Hit!!!!!!!!!!!!!!!
+                    setTimeout(()=>{
+                        let d = Math.max(8, oppC.atk);
+                        d = Math.round(d*(0.9+Math.random()*0.2));
+                        pHP = Math.max(0, pHP - d);
+                        playSoundEffect('punch.mp3');
+                        log.innerHTML+=`\n🌶️ 怒りのSpicy Hit!!!!!!!!!!!!!!! 💥 ダメージ: ${d}`;
+                        triggerEffect("player-crit",d);
+                        updateHP(pHP,oHP,oppC.hp,myC.hp);
+                        if(pHP<=0){ eventBattleFinish(pHP,oHP,myC,false); return; }
+                        myTurn=true; round++; setTimeout(eventStep,1100);
+                    },400);
+                } else if(er<0.60){
+                    setTimeout(()=>{
+                        pHP=Math.max(0,pHP-80);
+                        playSoundEffect('breath.mp3');
+                        log.innerHTML+=`\n🔥 熱々のカレーの雨が街に降り注ぐ！DEF無視80ダメージ！`;
+                        triggerEffect("player",80);
+                        updateHP(pHP,oHP,oppC.hp,myC.hp);
+                        if(pHP<=0){ eventBattleFinish(pHP,oHP,myC,false); return; }
+                        myTurn=true; round++; setTimeout(eventStep,1100);
+                    },400);
+                } else if(er<0.80){
+                    const hits = rollSeedHits(oppC.spd, myC.spd);
+                    let damages=[];
+                    for(let i=0;i<hits;i++){ let sd=Math.max(2,Math.round(oppC.atk*0.3-Math.floor(myC.def/4))); sd=Math.round(sd*(0.9+Math.random()*0.2)); damages.push(sd); pHP=Math.max(0,pHP-sd); }
+                    log.innerHTML+=`\n🥄 特大スプーンで五月雨突き！${hits}連撃！`;
+                    setTimeout(()=>playSoundEffect('machine-gun.mp3'),50);
+                    damages.forEach((sd,i)=>{ setTimeout(()=>{
+                        triggerEffect("player",sd);
+                        if(i===damages.length-1){
+                            log.innerHTML+=` 合計: ${damages.reduce((a,b)=>a+b,0)}`;
+                            updateHP(pHP,oHP,oppC.hp,myC.hp);
+                            if(pHP<=0){ eventBattleFinish(pHP,oHP,myC,false); return; }
+                            myTurn=true; round++; setTimeout(eventStep,1300);
+                        }
+                    },150+i*250); });
+                } else {
+                    oHP=Math.min(oppC.hp, oHP+800);
+                    setTimeout(()=>{
+                        playSoundEffect('healing.mp3');
+                        log.innerHTML+=`\n🐙 たこ焼きを食べた！HPが800回復！`;
+                        updateHP(pHP,oHP,oppC.hp,myC.hp);
+                        checkEnragedTransition();
+                        myTurn=true; round++; setTimeout(eventStep,1100);
+                    },400);
+                }
             }
         }
     }
