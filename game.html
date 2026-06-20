@@ -12,6 +12,15 @@
         h1 { display: none; }
         .logo-area { padding: 24px 20px 16px; text-align: center; }
         .logo-area img { width: 192px; max-width: 80%; }
+        .lunchtime-banner {
+            display: none; text-align: center; font-size: 12px; font-weight: bold;
+            color: #ffffff; background: #e67e22; padding: 8px 12px; margin: 0 16px 8px;
+            border-radius: 4px; animation: lunchtimeBlink 2.2s ease-in-out infinite;
+        }
+        @keyframes lunchtimeBlink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.4; }
+        }
         .tab-menu { display: flex; justify-content: space-around; margin: 0; background: #efdeb1; padding: 0; gap: 0; flex-wrap: nowrap; }
         .tab-btn { flex: 1; padding: 12px 4px 0 4px; border: none; background: none; font-size: 11pt; font-weight: bold; cursor: pointer; color: #420000; display: flex; flex-direction: column; align-items: center; text-align: center; gap: 8px; transition: color 0.2s; white-space: nowrap; }
         .tab-btn::after { content: ''; display: block; width: 90%; height: 2px; background: #420000; }
@@ -324,6 +333,7 @@
     <div class="logo-area" onclick="goToTop()" title="タイトルへ">
         <img src="battlecurry-logo.svg" alt="Battle Curry">
     </div>
+    <div class="lunchtime-banner" id="lunchtimeBanner">🍛 ランチタイムボーナス発生中 QR入手アイテム2倍 🍛</div>
 
 
     
@@ -1251,7 +1261,7 @@ let onlineRole = 'host'; // 対人戦での自分の役割
 let discoveredItems = {};
 let cachedOpponentName = "";
 let cachedOpponentCurry = null;
-window.onload = function() { loadGame(); updateCookSelects(); refreshRecipeBookUI(); updateShopButtons(); listenToRooms(); updateMatchCurrySelects(); setupLoadedIconUI(); updateLvDisplay(); loadNotice(); initQuest(); loadTopNotice(); updateMuteIcon(); initPlayerId(); loadEventEnabledStatus(); setupModalScrollLock(); };
+window.onload = function() { loadGame(); updateCookSelects(); refreshRecipeBookUI(); updateShopButtons(); listenToRooms(); updateMatchCurrySelects(); setupLoadedIconUI(); updateLvDisplay(); loadNotice(); initQuest(); loadTopNotice(); updateMuteIcon(); initPlayerId(); loadEventEnabledStatus(); setupModalScrollLock(); updateLunchtimeBanner(); setInterval(updateLunchtimeBanner, 60000); };
 
 // モーダル表示中は背後のページスクロールをロック
 function setupModalScrollLock() {
@@ -1641,6 +1651,8 @@ function showStaffMenu() {
     btnGrid.appendChild(makeGridBtn("📊 イベント ダメージ集計", "#8e44ad", "eventdamage"));
     btnGrid.appendChild(makeGridBtn("🩹 モンスターHP変更", "#16a085", "eventsethp"));
     btnGrid.appendChild(makeGridBtn("🎮 レベル設定", "#3498db", "setlevel"));
+    const hasTimeOverride = !!localStorage.getItem('qr_debug_time_override');
+    btnGrid.appendChild(makeGridBtn("⏰ 時間設定: " + (hasTimeOverride ? "ON" : "OFF"), (hasTimeOverride ? "#e74c3c" : "#7f8c8d"), "settime"));
 
     // ===== 特別ボーナス補充 =====
     const sbLabel = document.createElement("div");
@@ -1877,6 +1889,29 @@ function staffAction(action) {
                 });
             }, 300);
         });
+    } else if(action === 'settime') {
+        document.getElementById("customModal").style.display = "none";
+        setTimeout(function(){
+            const curOverride = localStorage.getItem('qr_debug_time_override');
+            const hint = curOverride ? "\n現在の仮想時刻設定あり" : "\n現在は通常時刻（仮想時刻なし）";
+            const input = prompt("⏰ 仮想時刻を設定（日本時間 HH:MM）\n例: 12:00\n空欄でOFF（通常時刻に戻す）" + hint);
+            if(input === null) return;
+            const trimmed = input.trim();
+            if(trimmed === '') {
+                clearDebugTimeOverride();
+                showCustomAlert("✅ 解除完了", "仮想時刻を解除しました。通常の時刻でプレイします。");
+                showStaffMenu();
+                return;
+            }
+            const match = trimmed.match(/^(\d{1,2}):(\d{2})$/);
+            if(!match) { showCustomAlert("❌ 入力エラー", "HH:MM の形式で入力してください（例: 12:00）"); return; }
+            const hh = parseInt(match[1], 10), mm = parseInt(match[2], 10);
+            if(hh < 0 || hh > 23 || mm < 0 || mm > 59) { showCustomAlert("❌ 入力エラー", "正しい時刻を入力してください。"); return; }
+            setDebugTimeOverride(hh, mm);
+            updateLunchtimeBanner();
+            showCustomAlert("✅ 設定完了", "仮想時刻を " + trimmed + "（日本時間）に設定しました。<br>※デバッグモード中のこのブラウザのみ反映されます。");
+            showStaffMenu();
+        }, 300);
     } else if(action === 'specialbonusall') {
         if(!database) { showCustomAlert("❌ Firebase未接続"); return; }
         const normalCount = parseInt(document.getElementById("sbNormalCount").value, 10) || 0;
@@ -2602,6 +2637,7 @@ function processQRData(text, r, g, b) {
     } else {
         document.getElementById("bonusBadge").style.display = "none";
     }
+    if (isLunchtime()) { addCount *= 2; } // ランチタイムボーナス：QR入手アイテム2倍
     inventory[itemName] = (inventory[itemName] || 0) + addCount;
     discoveredItems[itemName] = true;
     saveGame();
@@ -3051,6 +3087,55 @@ function loadEventEnabledStatus() {
     }).catch(function(){
         checkEventBannerVisibility();
     });
+}
+
+// ============================================================
+// 時間関連デバッグ機能（デバッグモード中のみ仮想時刻を使用、一般プレイヤーには影響なし）
+// ============================================================
+function getGameNow() {
+    if(isDebugMode) {
+        const override = localStorage.getItem('qr_debug_time_override');
+        if(override) {
+            const overrideDate = new Date(override);
+            if(!isNaN(overrideDate.getTime())) return overrideDate;
+        }
+    }
+    return new Date();
+}
+
+function setDebugTimeOverride(jstHour, jstMinute) {
+    // 入力されたJST時刻を、現在の日付に当てはめてISO文字列として保存
+    const now = new Date();
+    const jstMs = now.getTime() + (9 * 60 - now.getTimezoneOffset()) * 60000;
+    const jstNow = new Date(jstMs);
+    jstNow.setHours(jstHour, jstMinute, 0, 0);
+    // JST時刻からUTC時刻に戻して保存（getGameNowはローカルDateとして使うので、その環境のtimezoneOffsetを引いて補正）
+    const localMs = jstNow.getTime() - (9 * 60 - new Date().getTimezoneOffset()) * 60000;
+    localStorage.setItem('qr_debug_time_override', new Date(localMs).toISOString());
+}
+
+function clearDebugTimeOverride() {
+    localStorage.removeItem('qr_debug_time_override');
+}
+
+// ============================================================
+// ランチタイムボーナス（日本時間11:30〜13:30、QR入手アイテム2倍）
+// ============================================================
+function isLunchtime() {
+    const now = getGameNow();
+    // 日本時間（UTC+9）に変換
+    const jstMs = now.getTime() + (9 * 60 - now.getTimezoneOffset()) * 60000;
+    const jst = new Date(jstMs);
+    const hour = jst.getHours();
+    const min = jst.getMinutes();
+    const totalMin = hour * 60 + min;
+    return totalMin >= (11 * 60 + 30) && totalMin < (13 * 60 + 30);
+}
+
+function updateLunchtimeBanner() {
+    const banner = document.getElementById('lunchtimeBanner');
+    if(!banner) return;
+    banner.style.display = isLunchtime() ? 'block' : 'none';
 }
 
 function checkEventBannerVisibility() {
