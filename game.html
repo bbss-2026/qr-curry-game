@@ -2115,7 +2115,7 @@ function getAchievements() {
 function saveAchievements(a) { localStorage.setItem('qr_achievements', JSON.stringify(a)); }
 
 function getDailyData() {
-    const today = new Date().toISOString().split('T')[0];
+    const today = getJSTDateString();
     const raw = localStorage.getItem('qr_daily');
     const d = raw ? JSON.parse(raw) : {};
     if(d.date !== today) {
@@ -2147,9 +2147,9 @@ function updateStats(fn) {
 
 // --- ログインボーナス ---
 function initQuest() {
-    const today = new Date().toISOString().split('T')[0];
+    const today = getJSTDateString();
     const ld = getLoginData();
-    const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
+    const yesterday = getJSTDateString(new Date(getGameNow().getTime() - 86400000));
     if(ld.lastDate !== today) {
         const newStreak = (ld.lastDate === yesterday) ? ld.streak + 1 : 1;
         saveLoginData({ lastDate: today, streak: newStreak, claimed: false });
@@ -2721,7 +2721,7 @@ function stopCamera() { if (animationFrameId) cancelAnimationFrame(animationFram
 function cancelScanning() { stopCamera(); canvasElement.style.display = "none"; document.getElementById("btnStartCamera").style.display = "inline-block"; }
 function resetScanner() { document.getElementById("getBox").style.display = "none"; startCamera(); }
 function processQRData(text, r, g, b) {
-    const today = new Date().toISOString().split('T')[0];
+    const today = getJSTDateString();
     if (scanHistory[text] === today) { document.getElementById("getBoxTitle").innerText = "⚠️ 使用済み"; document.getElementById("getItemEmoji").innerText = "🙅"; document.getElementById("getItemName").innerText = "本日はスキャン済みです！"; document.getElementById("bonusBadge").style.display = "none"; document.getElementById("getBox").style.display = "block"; return; }
     scanHistory[text] = today;
     const normalItems = Object.keys(masterIngredients).filter(k => masterIngredients[k].shop === 0);
@@ -3208,15 +3208,33 @@ function getGameNow() {
     return new Date();
 }
 
+// 日本時間（JST）基準のYYYY-MM-DD文字列を返す（デイリーリセット等の日付判定用）
+function getJSTDateString(baseDate) {
+    const now = baseDate || getGameNow();
+    // UTCエポックミリ秒から直接JSTを計算（ブラウザのタイムゾーン設定に依存しない）
+    const utcMs = now.getTime() + now.getTimezoneOffset() * 60000;
+    const jstMs = utcMs + 9 * 60 * 60000;
+    const jst = new Date(jstMs);
+    const y = jst.getUTCFullYear();
+    const m = String(jst.getUTCMonth() + 1).padStart(2, '0');
+    const d = String(jst.getUTCDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+}
+
 function setDebugTimeOverride(jstHour, jstMinute) {
-    // 入力されたJST時刻を、現在の日付に当てはめてISO文字列として保存
+    // 入力されたJST時刻（今日の日付）を、UTCエポックミリ秒から直接計算して保存
     const now = new Date();
-    const jstMs = now.getTime() + (9 * 60 - now.getTimezoneOffset()) * 60000;
-    const jstNow = new Date(jstMs);
-    jstNow.setHours(jstHour, jstMinute, 0, 0);
-    // JST時刻からUTC時刻に戻して保存（getGameNowはローカルDateとして使うので、その環境のtimezoneOffsetを引いて補正）
-    const localMs = jstNow.getTime() - (9 * 60 - new Date().getTimezoneOffset()) * 60000;
-    localStorage.setItem('qr_debug_time_override', new Date(localMs).toISOString());
+    const utcMs = now.getTime() + now.getTimezoneOffset() * 60000; // 現在のUTC時刻ミリ秒
+    const jstMsNow = utcMs + 9 * 60 * 60000; // 現在のJST時刻ミリ秒
+    const jstDateNow = new Date(jstMsNow);
+    // JST上での「今日の年月日」はそのまま使い、時刻だけ指定値に変更（UTC関数で操作）
+    const jstTargetMs = Date.UTC(
+        jstDateNow.getUTCFullYear(), jstDateNow.getUTCMonth(), jstDateNow.getUTCDate(),
+        jstHour, jstMinute, 0, 0
+    );
+    // JST時刻のミリ秒からUTC時刻に戻す（9時間引く）→ これが実際の絶対時刻（エポックミリ秒）
+    const actualUtcMs = jstTargetMs - 9 * 60 * 60000;
+    localStorage.setItem('qr_debug_time_override', new Date(actualUtcMs).toISOString());
 }
 
 function clearDebugTimeOverride() {
@@ -3228,11 +3246,12 @@ function clearDebugTimeOverride() {
 // ============================================================
 function isLunchtime() {
     const now = getGameNow();
-    // 日本時間（UTC+9）に変換
-    const jstMs = now.getTime() + (9 * 60 - now.getTimezoneOffset()) * 60000;
+    // 日本時間（UTC+9）のHH:MMを、UTCエポックミリ秒から直接計算（ブラウザのタイムゾーン設定に依存しない）
+    const utcMs = now.getTime() + now.getTimezoneOffset() * 60000; // UTC時刻のミリ秒
+    const jstMs = utcMs + 9 * 60 * 60000; // JSTはUTC+9時間
     const jst = new Date(jstMs);
-    const hour = jst.getHours();
-    const min = jst.getMinutes();
+    const hour = jst.getUTCHours();
+    const min = jst.getUTCMinutes();
     const totalMin = hour * 60 + min;
     return totalMin >= (11 * 60 + 30) && totalMin < (13 * 60 + 30);
 }
