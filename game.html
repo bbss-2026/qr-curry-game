@@ -3964,11 +3964,16 @@ function calcAllBattleTurns(myC, oppC, oppN, myName) {
         let turn = { round, hostHP: pHP, guestHP: oHP, log: '', effects: [], statusLines: round===1 ? statusLines : [], actorIsHost: myTurn };
         if(myTurn) {
             turn.log = `{{TURNICON}} {{ACTOR}} のターン！`;
+            if(myC.isRatatouille) { let heal=Math.round(myC.hp*0.10); pHP=Math.min(myC.hp,pHP+heal); turn.log+=`
+☀️ 太陽の光を浴びてHP回復: ${heal}`; turn.effects.push({type:'player-heal',dmg:heal}); }
             if(isPP) { let d=Math.round(myC.hp*0.08); pHP=Math.max(0,pHP-d); turn.log+=`
 ☠️ 毒ダメージ: ${d}`; if(!turn.effects) turn.effects=[]; turn.effects.push({type:'player-poison',dmg:d}); if(pHP<=0){ turn.hostHP=pHP; turn.guestHP=oHP; turns.push(turn); break; } }
             if(myIsIlluded && Math.random() < getIllusionMissRate(myC.spd, oppC.spd)) {
                 turn.log+=`
 💨 幻惑で攻撃が外れた！`;
+            } else if(myC.isWanpaku && isWanpakuMiss()) {
+                turn.log+=`
+💨 わんぱくが暴れすぎて攻撃が外れた！`;
             } else if(myC.isSeed && Math.random()<0.3) {
                 const hits=rollSeedHits(myC.spd, oppC.spd); let seedDmgs=[];
                 for(let i=0;i<hits;i++){let sd=Math.max(2,Math.round(myC.atk*0.3-Math.floor(oppC.def/4)));sd=Math.round(sd*(0.9+Math.random()*0.2));seedDmgs.push(sd);oHP=Math.max(0,oHP-sd);}
@@ -3978,7 +3983,10 @@ function calcAllBattleTurns(myC, oppC, oppN, myName) {
             } else {
                 const isCrit = Math.random() < getCritRate(myC.spd, oppC.spd);
                 let d = isCrit ? Math.max(8, myC.atk) : Math.max(8,myC.atk-Math.floor(oppC.def/2));
-                d=Math.round(d*(0.9+Math.random()*0.2)); oHP=Math.max(0,oHP-d);
+                d=Math.round(d*(0.9+Math.random()*0.2));
+                if(myC.isWanpaku) d=Math.round(d*getWanpakuDamageMultiplier());
+                if(oppC.isRatatouille && isMeatBasedCurry(myC)) d=Math.round(d*0.2);
+                oHP=Math.max(0,oHP-d);
                 if(isCrit){turn.log+=`
 🌶️ Spicy Hit!!!!!!!! {{DMGLABEL}}: ${d}`;turn.effects.push({type:'enemy-crit',dmg:d});}
                 else if(myC.hasGold){turn.log+=`
@@ -3993,16 +4001,27 @@ function calcAllBattleTurns(myC, oppC, oppN, myName) {
             if(oppIsIlluded && Math.random() < getIllusionMissRate(oppC.spd, myC.spd)) {
                 turn.log+=`
 💨 幻惑で{{ACTOR}}の攻撃が外れた！`;
-            } else if(oppC.isSeed && Math.random()<0.3) {
-                const hits=rollSeedHits(oppC.spd, myC.spd); let seedDmgs=[];
-                for(let i=0;i<hits;i++){let sd=Math.max(2,Math.round(oppC.atk*0.3-Math.floor(myC.def/4)));sd=Math.round(sd*(0.9+Math.random()*0.2));seedDmgs.push(sd);pHP=Math.max(0,pHP-sd);}
+            } else if(oppC.isWanpaku && isWanpakuMiss()) {
                 turn.log+=`
+💨 {{ACTOR}}のわんぱくが暴れすぎて攻撃が外れた！`;
+            } else if(oppC.isSeed && Math.random()<0.3) {
+                if(myC.isHomerun && isHomerunReflect(myC.spd, oppC.spd)) {
+                    turn.log+=`
+🏏 ホームラン！{{ACTOR}}の種連続発射を打ち返して無効化！`;
+                    turn.effects.push({type:'homerun-reflect'});
+                } else {
+                    const hits=rollSeedHits(oppC.spd, myC.spd); let seedDmgs=[];
+                    for(let i=0;i<hits;i++){let sd=Math.max(2,Math.round(oppC.atk*0.3-Math.floor(myC.def/4)));sd=Math.round(sd*(0.9+Math.random()*0.2));seedDmgs.push(sd);pHP=Math.max(0,pHP-sd);}
+                    turn.log+=`
 🌱 {{ACTOR}}の種連続発射 ${hits}連撃！合計: ${seedDmgs.reduce((a,b)=>a+b,0)}`;
-                seedDmgs.forEach(sd=>turn.effects.push({type:'player',dmg:sd,seed:true}));
+                    seedDmgs.forEach(sd=>turn.effects.push({type:'player',dmg:sd,seed:true}));
+                }
             } else {
                 const isCrit = Math.random() < getCritRate(oppC.spd, myC.spd);
                 let d = isCrit ? Math.max(8, oppC.atk) : Math.max(8,oppC.atk-Math.floor(myC.def/2));
                 d=Math.round(d*(0.9+Math.random()*0.2));
+                if(oppC.isWanpaku) d=Math.round(d*getWanpakuDamageMultiplier());
+                if(myC.isRatatouille && isMeatBasedCurry(oppC)) d=Math.round(d*0.2);
                 pHP=Math.max(0,pHP-d);
                 if(isCrit){turn.log+=`
 🌶️ Spicy Hit!!!!!!!! {{DMGLABEL}}: ${d}`;turn.effects.push({type:'player-crit',dmg:d});}
@@ -4087,6 +4106,10 @@ function playBattleTurns(turns, myC, oppC, oppN, role) {
         // 通常エフェクト
         normalEffects.forEach(e => {
             let ef = e.type;
+            if(ef === 'homerun-reflect') {
+                playSoundEffect('homerun.mp3');
+                return;
+            }
             if(isGuest) {
                 if(ef === 'player') ef = 'enemy';
                 else if(ef === 'enemy' || ef === 'enemy-gold') ef = 'player';
@@ -4094,8 +4117,11 @@ function playBattleTurns(turns, myC, oppC, oppN, role) {
                 else if(ef === 'enemy-poison') ef = 'player-poison';
                 else if(ef === 'player-crit') ef = 'enemy-crit';
                 else if(ef === 'enemy-crit') ef = 'player-crit';
+                else if(ef === 'player-heal') ef = 'enemy-heal';
+                else if(ef === 'enemy-heal') ef = 'player-heal';
             }
             triggerEffect(ef, e.dmg);
+            if(ef.includes('heal')) { playSoundEffect('taiyou.mp3'); return; }
             if(ef.includes('crit')) { /* spicyhit.mp3はtriggerEffect内で再生 */ }
             else if(ef === 'enemy-gold') { playGoldSound(); playSoundEffect('punch.mp3'); }
             else if(ef.includes('poison')) playSoundEffect('poison.mp3');
@@ -4767,6 +4793,11 @@ function triggerEffect(target, damage) {
     }else if(target==="player-heal"){
         pop.innerHTML = "+" + damage;
         pop.style.top="240px"; pop.style.left="45%";
+        pop.style.color="#2ecc71";
+        pop.style.animation = "popUp 0.6s forwards";
+    }else if(target==="enemy-heal"){
+        pop.innerHTML = "+" + damage;
+        pop.style.top="130px"; pop.style.left="25%";
         pop.style.color="#2ecc71";
         pop.style.animation = "popUp 0.6s forwards";
     }else{
