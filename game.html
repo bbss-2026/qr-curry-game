@@ -1247,7 +1247,7 @@ const botOpponents = [
 ];
 const hardBotOpponents = [
     { name: "イカ星人グニョグニョ", curryName: "イカスミ幻惑カレー", emoji: "🌀🦑🌀", image: "bot06.png", hp: 190, atk: 65, def: 40, spd: 50, expBonus: 25, specialEffect: "illusion" },
-    { name: "種まき婆ちゃん", curryName: "懐かしの豆蟹カレー", emoji: "🌱🫘🦀", image: "bot07.png", hp: 200, atk: 65, def: 85, spd: 10, expBonus: 25, specialEffect: "seed" },
+    { name: "種まき婆ちゃん", curryName: "懐かしの豆蟹カレー", emoji: "🌱🫘🦀", image: "bot07.png", hp: 200, atk: 65, def: 95, spd: 10, expBonus: 25, specialEffect: "seed" },
     { name: "ドラゴン料理長", curryName: "炎獄ドラゴンカレー", emoji: "🐲🐉🔥", image: "bot08.png", hp: 400, atk: 100, def: 60, spd: 20, expBonus: 30, specialEffect: "breath" },
     { name: "毒舌料理人ミスズ", curryName: "激辛毒毒カレー", emoji: "☠️🌶️☠️", image: "bot09.png", hp: 360, atk: 90, def: 65, spd: 35, expBonus: 30, specialEffect: "poison" }
 ];
@@ -3913,7 +3913,7 @@ function getSeedHitsRange(mySpd, oppSpd) {
 }
 // わんぱくカレー：通常攻撃ダメージ1〜2倍の振れ幅、20%でミス
 function getWanpakuDamageMultiplier() { return 1 + Math.random() * 0.5; } // 1.0〜1.5
-function isWanpakuMiss() { return Math.random() < 0.25; }
+function isWanpakuMiss() { return Math.random() < 0.30; }
 
 // ラタトゥイユカレー：肉系食材を使ったカレーからの通常攻撃を80%軽減（=ダメージ0.2倍）
 const RATATOUILLE_GUARD_LIST = ["牛肉","牛タン","牛すじ","チキン","唐揚げ","トンカツ","ウインナー"];
@@ -3928,7 +3928,11 @@ function isMeatBasedBot(botName) {
 }
 
 // ホームランカレー：種連射・熱々ブレスを20%で打ち返し無効化
-function isHomerunReflect() { return Math.random() < 0.20; }
+function isHomerunReflect(mySpd, oppSpd) {
+    // 自分のSPDが相手未満なら20%、以上なら25%
+    const rate = mySpd >= oppSpd ? 0.25 : 0.20;
+    return Math.random() < rate;
+}
 
 function rollSeedHits(mySpd, oppSpd) {
     const r = getSeedHitsRange(mySpd, oppSpd);
@@ -4645,7 +4649,7 @@ function startBattleScene(oppN, oppC, myC) {
                 setTimeout(()=>{updateHP(pHP,oHP,oppC.hp,myC.hp);battleLogHistory.push(log.innerHTML.replace(/<br\s*\/?>/gi,"\n"));myTurn=true;round++;setTimeout(step,1100);},400);
             } else if(oppC.isBreath&&Math.random()<(1/3)){
                 // 熱々ブレス（breath.mp3）／ホームランカレーで20%打ち返し無効化
-                if(myC.isHomerun&&isHomerunReflect()){
+                if(myC.isHomerun&&isHomerunReflect(myC.spd,oppC.spd)){
                     log.innerHTML+=`\n🏏 ホームラン！熱々ブレスを打ち返して無効化！`;
                     setTimeout(()=>{playSoundEffect('homerun.mp3');updateHP(pHP,oHP,oppC.hp,myC.hp);battleLogHistory.push(log.innerHTML.replace(/<br\s*\/?>/gi,"\n"));myTurn=true;round++;setTimeout(step,1100);},400);
                 } else {
@@ -4653,7 +4657,7 @@ function startBattleScene(oppN, oppC, myC) {
                 }
             } else if(oppC.isSeed&&Math.random()<0.3){
                 // 種連射（machine-gun.mp3、SPD比較で回数変動）／ホームランカレーで20%打ち返し無効化
-                if(myC.isHomerun&&isHomerunReflect()){
+                if(myC.isHomerun&&isHomerunReflect(myC.spd,oppC.spd)){
                     log.innerHTML+=`\n🏏 ホームラン！種連続発射を打ち返して無効化！`;
                     setTimeout(()=>{playSoundEffect('homerun.mp3');updateHP(pHP,oHP,oppC.hp,myC.hp);battleLogHistory.push(log.innerHTML.replace(/<br\s*\/?>/gi,"\n"));myTurn=true;round++;setTimeout(step,1100);},400);
                 } else {
