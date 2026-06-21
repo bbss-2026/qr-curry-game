@@ -437,8 +437,7 @@
 
         <!-- 管理メニュー -->
         <div class="btn-admin-group" style="margin-top:8px; padding-top:0;">
-            <button class="btn-sm btn-danger-sm" onclick="clearSaveData()">全初期化</button>
-            <button class="btn-sm btn-staff-sm" onclick="triggerStaffOnly()">Staff Only</button>
+            <button class="btn-sm btn-danger-sm" id="clearSaveDataBtn" onclick="clearSaveData()">全初期化</button>
             <button class="btn-sm" style="background:#420000;color:#efdeb1;flex:1.5;" onclick="showDataRestoreOptions()">データ復元</button>
         </div>
     </div>
@@ -1286,7 +1285,7 @@ let onlineRole = 'host'; // 対人戦での自分の役割
 let discoveredItems = {};
 let cachedOpponentName = "";
 let cachedOpponentCurry = null;
-window.onload = function() { loadGame(); updateCookSelects(); refreshRecipeBookUI(); updateShopButtons(); listenToRooms(); updateMatchCurrySelects(); setupLoadedIconUI(); updateLvDisplay(); loadNotice(); initQuest(); loadTopNotice(); updateMuteIcon(); initPlayerId(); loadEventEnabledStatus(); setupModalScrollLock(); setupSwipeTabSwitch(); setupGuideCharLongPress(); updateLunchtimeBanner(); setInterval(updateLunchtimeBanner, 60000); };
+window.onload = function() { loadGame(); updateCookSelects(); refreshRecipeBookUI(); updateShopButtons(); listenToRooms(); updateMatchCurrySelects(); setupLoadedIconUI(); updateLvDisplay(); loadNotice(); initQuest(); loadTopNotice(); updateMuteIcon(); initPlayerId(); loadEventEnabledStatus(); setupModalScrollLock(); setupSwipeTabSwitch(); setupGuideCharLongPress(); setupClearSaveDataLongPress(); updateLunchtimeBanner(); setInterval(updateLunchtimeBanner, 60000); };
 
 // モーダル表示中は背後のページスクロールをロック
 const TAB_ORDER = ['quest', 'scan', 'fridge', 'cook', 'battle'];
@@ -3562,6 +3561,40 @@ function snoozeGuideChar() {
         setTimeout(() => { label.style.display = 'none'; }, 1500);
     }
     setTimeout(() => { hideQuestGuideChar(); }, 600);
+}
+
+function setupClearSaveDataLongPress() {
+    const btn = document.getElementById('clearSaveDataBtn');
+    if(!btn) return;
+    let pressTimer = null;
+    let longPressed = false;
+
+    function startPress(e) {
+        longPressed = false;
+        pressTimer = setTimeout(() => {
+            longPressed = true;
+            triggerStaffOnly();
+        }, 1500); // 1.5秒長押しでStaff Only（誤発動防止のため長め）
+    }
+    function cancelPress() {
+        if(pressTimer) { clearTimeout(pressTimer); pressTimer = null; }
+    }
+    function handleClick(e) {
+        if(longPressed) {
+            // 長押しが成立した場合は通常の初期化処理をキャンセル
+            e.preventDefault();
+            e.stopPropagation();
+            longPressed = false;
+        }
+    }
+
+    btn.addEventListener('touchstart', startPress, { passive: true });
+    btn.addEventListener('touchend', cancelPress, { passive: true });
+    btn.addEventListener('touchcancel', cancelPress, { passive: true });
+    btn.addEventListener('mousedown', startPress);
+    btn.addEventListener('mouseup', cancelPress);
+    btn.addEventListener('mouseleave', cancelPress);
+    btn.addEventListener('click', handleClick, true); // captureフェーズでonclickより先に判定
 }
 
 function setupGuideCharLongPress() {
