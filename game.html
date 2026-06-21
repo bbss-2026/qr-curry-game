@@ -398,12 +398,6 @@
             <button class="btn-sm" style="flex:1;padding:10px 6px;background:#b88742;color:#efdeb1;border:none;border-radius:4px;font-weight:bold;font-size:12px;cursor:pointer;" onclick="showBackupCode()">🔑 バックアップコード発行</button>
         </div>
 
-        <!-- 特別ボーナス -->
-        <div id="specialBonusWrap" style="border-bottom:1px solid #b88742; padding-bottom:20px; margin-bottom:20px; display:none;">
-            <div style="font-size:13px; font-weight:bold; color:#420000; letter-spacing:0.08em; margin-bottom:12px;">特別ボーナス</div>
-            <div id="specialBonusArea"></div>
-        </div>
-
         <!-- ログインボーナス・デイリークエスト（横並び） -->
         <div style="display:flex; gap:14px; border-bottom:1px solid #b88742; padding-bottom:20px; margin-bottom:20px;">
             <div style="flex:1; min-width:0;">
@@ -414,6 +408,12 @@
                 <div style="font-size:12px; font-weight:bold; color:#420000; letter-spacing:0.05em; margin-bottom:10px;">デイリークエスト</div>
                 <div id="dailyQuestArea"></div>
             </div>
+        </div>
+
+        <!-- 特別ボーナス -->
+        <div id="specialBonusWrap" style="border-bottom:1px solid #b88742; padding-bottom:20px; margin-bottom:20px; display:none;">
+            <div style="font-size:13px; font-weight:bold; color:#420000; letter-spacing:0.08em; margin-bottom:12px;">特別ボーナス</div>
+            <div id="specialBonusArea"></div>
         </div>
 
         <!-- 実績（アコーディオン） -->
@@ -1332,12 +1332,8 @@ function proceedGameStart() {
     document.getElementById("pageTop").style.display = "none";
     document.getElementById("gameUI").style.display = "block";
     updateFridgeUI();
-    // アクセスカウント（デバッグモード中はカウントしない）
-    if(database && !isDebugMode) {
-        const today = new Date(Date.now() + 9*60*60*1000).toISOString().split('T')[0];
-        database.ref('analytics/total').transaction(v => (v||0)+1);
-        database.ref('analytics/daily/'+today).transaction(v => (v||0)+1);
-    }
+    // アクセスカウント（デバッグモード中はカウントしない、同IDの同日重複はカウントしない）
+    recordPlayerAccess();
     // プレイヤータブをアクティブに（GAME STARTの初期タブ）
     const playerTab = document.querySelector('[onclick*="quest"]');
     const playerPage = document.getElementById("pageQuest");
@@ -1882,8 +1878,7 @@ function staffAction(action) {
         if(!database) { showCustomAlert("❌ Firebase未接続"); return; }
         database.ref('analytics').once('value').then(function(snap) {
             const data = snap.val() || {};
-            const total = data.total || 0;
-            const daily = data.daily || {};
+            const dailyAccessCount = data.dailyAccessCount || {};
             const scan = data.scan || {};
             const cook = data.cook || {};
             const battle = data.battle || {};
@@ -1897,25 +1892,27 @@ function staffAction(action) {
                 return '<div style="font-size:13px;font-weight:bold;color:#420000;margin:14px 0 6px;border-bottom:1px solid #b88742;padding-bottom:4px;">' + title + '</div>';
             }
 
-            // 直近14日のアクセス
+            // 直近14日のユニークアクセス（ID単位で重複排除済み）
             let dailyRows = '';
+            let totalUnique = 0;
             const days = [];
             for(let i = 0; i < 14; i++) {
                 const d = new Date(Date.now() + 9*60*60*1000 - i*86400000);
                 days.push(d.toISOString().split('T')[0]);
             }
             days.forEach(function(day) {
-                const cnt = daily[day] || 0;
+                const cnt = dailyAccessCount[day] || 0;
+                totalUnique += cnt;
                 const bar = '█'.repeat(Math.min(cnt, 20));
-                dailyRows += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;font-size:11px;">'
-                    + '<span style="color:#888;min-width:80px;">' + day + '</span>'
+                dailyRows += '<div onclick="showDailyAccessDetail(\'' + day + '\')" style="display:flex;align-items:center;gap:8px;margin-bottom:4px;font-size:11px;cursor:pointer;padding:2px 0;">'
+                    + '<span style="color:#888;min-width:80px;text-decoration:underline dotted;">' + day + '</span>'
                     + '<span style="color:#b88742;">' + bar + '</span>'
                     + '<span style="color:#420000;font-weight:bold;">' + cnt + '</span>'
                     + '</div>';
             });
 
             const html = '<div style="text-align:left;max-height:60vh;overflow-y:auto;">'
-                + '<div style="margin-bottom:8px;font-size:15px;font-weight:bold;color:#420000;">累計アクセス: <span style="font-size:22px;color:#b88742;">' + total + '</span> 回</div>'
+                + '<div style="margin-bottom:8px;font-size:13px;color:#888;">※同じキャラクター（ID）の同日アクセスは1回として集計</div>'
 
                 + section('📷 QRスキャン')
                 + row('通常スキャン', scan.normal)
@@ -1938,7 +1935,7 @@ function staffAction(action) {
                 + row('PC戦（強敵）', battle.hard)
                 + row('ルーム対戦', battle.room)
 
-                + section('📅 直近14日アクセス（日本時間）')
+                + section('📅 直近14日アクセス（日本時間・タップで詳細）')
                 + dailyRows
                 + '</div>';
 
@@ -3349,6 +3346,43 @@ function getGameNow() {
 }
 
 // 日本時間（JST）基準のYYYY-MM-DD文字列を返す（デイリーリセット等の日付判定用）
+// プレイヤーごとのアクセス記録（同ID・同日の重複カウントを防止）
+function showDailyAccessDetail(day) {
+    if(!database) return;
+    database.ref('analytics/dailyAccess/' + day).once('value').then(function(snap){
+        const data = snap.val() || {};
+        const entries = Object.keys(data).map(function(pid){ return { pid: pid, name: data[pid].name || '名無し', ts: data[pid].ts || 0 }; });
+        entries.sort(function(a,b){ return a.ts - b.ts; });
+        let rows = '';
+        if(entries.length === 0) { rows = '<div style="font-size:12px;color:#888;">データがありません。</div>'; }
+        entries.forEach(function(e){
+            rows += '<div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid #eee;font-size:12px;">'
+                + '<span>' + e.name + ' <span style="color:#999;">(' + e.pid + ')</span></span>'
+                + '</div>';
+        });
+        showCustomAlert('📅 ' + day + ' のアクセス（' + entries.length + '人）',
+            '<div style="text-align:left;max-height:55vh;overflow-y:auto;">' + rows + '</div>'
+        );
+    });
+}
+
+function recordPlayerAccess(retryCount) {
+    if(isDebugMode || !database) return;
+    retryCount = retryCount || 0;
+    if(!playerId) {
+        // IDがまだ発行中の場合は少し待って再試行（最大10回・5秒）
+        if(retryCount < 10) setTimeout(() => recordPlayerAccess(retryCount + 1), 500);
+        return;
+    }
+    const today = getJSTDateString();
+    const ref = database.ref('analytics/dailyAccess/' + today + '/' + playerId);
+    ref.once('value').then(function(snap){
+        if(snap.exists()) return; // 同ID・同日はカウント済み
+        ref.set({ name: playerName || '名無しの料理人', ts: Date.now() });
+        database.ref('analytics/dailyAccessCount/' + today).transaction(v => (v||0) + 1);
+    });
+}
+
 function getJSTDateString(baseDate) {
     const now = baseDate || getGameNow();
     // now.getTime()は既にUTC基準の絶対ミリ秒（タイムゾーン補正は不要）。そこにJSTのオフセット+9時間を加えるだけでよい。
