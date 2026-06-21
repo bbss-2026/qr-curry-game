@@ -1479,12 +1479,16 @@ function saveGame() {
 // ===== クラウド同期（複数デバイス間でのセーブデータ同期） =====
 function syncSaveDataToCloud() {
     if(!database || !playerId) return;
-    const now = Date.now();
-    const data = buildSaveDataObject();
-    data.timestamp = now;
-    database.ref('players/' + playerId + '/savedata').set(data).then(function(){
-        localStorage.setItem('qr_last_synced_ts', String(now));
-    }).catch(function(){ /* 通信エラー時は何もしない（次回保存時に再試行） */ });
+    try {
+        const now = Date.now();
+        const data = buildSaveDataObject();
+        data.timestamp = now;
+        database.ref('players/' + playerId + '/savedata').set(data).then(function(){
+            localStorage.setItem('qr_last_synced_ts', String(now));
+        }).catch(function(){ /* 通信エラー時は何もしない（次回保存時に再試行） */ });
+    } catch(e) {
+        console.error('syncSaveDataToCloud error:', e); // クラウド同期の異常がゲーム本体の処理を止めないようにする
+    }
 }
 
 function checkCloudSyncOnLoad() {
@@ -2721,40 +2725,56 @@ function stopCamera() { if (animationFrameId) cancelAnimationFrame(animationFram
 function cancelScanning() { stopCamera(); canvasElement.style.display = "none"; document.getElementById("btnStartCamera").style.display = "inline-block"; }
 function resetScanner() { document.getElementById("getBox").style.display = "none"; startCamera(); }
 function processQRData(text, r, g, b) {
-    const today = getJSTDateString();
-    if (scanHistory[text] === today) { document.getElementById("getBoxTitle").innerText = "⚠️ 使用済み"; document.getElementById("getItemEmoji").innerText = "🙅"; document.getElementById("getItemName").innerText = "本日はスキャン済みです！"; document.getElementById("bonusBadge").style.display = "none"; document.getElementById("getBox").style.display = "block"; return; }
-    scanHistory[text] = today;
-    const normalItems = Object.keys(masterIngredients).filter(k => masterIngredients[k].shop === 0);
-    const allItems = [...normalItems, ...Object.keys(masterSpices)];
-    let sum = 0; for (let i = 0; i < text.length; i++) sum += text.charCodeAt(i);
-    let itemName = allItems[sum % allItems.length];
-    if (itemName === "ピーマン" || text.includes("pepper") || text.includes("paprika")) {
-        let low = text.toLowerCase();
-        if (r > 130 && g > 130 && b < 100 || low.includes("yellow")) itemName = "黄パプリカ";
-        else if (r > 130 && g < 100 || low.includes("red")) itemName = "赤パプリカ";
-        else itemName = "ピーマン";
+    try {
+        const today = getJSTDateString();
+        if (scanHistory[text] === today) { document.getElementById("getBoxTitle").innerText = "⚠️ 使用済み"; document.getElementById("getItemEmoji").innerText = "🙅"; document.getElementById("getItemName").innerText = "本日はスキャン済みです！"; document.getElementById("bonusBadge").style.display = "none"; document.getElementById("getBox").style.display = "block"; return; }
+        scanHistory[text] = today;
+        const normalItems = Object.keys(masterIngredients).filter(k => masterIngredients[k].shop === 0);
+        const allItems = [...normalItems, ...Object.keys(masterSpices)];
+        let sum = 0; for (let i = 0; i < text.length; i++) sum += text.charCodeAt(i);
+        let itemName = allItems[sum % allItems.length];
+        if (itemName === "ピーマン" || text.includes("pepper") || text.includes("paprika")) {
+            let low = text.toLowerCase();
+            if (r > 130 && g > 130 && b < 100 || low.includes("yellow")) itemName = "黄パプリカ";
+            else if (r > 130 && g < 100 || low.includes("red")) itemName = "赤パプリカ";
+            else itemName = "ピーマン";
+        }
+        let lowerText = text.toLowerCase();
+        let addCount = 1;
+        if (lowerText.includes("curry") || lowerText.includes("spice")) {
+            addCount = 3;
+            document.getElementById("bonusBadge").style.display = "block";
+        } else {
+            document.getElementById("bonusBadge").style.display = "none";
+        }
+        if (isLunchtime()) { addCount *= 2; } // ランチタイムボーナス：QR入手アイテム2倍
+        inventory[itemName] = (inventory[itemName] || 0) + addCount;
+        discoveredItems[itemName] = true;
+
+        // 表示処理を先に確定させる（後続の保存・統計処理がエラーになっても結果表示は必ず行う）
+        const isSpice = masterSpices[itemName]; const emoji = isSpice ? masterSpices[itemName].emoji : masterIngredients[itemName].emoji;
+        document.getElementById("getBoxTitle").innerText = "🎉 食材ゲット！";
+        const qrItemData = masterIngredients[itemName] || masterSpices[itemName];
+        const qrIcon = qrItemData && qrItemData.icon;
+        document.getElementById("getItemEmoji").innerHTML = qrIcon ? `<img src="${qrIcon}" style="width:64px;height:64px;object-fit:contain;">` : emoji;
+        document.getElementById("getItemName").innerText = `${itemName} × ${addCount}つ`;
+        document.getElementById("getBox").style.display = "block";
+
+        try { saveGame(); } catch(e) { console.error('saveGame error:', e); }
+        try { onQRScanned(addCount >= 3); } catch(e) { console.error('onQRScanned error:', e); } // 実績・デイリー更新（3個入手はボーナスQR）
+        try { updateCookSelects(); } catch(e) { console.error('updateCookSelects error:', e); }
+    } catch(e) {
+        console.error('processQRData error:', e);
+        // 想定外のエラーでも最低限のフィードバックを出す
+        const box = document.getElementById("getBox");
+        if(box) {
+            document.getElementById("getBoxTitle").innerText = "⚠️ エラー";
+            document.getElementById("getItemEmoji").innerText = "❓";
+            document.getElementById("getItemName").innerText = "読み取りに失敗しました。もう一度お試しください。";
+            document.getElementById("bonusBadge").style.display = "none";
+            box.style.display = "block";
+        }
     }
-    let lowerText = text.toLowerCase();
-    let addCount = 1;
-    if (lowerText.includes("curry") || lowerText.includes("spice")) {
-        addCount = 3;
-        document.getElementById("bonusBadge").style.display = "block";
-    } else {
-        document.getElementById("bonusBadge").style.display = "none";
-    }
-    if (isLunchtime()) { addCount *= 2; } // ランチタイムボーナス：QR入手アイテム2倍
-    inventory[itemName] = (inventory[itemName] || 0) + addCount;
-    discoveredItems[itemName] = true;
-    saveGame();
-    onQRScanned(addCount >= 3); // 実績・デイリー更新（3個入手はボーナスQR）
-    const isSpice = masterSpices[itemName]; const emoji = isSpice ? masterSpices[itemName].emoji : masterIngredients[itemName].emoji;
-    document.getElementById("getBoxTitle").innerText = "🎉 食材ゲット！";
-    const qrItemData = masterIngredients[itemName] || masterSpices[itemName];
-    const qrIcon = qrItemData && qrItemData.icon;
-    document.getElementById("getItemEmoji").innerHTML = qrIcon ? `<img src="${qrIcon}" style="width:64px;height:64px;object-fit:contain;">` : emoji;
-    document.getElementById("getItemName").innerText = `${itemName} × ${addCount}つ`;
-    document.getElementById("getBox").style.display = "block";
-    updateCookSelects();
 }
 function updateFridgeUI() {
     const ingGrid = document.getElementById("fridgeIngredientsGrid");
