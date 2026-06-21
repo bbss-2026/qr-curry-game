@@ -297,7 +297,7 @@
 </head>
 <body>
 <div id="statusFlashOverlay" class="status-flash-overlay"></div>
-<div id="questGuideChar" onclick="hideQuestGuideChar()"><img id="questGuideImg" src="" alt=""></div>
+<div id="questGuideChar"><img id="questGuideImg" src="" alt=""><div id="questGuideSnoozeLabel" style="display:none;position:absolute;top:-28px;left:50%;transform:translateX(-50%);background:#420000;color:#efdeb1;font-size:11px;font-weight:bold;padding:4px 10px;border-radius:12px;white-space:nowrap;">30分非表示にしました</div></div>
 <div id="eventMovieOverlay" style="position:fixed;top:0;left:0;width:100%;height:100%;background:#000;z-index:99998;display:none;justify-content:center;align-items:center;flex-direction:column;">
     <video id="eventMovieVideo" src="tokumoritoujyo.mp4" playsinline style="max-width:100%;max-height:100%;"></video>
     <button id="eventMovieSkipBtn" onclick="skipEventMovie()" style="position:absolute;bottom:24px;right:20px;padding:8px 18px;background:rgba(255,255,255,0.15);color:#fff;border:1px solid rgba(255,255,255,0.6);border-radius:20px;font-size:12px;font-weight:bold;cursor:pointer;">スキップ ▶</button>
@@ -425,11 +425,11 @@
         <!-- 実績（アコーディオン） -->
         <div style="padding-bottom:20px; border-bottom:1px solid #b88742; margin-bottom:20px;">
             <div class="accordion-item" style="border:1px solid #b88742; border-radius:4px;">
-                <div class="accordion-header" onclick="toggleAccordion(this)" style="font-size:13px; font-weight:bold; color:#420000; letter-spacing:0.08em;">
+                <div class="accordion-header" onclick="toggleAccordion(this)" style="font-size:13px; font-weight:bold; color:#420000; letter-spacing:0.08em; padding:14px 12px; border-top:none;">
                     実績
                     <span class="accordion-arrow">▼</span>
                 </div>
-                <div class="accordion-body">
+                <div class="accordion-body" style="padding:12px 12px 16px 12px;">
                     <div id="achievementsArea"></div>
                 </div>
             </div>
@@ -1286,9 +1286,55 @@ let onlineRole = 'host'; // 対人戦での自分の役割
 let discoveredItems = {};
 let cachedOpponentName = "";
 let cachedOpponentCurry = null;
-window.onload = function() { loadGame(); updateCookSelects(); refreshRecipeBookUI(); updateShopButtons(); listenToRooms(); updateMatchCurrySelects(); setupLoadedIconUI(); updateLvDisplay(); loadNotice(); initQuest(); loadTopNotice(); updateMuteIcon(); initPlayerId(); loadEventEnabledStatus(); setupModalScrollLock(); updateLunchtimeBanner(); setInterval(updateLunchtimeBanner, 60000); };
+window.onload = function() { loadGame(); updateCookSelects(); refreshRecipeBookUI(); updateShopButtons(); listenToRooms(); updateMatchCurrySelects(); setupLoadedIconUI(); updateLvDisplay(); loadNotice(); initQuest(); loadTopNotice(); updateMuteIcon(); initPlayerId(); loadEventEnabledStatus(); setupModalScrollLock(); setupSwipeTabSwitch(); setupGuideCharLongPress(); updateLunchtimeBanner(); setInterval(updateLunchtimeBanner, 60000); };
 
 // モーダル表示中は背後のページスクロールをロック
+const TAB_ORDER = ['quest', 'scan', 'fridge', 'cook', 'battle'];
+
+function setupSwipeTabSwitch() {
+    const gameUI = document.getElementById('gameUI');
+    if(!gameUI) return;
+    let startX = 0, startY = 0, tracking = false;
+
+    gameUI.addEventListener('touchstart', function(e) {
+        if(e.touches.length !== 1) return;
+        // バトル中・モーダル表示中はスワイプ無効
+        const arena = document.getElementById('battleArena');
+        const modal = document.getElementById('customModal');
+        if(arena && arena.style.display === 'block') return;
+        if(modal && modal.style.display === 'flex') return;
+        startX = e.touches[0].clientX;
+        startY = e.touches[0].clientY;
+        tracking = true;
+    }, { passive: true });
+
+    gameUI.addEventListener('touchend', function(e) {
+        if(!tracking) return;
+        tracking = false;
+        const endX = e.changedTouches[0].clientX;
+        const endY = e.changedTouches[0].clientY;
+        const diffX = endX - startX;
+        const diffY = endY - startY;
+        // 横移動が縦移動より十分大きく、かつ一定距離以上動いた場合のみスワイプとみなす
+        if(Math.abs(diffX) > 60 && Math.abs(diffX) > Math.abs(diffY) * 1.5) {
+            const activeBtn = document.querySelector('.tab-btn.active');
+            if(!activeBtn) return;
+            const activeTabMatch = activeBtn.getAttribute('onclick').match(/switchTab\('(\w+)'/);
+            if(!activeTabMatch) return;
+            const currentTab = activeTabMatch[1];
+            const currentIdx = TAB_ORDER.indexOf(currentTab);
+            if(currentIdx === -1) return;
+            let nextIdx;
+            if(diffX < 0) nextIdx = currentIdx + 1; // 左にスワイプ→次のタブ
+            else nextIdx = currentIdx - 1; // 右にスワイプ→前のタブ
+            if(nextIdx < 0 || nextIdx >= TAB_ORDER.length) return;
+            const nextTab = TAB_ORDER[nextIdx];
+            const nextBtn = document.querySelector('[onclick*="switchTab(\'' + nextTab + '\'"]');
+            if(nextBtn) switchTab(nextTab, nextBtn);
+        }
+    }, { passive: true });
+}
+
 function setupModalScrollLock() {
     const modal = document.getElementById('customModal');
     if(!modal) return;
@@ -3502,7 +3548,53 @@ const BATTLE_GUIDE_IMAGES = [
     'annainin/con4-5.png'
 ];
 
+function isGuideCharSnoozed() {
+    const until = parseInt(localStorage.getItem('qr_guide_snooze_until') || '0', 10);
+    return Date.now() < until;
+}
+
+function snoozeGuideChar() {
+    const until = Date.now() + 30 * 60 * 1000; // 30分後まで非表示
+    localStorage.setItem('qr_guide_snooze_until', String(until));
+    const label = document.getElementById('questGuideSnoozeLabel');
+    if(label) {
+        label.style.display = 'block';
+        setTimeout(() => { label.style.display = 'none'; }, 1500);
+    }
+    setTimeout(() => { hideQuestGuideChar(); }, 600);
+}
+
+function setupGuideCharLongPress() {
+    const wrap = document.getElementById('questGuideChar');
+    if(!wrap) return;
+    let pressTimer = null;
+    let longPressed = false;
+
+    function startPress(e) {
+        longPressed = false;
+        pressTimer = setTimeout(() => {
+            longPressed = true;
+            snoozeGuideChar();
+        }, 600); // 600ms長押しでスヌーズ
+    }
+    function cancelPress() {
+        if(pressTimer) { clearTimeout(pressTimer); pressTimer = null; }
+    }
+    function handleTap() {
+        if(longPressed) { longPressed = false; return; } // 長押し直後のタップは無視
+        hideQuestGuideChar();
+    }
+
+    wrap.addEventListener('touchstart', startPress, { passive: true });
+    wrap.addEventListener('touchend', function() { cancelPress(); handleTap(); }, { passive: true });
+    wrap.addEventListener('touchcancel', cancelPress, { passive: true });
+    wrap.addEventListener('mousedown', startPress);
+    wrap.addEventListener('mouseup', function() { cancelPress(); handleTap(); });
+    wrap.addEventListener('mouseleave', cancelPress);
+}
+
 function showGuideChar(imageSet) {
+    if(isGuideCharSnoozed()) return; // 30分以内にスヌーズされていたら表示しない
     const wrap = document.getElementById('questGuideChar');
     const img = document.getElementById('questGuideImg');
     if(!wrap || !img) return;
