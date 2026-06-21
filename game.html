@@ -364,8 +364,8 @@
     <!-- タブUI（初期画面では非表示） -->
     <div id="gameUI" style="display:none;">
     <div class="tab-menu">
-        <button class="tab-btn active" onclick="switchTab('quest', this)">クエスト</button>
-        <button class="tab-btn" onclick="switchTab('scan', this)">QRスキャン</button>
+        <button class="tab-btn active" onclick="switchTab('quest', this)">プレイヤー</button>
+        <button class="tab-btn" onclick="switchTab('scan', this)">QR</button>
         <button class="tab-btn" onclick="switchTab('fridge', this)">冷蔵庫</button>
         <button class="tab-btn" onclick="switchTab('cook', this)">調理</button>
         <button class="tab-btn" onclick="switchTab('battle', this)">対戦</button>
@@ -383,25 +383,57 @@
     </div>
     <!-- クエストタブ -->
     <div id="pageQuest" class="page">
+        <!-- ★プレイヤーアイコン＋ID（120%大きく） -->
+        <div class="profile-area">
+            <img id="playerIconImg" src="mayimage01.png" data-index="1" onclick="togglePlayerIcon()" style="width: 96px; height: 96px; border: 3px solid #e67e22; border-radius: 50%; cursor: pointer; margin-bottom: 6px; transition: transform 0.2s;">
+            <div id="playerIdDisplay" onclick="copyPlayerId()" style="font-size:10px; color:#b88742; margin-bottom:10px; cursor:pointer; text-decoration:underline dotted;" title="タップでコピー">ID: ----------</div>
+            <br>
+            <input type="text" id="playerNameInput" class="input-name" placeholder="料理人の名前を入力" onchange="handleNameChange(this.value)">
+            <p class="profile-hint">※プレイヤーアイコン、名前はタップで変更できます。</p>
+        </div>
+
+        <!-- パスワード設定・バックアップコード発行（横並び） -->
+        <div style="display:flex; gap:8px; border-top:1px solid #b88742; padding:14px 0 20px; border-bottom:1px solid #b88742; margin-bottom:20px;">
+            <button class="btn-sm" style="flex:1;padding:10px 6px;background:#420000;color:#efdeb1;border:none;border-radius:4px;font-weight:bold;font-size:12px;cursor:pointer;" onclick="showPasswordSetup()">🔒 パスワード設定</button>
+            <button class="btn-sm" style="flex:1;padding:10px 6px;background:#b88742;color:#efdeb1;border:none;border-radius:4px;font-weight:bold;font-size:12px;cursor:pointer;" onclick="showBackupCode()">🔑 バックアップコード発行</button>
+        </div>
+
         <!-- 特別ボーナス -->
         <div id="specialBonusWrap" style="border-bottom:1px solid #b88742; padding-bottom:20px; margin-bottom:20px; display:none;">
             <div style="font-size:13px; font-weight:bold; color:#420000; letter-spacing:0.08em; margin-bottom:12px;">特別ボーナス</div>
             <div id="specialBonusArea"></div>
         </div>
-        <!-- ログインボーナス -->
-        <div style="border-bottom:1px solid #b88742; padding-bottom:20px; margin-bottom:20px;">
-            <div style="font-size:13px; font-weight:bold; color:#420000; letter-spacing:0.08em; margin-bottom:12px;">ログインボーナス</div>
-            <div id="loginBonusArea"></div>
+
+        <!-- ログインボーナス・デイリークエスト（横並び） -->
+        <div style="display:flex; gap:14px; border-bottom:1px solid #b88742; padding-bottom:20px; margin-bottom:20px;">
+            <div style="flex:1; min-width:0;">
+                <div style="font-size:12px; font-weight:bold; color:#420000; letter-spacing:0.05em; margin-bottom:10px;">ログインボーナス</div>
+                <div id="loginBonusArea"></div>
+            </div>
+            <div style="flex:1; min-width:0;">
+                <div style="font-size:12px; font-weight:bold; color:#420000; letter-spacing:0.05em; margin-bottom:10px;">デイリークエスト</div>
+                <div id="dailyQuestArea"></div>
+            </div>
         </div>
-        <!-- デイリークエスト -->
-        <div style="border-bottom:1px solid #b88742; padding-bottom:20px; margin-bottom:20px;">
-            <div style="font-size:13px; font-weight:bold; color:#420000; letter-spacing:0.08em; margin-bottom:12px;">デイリークエスト</div>
-            <div id="dailyQuestArea"></div>
+
+        <!-- 実績（アコーディオン） -->
+        <div style="padding-bottom:20px; border-bottom:1px solid #b88742; margin-bottom:20px;">
+            <div class="accordion-item" style="border:1px solid #b88742; border-radius:4px;">
+                <div class="accordion-header" onclick="toggleAccordion(this)" style="font-size:13px; font-weight:bold; color:#420000; letter-spacing:0.08em;">
+                    実績
+                    <span class="accordion-arrow">▼</span>
+                </div>
+                <div class="accordion-body">
+                    <div id="achievementsArea"></div>
+                </div>
+            </div>
         </div>
-        <!-- 実績 -->
-        <div style="padding-bottom:20px;">
-            <div style="font-size:13px; font-weight:bold; color:#420000; letter-spacing:0.08em; margin-bottom:12px;">実績</div>
-            <div id="achievementsArea"></div>
+
+        <!-- 管理メニュー -->
+        <div class="btn-admin-group" style="margin-top:8px; padding-top:0;">
+            <button class="btn-sm btn-danger-sm" onclick="clearSaveData()">全初期化</button>
+            <button class="btn-sm btn-staff-sm" onclick="triggerStaffOnly()">Staff Only</button>
+            <button class="btn-sm" style="background:#420000;color:#efdeb1;flex:1.5;" onclick="restoreFromBackupCode()">バックアップコードで復元</button>
         </div>
     </div>
 
@@ -534,23 +566,7 @@
 
     <!-- 冷蔵庫＆図鑑タブ ★アイコン・名前エリアをここに移動 -->
     <div id="pageFridge" class="page">
-
-        <!-- ★プレイヤーアイコン＋名前エリア（移動後） -->
-        <div class="profile-area">
-            <img id="playerIconImg" src="mayimage01.png" data-index="1" onclick="togglePlayerIcon()" style="width: 80px; height: 80px; border: 3px solid #e67e22; border-radius: 50%; cursor: pointer; margin-bottom: 6px; transition: transform 0.2s;">
-            <div id="playerIdDisplay" onclick="copyPlayerId()" style="font-size:10px; color:#b88742; margin-bottom:10px; cursor:pointer; text-decoration:underline dotted;" title="タップでコピー">ID: ----------</div>
-            <br>
-            <input type="text" id="playerNameInput" class="input-name" placeholder="料理人の名前を入力" onchange="handleNameChange(this.value)">
-            <p class="profile-hint">※プレイヤーアイコン、名前はタップで変更できます。</p>
-        </div>
-        
-
-        
-        <div style="border-top:1px solid #b88742; padding:14px 0 4px;">
-            <div style="font-size:12px;color:#420000;margin-bottom:8px;">定期的にコードをコピーしてメモなどに保存しておきましょう。データが消えた場合に復元できます。</div>
-            <button class="btn-sm" style="width:100%;padding:10px;background:#b88742;color:#efdeb1;border:none;border-radius:4px;font-weight:bold;font-size:13px;cursor:pointer;" onclick="showBackupCode()">🔑 バックアップコードを発行</button>
-        </div>
-        <div class="shop-box">
+        <div class="shop-box" style="margin-top:8px;">
             <div style="display:flex;align-items:center;justify-content:center;gap:8px;font-weight:bold;color:#420000;font-size:14px;border-bottom:1px solid #b88742;padding-bottom:8px;margin-bottom:8px;border-top:1px solid #b88742;padding-top:8px;"><img src="gatya.svg" style="height:1em;width:auto;" alt="">食材ガチャ<img src="gatya.svg" style="height:1em;width:auto;" alt=""></div>
             <div class="shop-grid">
                 <button class="btn-shop btn-shop-30" id="btnGachaNormal" onclick="buyGacha('normal')">食材ガチャ（30G）<br><span style="font-size:9px;font-weight:normal;">ノーマル具材1個</span></button>
@@ -583,13 +599,6 @@
             </select>
         </div>
         <div class="fridge-grid" id="fridgeSpicesGrid"></div>
-        <h3 style="margin-top:25px; color:#420000; font-size:13px; letter-spacing:0.08em; border-top:1px solid #b88742; padding-top:16px; font-weight:bold;">発見したレシピ履歴</h3>
-        <div class="recipe-book" id="recipeBookArea">履歴がありません。</div>
-        <div class="btn-admin-group" style="margin-top:24px; padding-top:16px; border-top:1px solid #b88742;">
-            <button class="btn-sm btn-danger-sm" onclick="clearSaveData()">全初期化</button>
-            <button class="btn-sm btn-staff-sm" onclick="triggerStaffOnly()">Staff Only</button>
-            <button class="btn-sm" style="background:#420000;color:#efdeb1;flex:1.5;" onclick="restoreFromBackupCode()">バックアップコードで復元</button>
-        </div>
     </div>
 
     <!-- 調理タブ -->
@@ -651,6 +660,8 @@
                 <div>SPD: <span id="previewSPD">0</span></div>
             </div>
         </div>
+        <h3 style="margin-top:25px; color:#420000; font-size:13px; letter-spacing:0.08em; border-top:1px solid #b88742; padding-top:16px; font-weight:bold;">発見したレシピ履歴</h3>
+        <div class="recipe-book" id="recipeBookArea">履歴がありません。</div>
     </div>
 
     <!-- 対戦アリーナタブ -->
@@ -1327,16 +1338,16 @@ function proceedGameStart() {
         database.ref('analytics/total').transaction(v => (v||0)+1);
         database.ref('analytics/daily/'+today).transaction(v => (v||0)+1);
     }
-    // 冷蔵庫タブをアクティブに
-    const fridgeTab = document.querySelector('[onclick*="fridge"]');
-    const fridgePage = document.getElementById("pageFridge");
+    // プレイヤータブをアクティブに（GAME STARTの初期タブ）
+    const playerTab = document.querySelector('[onclick*="quest"]');
+    const playerPage = document.getElementById("pageQuest");
     document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
     document.querySelectorAll(".page").forEach(p => p.classList.remove("active"));
-    if(fridgeTab) fridgeTab.classList.add("active");
-    if(fridgePage) fridgePage.classList.add("active");
+    if(playerTab) playerTab.classList.add("active");
+    if(playerPage) playerPage.classList.add("active");
     updateFridgeUI();
     loadNotice();
-    showFridgeGuideChar();
+    showQuestGuideChar();
 }
 
 function goToTop() {
@@ -1715,6 +1726,7 @@ function showStaffMenu() {
     btnGrid.appendChild(makeGridBtn("📊 イベント ダメージ集計", "#8e44ad", "eventdamage"));
     btnGrid.appendChild(makeGridBtn("🩹 モンスターHP変更", "#16a085", "eventsethp"));
     btnGrid.appendChild(makeGridBtn("🎮 レベル設定", "#3498db", "setlevel"));
+    btnGrid.appendChild(makeGridBtn("🔒 パスワード確認", "#e74c3c", "checkpassword"));
     const hasTimeOverride = !!localStorage.getItem('qr_debug_time_override');
     btnGrid.appendChild(makeGridBtn("⏰ 時間設定: " + (hasTimeOverride ? "ON" : "OFF"), (hasTimeOverride ? "#e74c3c" : "#7f8c8d"), "settime"));
 
@@ -1937,6 +1949,24 @@ function staffAction(action) {
         showStaffMenu();
     } else if(action === 'eventdamage') {
         showEventDamageRanking();
+    } else if(action === 'checkpassword') {
+        document.getElementById("customModal").style.display = "none";
+        setTimeout(function(){
+            const targetId = prompt("🔒 パスワードを確認するプレイヤーのIDを入力してください（例: BC-XXXXXXXX）");
+            if(!targetId) return;
+            if(!database) { showCustomAlert("❌ Firebase未接続"); return; }
+            database.ref('players/' + targetId).once('value').then(function(snap){
+                if(!snap.exists()) { showCustomAlert("❌ エラー", "そのIDのプレイヤーは見つかりません。"); return; }
+                const data = snap.val();
+                const pw = data.password;
+                const name = data.name || '名無し';
+                if(pw) {
+                    showCustomAlert("🔒 パスワード確認", "ID: " + targetId + "<br>名前: " + name + "<br>パスワード: <b>" + pw + "</b>");
+                } else {
+                    showCustomAlert("🔒 パスワード確認", "ID: " + targetId + "<br>名前: " + name + "<br>このプレイヤーはパスワードを設定していません。");
+                }
+            });
+        }, 300);
     } else if(action === 'eventsethp') {
         if(!database) { showCustomAlert("❌ Firebase未接続"); return; }
         database.ref('events/tokumori001/currentHp').once('value').then(function(snap){
@@ -2451,6 +2481,26 @@ function applySaveDataObject(decoded) {
 function generateBackupCode() {
     const saveData = buildSaveDataObject();
     return btoa(unescape(encodeURIComponent(JSON.stringify(saveData))));
+}
+
+// ===== パスワード設定（平文保存・運営確認用） =====
+function showPasswordSetup() {
+    if(!playerId) { showCustomAlert('⚠️ エラー', 'プレイヤーIDが未発行です。少し待ってから再度お試しください。'); return; }
+    const msg = '<div style="font-size:13px;color:#420000;margin-bottom:10px;line-height:1.7;">'
+        + '<span style="color:#e74c3c;font-weight:bold;">"パスワードは運営が見ることができます。他のパスワードとの使い回しや個人情報などの入力はおやめください。"</span>'
+        + '</div>'
+        + '<input type="text" id="pwSetupInput" placeholder="パスワードを入力" maxlength="20" style="width:100%;padding:10px;border:1px solid #b88742;border-radius:4px;font-size:14px;box-sizing:border-box;background:#f5e9c8;color:#420000;">';
+    showCustomConfirm('🔒 パスワード設定', msg, function() {
+        const inp = document.getElementById('pwSetupInput');
+        const pw = inp ? inp.value.trim() : '';
+        if(!pw) { showCustomAlert('❌ エラー', 'パスワードを入力してください。'); return; }
+        if(!database) { showCustomAlert('❌ Firebase未接続', 'パスワードを保存できませんでした。'); return; }
+        database.ref('players/' + playerId + '/password').set(pw).then(function(){
+            showCustomAlert('✅ 設定完了', 'パスワードを設定しました。');
+        }).catch(function(){
+            showCustomAlert('❌ 保存失敗', 'パスワードの保存に失敗しました。');
+        });
+    });
 }
 
 function showBackupCode() {
