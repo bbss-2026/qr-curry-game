@@ -3211,9 +3211,8 @@ function getGameNow() {
 // 日本時間（JST）基準のYYYY-MM-DD文字列を返す（デイリーリセット等の日付判定用）
 function getJSTDateString(baseDate) {
     const now = baseDate || getGameNow();
-    // UTCエポックミリ秒から直接JSTを計算（ブラウザのタイムゾーン設定に依存しない）
-    const utcMs = now.getTime() + now.getTimezoneOffset() * 60000;
-    const jstMs = utcMs + 9 * 60 * 60000;
+    // now.getTime()は既にUTC基準の絶対ミリ秒（タイムゾーン補正は不要）。そこにJSTのオフセット+9時間を加えるだけでよい。
+    const jstMs = now.getTime() + 9 * 60 * 60000;
     const jst = new Date(jstMs);
     const y = jst.getUTCFullYear();
     const m = String(jst.getUTCMonth() + 1).padStart(2, '0');
@@ -3224,8 +3223,8 @@ function getJSTDateString(baseDate) {
 function setDebugTimeOverride(jstHour, jstMinute) {
     // 入力されたJST時刻（今日の日付）を、UTCエポックミリ秒から直接計算して保存
     const now = new Date();
-    const utcMs = now.getTime() + now.getTimezoneOffset() * 60000; // 現在のUTC時刻ミリ秒
-    const jstMsNow = utcMs + 9 * 60 * 60000; // 現在のJST時刻ミリ秒
+    // now.getTime()は既にUTC基準の絶対ミリ秒（タイムゾーン補正は不要）
+    const jstMsNow = now.getTime() + 9 * 60 * 60000; // 現在のJST時刻に相当するミリ秒
     const jstDateNow = new Date(jstMsNow);
     // JST上での「今日の年月日」はそのまま使い、時刻だけ指定値に変更（UTC関数で操作）
     const jstTargetMs = Date.UTC(
@@ -3246,9 +3245,8 @@ function clearDebugTimeOverride() {
 // ============================================================
 function isLunchtime() {
     const now = getGameNow();
-    // 日本時間（UTC+9）のHH:MMを、UTCエポックミリ秒から直接計算（ブラウザのタイムゾーン設定に依存しない）
-    const utcMs = now.getTime() + now.getTimezoneOffset() * 60000; // UTC時刻のミリ秒
-    const jstMs = utcMs + 9 * 60 * 60000; // JSTはUTC+9時間
+    // now.getTime()は既にUTC基準の絶対ミリ秒（タイムゾーン補正は不要）。そこにJSTのオフセット+9時間を加えるだけでよい。
+    const jstMs = now.getTime() + 9 * 60 * 60000;
     const jst = new Date(jstMs);
     const hour = jst.getUTCHours();
     const min = jst.getUTCMinutes();
