@@ -433,7 +433,7 @@
         <div class="btn-admin-group" style="margin-top:8px; padding-top:0;">
             <button class="btn-sm btn-danger-sm" onclick="clearSaveData()">全初期化</button>
             <button class="btn-sm btn-staff-sm" onclick="triggerStaffOnly()">Staff Only</button>
-            <button class="btn-sm" style="background:#420000;color:#efdeb1;flex:1.5;" onclick="restoreFromBackupCode()">バックアップコードで復元</button>
+            <button class="btn-sm" style="background:#420000;color:#efdeb1;flex:1.5;" onclick="showDataRestoreOptions()">データ復元</button>
         </div>
     </div>
 
@@ -2521,6 +2521,62 @@ function copyBackupCode() {
         // フォールバック
         document.execCommand('copy');
         showCustomAlert('✅ コピー完了', 'バックアップコードをコピーしました！');
+    });
+}
+
+// ===== データ復元（選択モーダル） =====
+function showDataRestoreOptions() {
+    const msg = '<div style="font-size:13px;color:#420000;margin-bottom:16px;line-height:1.6;">復元方法を選んでください。</div>'
+        + '<button onclick="closeModalThen(showIdPasswordRestore)" style="width:100%;margin-bottom:10px;padding:10px;background:#b88742;color:#efdeb1;border:none;border-radius:4px;font-weight:bold;font-size:13px;cursor:pointer;">🔑 IDとパスワードで復元</button>'
+        + '<button onclick="closeModalThen(restoreFromBackupCode)" style="width:100%;padding:10px;background:#420000;color:#efdeb1;border:none;border-radius:4px;font-weight:bold;font-size:13px;cursor:pointer;">📋 バックアップコードで復元</button>';
+    document.getElementById("modalTitle").innerText = "🔄 データ復元";
+    document.getElementById("modalMessage").innerHTML = msg;
+    document.getElementById("modalBtnGroup").innerHTML = '';
+    document.getElementById("customModal").style.display = "flex";
+}
+
+function closeModalThen(fn) {
+    document.getElementById("customModal").style.display = "none";
+    setTimeout(fn, 200);
+}
+
+// ===== IDとパスワードで復元 =====
+function showIdPasswordRestore() {
+    const msg = '<div style="font-size:12px;color:#420000;margin-bottom:10px;">プレイヤーIDとパスワードを入力してください。<br>Firebase上の最新データで復元します。</div>'
+        + '<input type="text" id="restoreIdInput" placeholder="プレイヤーID（例: BC-XXXXXXXX）" style="width:100%;margin-bottom:8px;padding:10px;border:1px solid #b88742;border-radius:4px;font-size:13px;box-sizing:border-box;background:#f5e9c8;color:#420000;">'
+        + '<input type="text" id="restorePwInput" placeholder="パスワード" style="width:100%;padding:10px;border:1px solid #b88742;border-radius:4px;font-size:13px;box-sizing:border-box;background:#f5e9c8;color:#420000;">';
+    showCustomConfirm('🔑 IDとパスワードで復元', msg, function() {
+        const idInput = document.getElementById('restoreIdInput');
+        const pwInput = document.getElementById('restorePwInput');
+        const inputId = idInput ? idInput.value.trim() : '';
+        const inputPw = pwInput ? pwInput.value.trim() : '';
+        if(!inputId || !inputPw) { showCustomAlert('❌ エラー', 'IDとパスワードを両方入力してください。'); return; }
+        if(!database) { showCustomAlert('❌ Firebase未接続', '復元できませんでした。'); return; }
+        database.ref('players/' + inputId).once('value').then(function(snap){
+            if(!snap.exists()) { showCustomAlert('❌ エラー', 'そのIDのプレイヤーは見つかりません。'); return; }
+            const data = snap.val();
+            if(!data.password) { showCustomAlert('❌ エラー', 'このIDにはパスワードが設定されていません。バックアップコードでの復元をお試しください。'); return; }
+            if(data.password !== inputPw) { showCustomAlert('❌ エラー', 'パスワードが正しくありません。'); return; }
+            // 認証成功：savedataを取得して復元
+            database.ref('players/' + inputId + '/savedata').once('value').then(function(sdSnap){
+                const cloud = sdSnap.val();
+                if(!cloud) { showCustomAlert('❌ エラー', 'このIDにはまだセーブデータがありません。'); return; }
+                playerId = inputId;
+                playerSecretKey = data.secretKey || playerSecretKey;
+                localStorage.setItem('qr_player_id', playerId);
+                if(data.secretKey) localStorage.setItem('qr_secret_key', playerSecretKey);
+                applySaveDataObject(cloud);
+                if(cloud.timestamp) localStorage.setItem('qr_last_synced_ts', String(cloud.timestamp));
+                updatePlayerIdDisplay();
+                saveGameLocalOnly();
+                updateFridgeUI(); updateCookSelects(); refreshRecipeBookUI();
+                updateShopButtons(); updateMatchCurrySelects();
+                setupLoadedIconUI(); updateLvDisplay();
+                showCustomAlert('✅ 復元完了', 'IDとパスワードでデータを復元しました！');
+            });
+        }).catch(function(){
+            showCustomAlert('❌ エラー', '復元処理に失敗しました。');
+        });
     });
 }
 
