@@ -3912,8 +3912,8 @@ function getSeedHitsRange(mySpd, oppSpd) {
     return { min: 2, max: 6 };
 }
 // わんぱくカレー：通常攻撃ダメージ1〜2倍の振れ幅、20%でミス
-function getWanpakuDamageMultiplier() { return 1 + Math.random(); } // 1.0〜2.0
-function isWanpakuMiss() { return Math.random() < 0.20; }
+function getWanpakuDamageMultiplier() { return 1 + Math.random() * 0.5; } // 1.0〜1.5
+function isWanpakuMiss() { return Math.random() < 0.25; }
 
 // ラタトゥイユカレー：肉系食材を使ったカレーからの通常攻撃を80%軽減（=ダメージ0.2倍）
 const RATATOUILLE_GUARD_LIST = ["牛肉","牛タン","牛すじ","チキン","唐揚げ","トンカツ","ウインナー"];
@@ -4603,7 +4603,7 @@ function startBattleScene(oppN, oppC, myC) {
         if(myTurn){
             log.innerHTML=`🔥 自分のターン！`;
             playTone(440,'triangle',0.08); // ターン表示音
-            if(myC.isRatatouille){let heal=Math.round(myC.hp*0.10);pHP=Math.min(myC.hp,pHP+heal);log.innerHTML+=`\n☀️ 太陽の光を浴びてHP回復: ${heal}`;}
+            if(myC.isRatatouille){let heal=Math.round(myC.hp*0.10);pHP=Math.min(myC.hp,pHP+heal);log.innerHTML+=`\n☀️ 太陽の光を浴びてHP回復: ${heal}`;playSoundEffect('taiyou.mp3');triggerEffect("player-heal",heal);updateHP(pHP,oHP,oppC.hp,myC.hp);}
             if(isPP){let d=Math.round(myC.hp*0.08);pHP-=d;log.innerHTML+=`\n☠️ 毒ダメージ: ${d}`;triggerEffect("player-poison",d);updateHP(pHP,oHP,oppC.hp,myC.hp);if(pHP<=0){step();return;}}
             // 幻惑ミス（punch.mp3なし、SPD比較で50%/30%）／わんぱくミス（20%）
             if(myIsIlluded&&Math.random()<getIllusionMissRate(myC.spd,oppC.spd)){
@@ -4647,7 +4647,7 @@ function startBattleScene(oppN, oppC, myC) {
                 // 熱々ブレス（breath.mp3）／ホームランカレーで20%打ち返し無効化
                 if(myC.isHomerun&&isHomerunReflect()){
                     log.innerHTML+=`\n🏏 ホームラン！熱々ブレスを打ち返して無効化！`;
-                    setTimeout(()=>{playTone(300,'square',0.1);setTimeout(()=>playTone(900,'square',0.2),100);updateHP(pHP,oHP,oppC.hp,myC.hp);battleLogHistory.push(log.innerHTML.replace(/<br\s*\/?>/gi,"\n"));myTurn=true;round++;setTimeout(step,1100);},400);
+                    setTimeout(()=>{playSoundEffect('homerun.mp3');updateHP(pHP,oHP,oppC.hp,myC.hp);battleLogHistory.push(log.innerHTML.replace(/<br\s*\/?>/gi,"\n"));myTurn=true;round++;setTimeout(step,1100);},400);
                 } else {
                     setTimeout(()=>{pHP=Math.max(0,pHP-80);log.innerHTML+=`\n🔥 熱々ブレス！DEF無視80ダメージ！`;playSoundEffect('breath.mp3');triggerEffect("player",80);updateHP(pHP,oHP,oppC.hp,myC.hp);battleLogHistory.push(log.innerHTML.replace(/<br\s*\/?>/gi,"\n"));myTurn=true;round++;setTimeout(step,1100);},400);
                 }
@@ -4655,7 +4655,7 @@ function startBattleScene(oppN, oppC, myC) {
                 // 種連射（machine-gun.mp3、SPD比較で回数変動）／ホームランカレーで20%打ち返し無効化
                 if(myC.isHomerun&&isHomerunReflect()){
                     log.innerHTML+=`\n🏏 ホームラン！種連続発射を打ち返して無効化！`;
-                    setTimeout(()=>{playTone(300,'square',0.1);setTimeout(()=>playTone(900,'square',0.2),100);updateHP(pHP,oHP,oppC.hp,myC.hp);battleLogHistory.push(log.innerHTML.replace(/<br\s*\/?>/gi,"\n"));myTurn=true;round++;setTimeout(step,1100);},400);
+                    setTimeout(()=>{playSoundEffect('homerun.mp3');updateHP(pHP,oHP,oppC.hp,myC.hp);battleLogHistory.push(log.innerHTML.replace(/<br\s*\/?>/gi,"\n"));myTurn=true;round++;setTimeout(step,1100);},400);
                 } else {
                     const hits=rollSeedHits(oppC.spd,myC.spd);let damages=[];
                     for(let i=0;i<hits;i++){let sd=Math.max(2,Math.round(oppC.atk*0.3-Math.floor(myC.def/4)));sd=Math.round(sd*(0.9+Math.random()*0.2));damages.push(sd);pHP=Math.max(0,pHP-sd);}
@@ -4760,6 +4760,11 @@ function triggerEffect(target, damage) {
         pop.style.animation = isCritHit ? "critPopUp 0.9s forwards" : "popUp 0.6s forwards";
         if(isCritHit) playSoundEffect('spicyhit.mp3');
         setTimeout(()=>document.getElementById("enemyZone").classList.remove("animate-shake"),200);
+    }else if(target==="player-heal"){
+        pop.innerHTML = "+" + damage;
+        pop.style.top="240px"; pop.style.left="45%";
+        pop.style.color="#2ecc71";
+        pop.style.animation = "popUp 0.6s forwards";
     }else{
         document.getElementById("battleStage").classList.add(target==="player-poison"?"flash-purple":(isCritHit?"flash-crit":"flash-red"),"animate-shake");
         pop.style.top="240px"; pop.style.left="45%";
