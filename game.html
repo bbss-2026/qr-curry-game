@@ -1473,6 +1473,52 @@ function saveGame() {
     document.getElementById("globalTicket").innerText = packTicket;
     updateShopButtons();
     updateLvDisplay();
+    syncSaveDataToCloud();
+}
+
+// ===== クラウド同期（複数デバイス間でのセーブデータ同期） =====
+function syncSaveDataToCloud() {
+    if(!database || !playerId) return;
+    const now = Date.now();
+    const data = buildSaveDataObject();
+    data.timestamp = now;
+    database.ref('players/' + playerId + '/savedata').set(data).then(function(){
+        localStorage.setItem('qr_last_synced_ts', String(now));
+    }).catch(function(){ /* 通信エラー時は何もしない（次回保存時に再試行） */ });
+}
+
+function checkCloudSyncOnLoad() {
+    if(!database || !playerId) return;
+    database.ref('players/' + playerId + '/savedata').once('value').then(function(snap){
+        const cloud = snap.val();
+        if(!cloud || !cloud.timestamp) return;
+        const localTs = localStorage.getItem('qr_last_synced_ts');
+        if(String(cloud.timestamp) === String(localTs)) return; // 自分が最後の更新者
+        // 別デバイスでの更新を検知
+        showCustomAlert("🔄 同期", "別デバイスでの進行があります。同期します。", function(){
+            applySaveDataObject(cloud);
+            localStorage.setItem('qr_last_synced_ts', String(cloud.timestamp));
+            saveGameLocalOnly();
+            updateFridgeUI(); updateCookSelects(); refreshRecipeBookUI();
+            updateShopButtons(); updateMatchCurrySelects();
+            setupLoadedIconUI(); updateLvDisplay();
+        });
+    });
+}
+
+// localStorageのみ更新（クラウドへの再送信はしない。同期取得直後の保存用）
+function saveGameLocalOnly() {
+    localStorage.setItem('qr_curry_inv', JSON.stringify(inventory));
+    localStorage.setItem('qr_curry_history', JSON.stringify(scanHistory));
+    localStorage.setItem('qr_curry_g', playerG);
+    localStorage.setItem('qr_curry_exp', playerEXP);
+    localStorage.setItem('qr_curry_ticket', packTicket);
+    localStorage.setItem('qr_curry_pname', playerName);
+    localStorage.setItem('qr_curry_recipes', JSON.stringify(recipeBook));
+    localStorage.setItem('qr_curry_stock', JSON.stringify(curryStock));
+    localStorage.setItem('qr_curry_discovered', JSON.stringify(discoveredItems));
+    document.getElementById("globalG").innerText = playerG;
+    document.getElementById("globalTicket").innerText = packTicket;
 }
 function generateSecretKey() {
     return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
@@ -1534,6 +1580,7 @@ function initPlayerId() {
                 }
             });
             checkGiftQueue();
+            checkCloudSyncOnLoad(); // 別デバイスでの進行を検知したら同期確認
         }
         return;
     }
@@ -2358,8 +2405,9 @@ function onBattleWin(type, botName) {
 // ============================================================
 // バックアップコード
 // ============================================================
-function generateBackupCode() {
-    const saveData = {
+// ===== セーブデータの共通構築・適用（バックアップコード／クラウド同期で共用） =====
+function buildSaveDataObject() {
+    return {
         inventory, scanHistory, playerG, playerEXP, packTicket,
         playerName, curryStock, recipeBook, discoveredItems,
         selectedIcon: currentIconFile,
@@ -2373,6 +2421,31 @@ function generateBackupCode() {
         secretKey: playerSecretKey || '',
         ver: 2
     };
+}
+
+function applySaveDataObject(decoded) {
+    inventory = decoded.inventory || {};
+    scanHistory = decoded.scanHistory || {};
+    playerG = decoded.playerG || 0;
+    playerEXP = decoded.playerEXP || 0;
+    packTicket = decoded.packTicket || 0;
+    playerName = decoded.playerName || '名無しの料理人';
+    curryStock = decoded.curryStock || [];
+    recipeBook = decoded.recipeBook || {};
+    discoveredItems = decoded.discoveredItems || {};
+    currentIconFile = decoded.selectedIcon || 'mayimage01.png';
+    if(decoded.unlockedIcons) saveUnlockedIcons(decoded.unlockedIcons);
+    if(decoded.stats) localStorage.setItem('qr_stats', decoded.stats);
+    if(decoded.achievements) localStorage.setItem('qr_achievements', decoded.achievements);
+    if(decoded.loginData) localStorage.setItem('qr_login', decoded.loginData);
+    if(decoded.icon07got) localStorage.setItem('qr_icon07_got', decoded.icon07got);
+    if(decoded.stockLimit) localStorage.setItem('qr_curry_stock_limit', decoded.stockLimit);
+    else localStorage.removeItem('qr_curry_stock_limit');
+    localStorage.setItem('selectedPlayerIcon', currentIconFile);
+}
+
+function generateBackupCode() {
+    const saveData = buildSaveDataObject();
     return btoa(unescape(encodeURIComponent(JSON.stringify(saveData))));
 }
 
@@ -2405,45 +2478,64 @@ function restoreFromBackupCode() {
         function() {
             const ta = document.getElementById('restoreCodeArea');
             if(!ta || !ta.value.trim()) { showCustomAlert('❌ エラー', 'コードを入力してください。'); return; }
+            let decoded;
             try {
-                const decoded = JSON.parse(decodeURIComponent(escape(atob(ta.value.trim()))));
-                inventory = decoded.inventory || {};
-                scanHistory = decoded.scanHistory || {};
-                playerG = decoded.playerG || 0;
-                playerEXP = decoded.playerEXP || 0;
-                packTicket = decoded.packTicket || 0;
-                playerName = decoded.playerName || '名無しの料理人';
-                curryStock = decoded.curryStock || [];
-                recipeBook = decoded.recipeBook || {};
-                discoveredItems = decoded.discoveredItems || {};
-                currentIconFile = decoded.selectedIcon || 'mayimage01.png';
-                if(decoded.unlockedIcons) saveUnlockedIcons(decoded.unlockedIcons);
-                if(decoded.stats) localStorage.setItem('qr_stats', decoded.stats);
-                if(decoded.achievements) localStorage.setItem('qr_achievements', decoded.achievements);
-                if(decoded.loginData) localStorage.setItem('qr_login', decoded.loginData);
-                if(decoded.icon07got) localStorage.setItem('qr_icon07_got', decoded.icon07got);
-                if(decoded.stockLimit) localStorage.setItem('qr_curry_stock_limit', decoded.stockLimit);
-                else localStorage.removeItem('qr_curry_stock_limit');
-                localStorage.setItem('selectedPlayerIcon', currentIconFile);
-                // プレイヤーID・シークレットキーの復元（ver2以降）
-                if(decoded.playerId && decoded.secretKey) {
-                    playerId = decoded.playerId;
-                    playerSecretKey = decoded.secretKey;
-                    localStorage.setItem('qr_player_id', playerId);
-                    localStorage.setItem('qr_secret_key', playerSecretKey);
-                    updatePlayerIdDisplay();
-                    if(database) { database.ref('players/' + playerId).update({ secretKey: playerSecretKey, name: playerName }); }
-                }
-                saveGame();
-                updateFridgeUI(); updateCookSelects(); refreshRecipeBookUI();
-                updateShopButtons(); updateMatchCurrySelects();
-                setupLoadedIconUI(); updateLvDisplay();
-                showCustomAlert('✅ 復元完了', 'バックアップコードからデータを復元しました！');
+                decoded = JSON.parse(decodeURIComponent(escape(atob(ta.value.trim()))));
             } catch(e) {
                 showCustomAlert('❌ 復元失敗', 'コードが正しくありません。コードを確認してください。');
+                return;
+            }
+            // 別デバイス・ブラウザでの復元かどうかを判定
+            const currentSecretKey = localStorage.getItem('qr_secret_key');
+            const isDifferentDevice = decoded.secretKey && currentSecretKey && decoded.secretKey !== currentSecretKey;
+            if (isDifferentDevice) {
+                showCustomConfirm(
+                    '⚠️ 別デバイスでの復元',
+                    '<div style="font-size:13px;color:#420000;line-height:1.6;">別のデバイス・ブラウザで復元すると、同期にズレが発生する可能性があります。<br><br>できるだけ1つのデバイス・ブラウザでのプレイをおすすめします。<br><br>復元を続けますか？</div>',
+                    function() { performBackupRestore(decoded); }
+                );
+            } else {
+                performBackupRestore(decoded);
             }
         }
     );
+}
+
+function performBackupRestore(decoded) {
+    applySaveDataObject(decoded);
+    // プレイヤーID・シークレットキーの復元（ver2以降）
+    if(decoded.playerId && decoded.secretKey) {
+        playerId = decoded.playerId;
+        playerSecretKey = decoded.secretKey;
+        localStorage.setItem('qr_player_id', playerId);
+        localStorage.setItem('qr_secret_key', playerSecretKey);
+        updatePlayerIdDisplay();
+        if(database) { database.ref('players/' + playerId).update({ secretKey: playerSecretKey, name: playerName }); }
+    }
+    saveGame();
+    updateFridgeUI(); updateCookSelects(); refreshRecipeBookUI();
+    updateShopButtons(); updateMatchCurrySelects();
+    setupLoadedIconUI(); updateLvDisplay();
+
+    // 復元直後、Firebase上の最新セーブデータを取得して上書き（コード自体は古い可能性があるため）
+    if(database && playerId) {
+        database.ref('players/' + playerId + '/savedata').once('value').then(function(snap){
+            const cloud = snap.val();
+            if(cloud && cloud.timestamp) {
+                applySaveDataObject(cloud);
+                localStorage.setItem('qr_last_synced_ts', String(cloud.timestamp));
+                saveGameLocalOnly();
+                updateFridgeUI(); updateCookSelects(); refreshRecipeBookUI();
+                updateShopButtons(); updateMatchCurrySelects();
+                setupLoadedIconUI(); updateLvDisplay();
+            }
+            showCustomAlert('✅ 復元完了', 'バックアップコードからデータを復元しました！');
+        }).catch(function(){
+            showCustomAlert('✅ 復元完了', 'バックアップコードからデータを復元しました！');
+        });
+    } else {
+        showCustomAlert('✅ 復元完了', 'バックアップコードからデータを復元しました！');
+    }
 }
 
 function toggleAccordion(header) {
