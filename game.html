@@ -1302,14 +1302,37 @@ function setupModalScrollLock() {
     observer.observe(modal, { attributes: true, attributeFilter: ['style'] });
 }
 function gameStart() {
-    // 初回のみ音声確認モーダルを出す
-    if(localStorage.getItem('qr_sound_asked') !== '1') {
-        showSoundCheckModal();
-        return; // モーダルのボタンからproceedGameStartを呼ぶ
+    // 初回のみオンボーディング（名前入力→音声確認→チュートリアル確認）を行う
+    if(localStorage.getItem('qr_onboarding_done') !== '1') {
+        showOnboardingNameModal();
+        return; // モーダルの流れの最後でproceedGameStartを呼ぶ
     }
     proceedGameStart();
 }
 
+// ===== オンボーディング：① 名前入力 =====
+function showOnboardingNameModal() {
+    const msg = '<div style="font-size:14px;color:#420000;margin-bottom:14px;line-height:1.6;">まずは料理人の名前を決めてください！</div>'
+        + '<input type="text" id="onboardingNameInput" placeholder="料理人の名前を入力" maxlength="12" style="width:100%;padding:10px;border:1px solid #b88742;border-radius:4px;font-size:14px;box-sizing:border-box;background:#f5e9c8;color:#420000;margin-bottom:14px;">'
+        + '<button onclick="confirmOnboardingName()" style="width:100%;padding:12px;background:#b88742;color:#efdeb1;border:none;border-radius:4px;font-weight:bold;font-size:14px;cursor:pointer;">次へ</button>';
+    document.getElementById("modalTitle").innerHTML = "👤 名前を決めよう";
+    document.getElementById("modalMessage").innerHTML = msg;
+    document.getElementById("modalBtnGroup").innerHTML = '';
+    document.getElementById("customModal").style.display = "flex";
+}
+
+function confirmOnboardingName() {
+    const inp = document.getElementById('onboardingNameInput');
+    let val = inp ? inp.value.trim() : '';
+    if(!val) val = "名無しの料理人";
+    playerName = val;
+    document.getElementById("headerPlayerName").innerText = val;
+    saveGame();
+    if (database && playerId) { database.ref('players/' + playerId + '/name').set(val); }
+    showSoundCheckModal();
+}
+
+// ===== オンボーディング：② 音声について =====
 function showSoundCheckModal() {
     const msg = '<div style="font-size:14px;color:#420000;margin-bottom:16px;line-height:1.6;">このゲームは音ありを推奨しています。<br>今、音を出しても大丈夫ですか？</div>'
         + '<div style="display:flex;gap:10px;">'
@@ -1325,18 +1348,40 @@ function showSoundCheckModal() {
 function confirmSoundOn() {
     isMuted = false;
     localStorage.setItem('qr_muted', '0');
-    localStorage.setItem('qr_sound_asked', '1');
-    document.getElementById("customModal").style.display = "none";
     updateMuteIcon();
-    proceedGameStart();
+    showTutorialCheckModal();
 }
 
 function confirmSoundOff() {
     isMuted = true;
     localStorage.setItem('qr_muted', '1');
-    localStorage.setItem('qr_sound_asked', '1');
-    document.getElementById("customModal").style.display = "none";
     updateMuteIcon();
+    showTutorialCheckModal();
+}
+
+// ===== オンボーディング：③ チュートリアル確認 =====
+function showTutorialCheckModal() {
+    const msg = '<div style="font-size:14px;color:#420000;margin-bottom:16px;line-height:1.6;">遊び方のチュートリアルを見ますか？</div>'
+        + '<div style="display:flex;gap:10px;">'
+        + '<button onclick="confirmTutorialYes()" style="flex:1;padding:12px;background:#b88742;color:#efdeb1;border:none;border-radius:4px;font-weight:bold;font-size:14px;cursor:pointer;">見る！</button>'
+        + '<button onclick="confirmTutorialNo()" style="flex:1;padding:12px;background:#420000;color:#efdeb1;border:none;border-radius:4px;font-weight:bold;font-size:14px;cursor:pointer;">見ない</button>'
+        + '</div>';
+    document.getElementById("modalTitle").innerHTML = "📖 チュートリアル";
+    document.getElementById("modalMessage").innerHTML = msg;
+    document.getElementById("modalBtnGroup").innerHTML = '';
+    document.getElementById("customModal").style.display = "flex";
+}
+
+function confirmTutorialYes() {
+    localStorage.setItem('qr_onboarding_done', '1');
+    document.getElementById("customModal").style.display = "none";
+    proceedGameStart();
+    toggleHelp(); // チュートリアル画面を開く
+}
+
+function confirmTutorialNo() {
+    localStorage.setItem('qr_onboarding_done', '1');
+    document.getElementById("customModal").style.display = "none";
     proceedGameStart();
 }
 
@@ -1769,6 +1814,7 @@ function clearSaveData() {
         playerId = ''; playerSecretKey = '';
         loadGame(); updateFridgeUI(); updateCookSelects(); refreshRecipeBookUI(); updateShopButtons(); document.getElementById("resultBox").style.display = "none"; updateLvDisplay(); setupLoadedIconUI();
         initPlayerId(function() { saveGame(); }); // 新しいIDの発行が完了してからクラウド同期する
+        goToTop(); // 初期化後は初期画面に戻す
     });
 }
 function loadNotice() {
