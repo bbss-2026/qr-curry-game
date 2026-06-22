@@ -43,6 +43,45 @@
         .status-bar .sep { color: #b88742; margin: 0 2px; }
         .page { display: none; text-align: left; padding: 20px 20px; box-sizing: border-box; width: 100%; }
         .page.active { display: block; }
+
+        /* チュートリアルフルスクリーンビューアー */
+        .tutorial-fullscreen {
+            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: #1a1a1a; z-index: 9000; flex-direction: column;
+        }
+        .tutorial-fullscreen.active { display: flex; }
+        .tutorial-header {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 12px 16px; background: #420000; flex-shrink: 0;
+        }
+        .tutorial-close {
+            background: transparent; border: none; color: #efdeb1; font-size: 22px;
+            cursor: pointer; padding: 4px 8px; line-height: 1;
+        }
+        .tutorial-page-indicator { color: #efdeb1; font-size: 13px; font-weight: bold; }
+        .tutorial-image-wrap {
+            flex: 1; overflow-y: auto; display: flex; align-items: flex-start;
+            justify-content: center; background: #1a1a1a; -webkit-overflow-scrolling: touch;
+        }
+        .tutorial-image-wrap img {
+            width: 100%; max-width: 521px; height: auto; display: block;
+        }
+        .tutorial-nav {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 10px 12px; background: #420000; flex-shrink: 0; gap: 8px;
+        }
+        .tutorial-nav-btn {
+            background: #b88742; color: #efdeb1; border: none; border-radius: 4px;
+            padding: 10px 16px; font-size: 13px; font-weight: bold; cursor: pointer;
+            flex-shrink: 0;
+        }
+        .tutorial-nav-btn:disabled { background: #6b5a3f; color: #a39a8a; cursor: not-allowed; }
+        .tutorial-dots { display: flex; gap: 6px; }
+        .tutorial-dot {
+            width: 8px; height: 8px; border-radius: 50%; background: #6b5a3f;
+            cursor: pointer; transition: background 0.2s;
+        }
+        .tutorial-dot.active { background: #efdeb1; }
         h1 { color: #d35400; font-size: 24px; margin-bottom: 5px; }
         
         /* タブ */
@@ -446,111 +485,20 @@
         </div>
     </div>
 
-    <div id="pageGuide" class="page">
-
-                <!-- お知らせ（Firebaseから取得） -->
-        <div class="notice-box" id="noticeBox"></div>
-        <div style="background:#b88742; color:#ffffff; padding:16px; border-radius:4px; margin-bottom:16px; font-size:13px; line-height:1.7;">
-            Battle Curry（バトルカレー）を遊んでいただきありがとうございます。<br>
-            このゲームは生成AIを使って作成したゲームですので、開発者は細かいことよくわかってません。<br>
-            おかしな部分も多々あるかと思いますが温かい目で見守ってやってください。<br>
-            今後も随時アップデートをする予定です。（AIに頼んで）
+    <div id="pageGuide" class="tutorial-fullscreen">
+        <div class="tutorial-header">
+            <button class="tutorial-close" onclick="toggleHelp()">✕</button>
+            <div class="tutorial-page-indicator" id="tutorialPageIndicator">1 / 5</div>
         </div>
-        <div class="accordion-item">
-            <div class="accordion-header" onclick="toggleAccordion(this)">
-                1. QRをスキャンしてアイテムを集めよう！
-                <span class="accordion-arrow">▼</span>
-            </div>
-            <div class="accordion-body">
-                「QRスキャン」でカメラをQRにかざすとアイテムが入手できます。<br>
-                同じQRからは1日1回までしか入手できませんが、次の日になったら再び入手可能です。<br>
-                アイテムはQR以外にもガチャやバトルなど他の方法でも入手可能です。
-            </div>
+        <div class="tutorial-image-wrap" id="tutorialImageWrap">
+            <img id="tutorialImage" src="tutorial/tutorial-01.png" alt="チュートリアル">
         </div>
-        <div class="accordion-item">
-            <div class="accordion-header" onclick="toggleAccordion(this)">
-                2. 冷蔵庫＆図鑑
-                <span class="accordion-arrow">▼</span>
-            </div>
-            <div class="accordion-body">
-                入手したアイテムが確認できます。<br>
-                G(ゴールド)やパックチケットを消費してガチャも回せます。<br>
-                発見したレシピは20個まで履歴が記録され、確認できます。<br>
-                レシピの右にある☆でお気に入り登録ができ、お気に入りにしたレシピは削除されません。
-            </div>
-        </div>
-        <div class="accordion-item">
-            <div class="accordion-header" onclick="toggleAccordion(this)">
-                3. 調理
-                <span class="accordion-arrow">▼</span>
-            </div>
-            <div class="accordion-body">
-                食材3つとスパイス1つまで選んでカレーを調理することができます。<br>
-                食材ごとのステータス合計とスパイスのバフでカレーの強さが決まります。<br>
-                <br>
-                <b>●ランダム選択</b><br>
-                手持ちのアイテムからランダムにセットされます。<br>
-                <br>
-                <b>●おすすめセット</b><br>
-                優先したいステータスにチェック入れると手持ちのアイテムから自動で選んでセットされます。<br>
-                <br>
-                <b>●お気に入りレシピから選択</b><br>
-                レシピ履歴でお気に入りにしているレシピと同じアイテムがセットされます。<br>
-                在庫が足りない場合は空欄になるので気をつけて！<br>
-                <br>
-                特定の組み合わせで調理をすると特殊カレーができることも！？
-            </div>
-        </div>
-        <div class="accordion-item">
-            <div class="accordion-header" onclick="toggleAccordion(this)">
-                4. 対戦
-                <span class="accordion-arrow">▼</span>
-            </div>
-            <div class="accordion-body">
-                対戦はオートバトル！<br>
-                <br>
-                <b>●PCと対戦</b><br>
-                初級と強敵から選んでPCと戦えます。<br>
-                ランダムで現れるPC調理人を確認してからカレーを選択できます。<br>
-                <br>
-                <b>●ルームを作成して待機</b><br>
-                対戦ルームで対戦相手を待つことができます。<br>
-                入室合言葉を空欄にすると誰でも入れるルームになります。<br>
-                ※あらかじめ使用するカレーは選んでおいてください。<br>
-                <br>
-                <b>●対戦相手の募集一覧</b><br>
-                現在ルームで対戦相手を募集しているプレイヤーの一覧です。<br>
-                「対戦する」をタップして対戦してみよう！<br>
-                ※あらかじめ使用するカレーは選んでおいてください。
-            </div>
-        </div>
-        <div class="accordion-item">
-            <div class="accordion-header" onclick="toggleAccordion(this)">
-                5. 戦闘やカレーについてもっと詳しく
-                <span class="accordion-arrow">▼</span>
-            </div>
-            <div class="accordion-body">
-                <b>●ステータス</b><br>
-                [HP]体力：0になると敗北です。<br>
-                [ATK]攻撃力：敵に与えるダメージに影響します。<br>
-                [DEF]防御力：ダメージを軽減します。<br>
-                [SPD]素早さ：攻撃順や技の効果などに影響します。<br>
-                <br>
-                <b>●戦闘行動</b><br>
-                通常のカレーは毎ターン通常攻撃をしますが、<br>
-                まれに相手の防御力を無視できる「Spicy Hit」が出ます。<br>
-                「Spicy Hit」はSPDが高いと確率が上がります。<br>
-                <br>
-                特殊カレーの場合は特殊効果や特技が発動します。<br>
-                <br>
-                [一例]<br>
-                毒：毒になったプレイヤーは毎ターン毒ダメージをくらいます。<br>
-                幻惑：通常攻撃がミスになることがあります。命中率はSPDにより変動します。<br>
-                種連続発射：通常攻撃の代わりに多段攻撃を行うことがあります。SPDが高い方が攻撃回数が多くなりやすいです。
-            </div>
+        <div class="tutorial-nav">
+            <button class="tutorial-nav-btn" id="tutorialPrevBtn" onclick="tutorialGoPrev()">◀ 前へ</button>
+            <div class="tutorial-dots" id="tutorialDots"></div>
+            <button class="tutorial-nav-btn" id="tutorialNextBtn" onclick="tutorialGoNext()">次へ ▶</button>
         </div>
     </div>
-
     <!-- QRスキャンタブ -->
     <div id="pageScan" class="page" style="text-align:center;">
         <button id="btnStartCamera" class="btn btn-start" onclick="startCamera()" style="display:flex;align-items:center;justify-content:center;gap:8px;width:80%;color:#efdeb1;font-size:16px;"><img src="camera.svg" style="height:1em;width:auto;filter:brightness(10);position:relative;top:2px;" alt="">カメラを起動する</button>
@@ -1295,7 +1243,7 @@ let onlineRole = 'host'; // 対人戦での自分の役割
 let discoveredItems = {};
 let cachedOpponentName = "";
 let cachedOpponentCurry = null;
-window.onload = function() { loadGame(); updateCookSelects(); refreshRecipeBookUI(); updateShopButtons(); listenToRooms(); updateMatchCurrySelects(); setupLoadedIconUI(); updateLvDisplay(); loadNotice(); initQuest(); loadTopNotice(); updateMuteIcon(); initPlayerId(); loadEventEnabledStatus(); setupModalScrollLock(); setupSwipeTabSwitch(); setupGuideCharLongPress(); updateLunchtimeBanner(); setInterval(updateLunchtimeBanner, 60000); };
+window.onload = function() { loadGame(); updateCookSelects(); refreshRecipeBookUI(); updateShopButtons(); listenToRooms(); updateMatchCurrySelects(); setupLoadedIconUI(); updateLvDisplay(); loadNotice(); initQuest(); loadTopNotice(); updateMuteIcon(); initPlayerId(); loadEventEnabledStatus(); setupModalScrollLock(); setupSwipeTabSwitch(); setupGuideCharLongPress(); setupTutorialSwipe(); updateLunchtimeBanner(); setInterval(updateLunchtimeBanner, 60000); };
 
 // モーダル表示中は背後のページスクロールをロック
 const TAB_ORDER = ['quest', 'scan', 'fridge', 'cook', 'battle'];
@@ -1523,12 +1471,77 @@ function toggleHelp() {
         if(questPage) questPage.classList.add('active');
         showQuestGuideChar();
     } else {
-        // 全タブ非表示にして遊び方を表示
+        // 全タブ非表示にしてチュートリアルを表示（常に1ページ目から）
         document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
         document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
         guidePanel.classList.add('active');
         hideQuestGuideChar();
+        tutorialGoToPage(1);
     }
+}
+
+// ============================================================
+// チュートリアル画像ビューアー
+// ============================================================
+const TUTORIAL_TOTAL_PAGES = 5;
+let tutorialCurrentPage = 1;
+
+function tutorialGoToPage(page) {
+    if(page < 1) page = 1;
+    if(page > TUTORIAL_TOTAL_PAGES) page = TUTORIAL_TOTAL_PAGES;
+    tutorialCurrentPage = page;
+    const img = document.getElementById('tutorialImage');
+    if(img) img.src = 'tutorial/tutorial-' + String(page).padStart(2, '0') + '.png';
+    const indicator = document.getElementById('tutorialPageIndicator');
+    if(indicator) indicator.innerText = page + ' / ' + TUTORIAL_TOTAL_PAGES;
+    const prevBtn = document.getElementById('tutorialPrevBtn');
+    const nextBtn = document.getElementById('tutorialNextBtn');
+    if(prevBtn) prevBtn.disabled = (page === 1);
+    if(nextBtn) nextBtn.disabled = (page === TUTORIAL_TOTAL_PAGES);
+    const wrap = document.getElementById('tutorialImageWrap');
+    if(wrap) wrap.scrollTop = 0;
+    tutorialRenderDots();
+}
+
+function tutorialRenderDots() {
+    const dotsWrap = document.getElementById('tutorialDots');
+    if(!dotsWrap) return;
+    dotsWrap.innerHTML = '';
+    for(let i = 1; i <= TUTORIAL_TOTAL_PAGES; i++) {
+        const dot = document.createElement('div');
+        dot.className = 'tutorial-dot' + (i === tutorialCurrentPage ? ' active' : '');
+        dot.onclick = function() { tutorialGoToPage(i); };
+        dotsWrap.appendChild(dot);
+    }
+}
+
+function tutorialGoPrev() { tutorialGoToPage(tutorialCurrentPage - 1); }
+function tutorialGoNext() { tutorialGoToPage(tutorialCurrentPage + 1); }
+
+function setupTutorialSwipe() {
+    const wrap = document.getElementById('tutorialImageWrap');
+    if(!wrap) return;
+    let startX = 0, startY = 0, tracking = false;
+
+    wrap.addEventListener('touchstart', function(e) {
+        if(e.touches.length !== 1) return;
+        startX = e.touches[0].clientX;
+        startY = e.touches[0].clientY;
+        tracking = true;
+    }, { passive: true });
+
+    wrap.addEventListener('touchend', function(e) {
+        if(!tracking) return;
+        tracking = false;
+        const endX = e.changedTouches[0].clientX;
+        const endY = e.changedTouches[0].clientY;
+        const diffX = endX - startX;
+        const diffY = endY - startY;
+        if(Math.abs(diffX) > 60 && Math.abs(diffX) > Math.abs(diffY) * 1.5) {
+            if(diffX < 0) tutorialGoNext();
+            else tutorialGoPrev();
+        }
+    }, { passive: true });
 }
 function saveGame() {
     localStorage.setItem('qr_curry_inv', JSON.stringify(inventory));
