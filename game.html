@@ -588,6 +588,11 @@
         </div>
         
         <div style="display:flex; align-items:center; justify-content:space-between; margin:18px 0 8px 0;">
+            <div class="category-title" style="margin:0;">🍛 ストックカレー</div>
+        </div>
+        <div class="fridge-grid" id="fridgeCurryStockGrid"></div>
+
+        <div style="display:flex; align-items:center; justify-content:space-between; margin:18px 0 8px 0;">
             <div class="category-title" style="margin:0;">📦 所持食材（具材）</div>
             <select id="sortIngredients" onchange="updateFridgeUI()" style="font-size:11px; padding:3px 5px; border-radius:6px; border:1px solid #b88742; color:#420000; background:#f5e9c8; font-weight:bold; width:auto; margin:0;">
                 <option value="default">並び順：デフォルト</option>
@@ -633,7 +638,8 @@
             <div id="wanpakuFlashText" style="color:#e67e22; font-weight:bold; font-size:16px; display:none;">🍛 暴れ放題！わんぱくカレー誕生！ 🍛</div>
             <div id="ratatouilleFlashText" style="color:#f1c40f; font-weight:bold; font-size:16px; display:none;">☀️ 太陽の恵み！ラタトゥイユの結界！ ☀️</div>
             <div id="homerunFlashText" style="color:#2980b9; font-weight:bold; font-size:16px; display:none;">🏏 カキーン！ホームランの予感！ 🏏</div>
-            <div style="font-size:64px;" id="curryVisual">🍛</div>
+            <img id="curryVisualImg" src="" alt="" style="display:none; width:140px; height:140px; object-fit:contain; margin:0 auto 6px;">
+            <div id="cookResultIcons" style="display:flex; flex-wrap:wrap; justify-content:center; gap:4px; margin-bottom:8px;"></div>
             <div style="font-size:18px; font-weight:bold; color:#c0392b; margin-bottom:10px;" id="curryName">未調理 of カレー</div>
             <div class="status-grid">
                 <div class="status-item" style="background:#f5e9c8; color:#420000; border:1px solid #b88742; border-radius:4px; padding:6px 10px; font-weight:bold;">HP: <span id="statHP">0</span></div>
@@ -2591,6 +2597,7 @@ function updateFridgeUI() {
     const ingGrid = document.getElementById("fridgeIngredientsGrid");
     const spcGrid = document.getElementById("fridgeSpicesGrid");
     ingGrid.innerHTML = ""; spcGrid.innerHTML = "";
+    updateFridgeCurryStockGrid();
 
     const ingSort = (document.getElementById("sortIngredients") || {}).value || "default";
     let ingKeys = Object.keys(masterIngredients);
@@ -2644,6 +2651,91 @@ function createFridgeCard(grid, name, emoji, isSpice) {
     }
     grid.appendChild(itemDiv);
 }
+// カレーの特殊効果ごとの技名・説明文
+const CURRY_SKILL_INFO = [
+    { flag: 'isPoison',      name: '☠️ 毒化',         desc: '戦闘開始時に相手を毒状態にする。' },
+    { flag: 'isIllusion',    name: '🌀 幻惑化',       desc: '戦闘開始時に敵を幻惑状態にする。' },
+    { flag: 'isSeed',        name: '🌱 種連続発射',   desc: '30％の攻撃を複数回連続で行う。' },
+    { flag: 'isMargherita',  name: '🍅 マルゲリータ', desc: '調理完成時に全ステ小UP。戦闘時は素敵な音楽が聞こえる。' },
+    { flag: 'isTonTonTon',   name: '🐷 トントントン', desc: '攻撃時にブー。' },
+    { flag: 'isSeafood',     name: '🌊 海鮮',         desc: '波の音が聞こえる。' },
+    { flag: 'hasGold',       name: '✨ 金箔',         desc: '調理完成時に全ステータスが強化。攻撃時に金が舞う。' },
+    { flag: 'isWanpaku',     name: '🍛 わんぱく',     desc: '通常攻撃の上下の振り幅が大きくなり、ミスをすることも。' },
+    { flag: 'isRatatouille', name: '☀️ ラタトゥイユ', desc: '毎ターン小回復。肉からの攻撃を小軽減' },
+    { flag: 'isHomerun',     name: '🏏 ホームラン',   desc: '敵の技を打ち返して防ぐことがある。' }
+];
+function getCurrySkills(curry) {
+    return CURRY_SKILL_INFO.filter(s => curry[s.flag]);
+}
+
+function updateFridgeCurryStockGrid() {
+    const grid = document.getElementById("fridgeCurryStockGrid");
+    if(!grid) return;
+    grid.innerHTML = "";
+    if(!curryStock || curryStock.length === 0) {
+        grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;color:#9a7a50;font-size:12px;padding:10px;">ストックカレーがありません。</div>';
+        return;
+    }
+    curryStock.forEach((curry, idx) => {
+        const itemDiv = document.createElement("div");
+        itemDiv.className = "fridge-item discovered";
+        const typeImg = CURRY_TYPE_IMAGES[curry.curryType] || CURRY_TYPE_IMAGES.balance;
+        itemDiv.innerHTML = `<div class="fridge-emoji"><img src="${typeImg}" style="width:40px;height:40px;object-fit:contain;display:block;margin:0 auto;"></div><div style="font-size:11px;line-height:1.3;">${curry.name}</div>`;
+        itemDiv.onclick = function() {
+            const typeLabel = CURRY_TYPE_LABELS[curry.curryType] || 'バランス型';
+            const iconsHtml = curryIconsHTML(curry.materials, curry.spice, '24px');
+            const skills = getCurrySkills(curry);
+            let skillsHtml = '';
+            if(skills.length > 0) {
+                skillsHtml = skills.map(s => `<div style="margin-top:8px;"><b style="color:#e67e22;">${s.name}</b><br><span style="font-size:12px;">${s.desc}</span></div>`).join('');
+            }
+            const html = `<img src="${typeImg}" style="width:90px;height:90px;object-fit:contain;display:block;margin:0 auto 10px;">`
+                + `<div style="font-weight:bold;color:#c0392b;margin-bottom:4px;">${typeLabel}</div>`
+                + `<div style="display:flex;justify-content:center;gap:4px;margin-bottom:8px;">${iconsHtml}</div>`
+                + `<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:13px;font-weight:bold;color:#420000;margin-bottom:6px;">`
+                + `<div>HP: ${curry.hp}</div><div>ATK: ${curry.atk}</div><div>DEF: ${curry.def}</div><div>SPD: ${curry.spd}</div>`
+                + `</div>`
+                + skillsHtml;
+            showStockCurryDetail(curry.name, html, idx);
+        };
+        grid.appendChild(itemDiv);
+    });
+}
+
+function showStockCurryDetail(title, message, idx) {
+    document.getElementById("customModal").style.display = "none";
+    document.getElementById("modalTitle").innerHTML = title;
+    document.getElementById("modalMessage").innerHTML = message;
+    const btnGroup = document.getElementById("modalBtnGroup");
+    btnGroup.innerHTML = "";
+    if(curryStock[idx]) {
+        const sellBtn = document.createElement("button");
+        sellBtn.className = "modal-btn modal-btn-sell";
+        sellBtn.innerText = `💸 売却 (+${STOCK_CURRY_SELL_PRICE}G)`;
+        sellBtn.onclick = function() {
+            document.getElementById("customModal").style.display = "none";
+            sellStockCurry(idx);
+        };
+        btnGroup.appendChild(sellBtn);
+    }
+    const okBtn = document.createElement("button");
+    okBtn.className = "modal-btn modal-btn-ok";
+    okBtn.innerText = "閉じる";
+    okBtn.onclick = function() { document.getElementById("customModal").style.display = "none"; };
+    btnGroup.appendChild(okBtn);
+    document.getElementById("customModal").style.display = "flex";
+}
+
+const STOCK_CURRY_SELL_PRICE = 50;
+function sellStockCurry(idx) {
+    if(!curryStock[idx]) return;
+    curryStock.splice(idx, 1);
+    if(selectedCurryIndex >= curryStock.length) selectedCurryIndex = curryStock.length - 1;
+    playerG += STOCK_CURRY_SELL_PRICE;
+    playTone(880, 'sine', 0.1);
+    saveGame(); updateFridgeUI(); updateCookSelects(); updateMatchCurrySelects();
+}
+
 const sellPrices = { "金箔": 150, "赤パプリカ": 50, "黄パプリカ": 50 };
 function getSellPrice(name) { return sellPrices[name] || 15; }
 function sellItemAction(name) {
@@ -2860,6 +2952,39 @@ function checkCookStock() {
     if(curryStock.length >= getCurryStockLimit()) showCustomConfirm("⚠️ ストック満杯の警告", "新しく調理すると<span style='color:#e74c3c;'>【一番古いカレー】</span>が自動消去されますがよろしいですか？", function() { cookCurry(); });
     else cookCurry();
 }
+// カレーのステータス傾向から「型」を判定する（食材平均値で正規化してから比較）
+// 平均値は食材データ全体(33種)の平均: HP≈70.6, ATK≈30.0, DEF≈25.2, SPD≈18.5
+const CURRY_TYPE_BASELINE = { hp: 70.6, atk: 30.0, def: 25.2, spd: 18.5 };
+function getCurryType(hp, atk, def, spd) {
+    // 各ステータスを平均値で割って「相対的な強さ」に正規化
+    const normalized = {
+        hp: hp / CURRY_TYPE_BASELINE.hp,
+        atk: atk / CURRY_TYPE_BASELINE.atk,
+        def: def / CURRY_TYPE_BASELINE.def,
+        spd: spd / CURRY_TYPE_BASELINE.spd
+    };
+    const entries = Object.entries(normalized); // [['hp',x],['atk',y],...]
+    entries.sort((a,b) => b[1] - a[1]);
+    const top = entries[0];
+    const second = entries[1];
+    // 最高値が2位より15%以上高ければその型、僅差ならバランス型
+    if(top[1] >= second[1] * 1.15) {
+        if(top[0] === 'hp') return 'hp';
+        if(top[0] === 'atk') return 'atk';
+        if(top[0] === 'def') return 'def';
+        if(top[0] === 'spd') return 'spd';
+    }
+    return 'balance';
+}
+const CURRY_TYPE_IMAGES = {
+    hp: 'currymonster/curry_hp.png',
+    atk: 'currymonster/curry_atk.png',
+    def: 'currymonster/curry_def.png',
+    spd: 'currymonster/curry_spd.png',
+    balance: 'currymonster/curry_balance.png'
+};
+const CURRY_TYPE_LABELS = { hp: '体力型', atk: '攻撃型', def: '防御型', spd: 'スピード型', balance: 'バランス型' };
+
 function cookCurry() {
     const i1 = document.getElementById("ingredient1").value; const i2 = document.getElementById("ingredient2").value; const i3 = document.getElementById("ingredient3").value; const sp = document.getElementById("spice").value;
     if(i1) inventory[i1]--; if(i2) inventory[i2]--; if(i3) inventory[i3]--; if(sp) inventory[sp]--;
@@ -2968,13 +3093,16 @@ function cookCurry() {
     else if(isRatatouille) { playTone(600,'sine',0.3); setTimeout(()=>playTone(700,'sine',0.3),150); document.getElementById("resultBox").classList.add("ratatouille-box"); document.getElementById("ratatouilleFlashText").style.display="block"; }
     else if(isHomerun) { playTone(300,'square',0.1); setTimeout(()=>playTone(900,'square',0.2),100); document.getElementById("resultBox").classList.add("homerun-box"); document.getElementById("homerunFlashText").style.display="block"; }
     if (curryStock.length >= getCurryStockLimit()) curryStock.shift();
-    const newCurry = { name: cName, visual: vis, hp: hp, atk: atk, def: def, spd: spd, isPoison, hasGold, isMargherita, isTonTonTon, isSeafood, isIllusion, isSticky, isSeed, isWanpaku, isRatatouille, isHomerun, materials: acts.length ? acts : [], spice: sp || "" };
+    const curryType = getCurryType(hp, atk, def, spd);
+    const newCurry = { name: cName, visual: vis, hp: hp, atk: atk, def: def, spd: spd, isPoison, hasGold, isMargherita, isTonTonTon, isSeafood, isIllusion, isSticky, isSeed, isWanpaku, isRatatouille, isHomerun, materials: acts.length ? acts : [], spice: sp || "", curryType: curryType };
     curryStock.push(newCurry); selectedCurryIndex = curryStock.length - 1;
     saveGame(); updateFridgeUI(); updateCookSelects(); refreshRecipeBookUI(); updateFavRecipeSelect(); clearAllHints();
     onCookDone(newCurry); // 実績・デイリー更新
-    // カレー結果のアイコン表示（食材のSVGアイコンを横並び）
+    // カレー結果のイラスト表示（型別イラスト）＋食材アイコン
+    const curryImg = document.getElementById("curryVisualImg");
+    curryImg.src = CURRY_TYPE_IMAGES[curryType]; curryImg.style.display = "block";
     const cookIconsHTML = curryIconsHTML(acts, sp, '32px');
-    document.getElementById("curryVisual").innerHTML = cookIconsHTML || vis; document.getElementById("curryName").innerText=cName;
+    document.getElementById("cookResultIcons").innerHTML = cookIconsHTML || vis; document.getElementById("curryName").innerText=cName;
     document.getElementById("statHP").innerText=hp; document.getElementById("statATK").innerText=atk; document.getElementById("statDEF").innerText=def; document.getElementById("statSPD").innerText=spd;
     document.getElementById("resultBox").style.display="block";
 }
