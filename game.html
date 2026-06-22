@@ -1546,6 +1546,10 @@ function tutorialGoToPage(page) {
     const wrap = document.getElementById('tutorialImageWrap');
     if(wrap) wrap.scrollTop = 0;
     tutorialRenderDots();
+    if(page === TUTORIAL_TOTAL_PAGES) {
+        updateStats(s => { s.tutorialCompleted = true; });
+        checkAndRenderAchievements();
+    }
 }
 
 function tutorialRenderDots() {
@@ -1848,34 +1852,37 @@ const DAILY_QUESTS = [
 
 // --- 実績定義 ---
 const ACHIEVEMENTS = [
-    { id:'scan_1',    text:'QRをスキャンする',          check: d => d.scanTotal >= 1 },
-    { id:'scan_50',   text:'QRを50回スキャンする',      check: d => d.scanTotal >= 50 },
-    { id:'scan_100',  text:'QRを100回スキャンする',     check: d => d.scanTotal >= 100 },
-    { id:'scan_500',  text:'QRを500回スキャンする',     check: d => d.scanTotal >= 500 },
-    { id:'scan_1000', text:'QRを1000回スキャンする',    check: d => d.scanTotal >= 1000 },
-    { id:'bot_all',   text:'PC戦(初級)撃破',            check: d => d.botKills >= 4 },
-    { id:'hard_all',  text:'PC戦(強敵)撃破',            check: d => d.hardKills >= 4 },
-    { id:'maharaja',  text:'富豪撃破',                  check: d => d.maharajaKill >= 1 },
-    { id:'win_100',   text:'めっちゃ勝利する',          check: d => d.totalWins >= 100 },
-    { id:'cook_1',    text:'調理をする',                check: d => d.cookTotal >= 1 },
-    { id:'cook_50',   text:'調理を50回する',            check: d => d.cookTotal >= 50 },
-    { id:'cook_100',  text:'調理を100回する',           check: d => d.cookTotal >= 100 },
-    { id:'cook_500',  text:'調理を500回する',           check: d => d.cookTotal >= 500 },
-    { id:'items_10',  text:'アイテム10種類入手',        check: d => d.itemVariety >= 10 },
-    { id:'items_20',  text:'アイテム20種類入手',        check: d => d.itemVariety >= 20 },
-    { id:'items_30',  text:'アイテム30種類入手',        check: d => d.itemVariety >= 30 },
-    { id:'poison_c',  text:'毒毒しいカレー入手',        check: d => d.gotPoison },
-    { id:'illusion_c',text:'惑わしちゃうカレー入手',   check: d => d.gotIllusion },
-    { id:'seed_c',    text:'連続発射カレー入手',        check: d => d.gotSeed },
-    { id:'wanpaku_c', text:'わんぱくで良いよね！',      check: d => d.gotWanpaku },
-    { id:'rata_c',    text:'まるでラタトゥイユ！？',    check: d => d.gotRatatouille },
-    { id:'homerun_c', text:'目指せホームラン',          check: d => d.gotHomerun },
-    { id:'marg_c',    text:'それってまるでピザ！？',    check: d => d.gotMargherita },
-    { id:'sea_c',     text:'あれ？波の音が聞こえる',   check: d => d.gotSeafood },
-    { id:'bonus_qr',  text:'え、このQR、こんなに！？', check: d => d.gotBonusQR },
-    { id:'event_join', text:'イベントバトルに参加',     check: d => d.eventBattleJoined },
-    { id:'poison_win', text:'毒ダメージで勝利',         check: d => d.wonByPoison },
-    { id:'seed_7hit',  text:'種7連続発射',              check: d => d.seedMaxHits >= 7 },
+    { id:'scan_1',    text:'QRをスキャンする',          desc:'QRを初めてスキャンする',                       check: d => d.scanTotal >= 1 },
+    { id:'scan_50',   text:'QRを50回スキャンする',      desc:'QRを50回スキャンする',                         check: d => d.scanTotal >= 50 },
+    { id:'scan_100',  text:'QRを100回スキャンする',     desc:'QRを100回スキャンする',                        check: d => d.scanTotal >= 100 },
+    { id:'scan_500',  text:'QRを500回スキャンする',     desc:'QRを500回スキャンする',                        check: d => d.scanTotal >= 500 },
+    { id:'scan_1000', text:'QRを1000回スキャンする',    desc:'QRを1000回スキャンする',                       check: d => d.scanTotal >= 1000 },
+    { id:'bot_all',   text:'PC戦(初級)撃破',            desc:'PCバトル(初級)で全キャラ撃破おめでとう！',     check: d => d.botKills >= 4 },
+    { id:'hard_all',  text:'PC戦(強敵)撃破',            desc:'PCバトル(強敵)で全キャラ撃破おめでとう！',     check: d => d.hardKills >= 4 },
+    { id:'maharaja',  text:'富豪撃破',                  desc:'マハラジャ撃破おめでとう！',                   check: d => d.maharajaKill >= 1 },
+    { id:'win_100',   text:'めっちゃ勝利する',          desc:'対戦で100勝おめでとう！',                      check: d => d.totalWins >= 100 },
+    { id:'cook_1',    text:'調理をする',                desc:'初めて調理でカレーを作る',                     check: d => d.cookTotal >= 1 },
+    { id:'cook_50',   text:'調理を50回する',            desc:'調理でカレーを50回作る',                       check: d => d.cookTotal >= 50 },
+    { id:'cook_100',  text:'調理を100回する',           desc:'調理でカレーを100回作る',                      check: d => d.cookTotal >= 100 },
+    { id:'cook_500',  text:'調理を500回する',           desc:'調理でカレーを500回作る',                      check: d => d.cookTotal >= 500 },
+    { id:'items_10',  text:'アイテム10種類入手',        desc:'アイテム10種類入手する',                       check: d => d.itemVariety >= 10 },
+    { id:'items_20',  text:'アイテム20種類入手',        desc:'アイテム20種類入手する',                       check: d => d.itemVariety >= 20 },
+    { id:'items_30',  text:'アイテム30種類入手',        desc:'アイテム30種類入手する',                       check: d => d.itemVariety >= 30 },
+    { id:'poison_c',  text:'毒毒しいカレー入手',        desc:'毒カレー完成おめでとう！',                     check: d => d.gotPoison },
+    { id:'illusion_c',text:'惑わしちゃうカレー入手',   desc:'幻惑カレー完成おめでとう！',                   check: d => d.gotIllusion },
+    { id:'seed_c',    text:'連続発射カレー入手',        desc:'種連続発射カレー完成おめでとう！',             check: d => d.gotSeed },
+    { id:'wanpaku_c', text:'わんぱくで良いよね！',      desc:'わんぱくカレー完成おめでとう！',               check: d => d.gotWanpaku },
+    { id:'rata_c',    text:'まるでラタトゥイユ！？',    desc:'ラタトゥイユカレー完成おめでとう！',           check: d => d.gotRatatouille },
+    { id:'homerun_c', text:'目指せホームラン',          desc:'ホームランカレー完成おめでとう！',             check: d => d.gotHomerun },
+    { id:'marg_c',    text:'それってまるでピザ！？',    desc:'マルゲリータカレー完成おめでとう！',           check: d => d.gotMargherita },
+    { id:'sea_c',     text:'あれ？波の音が聞こえる',   desc:'海の幸カレー完成おめでとう！',                 check: d => d.gotSeafood },
+    { id:'bonus_qr',  text:'え、このQR、こんなに！？', desc:'アイテムが多めにもらえるQRを見つけたね！',     check: d => d.gotBonusQR },
+    { id:'event_join', text:'イベントバトルに参加',     desc:'イベントバトルに参加ありがとう！',             check: d => d.eventBattleJoined },
+    { id:'poison_win', text:'毒フィニッシャー',         desc:'毒ダメージでフィニッシュなんてさすが！',       check: d => d.wonByPoison },
+    { id:'seed_7hit',  text:'種7連続発射',              desc:'SPD高くないと7回連射できないんだよ！',         check: d => d.seedMaxHits >= 7 },
+    { id:'tutorial_done', text:'チュートリアル完了',    desc:'チュートリアル完了おめでとう！',               check: d => d.tutorialCompleted },
+    { id:'five_types', text:'基本5タイプカレー入手',    desc:'基本カレー5つのイラストどれがお気に入り？',   check: d => d.gotAllCurryTypes },
+    { id:'guide_snooze', text:'案内人ちょっとあっち行って', desc:'案内人が長押しでしばらく出ないことによく気づいたね！', check: d => d.guideCharSnoozed },
 ];
 
 // --- グローバル統計（Firebaseに全プレイヤー分集計） ---
@@ -1895,7 +1902,9 @@ function getStats() {
         gotMargherita:false, gotSeafood:false, gotBonusQR:false,
         defeatedBots:[], defeatedHardBots:[],
         eventBattleJoined:false, wonByPoison:false, seedMaxHits:0,
-        gotWanpaku:false, gotRatatouille:false, gotHomerun:false
+        gotWanpaku:false, gotRatatouille:false, gotHomerun:false,
+        tutorialCompleted:false, curryTypesObtained:[], gotAllCurryTypes:false,
+        guideCharSnoozed:false
     };
 }
 function saveStats(s) { localStorage.setItem('qr_stats', JSON.stringify(s)); }
@@ -2111,18 +2120,27 @@ function checkAndRenderAchievements() {
         saveAchievements(achieved);
         playerG += newlyAchieved.length * 100;
         saveGame();
-        const names = newlyAchieved.map(a=>a.text).join('<br>');
-        showCustomAlert('🏆 実績達成！', `${names}<br><br>+${newlyAchieved.length*100}G 獲得！`);
+        const detail = newlyAchieved.map(a =>
+            `<div style="margin-bottom:10px;"><b style="color:#420000;">🏆 ${a.text}</b><br><span style="font-size:12px;color:#5a3a1a;">${a.desc || ''}</span></div>`
+        ).join('');
+        showCustomAlert('🏆 実績達成！', `${detail}<br>+${newlyAchieved.length*100}G 獲得！`);
     }
     // 描画
     area.innerHTML = ACHIEVEMENTS.map(a => {
         const done = !!achieved[a.id];
-        return `<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid #e8d9b8;">
+        const clickAttr = done ? `onclick="showAchievementDesc('${a.id}')" style="cursor:pointer;"` : '';
+        return `<div ${clickAttr} style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid #e8d9b8;${done?'cursor:pointer;':''}">
             <span style="font-size:16px;">${done?'🏆':'⬜'}</span>
             <span style="font-size:12px;color:${done?'#420000':'#b0a090'};">${a.text}</span>
             ${done?'<span style="margin-left:auto;font-size:11px;color:#b88742;">+100G</span>':''}
         </div>`;
     }).join('');
+}
+
+function showAchievementDesc(id) {
+    const a = ACHIEVEMENTS.find(x => x.id === id);
+    if(!a) return;
+    showCustomAlert(`🏆 ${a.text}`, `<span style="font-size:13px;color:#5a3a1a;">${a.desc || ''}</span>`);
 }
 
 // =======================================================
@@ -2153,6 +2171,12 @@ function onCookDone(curry) {
         if(curry.isWanpaku) s.gotWanpaku = true;
         if(curry.isRatatouille) s.gotRatatouille = true;
         if(curry.isHomerun) s.gotHomerun = true;
+        if(curry.curryType) {
+            if(!s.curryTypesObtained) s.curryTypesObtained = [];
+            if(!s.curryTypesObtained.includes(curry.curryType)) s.curryTypesObtained.push(curry.curryType);
+            const ALL_TYPES = ['hp','atk','def','spd','balance'];
+            s.gotAllCurryTypes = ALL_TYPES.every(t => s.curryTypesObtained.includes(t));
+        }
     });
     progressDailyQuest('cook');
     const isSpecial = curry.isPoison||curry.isIllusion||curry.isSeed||curry.isMargherita||curry.isSeafood||curry.isTonTonTon||curry.isSticky||curry.isWanpaku||curry.isRatatouille||curry.isHomerun;
@@ -3378,6 +3402,8 @@ function snoozeGuideChar() {
         setTimeout(() => { label.style.display = 'none'; }, 1500);
     }
     setTimeout(() => { hideQuestGuideChar(); }, 600);
+    updateStats(s => { s.guideCharSnoozed = true; });
+    checkAndRenderAchievements();
 }
 
 function setupGuideCharLongPress() {
