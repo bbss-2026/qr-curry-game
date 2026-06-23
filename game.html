@@ -32,6 +32,25 @@
         }
         #questGuideChar.show { transform: translateY(0); }
         #questGuideChar img { width: 100%; display: block; filter: drop-shadow(0 4px 8px rgba(0,0,0,0.25)); }
+        .cook-guide-speech {
+            display: none; position: absolute; bottom: 100%; right: 10%; margin-bottom: 10px;
+            background: #fffdf0; color: #420000; border: 2px solid #b88742; border-radius: 14px;
+            padding: 10px 14px; font-size: 12px; font-weight: bold; line-height: 1.5;
+            width: 200px; text-align: left; box-shadow: 0 4px 10px rgba(0,0,0,0.25);
+            white-space: pre-line;
+        }
+        .cook-guide-speech.show { display: block; animation: cookSpeechPop 0.25s ease-out; }
+        .cook-guide-speech::after {
+            content: ""; position: absolute; bottom: -10px; right: 24px;
+            border-width: 10px 8px 0 8px; border-style: solid;
+            border-color: #b88742 transparent transparent transparent;
+        }
+        .cook-guide-speech::before {
+            content: ""; position: absolute; bottom: -7px; right: 25px;
+            border-width: 8px 7px 0 7px; border-style: solid;
+            border-color: #fffdf0 transparent transparent transparent; z-index: 1;
+        }
+        @keyframes cookSpeechPop { 0% { transform: scale(0.7); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
         .tab-menu { display: flex; justify-content: space-around; margin: 0; background: #efdeb1; padding: 0; gap: 0; flex-wrap: nowrap; }
         .tab-btn { flex: 1; padding: 12px 4px 0 4px; border: none; background: none; font-size: 11pt; font-weight: bold; cursor: pointer; color: #420000; display: flex; flex-direction: column; align-items: center; text-align: center; gap: 8px; transition: color 0.2s; white-space: nowrap; }
         .tab-btn::after { content: ''; display: block; width: 90%; height: 2px; background: #420000; }
@@ -417,7 +436,7 @@
         <div class="bingo-grid bingo-preview-grid" id="bingoPreviewGrid"></div>
     </div>
 </div>
-<div id="questGuideChar"><img id="questGuideImg" src="" alt=""><div id="questGuideSnoozeLabel" style="display:none;position:absolute;top:-28px;left:50%;transform:translateX(-50%);background:#420000;color:#efdeb1;font-size:11px;font-weight:bold;padding:4px 10px;border-radius:12px;white-space:nowrap;">30分非表示にしました</div></div>
+<div id="questGuideChar"><img id="questGuideImg" src="" alt=""><div id="questGuideSnoozeLabel" style="display:none;position:absolute;top:-28px;left:50%;transform:translateX(-50%);background:#420000;color:#efdeb1;font-size:11px;font-weight:bold;padding:4px 10px;border-radius:12px;white-space:nowrap;">30分非表示にしました</div><div id="cookGuideSpeechBubble" class="cook-guide-speech"></div></div>
 <div id="eventMovieOverlay" style="position:fixed;top:0;left:0;width:100%;height:100%;background:#000;z-index:99998;display:none;justify-content:center;align-items:center;flex-direction:column;">
     <video id="eventMovieVideo" src="tokumoritoujyo.mp4" playsinline style="max-width:100%;max-height:100%;"></video>
     <button id="eventMovieSkipBtn" onclick="skipEventMovie()" style="position:absolute;bottom:24px;right:20px;padding:8px 18px;background:rgba(255,255,255,0.15);color:#fff;border:1px solid rgba(255,255,255,0.6);border-radius:20px;font-size:12px;font-weight:bold;cursor:pointer;">スキップ ▶</button>
@@ -3785,14 +3804,48 @@ function snoozeGuideChar() {
     checkAndRenderAchievements();
 }
 
+// 調理タブの案内人（con3-3.png）専用セリフ
+const COOK_CHEF_LINES = [
+    "毒と言えば紫だ!\nあと芽を取らないと危険なのもいるよな!",
+    "幻惑はぴゃーって目眩しするか\n幻覚見せるっきゃないよな!",
+    "種をたくさん入れろ!\nそしてたくさん撃て!",
+    "幼い頃の心を忘れるな!\n好きなもの詰め合わせだ!",
+    "単なるラタトゥイユではない!\n太陽のラタトゥイユだ!",
+    "バッターボックスに立て!\nバットで撃ち返すんだ!",
+    "もうあれとあれ入れたたらピザよ!\nピザも美味いよな!",
+    "波の音聴きたきゃ\n波が似合う奴らを詰め込め!",
+    "やっぱ3匹いないとな!\nワラと木とレンガだ!"
+];
+
 function setupGuideCharLongPress() {
     const wrap = document.getElementById('questGuideChar');
     if(!wrap) return;
     let pressTimer = null;
     let longPressed = false;
 
+    function isCookChefShowing() {
+        const img = document.getElementById('questGuideImg');
+        return img && img.getAttribute('src') === 'annainin/con3-3.png';
+    }
+
+    function showCookChefSpeech() {
+        const bubble = document.getElementById('cookGuideSpeechBubble');
+        if(!bubble) return;
+        const line = COOK_CHEF_LINES[Math.floor(Math.random() * COOK_CHEF_LINES.length)];
+        bubble.innerText = line;
+        bubble.classList.add('show');
+    }
+    function hideCookChefSpeech() {
+        const bubble = document.getElementById('cookGuideSpeechBubble');
+        if(bubble) bubble.classList.remove('show');
+    }
+
     function startPress(e) {
         longPressed = false;
+        if(isCookChefShowing()) {
+            showCookChefSpeech(); // 押している間は吹き出しを表示、長押しスヌーズは発動させない
+            return;
+        }
         pressTimer = setTimeout(() => {
             longPressed = true;
             snoozeGuideChar();
@@ -3802,6 +3855,11 @@ function setupGuideCharLongPress() {
         if(pressTimer) { clearTimeout(pressTimer); pressTimer = null; }
     }
     function handleTap() {
+        if(isCookChefShowing()) {
+            hideCookChefSpeech();
+            hideQuestGuideChar(); // タップを離したら通常通り引っ込む
+            return;
+        }
         if(longPressed) { longPressed = false; return; } // 長押し直後のタップは無視
         hideQuestGuideChar();
     }
@@ -3811,7 +3869,7 @@ function setupGuideCharLongPress() {
     wrap.addEventListener('touchcancel', cancelPress, { passive: true });
     wrap.addEventListener('mousedown', startPress);
     wrap.addEventListener('mouseup', function() { cancelPress(); handleTap(); });
-    wrap.addEventListener('mouseleave', cancelPress);
+    wrap.addEventListener('mouseleave', function() { cancelPress(); hideCookChefSpeech(); });
 }
 
 function showGuideChar(imageSet) {
