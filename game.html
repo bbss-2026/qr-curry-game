@@ -199,6 +199,9 @@
         .btn-rand { background: #420000; color: #efdeb1; width: 100%; margin-bottom: 15px; }
         .btn-battle { background: #420000; color: #efdeb1; width: 100%; }
         .btn-bot { background: #b88742; color: #efdeb1; width: 100%; }
+        .btn-bot-img { flex: 1; background: transparent; border: none; padding: 0; cursor: pointer; line-height: 0; }
+        .btn-bot-img img { width: 100%; height: auto; display: block; border-radius: 6px; box-shadow: 0 2px 6px rgba(0,0,0,0.25); }
+        .btn-bot-img:disabled img { opacity: 0.5; filter: grayscale(60%); }
         .btn:active { opacity: 0.8; transform: translateY(1px); }
         
         /* 管理系小ボタン */
@@ -764,9 +767,9 @@
             <img id="eventBannerImg" src="eventbanner01.jpg" class="event-banner" style="display:none;" onclick="startEventBattle()" alt="イベント">
             <button id="eventReplayBtn" style="display:none;width:100%;margin-bottom:8px;padding:8px;background:transparent;color:#b88742;border:1px solid #b88742;border-radius:4px;font-size:12px;font-weight:bold;cursor:pointer;" onclick="replayEventMovie()">🎬 オープニングムービーをもう一度見る</button>
             <button id="eventInfoBtn" style="display:none;width:100%;margin-bottom:12px;padding:8px;background:transparent;color:#b88742;border:1px solid #b88742;border-radius:4px;font-size:12px;font-weight:bold;cursor:pointer;" onclick="showEventInfo()">📖 特盛りモンスターについて</button>
-            <div style="padding: 16px 0 0 0;">
-                <button id="btnBotNormal" class="btn btn-bot" style="width:100%;" onclick="startBotBattle()">PCと対戦する（初級）</button>
-                <button id="btnBotHard" class="btn btn-bot" style="width:100%;margin-top:8px;background:#420000;" onclick="startHardBotBattle()">PCと対戦する（強敵）</button>
+            <div style="padding: 16px 0 0 0; display:flex; gap:6px;">
+                <button id="btnBotNormal" class="btn-bot-img" onclick="startBotBattle()"><img src="pssen-01.png" alt="PCと対戦する（初級）"></button>
+                <button id="btnBotHard" class="btn-bot-img" onclick="startHardBotBattle()"><img src="pssen-02.png" alt="PCと対戦する（中級）"></button>
             </div>
             <div style="border-top: 1px solid #b88742; margin: 16px 0;"></div>
             <div style="margin-bottom: 12px;">
@@ -1981,7 +1984,7 @@ const DAILY_QUESTS = [
     { id:'scan3',    text:'QRスキャンで3つのアイテムを入手する',  reward:100, type:'scan',    target:3 },
     { id:'bot_win',  text:'PCバトル（初級）で勝利する',           reward:100, type:'bot_win', target:1 },
     { id:'cook1',    text:'調理でカレーを作る',                   reward:100, type:'cook',    target:1 },
-    { id:'hard_win', text:'PCバトル（強敵）で勝利する',           reward:200, type:'hard_win',target:1 },
+    { id:'hard_win', text:'PCバトル（中級）で勝利する',           reward:200, type:'hard_win',target:1 },
     { id:'special',  text:'調理で特殊カレーを作る',               reward:200, type:'special', target:1 },
     { id:'room_win', text:'ルームバトルで勝利する',               reward:300, type:'room_win',target:1 },
 ];
@@ -1994,7 +1997,7 @@ const ACHIEVEMENTS = [
     { id:'scan_500',  text:'QRを500回スキャンする',     desc:'QRを500回スキャンする',                        check: d => d.scanTotal >= 500 },
     { id:'scan_1000', text:'QRを1000回スキャンする',    desc:'QRを1000回スキャンする',                       check: d => d.scanTotal >= 1000 },
     { id:'bot_all',   text:'PC戦(初級)撃破',            desc:'PCバトル(初級)で全キャラ撃破おめでとう！',     check: d => d.botKills >= 4 },
-    { id:'hard_all',  text:'PC戦(強敵)撃破',            desc:'PCバトル(強敵)で全キャラ撃破おめでとう！',     check: d => d.hardKills >= 4 },
+    { id:'hard_all',  text:'PC戦(中級)撃破',            desc:'PCバトル(中級)で全キャラ撃破おめでとう！',     check: d => d.hardKills >= 4 },
     { id:'maharaja',  text:'富豪撃破',                  desc:'マハラジャ撃破おめでとう！',                   check: d => d.maharajaKill >= 1 },
     { id:'win_100',   text:'めっちゃ勝利する',          desc:'対戦で100勝おめでとう！',                      check: d => d.totalWins >= 100 },
     { id:'cook_1',    text:'調理をする',                desc:'初めて調理でカレーを作る',                     check: d => d.cookTotal >= 1 },
