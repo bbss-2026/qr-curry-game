@@ -6,7 +6,7 @@
 <title>管理ツール</title>
 <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
 <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js" onerror="document.write('<script src=\'https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js\'><\/script>')"></script>
 <style>
     * { box-sizing: border-box; }
     body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Yu Gothic", sans-serif; background: #efdeb1; color: #420000; }
@@ -623,19 +623,19 @@ function actGenerateTestQr() {
         }
     }
 
-    resultDiv.innerHTML = '<canvas id="testQrCanvas"></canvas><div style="margin-top:8px;font-size:13px;color:#420000;font-weight:bold;">' + displayName + '</div><div style="font-size:10px;color:#999;word-break:break-all;">' + qrText + '</div>';
-
     if(typeof QRCode === 'undefined') {
         resultDiv.innerHTML = '<div style="color:#e74c3c;font-size:13px;">⚠️ QRライブラリの読み込みに失敗しました。<br>ページを再読み込みしてもう一度お試しください。<br>（通信環境によりCDNが読み込めない場合があります）</div>';
         return;
     }
 
+    resultDiv.innerHTML = '<div id="testQrCanvas" style="display:inline-block;"></div><div style="margin-top:8px;font-size:13px;color:#420000;font-weight:bold;">' + displayName + '</div><div style="font-size:10px;color:#999;word-break:break-all;">' + qrText + '</div>';
+
     try {
-        QRCode.toCanvas(document.getElementById('testQrCanvas'), qrText, { width: 220, margin: 2 }, function(err) {
-            if(err) {
-                console.error('QRCode.toCanvas error:', err);
-                resultDiv.innerHTML = '<div style="color:#e74c3c;font-size:13px;">⚠️ QRコードの描画に失敗しました。<br>' + err.message + '</div>';
-            }
+        new QRCode(document.getElementById('testQrCanvas'), {
+            text: qrText,
+            width: 220,
+            height: 220,
+            correctLevel: QRCode.CorrectLevel.M
         });
     } catch(e) {
         console.error('QR generation exception:', e);
