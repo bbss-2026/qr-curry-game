@@ -52,6 +52,7 @@
         <button style="background:#e74c3c;" onclick="actCheckPassword()">🔒 パスワード確認</button>
         <button id="btnTimeSetting" style="background:#7f8c8d;" onclick="actSetTime()">⏰ 時間設定: OFF</button>
         <button style="background:#d35400;" onclick="actResetBingo()">QR BINGO リセット</button>
+        <button style="background:#27ae60;" onclick="actResetScanHistory()">本日のQR使用済みリセット</button>
     </div>
 
     <div class="section">
@@ -282,6 +283,13 @@ function actResetBingo() {
     showCustomConfirm("QR BINGO リセット", "このブラウザのQR BINGOデータを完全に削除します。<br>次回「QR BINGO」を開いたときは、初回と同じくムービーから始まります。<br><br>本当によろしいですか？", function(){
         localStorage.removeItem('qr_bingo');
         showCustomAlert("✅ リセット完了", "QR BINGOデータを削除しました。<br>ゲーム画面をリロードしてください。");
+    });
+}
+
+function actResetScanHistory() {
+    showCustomConfirm("本日のQR使用済みリセット", "このブラウザの「本日スキャン済み」の記録を全て削除します。<br>同じQRコードを再度スキャンできるようになります。<br><br>本当によろしいですか？", function(){
+        localStorage.removeItem('qr_curry_history');
+        showCustomAlert("✅ リセット完了", "スキャン履歴を削除しました。<br>ゲーム画面をリロードしてください。");
     });
 }
 
