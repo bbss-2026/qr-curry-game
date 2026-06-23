@@ -85,6 +85,7 @@
 
         /* QR BINGO */
         .bingo-body { flex:1; overflow-y:auto; display:flex; flex-direction:column; align-items:center; padding:16px; -webkit-overflow-scrolling:touch; }
+        .bingo-body.movie-centered { justify-content:center; }
         .bingo-title { color:#efdeb1; font-size:22px; font-weight:bold; text-align:center; margin-bottom:4px; letter-spacing:0.05em; }
         .bingo-subtitle { color:#d8c9a3; font-size:12px; text-align:center; margin-bottom:16px; }
         .bingo-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:6px; width:100%; max-width:380px; margin-bottom:16px; }
@@ -120,6 +121,18 @@
             box-shadow:0 6px 20px rgba(0,0,0,0.4); pointer-events:none;
         }
         .bingo-toast.show { opacity:1; transform:translate(-50%,0); }
+
+        .bingo-preview-overlay {
+            position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.6);
+            z-index:9700; display:none; align-items:center; justify-content:center;
+        }
+        .bingo-preview-overlay.show { display:flex; }
+        .bingo-preview-box {
+            background:#2b2b2b; border:2px solid #b88742; border-radius:12px; padding:18px;
+            width:80%; max-width:300px; text-align:center;
+        }
+        .bingo-preview-title { color:#efdeb1; font-size:14px; font-weight:bold; margin-bottom:12px; }
+        .bingo-preview-grid { max-width:100%; margin-bottom:0; }
         h1 { color: #d35400; font-size: 24px; margin-bottom: 5px; }
         
         /* タブ */
@@ -378,6 +391,12 @@
 </head>
 <body>
 <div id="statusFlashOverlay" class="status-flash-overlay"></div>
+<div id="bingoPreviewOverlay" class="bingo-preview-overlay">
+    <div class="bingo-preview-box">
+        <div class="bingo-preview-title">ビンゴカード</div>
+        <div class="bingo-grid bingo-preview-grid" id="bingoPreviewGrid"></div>
+    </div>
+</div>
 <div id="questGuideChar"><img id="questGuideImg" src="" alt=""><div id="questGuideSnoozeLabel" style="display:none;position:absolute;top:-28px;left:50%;transform:translateX(-50%);background:#420000;color:#efdeb1;font-size:11px;font-weight:bold;padding:4px 10px;border-radius:12px;white-space:nowrap;">30分非表示にしました</div></div>
 <div id="eventMovieOverlay" style="position:fixed;top:0;left:0;width:100%;height:100%;background:#000;z-index:99998;display:none;justify-content:center;align-items:center;flex-direction:column;">
     <video id="eventMovieVideo" src="tokumoritoujyo.mp4" playsinline style="max-width:100%;max-height:100%;"></video>
@@ -467,7 +486,7 @@
             <span class="sep">|</span>
             <span>パック券: <span id="globalTicket">0</span> 枚</span>
             <span class="sep">|</span>
-            <span>🌶️スパイシーコイン: <span id="globalSpicyCoin">0</span> 枚</span>
+            <span>スパイシーコイン: <span id="globalSpicyCoin">0</span> 枚</span>
         </div>
     </div>
     <!-- クエストタブ -->
@@ -558,7 +577,7 @@
                 <div class="bingo-grid" id="bingoGrid"></div>
                 <div class="bingo-reward-info">
                     <div>🎉 1ビンゴにつき <b>100G</b></div>
-                    <div>🌶️ 10ビンゴでスペシャルボーナス：<b>スパイシーコイン1枚</b></div>
+                    <div>10ビンゴでスペシャルボーナス：<b>スパイシーコイン1枚</b></div>
                 </div>
                 <div class="bingo-footer-row">
                     <button class="tutorial-nav-btn" id="bingoReplayMovieBtn" onclick="replayBingoMovie()" style="padding:8px 10px;font-size:11px;">🎬</button>
@@ -570,7 +589,7 @@
     </div>
     <!-- QRスキャンタブ -->
     <div id="pageScan" class="page" style="text-align:center;">
-        <button id="btnQrBingo" class="btn btn-start" onclick="openBingoModal()" style="display:flex;align-items:center;justify-content:center;gap:8px;width:80%;color:#efdeb1;font-size:16px;background:#d35400;margin-bottom:10px;">🎰 QR BINGO</button>
+        <button id="btnQrBingo" class="btn btn-start" onclick="openBingoModal()" style="display:flex;align-items:center;justify-content:center;gap:8px;width:80%;color:#efdeb1;font-size:16px;background:#d35400;margin-bottom:10px;">QR BINGO</button>
         <button id="btnStartCamera" class="btn btn-start" onclick="startCamera()" style="display:flex;align-items:center;justify-content:center;gap:8px;width:80%;color:#efdeb1;font-size:16px;"><img src="camera.svg" style="height:1em;width:auto;filter:brightness(10);position:relative;top:2px;" alt="">カメラを起動する</button>
         <div id="statusMessage" style="font-size:14px; color:#7f8c8d; margin-bottom:15px; display:none; text-align:center;">QRを枠内に映してください</div>
         <canvas id="canvas"></canvas>
@@ -2820,7 +2839,7 @@ function createFridgeCard(grid, name, emoji, isSpice) {
 const CURRY_SKILL_INFO = [
     { flag: 'isPoison',      name: '☠️ 毒化',         desc: '戦闘開始時に相手を毒状態にする。' },
     { flag: 'isIllusion',    name: '🌀 幻惑化',       desc: '戦闘開始時に敵を幻惑状態にする。' },
-    { flag: 'isSeed',        name: '🌱 種連続発射',   desc: '30％の攻撃を複数回連続で行う。' },
+    { flag: 'isSeed',        name: '🌱 種連続発射',   desc: '40％の攻撃を複数回連続で行う。' },
     { flag: 'isMargherita',  name: '🍅 マルゲリータ', desc: '調理完成時に全ステ小UP。戦闘時は素敵な音楽が聞こえる。' },
     { flag: 'isTonTonTon',   name: '🐷 トントントン', desc: '攻撃時にブー。' },
     { flag: 'isSeafood',     name: '🌊 海鮮',         desc: '波の音が聞こえる。' },
@@ -3438,21 +3457,23 @@ function closeBingoModal() {
     document.getElementById('bingoFullscreen').classList.remove('active');
     const video = document.getElementById('bingoMovieVideo');
     if(video) video.pause();
-    // プレイヤータブに戻る
-    const playerTab = document.querySelector('[onclick*="quest"]');
-    const playerPage = document.getElementById('pageQuest');
+    // QRスキャンタブに戻る
+    const scanTab = document.querySelector('[onclick*="scan"]');
+    const scanPage = document.getElementById('pageScan');
     document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-    if(playerTab) playerTab.classList.add('active');
+    if(scanTab) scanTab.classList.add('active');
     document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-    if(playerPage) playerPage.classList.add('active');
-    showQuestGuideChar();
+    if(scanPage) scanPage.classList.add('active');
+    hideQuestGuideChar();
 }
 
 function playBingoOpeningMovie(data) {
     const wrap = document.getElementById('bingoMovieWrap');
     const video = document.getElementById('bingoMovieVideo');
+    const body = document.querySelector('#bingoFullscreen .bingo-body');
     document.getElementById('bingoCardWrap').style.display = 'none';
     wrap.style.display = 'block';
+    if(body) body.classList.add('movie-centered');
     video.muted = isMuted;
     video.currentTime = 0;
     let finished = false;
@@ -3460,6 +3481,7 @@ function playBingoOpeningMovie(data) {
         if(finished) return;
         finished = true;
         wrap.style.display = 'none';
+        if(body) body.classList.remove('movie-centered');
         video.pause();
         data.watchedMovie = true;
         saveBingoData(data);
@@ -3476,9 +3498,8 @@ function replayBingoMovie() {
     playBingoOpeningMovie(data);
 }
 
-function renderBingoCard(data, withFallAnimation) {
-    const grid = document.getElementById('bingoGrid');
-    grid.innerHTML = '';
+function renderBingoCellsInto(container, data, withFallAnimation) {
+    container.innerHTML = '';
     data.cardItems.forEach((itemName, idx) => {
         const cell = document.createElement('div');
         cell.className = 'bingo-cell';
@@ -3501,8 +3522,13 @@ function renderBingoCard(data, withFallAnimation) {
             mark.innerHTML = '<div class="bingo-mark-circle"></div>';
             cell.appendChild(mark);
         }
-        grid.appendChild(cell);
+        container.appendChild(cell);
     });
+}
+
+function renderBingoCard(data, withFallAnimation) {
+    const grid = document.getElementById('bingoGrid');
+    renderBingoCellsInto(grid, data, withFallAnimation);
     highlightCompletedLines(data);
     updateBingoNewCardButton(data);
     if(withFallAnimation) {
@@ -3560,6 +3586,15 @@ function showBingoToast(text) {
 }
 
 // QRスキャンでアイテム入手した際に呼ぶ：ビンゴカードに該当食材があれば開く
+function showBingoPreview(data) {
+    const overlay = document.getElementById('bingoPreviewOverlay');
+    const grid = document.getElementById('bingoPreviewGrid');
+    if(!overlay || !grid) return;
+    renderBingoCellsInto(grid, data, false);
+    overlay.classList.add('show');
+    setTimeout(() => { overlay.classList.remove('show'); }, 2200);
+}
+
 function onItemObtainedForBingo(itemName) {
     const data = getBingoData();
     if(!data) return;
@@ -3578,6 +3613,9 @@ function onItemObtainedForBingo(itemName) {
     const isCardComplete = data.opened.every(o => o);
     saveBingoData(data);
 
+    // どのマスが開いたかを一瞬プレビュー表示（ビンゴモーダルを開かずに）
+    showBingoPreview(data);
+
     if(newlyCompleted.length > 0) {
         const reward = newlyCompleted.length * 100;
         playerG += reward;
@@ -3587,7 +3625,7 @@ function onItemObtainedForBingo(itemName) {
             spicyCoin += 1;
             data.specialBonusGiven = true;
             saveBingoData(data);
-            setTimeout(() => showBingoToast('🌶️ コンプリート！スパイシーコイン+1'), 1200);
+            setTimeout(() => showBingoToast('コンプリート！スパイシーコイン+1'), 1200);
         }
         saveGame();
     }
