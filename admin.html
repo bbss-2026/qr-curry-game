@@ -624,9 +624,23 @@ function actGenerateTestQr() {
     }
 
     resultDiv.innerHTML = '<canvas id="testQrCanvas"></canvas><div style="margin-top:8px;font-size:13px;color:#420000;font-weight:bold;">' + displayName + '</div><div style="font-size:10px;color:#999;word-break:break-all;">' + qrText + '</div>';
-    QRCode.toCanvas(document.getElementById('testQrCanvas'), qrText, { width: 220, margin: 2 }, function(err) {
-        if(err) resultDiv.innerHTML = '<div style="color:#e74c3c;font-size:13px;">⚠️ QRコードの描画に失敗しました。</div>';
-    });
+
+    if(typeof QRCode === 'undefined') {
+        resultDiv.innerHTML = '<div style="color:#e74c3c;font-size:13px;">⚠️ QRライブラリの読み込みに失敗しました。<br>ページを再読み込みしてもう一度お試しください。<br>（通信環境によりCDNが読み込めない場合があります）</div>';
+        return;
+    }
+
+    try {
+        QRCode.toCanvas(document.getElementById('testQrCanvas'), qrText, { width: 220, margin: 2 }, function(err) {
+            if(err) {
+                console.error('QRCode.toCanvas error:', err);
+                resultDiv.innerHTML = '<div style="color:#e74c3c;font-size:13px;">⚠️ QRコードの描画に失敗しました。<br>' + err.message + '</div>';
+            }
+        });
+    } catch(e) {
+        console.error('QR generation exception:', e);
+        resultDiv.innerHTML = '<div style="color:#e74c3c;font-size:13px;">⚠️ QRコードの生成中にエラーが発生しました。<br>' + e.message + '</div>';
+    }
 }
 
 window.onload = loadInitialData;
