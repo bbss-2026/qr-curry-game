@@ -109,6 +109,20 @@
             box-shadow:0 0 8px rgba(231,76,60,0.8); animation: bingoMarkPop 0.4s ease-out;
         }
         @keyframes bingoMarkPop { 0%{ transform:scale(0); opacity:0;} 60%{ transform:scale(1.2); opacity:1;} 100%{ transform:scale(1); } }
+        .bingo-mark-circle.bingo-mark-drop {
+            animation: bingoMarkDrop 1.0s cubic-bezier(0.34,1.56,0.64,1) both, bingoMarkShine 0.6s ease-out 1.0s both;
+        }
+        @keyframes bingoMarkDrop {
+            0% { transform: translateY(-1400%) scale(4); opacity:0; }
+            70% { transform: translateY(0) scale(1); opacity:1; }
+            85% { transform: scale(1.25); }
+            100% { transform: scale(1); }
+        }
+        @keyframes bingoMarkShine {
+            0% { box-shadow:0 0 8px rgba(231,76,60,0.8); filter:brightness(1); }
+            40% { box-shadow:0 0 30px #fff, 0 0 45px #f1c40f; filter:brightness(2.2); }
+            100% { box-shadow:0 0 8px rgba(231,76,60,0.8); filter:brightness(1); }
+        }
         .bingo-cell.line-complete { animation: bingoLineGlow 1.2s ease-in-out infinite; border-color:#f1c40f; }
         @keyframes bingoLineGlow { 0%,100%{ box-shadow:0 0 6px #f1c40f; } 50%{ box-shadow:0 0 22px #f1c40f, 0 0 30px #ff9800; } }
         .bingo-reward-info { color:#efdeb1; font-size:13px; text-align:center; line-height:1.8; margin-bottom:16px; }
@@ -581,7 +595,7 @@
                 </div>
                 <div class="bingo-footer-row">
                     <button class="tutorial-nav-btn" id="bingoReplayMovieBtn" onclick="replayBingoMovie()" style="padding:8px 10px;font-size:11px;">🎬</button>
-                    <button class="tutorial-nav-btn" id="bingoNewCardBtn" onclick="confirmNewBingoCard()" style="flex:1;">🆕 新しいカードをもらう</button>
+                    <button class="tutorial-nav-btn" id="bingoNewCardBtn" onclick="confirmNewBingoCard()" style="flex:1;">新しいカードをもらう</button>
                 </div>
                 <div class="bingo-next-card-hint" id="bingoNextCardHint"></div>
             </div>
@@ -3498,7 +3512,7 @@ function replayBingoMovie() {
     playBingoOpeningMovie(data);
 }
 
-function renderBingoCellsInto(container, data, withFallAnimation) {
+function renderBingoCellsInto(container, data, withFallAnimation, highlightIdx) {
     container.innerHTML = '';
     data.cardItems.forEach((itemName, idx) => {
         const cell = document.createElement('div');
@@ -3519,7 +3533,11 @@ function renderBingoCellsInto(container, data, withFallAnimation) {
         if(data.opened[idx]) {
             const mark = document.createElement('div');
             mark.className = 'bingo-mark';
-            mark.innerHTML = '<div class="bingo-mark-circle"></div>';
+            if(idx === highlightIdx) {
+                mark.innerHTML = '<div class="bingo-mark-circle bingo-mark-drop"></div>';
+            } else {
+                mark.innerHTML = '<div class="bingo-mark-circle"></div>';
+            }
             cell.appendChild(mark);
         }
         container.appendChild(cell);
@@ -3586,13 +3604,13 @@ function showBingoToast(text) {
 }
 
 // QRスキャンでアイテム入手した際に呼ぶ：ビンゴカードに該当食材があれば開く
-function showBingoPreview(data) {
+function showBingoPreview(data, highlightIdx) {
     const overlay = document.getElementById('bingoPreviewOverlay');
     const grid = document.getElementById('bingoPreviewGrid');
     if(!overlay || !grid) return;
-    renderBingoCellsInto(grid, data, false);
+    renderBingoCellsInto(grid, data, false, highlightIdx);
     overlay.classList.add('show');
-    setTimeout(() => { overlay.classList.remove('show'); }, 2200);
+    setTimeout(() => { overlay.classList.remove('show'); }, 3000);
 }
 
 function onItemObtainedForBingo(itemName) {
@@ -3614,7 +3632,7 @@ function onItemObtainedForBingo(itemName) {
     saveBingoData(data);
 
     // どのマスが開いたかを一瞬プレビュー表示（ビンゴモーダルを開かずに）
-    showBingoPreview(data);
+    showBingoPreview(data, idx);
 
     if(newlyCompleted.length > 0) {
         const reward = newlyCompleted.length * 100;
