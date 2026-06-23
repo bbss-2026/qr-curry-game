@@ -6,6 +6,7 @@
 <title>管理ツール</title>
 <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
 <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
 <style>
     * { box-sizing: border-box; }
     body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Yu Gothic", sans-serif; background: #efdeb1; color: #420000; }
@@ -81,6 +82,14 @@
         <div class="section-label">📋 TOP画面テキスト設定</div>
         <textarea id="staffTopInfoInput" rows="5" placeholder="TOP画面に表示するテキスト（空欄で非表示）"></textarea>
         <button class="save-btn" onclick="actSetTopInfo()">💾 TOP画面テキストを保存・反映</button>
+    </div>
+
+    <div class="section">
+        <div class="section-label">🧪 テスト用QR生成（任意の食材）</div>
+        <select id="testQrItemSelect" style="width:100%;padding:8px;border:1px solid #b88742;border-radius:4px;font-size:13px;margin-bottom:8px;"></select>
+        <button class="save-btn" style="background:#3498db;" onclick="actGenerateTestQr()">📱 QRコードを生成</button>
+        <div id="testQrResult" style="text-align:center;margin-top:14px;"></div>
+        <div class="hint">スマホの「カメラを起動する」でこのQRを読み取ると、選んだ食材が手に入ります（1日1回の制限あり、本日使用済みリセットボタンと併用してください）。</div>
     </div>
 </div>
 
@@ -550,6 +559,74 @@ function loadInitialData() {
         });
     }
     updateButtonLabels();
+    populateTestQrItemSelect();
+}
+
+// ============================================================
+// テスト用QR生成（game.htmlのprocessQRDataと同じロジックで、任意の食材が出る文字列を逆算）
+// ============================================================
+function populateTestQrItemSelect() {
+    const sel = document.getElementById('testQrItemSelect');
+    if(!sel) return;
+    sel.innerHTML = '';
+    // 通常の抽選対象（game.html側のallItemsと同じ構成）
+    const normalItems = Object.keys(masterIngredients).filter(k => masterIngredients[k].shop === 0);
+    const allItems = [...normalItems, ...Object.keys(masterSpices).filter(k => k !== "マンゴーチャツネ")];
+    allItems.forEach(name => {
+        const opt = document.createElement('option');
+        opt.value = name; opt.innerText = name;
+        sel.appendChild(opt);
+    });
+    // 特殊判定の赤・黄パプリカも選べるようにする
+    ["赤パプリカ（特殊）", "黄パプリカ（特殊）"].forEach(label => {
+        const opt = document.createElement('option');
+        opt.value = label; opt.innerText = label;
+        sel.appendChild(opt);
+    });
+}
+
+function findQrTextForItem(targetName) {
+    const normalItems = Object.keys(masterIngredients).filter(k => masterIngredients[k].shop === 0);
+    const allItems = [...normalItems, ...Object.keys(masterSpices).filter(k => k !== "マンゴーチャツネ")];
+    const targetIdx = allItems.indexOf(targetName);
+    if(targetIdx === -1) return null;
+    // ランダムな文字列を生成し、文字コード合計が目的の食材になるものを探す（ブルートフォース）
+    for(let attempt = 0; attempt < 5000; attempt++) {
+        const candidate = 'TEST-' + Math.random().toString(36).slice(2, 10) + '-' + attempt;
+        let sum = 0;
+        for(let i = 0; i < candidate.length; i++) sum += candidate.charCodeAt(i);
+        if(sum % allItems.length === targetIdx) return candidate;
+    }
+    return null;
+}
+
+function actGenerateTestQr() {
+    const sel = document.getElementById('testQrItemSelect');
+    const resultDiv = document.getElementById('testQrResult');
+    if(!sel || !resultDiv) return;
+    const selected = sel.value;
+    if(!selected) return;
+
+    let qrText;
+    let displayName = selected;
+    if(selected === "赤パプリカ（特殊）") {
+        qrText = 'TEST-pepper-red-' + Math.random().toString(36).slice(2, 8);
+        displayName = "赤パプリカ";
+    } else if(selected === "黄パプリカ（特殊）") {
+        qrText = 'TEST-pepper-yellow-' + Math.random().toString(36).slice(2, 8);
+        displayName = "黄パプリカ";
+    } else {
+        qrText = findQrTextForItem(selected);
+        if(!qrText) {
+            resultDiv.innerHTML = '<div style="color:#e74c3c;font-size:13px;">⚠️ QR文字列の生成に失敗しました。もう一度お試しください。</div>';
+            return;
+        }
+    }
+
+    resultDiv.innerHTML = '<canvas id="testQrCanvas"></canvas><div style="margin-top:8px;font-size:13px;color:#420000;font-weight:bold;">' + displayName + '</div><div style="font-size:10px;color:#999;word-break:break-all;">' + qrText + '</div>';
+    QRCode.toCanvas(document.getElementById('testQrCanvas'), qrText, { width: 220, margin: 2 }, function(err) {
+        if(err) resultDiv.innerHTML = '<div style="color:#e74c3c;font-size:13px;">⚠️ QRコードの描画に失敗しました。</div>';
+    });
 }
 
 window.onload = loadInitialData;
