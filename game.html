@@ -1727,9 +1727,10 @@ function syncSaveDataToCloud() {
         const now = Date.now();
         const data = buildSaveDataObject();
         data.timestamp = now;
-        database.ref('players/' + playerId + '/savedata').set(data).then(function(){
-            localStorage.setItem('qr_last_synced_ts', String(now));
-        }).catch(function(){ /* 通信エラー時は何もしない（次回保存時に再試行） */ });
+        // 送信完了を待たず、先にローカルの「自分が最後に更新した時刻」を確定させる。
+        // これにより、送信中にリロード/タブ閉じが起きても「別デバイスでの更新」と誤検知しない。
+        localStorage.setItem('qr_last_synced_ts', String(now));
+        database.ref('players/' + playerId + '/savedata').set(data).catch(function(){ /* 通信エラー時は何もしない（次回保存時に再試行） */ });
     } catch(e) {
         console.error('syncSaveDataToCloud error:', e); // クラウド同期の異常がゲーム本体の処理を止めないようにする
     }
