@@ -61,6 +61,7 @@
         .status-bar { background: white; color: #420000; font-size: 12px; font-weight: bold; padding: 8px 14px; text-align: center; letter-spacing: 0.02em; border-radius: 2px; display: flex; flex-wrap: wrap; justify-content: center; gap: 0 8px; }
         .status-bar .sep { color: #b88742; margin: 0 2px; }
         .page { display: none; text-align: left; padding: 20px 20px; box-sizing: border-box; width: 100%; }
+        .copyright-footer { text-align: center; font-size: 9px; color: #b0a080; margin-top: 24px; padding-top: 10px; line-height: 1.6; }
         .page.active { display: block; }
 
         /* チュートリアルフルスクリーンビューアー */
@@ -507,6 +508,7 @@
         <div class="top-notice" id="topInfoTextBox" style="margin-top:12px;"></div>
         <a href="https://x.com/BattleCurryGame" target="_blank" style="display:block;width:88%;max-width:360px;margin-top:16px;padding:10px;background:transparent;color:#420000;border:1px solid #b88742;border-radius:4px;font-size:12px;font-weight:bold;cursor:pointer;text-align:center;text-decoration:none;box-sizing:border-box;">𝕏 @BattleCurryGame</a>
         <button style="width:88%;max-width:360px;margin-top:10px;padding:10px;background:transparent;color:#420000;border:1px solid #b88742;border-radius:4px;font-size:12px;font-weight:bold;cursor:pointer;" onclick="showBackupCode()">🔑 バックアップコードを発行</button>
+        <div class="copyright-footer">©2026 Battle Curry All Rights Reserved.<br>QRコードは株式会社デンソーウェーブの登録商標です</div>
     </div>
 
     <!-- タブUI（初期画面では非表示） -->
@@ -584,6 +586,7 @@
             <button class="btn-sm btn-danger-sm" id="clearSaveDataBtn" onclick="clearSaveData()">全初期化</button>
             <button class="btn-sm" style="background:#420000;color:#efdeb1;flex:1.5;" onclick="showDataRestoreOptions()">データ復元</button>
         </div>
+        <div class="copyright-footer">©2026 Battle Curry All Rights Reserved.<br>QRコードは株式会社デンソーウェーブの登録商標です</div>
     </div>
 
     <div id="pageGuide" class="tutorial-fullscreen">
@@ -650,6 +653,7 @@
             ・お店のレジにある「QR決済コード」へのスキャンは、店員さんの誤解を招くためご遠慮ください。<br>
             ・購入前の商品のQRスキャンは、特典の不当な取得に当たる可能性もあります。必ず商品を購入した後にスキャンをお楽しみください。
         </div>
+        <div class="copyright-footer">©2026 Battle Curry All Rights Reserved.<br>QRコードは株式会社デンソーウェーブの登録商標です</div>
     </div>
 
     <!-- 冷蔵庫＆図鑑タブ ★アイコン・名前エリアをここに移動 -->
@@ -692,6 +696,7 @@
             </select>
         </div>
         <div class="fridge-grid" id="fridgeSpicesGrid"></div>
+        <div class="copyright-footer">©2026 Battle Curry All Rights Reserved.<br>QRコードは株式会社デンソーウェーブの登録商標です</div>
     </div>
 
     <!-- 調理タブ -->
@@ -759,6 +764,7 @@
         </div>
         <h3 style="margin-top:25px; color:#420000; font-size:13px; letter-spacing:0.08em; border-top:1px solid #b88742; padding-top:16px; font-weight:bold;">発見したレシピ履歴</h3>
         <div class="recipe-book" id="recipeBookArea">履歴がありません。</div>
+        <div class="copyright-footer">©2026 Battle Curry All Rights Reserved.<br>QRコードは株式会社デンソーウェーブの登録商標です</div>
     </div>
 
     <!-- 対戦アリーナタブ -->
@@ -853,6 +859,7 @@
                 <button class="btn btn-start" onclick="showBattleLogHistory()" style="width:100%;margin-top:8px;background:#7f8c8d;">📜 戦闘ログ</button>
             </div>
         </div>
+        <div class="copyright-footer">©2026 Battle Curry All Rights Reserved.<br>QRコードは株式会社デンソーウェーブの登録商標です</div>
     </div>
 </div>
 <script>
@@ -3813,7 +3820,7 @@ const COOK_CHEF_LINES = [
     "幻惑はぴゃーって目眩しするか\n幻覚見せるっきゃないよな!",
     "種をたくさん入れろ!\nそしてたくさん撃て!",
     "幼い頃の心を忘れるな!\n好きなもの詰め合わせだ!",
-    "単なるラタトゥイユではない!\n太陽のラタトゥイユだ!",
+    "彩豊かなラタトゥイユでだ!\n何が入ってる!？",
     "バッターボックスに立て!\nバットで撃ち返すんだ!",
     "もうあれとあれ入れたたらピザよ!\nピザも美味いよな!",
     "波の音聴きたきゃ\n波が似合う奴らを詰め込め!",
