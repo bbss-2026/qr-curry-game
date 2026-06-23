@@ -82,6 +82,44 @@
             cursor: pointer; transition: background 0.2s;
         }
         .tutorial-dot.active { background: #efdeb1; }
+
+        /* QR BINGO */
+        .bingo-body { flex:1; overflow-y:auto; display:flex; flex-direction:column; align-items:center; padding:16px; -webkit-overflow-scrolling:touch; }
+        .bingo-title { color:#efdeb1; font-size:22px; font-weight:bold; text-align:center; margin-bottom:4px; letter-spacing:0.05em; }
+        .bingo-subtitle { color:#d8c9a3; font-size:12px; text-align:center; margin-bottom:16px; }
+        .bingo-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:6px; width:100%; max-width:380px; margin-bottom:16px; }
+        .bingo-cell {
+            position:relative; aspect-ratio:1/1; background:#3a3a3a; border:2px solid #b88742; border-radius:8px;
+            display:flex; align-items:center; justify-content:center; overflow:hidden;
+        }
+        .bingo-cell img { width:62%; height:62%; object-fit:contain; }
+        .bingo-cell .bingo-unknown { font-size:24px; color:#8a7a5a; font-weight:bold; }
+        .bingo-cell.fall-in { animation: bingoFallIn 0.6s cubic-bezier(0.34,1.56,0.64,1) both; }
+        @keyframes bingoFallIn {
+            0% { transform: translateY(-400px) rotate(-15deg); opacity:0; }
+            100% { transform: translateY(0) rotate(0deg); opacity:1; }
+        }
+        .bingo-mark {
+            position:absolute; top:0; left:0; width:100%; height:100%;
+            display:flex; align-items:center; justify-content:center; pointer-events:none;
+        }
+        .bingo-mark-circle {
+            width:78%; height:78%; border:5px solid #e74c3c; border-radius:50%;
+            box-shadow:0 0 8px rgba(231,76,60,0.8); animation: bingoMarkPop 0.4s ease-out;
+        }
+        @keyframes bingoMarkPop { 0%{ transform:scale(0); opacity:0;} 60%{ transform:scale(1.2); opacity:1;} 100%{ transform:scale(1); } }
+        .bingo-cell.line-complete { animation: bingoLineGlow 1.2s ease-in-out infinite; border-color:#f1c40f; }
+        @keyframes bingoLineGlow { 0%,100%{ box-shadow:0 0 6px #f1c40f; } 50%{ box-shadow:0 0 22px #f1c40f, 0 0 30px #ff9800; } }
+        .bingo-reward-info { color:#efdeb1; font-size:13px; text-align:center; line-height:1.8; margin-bottom:16px; }
+        .bingo-footer-row { display:flex; gap:8px; width:100%; max-width:380px; }
+        .bingo-next-card-hint { color:#bba; font-size:11px; text-align:center; margin-top:8px; }
+        .bingo-toast {
+            position:fixed; top:18%; left:50%; transform:translate(-50%,-20px); z-index:9600;
+            background:rgba(20,20,20,0.92); color:#fff; padding:16px 28px; border-radius:10px;
+            font-size:16px; font-weight:bold; text-align:center; opacity:0; transition:opacity 0.3s, transform 0.3s;
+            box-shadow:0 6px 20px rgba(0,0,0,0.4); pointer-events:none;
+        }
+        .bingo-toast.show { opacity:1; transform:translate(-50%,0); }
         h1 { color: #d35400; font-size: 24px; margin-bottom: 5px; }
         
         /* タブ */
@@ -428,6 +466,8 @@
             <span>資金: <span id="globalG">0</span> G</span>
             <span class="sep">|</span>
             <span>パック券: <span id="globalTicket">0</span> 枚</span>
+            <span class="sep">|</span>
+            <span>🌶️スパイシーコイン: <span id="globalSpicyCoin">0</span> 枚</span>
         </div>
     </div>
     <!-- クエストタブ -->
@@ -499,8 +539,38 @@
             <button class="tutorial-nav-btn" id="tutorialNextBtn" onclick="tutorialGoNext()">次へ ▶</button>
         </div>
     </div>
+
+    <!-- QR BINGO -->
+    <div id="bingoFullscreen" class="tutorial-fullscreen">
+        <div class="tutorial-header">
+            <button class="tutorial-close" onclick="closeBingoModal()">✕</button>
+            <div class="tutorial-page-indicator">QR BINGO</div>
+        </div>
+        <div class="bingo-body">
+            <!-- オープニングムービー -->
+            <div id="bingoMovieWrap" style="display:none;">
+                <video id="bingoMovieVideo" src="bingomove.mp4" playsinline style="width:100%;max-width:560px;display:block;margin:0 auto;"></video>
+            </div>
+            <!-- ビンゴカード本体 -->
+            <div id="bingoCardWrap" style="display:none;">
+                <div class="bingo-title">QR BINGO</div>
+                <div class="bingo-subtitle">QRスキャンでビンゴを目指そう！</div>
+                <div class="bingo-grid" id="bingoGrid"></div>
+                <div class="bingo-reward-info">
+                    <div>🎉 1ビンゴにつき <b>100G</b></div>
+                    <div>🌶️ 10ビンゴでスペシャルボーナス：<b>スパイシーコイン1枚</b></div>
+                </div>
+                <div class="bingo-footer-row">
+                    <button class="tutorial-nav-btn" id="bingoReplayMovieBtn" onclick="replayBingoMovie()" style="padding:8px 10px;font-size:11px;">🎬</button>
+                    <button class="tutorial-nav-btn" id="bingoNewCardBtn" onclick="confirmNewBingoCard()" style="flex:1;">🆕 新しいカードをもらう</button>
+                </div>
+                <div class="bingo-next-card-hint" id="bingoNextCardHint"></div>
+            </div>
+        </div>
+    </div>
     <!-- QRスキャンタブ -->
     <div id="pageScan" class="page" style="text-align:center;">
+        <button id="btnQrBingo" class="btn btn-start" onclick="openBingoModal()" style="display:flex;align-items:center;justify-content:center;gap:8px;width:80%;color:#efdeb1;font-size:16px;background:#d35400;margin-bottom:10px;">🎰 QR BINGO</button>
         <button id="btnStartCamera" class="btn btn-start" onclick="startCamera()" style="display:flex;align-items:center;justify-content:center;gap:8px;width:80%;color:#efdeb1;font-size:16px;"><img src="camera.svg" style="height:1em;width:auto;filter:brightness(10);position:relative;top:2px;" alt="">カメラを起動する</button>
         <div id="statusMessage" style="font-size:14px; color:#7f8c8d; margin-bottom:15px; display:none; text-align:center;">QRを枠内に映してください</div>
         <canvas id="canvas"></canvas>
@@ -1209,7 +1279,7 @@ const hardBotOpponents = [
     { name: "毒舌料理人ミスズ", curryName: "激辛毒毒カレー", emoji: "☠️🌶️☠️", image: "bot09.png", hp: 360, atk: 90, def: 65, spd: 35, expBonus: 30, specialEffect: "poison" }
 ];
 let inventory = {}; let scanHistory = {};
-let playerG = 0; let playerEXP = 0; let packTicket = 0;
+let playerG = 0; let playerEXP = 0; let packTicket = 0; let spicyCoin = 0;
 let curryStock = []; let selectedCurryIndex = -1;
 let playerName = "名無しの料理人";
 let recipeBook = {}; let myRoomRef = null; let currentRoomId = null;
@@ -1598,12 +1668,14 @@ function saveGame() {
     localStorage.setItem('qr_curry_g', playerG);
     localStorage.setItem('qr_curry_exp', playerEXP);
     localStorage.setItem('qr_curry_ticket', packTicket);
+    localStorage.setItem('qr_curry_spicycoin', spicyCoin);
     localStorage.setItem('qr_curry_pname', playerName);
     localStorage.setItem('qr_curry_recipes', JSON.stringify(recipeBook));
     localStorage.setItem('qr_curry_stock', JSON.stringify(curryStock));
     localStorage.setItem('qr_curry_discovered', JSON.stringify(discoveredItems));
     document.getElementById("globalG").innerText = playerG;
     document.getElementById("globalTicket").innerText = packTicket;
+    document.getElementById("globalSpicyCoin").innerText = spicyCoin;
     updateShopButtons();
     updateLvDisplay();
     syncSaveDataToCloud();
@@ -1650,12 +1722,14 @@ function saveGameLocalOnly() {
     localStorage.setItem('qr_curry_g', playerG);
     localStorage.setItem('qr_curry_exp', playerEXP);
     localStorage.setItem('qr_curry_ticket', packTicket);
+    localStorage.setItem('qr_curry_spicycoin', spicyCoin);
     localStorage.setItem('qr_curry_pname', playerName);
     localStorage.setItem('qr_curry_recipes', JSON.stringify(recipeBook));
     localStorage.setItem('qr_curry_stock', JSON.stringify(curryStock));
     localStorage.setItem('qr_curry_discovered', JSON.stringify(discoveredItems));
     document.getElementById("globalG").innerText = playerG;
     document.getElementById("globalTicket").innerText = packTicket;
+    document.getElementById("globalSpicyCoin").innerText = spicyCoin;
 }
 function generateSecretKey() {
     return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
@@ -1775,6 +1849,7 @@ function loadGame() {
     const savedG = localStorage.getItem('qr_curry_g');
     const savedEXP = localStorage.getItem('qr_curry_exp');
     const savedTicket = localStorage.getItem('qr_curry_ticket');
+    const savedSpicyCoin = localStorage.getItem('qr_curry_spicycoin');
     const savedName = localStorage.getItem('qr_curry_pname');
     const savedRecipes = localStorage.getItem('qr_curry_recipes');
     const savedStock = localStorage.getItem('qr_curry_stock');
@@ -1796,6 +1871,7 @@ function loadGame() {
     if (savedG) playerG = parseInt(savedG, 10);
     if (savedEXP) playerEXP = parseInt(savedEXP, 10);
     if (savedTicket !== null) packTicket = parseInt(savedTicket, 10);
+    if (savedSpicyCoin !== null) spicyCoin = parseInt(savedSpicyCoin, 10);
     if (savedName) playerName = savedName;
     if (savedRecipes) recipeBook = JSON.parse(savedRecipes);
     if (savedStock) { curryStock = JSON.parse(savedStock); if (curryStock.length > 0) selectedCurryIndex = 0; }
@@ -1803,6 +1879,7 @@ function loadGame() {
     document.getElementById("headerPlayerName").innerText = playerName;
     document.getElementById("globalG").innerText = playerG;
     document.getElementById("globalTicket").innerText = packTicket;
+    document.getElementById("globalSpicyCoin").innerText = spicyCoin;
 }
 function handleNameChange(val) {
     if(!val.trim()) val = "名無しの料理人";
@@ -2230,7 +2307,7 @@ function onBattleWin(type, botName) {
 // ===== セーブデータの共通構築・適用（バックアップコード／クラウド同期で共用） =====
 function buildSaveDataObject() {
     return {
-        inventory, scanHistory, playerG, playerEXP, packTicket,
+        inventory, scanHistory, playerG, playerEXP, packTicket, spicyCoin,
         playerName, curryStock, recipeBook, discoveredItems,
         selectedIcon: currentIconFile,
         unlockedIcons: getUnlockedIcons(),
@@ -2239,11 +2316,12 @@ function buildSaveDataObject() {
         loginData: localStorage.getItem('qr_login') || '{}',
         dailyData: localStorage.getItem('qr_daily') || '{}',
         specialBonusClaimedVersion: localStorage.getItem('qr_special_bonus_claimed_version') || '0',
+        bingoData: localStorage.getItem('qr_bingo') || '{}',
         icon07got: localStorage.getItem('qr_icon07_got') || '',
         stockLimit: localStorage.getItem('qr_curry_stock_limit') || '',
         playerId: playerId || '',
         secretKey: playerSecretKey || '',
-        ver: 3
+        ver: 4
     };
 }
 
@@ -2253,6 +2331,7 @@ function applySaveDataObject(decoded) {
     playerG = decoded.playerG || 0;
     playerEXP = decoded.playerEXP || 0;
     packTicket = decoded.packTicket || 0;
+    spicyCoin = decoded.spicyCoin || 0;
     playerName = decoded.playerName || '名無しの料理人';
     curryStock = decoded.curryStock || [];
     recipeBook = decoded.recipeBook || {};
@@ -2266,6 +2345,8 @@ function applySaveDataObject(decoded) {
     if(decoded.dailyData) localStorage.setItem('qr_daily', decoded.dailyData);
     else localStorage.removeItem('qr_daily');
     if(decoded.specialBonusClaimedVersion !== undefined) localStorage.setItem('qr_special_bonus_claimed_version', decoded.specialBonusClaimedVersion);
+    if(decoded.bingoData) localStorage.setItem('qr_bingo', decoded.bingoData);
+    else localStorage.removeItem('qr_bingo');
     if(decoded.icon07got) localStorage.setItem('qr_icon07_got', decoded.icon07got);
     if(decoded.stockLimit) localStorage.setItem('qr_curry_stock_limit', decoded.stockLimit);
     else localStorage.removeItem('qr_curry_stock_limit');
@@ -2663,6 +2744,7 @@ function processQRData(text, r, g, b) {
         try { saveGame(); } catch(e) { console.error('saveGame error:', e); }
         try { onQRScanned(addCount >= 3); } catch(e) { console.error('onQRScanned error:', e); } // 実績・デイリー更新（3個入手はボーナスQR）
         try { updateCookSelects(); } catch(e) { console.error('updateCookSelects error:', e); }
+        try { onItemObtainedForBingo(itemName); } catch(e) { console.error('onItemObtainedForBingo error:', e); }
     } catch(e) {
         console.error('processQRData error:', e);
         // 想定外のエラーでも最低限のフィードバックを出す
@@ -3294,6 +3376,223 @@ function showDailyAccessDetail(day) {
     });
 }
 
+// ============================================================
+// QR BINGO
+// ============================================================
+const BINGO_ITEM_POOL = [
+    "牛肉","牛すじ","チキン","唐揚げ","トンカツ","ウインナー","ナス","トマト",
+    "レンコン","ジャガイモ","ピーマン","レーズン","玉ねぎ","にんじん","大根","マッシュルーム",
+    "ひよこ豆","チーズ","イカ","小エビ","ツナ",
+    "ターメリック","クミン","コリアンダー","カルダモン","シナモン","クローブ","ブラックペッパー","チリパウダー","マンゴーチャツネ"
+];
+// 4x4=16マスのライン定義（横4・縦4・斜め2＝10ライン）
+const BINGO_LINES = [
+    [0,1,2,3],[4,5,6,7],[8,9,10,11],[12,13,14,15], // 横
+    [0,4,8,12],[1,5,9,13],[2,6,10,14],[3,7,11,15],  // 縦
+    [0,5,10,15],[3,6,9,12]                          // 斜め
+];
+
+function getBingoData() {
+    const d = localStorage.getItem('qr_bingo');
+    return d ? JSON.parse(d) : null;
+}
+function saveBingoData(data) {
+    localStorage.setItem('qr_bingo', JSON.stringify(data));
+    saveGame();
+}
+
+function generateNewBingoCard() {
+    const shuffled = [...BINGO_ITEM_POOL].sort(() => Math.random() - 0.5);
+    const cardItems = shuffled.slice(0, 16);
+    const opened = cardItems.map(() => false);
+    const data = {
+        cardItems, opened,
+        completedLines: [],
+        createdAt: Date.now(),
+        watchedMovie: getBingoData() ? getBingoData().watchedMovie : false
+    };
+    saveBingoData(data);
+    return data;
+}
+
+function openBingoModal() {
+    let data = getBingoData();
+    const isFirstTime = !data;
+    if(!data) data = generateNewBingoCard();
+
+    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.getElementById('bingoFullscreen').classList.add('active');
+    hideQuestGuideChar();
+
+    if(isFirstTime || !data.watchedMovie) {
+        playBingoOpeningMovie(data);
+    } else {
+        document.getElementById('bingoMovieWrap').style.display = 'none';
+        document.getElementById('bingoCardWrap').style.display = 'block';
+        renderBingoCard(data, false);
+    }
+}
+
+function closeBingoModal() {
+    document.getElementById('bingoFullscreen').classList.remove('active');
+    const video = document.getElementById('bingoMovieVideo');
+    if(video) video.pause();
+    // プレイヤータブに戻る
+    const playerTab = document.querySelector('[onclick*="quest"]');
+    const playerPage = document.getElementById('pageQuest');
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    if(playerTab) playerTab.classList.add('active');
+    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+    if(playerPage) playerPage.classList.add('active');
+    showQuestGuideChar();
+}
+
+function playBingoOpeningMovie(data) {
+    const wrap = document.getElementById('bingoMovieWrap');
+    const video = document.getElementById('bingoMovieVideo');
+    document.getElementById('bingoCardWrap').style.display = 'none';
+    wrap.style.display = 'block';
+    video.muted = isMuted;
+    video.currentTime = 0;
+    let finished = false;
+    function finishMovie() {
+        if(finished) return;
+        finished = true;
+        wrap.style.display = 'none';
+        video.pause();
+        data.watchedMovie = true;
+        saveBingoData(data);
+        document.getElementById('bingoCardWrap').style.display = 'block';
+        renderBingoCard(data, true);
+    }
+    video.onended = finishMovie;
+    video.play().catch(() => finishMovie());
+}
+
+function replayBingoMovie() {
+    const data = getBingoData();
+    if(!data) return;
+    playBingoOpeningMovie(data);
+}
+
+function renderBingoCard(data, withFallAnimation) {
+    const grid = document.getElementById('bingoGrid');
+    grid.innerHTML = '';
+    data.cardItems.forEach((itemName, idx) => {
+        const cell = document.createElement('div');
+        cell.className = 'bingo-cell';
+        if(withFallAnimation) {
+            cell.classList.add('fall-in');
+            cell.style.animationDelay = (idx * 60) + 'ms';
+        }
+        const known = !!discoveredItems[itemName];
+        if(known) {
+            const itemData = masterIngredients[itemName] || masterSpices[itemName];
+            const icon = itemData && itemData.icon;
+            if(icon) cell.innerHTML = `<img src="${icon}" alt="">`;
+            else cell.innerHTML = `<span style="font-size:28px;">${(itemData&&itemData.emoji)||'❓'}</span>`;
+        } else {
+            cell.innerHTML = '<span class="bingo-unknown">？</span>';
+        }
+        if(data.opened[idx]) {
+            const mark = document.createElement('div');
+            mark.className = 'bingo-mark';
+            mark.innerHTML = '<div class="bingo-mark-circle"></div>';
+            cell.appendChild(mark);
+        }
+        grid.appendChild(cell);
+    });
+    highlightCompletedLines(data);
+    updateBingoNewCardButton(data);
+    if(withFallAnimation) {
+        setTimeout(() => { playSoundEffect('dora.mp3'); }, 16 * 60 + 300);
+    }
+}
+
+function highlightCompletedLines(data) {
+    const cells = document.querySelectorAll('#bingoGrid .bingo-cell');
+    data.completedLines.forEach(lineIdx => {
+        BINGO_LINES[lineIdx].forEach(cellIdx => {
+            if(cells[cellIdx]) cells[cellIdx].classList.add('line-complete');
+        });
+    });
+}
+
+function updateBingoNewCardButton(data) {
+    const btn = document.getElementById('bingoNewCardBtn');
+    const hint = document.getElementById('bingoNextCardHint');
+    const oneWeekMs = 7 * 24 * 60 * 60 * 1000;
+    const elapsed = Date.now() - data.createdAt;
+    if(elapsed >= oneWeekMs) {
+        btn.disabled = false;
+        hint.innerText = '';
+    } else {
+        btn.disabled = true;
+        const remainMs = oneWeekMs - elapsed;
+        const remainDays = Math.ceil(remainMs / (24*60*60*1000));
+        hint.innerText = `次のカードまで あと${remainDays}日`;
+    }
+}
+
+function confirmNewBingoCard() {
+    const data = getBingoData();
+    if(!data) return;
+    const oneWeekMs = 7 * 24 * 60 * 60 * 1000;
+    if(Date.now() - data.createdAt < oneWeekMs) return;
+    showCustomConfirm('🆕 新しいカード', '今のビンゴカードの進行状況は無くなります。<br>新しいカードを受け取りますか？', function(){
+        const newData = generateNewBingoCard();
+        document.getElementById('bingoCardWrap').style.display = 'block';
+        renderBingoCard(newData, true);
+    });
+}
+
+function showBingoToast(text) {
+    const toast = document.createElement('div');
+    toast.className = 'bingo-toast';
+    toast.innerHTML = text;
+    document.body.appendChild(toast);
+    requestAnimationFrame(() => toast.classList.add('show'));
+    setTimeout(() => {
+        toast.classList.remove('show');
+        setTimeout(() => toast.remove(), 350);
+    }, 2200);
+}
+
+// QRスキャンでアイテム入手した際に呼ぶ：ビンゴカードに該当食材があれば開く
+function onItemObtainedForBingo(itemName) {
+    const data = getBingoData();
+    if(!data) return;
+    const idx = data.cardItems.indexOf(itemName);
+    if(idx === -1 || data.opened[idx]) return;
+    data.opened[idx] = true;
+
+    // 新たに完成したラインを検出
+    const newlyCompleted = [];
+    BINGO_LINES.forEach((line, lineIdx) => {
+        if(data.completedLines.includes(lineIdx)) return;
+        if(line.every(cellIdx => data.opened[cellIdx])) newlyCompleted.push(lineIdx);
+    });
+    newlyCompleted.forEach(lineIdx => data.completedLines.push(lineIdx));
+
+    const isCardComplete = data.opened.every(o => o);
+    saveBingoData(data);
+
+    if(newlyCompleted.length > 0) {
+        const reward = newlyCompleted.length * 100;
+        playerG += reward;
+        playSoundEffect('omedeto.mp3');
+        showBingoToast(`🎉 ビンゴ！ +${reward}G`);
+        if(data.completedLines.length >= 10 && !data.specialBonusGiven) {
+            spicyCoin += 1;
+            data.specialBonusGiven = true;
+            saveBingoData(data);
+            setTimeout(() => showBingoToast('🌶️ コンプリート！スパイシーコイン+1'), 1200);
+        }
+        saveGame();
+    }
+}
+
 function recordPlayerAccess(retryCount) {
     if(isDebugMode || !database) return;
     retryCount = retryCount || 0;
@@ -3910,7 +4209,7 @@ function calcAllBattleTurns(myC, oppC, oppN, myName) {
 💨 わんぱくが暴れすぎて攻撃が外れた！`;
             } else if(myC.isSeed && Math.random()<0.3) {
                 const hits=rollSeedHits(myC.spd, oppC.spd); let seedDmgs=[];
-                for(let i=0;i<hits;i++){let sd=Math.max(2,Math.round(myC.atk*0.3-Math.floor(oppC.def/4)));sd=Math.round(sd*(0.9+Math.random()*0.2));seedDmgs.push(sd);oHP=Math.max(0,oHP-sd);}
+                for(let i=0;i<hits;i++){let sd=Math.max(2,Math.round(myC.atk*0.4-Math.floor(oppC.def/4)));sd=Math.round(sd*(0.9+Math.random()*0.2));seedDmgs.push(sd);oHP=Math.max(0,oHP-sd);}
                 turn.log+=`
 🌱 種連続発射 ${hits}連撃！合計: ${seedDmgs.reduce((a,b)=>a+b,0)}`;
                 seedDmgs.forEach(sd=>turn.effects.push({type:'enemy',dmg:sd,seed:true}));
@@ -3945,7 +4244,7 @@ function calcAllBattleTurns(myC, oppC, oppN, myName) {
                     turn.effects.push({type:'homerun-reflect'});
                 } else {
                     const hits=rollSeedHits(oppC.spd, myC.spd); let seedDmgs=[];
-                    for(let i=0;i<hits;i++){let sd=Math.max(2,Math.round(oppC.atk*0.3-Math.floor(myC.def/4)));sd=Math.round(sd*(0.9+Math.random()*0.2));seedDmgs.push(sd);pHP=Math.max(0,pHP-sd);}
+                    for(let i=0;i<hits;i++){let sd=Math.max(2,Math.round(oppC.atk*0.4-Math.floor(myC.def/4)));sd=Math.round(sd*(0.9+Math.random()*0.2));seedDmgs.push(sd);pHP=Math.max(0,pHP-sd);}
                     turn.log+=`
 🌱 {{ACTOR}}の種連続発射 ${hits}連撃！合計: ${seedDmgs.reduce((a,b)=>a+b,0)}`;
                     seedDmgs.forEach(sd=>turn.effects.push({type:'player',dmg:sd,seed:true}));
@@ -4193,7 +4492,7 @@ function launchEventBattle(myC, startHp) {
                 setTimeout(()=>{ updateHP(pHP,oHP,oppC.hp,myC.hp); battleLogHistory.push(log.innerHTML.replace(/<br\s*\/?>/gi,"\n")); myTurn=false; round++; setTimeout(eventStep,1100); },400);
             } else if(myC.isSeed && Math.random()<0.3){
                 const hits=rollSeedHits(myC.spd, oppC.spd); let damages=[];
-                for(let i=0;i<hits;i++){ let sd=Math.max(2,Math.round(myC.atk*0.3-Math.floor(oppC.def/4))); sd=Math.round(sd*(0.9+Math.random()*0.2)); damages.push(sd); oHP=Math.max(1,oHP-sd); eventTotalDamageThisBattle+=sd; }
+                for(let i=0;i<hits;i++){ let sd=Math.max(2,Math.round(myC.atk*0.4-Math.floor(oppC.def/4))); sd=Math.round(sd*(0.9+Math.random()*0.2)); damages.push(sd); oHP=Math.max(1,oHP-sd); eventTotalDamageThisBattle+=sd; }
                 log.innerHTML+=`\n🌱 種連続発射 ${hits}連撃！`;
                 setTimeout(()=>playSoundEffect('machine-gun.mp3'),50);
                 damages.forEach((sd,i)=>{ setTimeout(()=>{
@@ -4278,7 +4577,7 @@ function launchEventBattle(myC, startHp) {
                     }
                     const hits = rollSeedHits(oppC.spd, myC.spd);
                     let damages=[];
-                    for(let i=0;i<hits;i++){ let sd=Math.max(2,Math.round(oppC.atk*0.3-Math.floor(myC.def/4))); sd=Math.round(sd*(0.9+Math.random()*0.2)); damages.push(sd); pHP=Math.max(0,pHP-sd); }
+                    for(let i=0;i<hits;i++){ let sd=Math.max(2,Math.round(oppC.atk*0.4-Math.floor(myC.def/4))); sd=Math.round(sd*(0.9+Math.random()*0.2)); damages.push(sd); pHP=Math.max(0,pHP-sd); }
                     log.innerHTML+=`\n🥄 特大スプーンで五月雨突き！${hits}連撃！`;
                     setTimeout(()=>playSoundEffect('machine-gun.mp3'),50);
                     damages.forEach((sd,i)=>{ setTimeout(()=>{
@@ -4356,7 +4655,7 @@ function launchEventBattle(myC, startHp) {
                     }
                     const hits = rollSeedHits(oppC.spd, myC.spd);
                     let damages=[];
-                    for(let i=0;i<hits;i++){ let sd=Math.max(2,Math.round(oppC.atk*0.3-Math.floor(myC.def/4))); sd=Math.round(sd*(0.9+Math.random()*0.2)); damages.push(sd); pHP=Math.max(0,pHP-sd); }
+                    for(let i=0;i<hits;i++){ let sd=Math.max(2,Math.round(oppC.atk*0.4-Math.floor(myC.def/4))); sd=Math.round(sd*(0.9+Math.random()*0.2)); damages.push(sd); pHP=Math.max(0,pHP-sd); }
                     log.innerHTML+=`\n🥄 特大スプーンで五月雨突き！${hits}連撃！`;
                     setTimeout(()=>playSoundEffect('machine-gun.mp3'),50);
                     damages.forEach((sd,i)=>{ setTimeout(()=>{
@@ -4626,7 +4925,7 @@ function startBattleScene(oppN, oppC, myC) {
             } else if(myC.isSeed&&Math.random()<0.3){
                 // 種連射（machine-gun.mp3、SPD比較で回数変動）
                 const hits=rollSeedHits(myC.spd,oppC.spd);let damages=[];
-                for(let i=0;i<hits;i++){let sd=Math.max(2,Math.round(myC.atk*0.3-Math.floor(oppC.def/4)));sd=Math.round(sd*(0.9+Math.random()*0.2));damages.push(sd);oHP=Math.max(0,oHP-sd);}
+                for(let i=0;i<hits;i++){let sd=Math.max(2,Math.round(myC.atk*0.4-Math.floor(oppC.def/4)));sd=Math.round(sd*(0.9+Math.random()*0.2));damages.push(sd);oHP=Math.max(0,oHP-sd);}
                 log.innerHTML+=`\n🌱 種連続発射 ${hits}連撃！`;
                 setTimeout(()=>playSoundEffect('machine-gun.mp3'),50);
                 damages.forEach((sd,i)=>{setTimeout(()=>{triggerEffect("enemy",sd);if(i===damages.length-1){log.innerHTML+=` 合計: ${damages.reduce((a,b)=>a+b,0)}`;updateHP(pHP,oHP,oppC.hp,myC.hp);battleLogHistory.push(log.innerHTML.replace(/<br\s*\/?>/gi,"\n"));myTurn=false;round++;setTimeout(step,1300);}},150+i*250);});
@@ -4669,7 +4968,7 @@ function startBattleScene(oppN, oppC, myC) {
                     setTimeout(()=>{playSoundEffect('homerun.mp3');updateHP(pHP,oHP,oppC.hp,myC.hp);battleLogHistory.push(log.innerHTML.replace(/<br\s*\/?>/gi,"\n"));myTurn=true;round++;setTimeout(step,1100);},400);
                 } else {
                     const hits=rollSeedHits(oppC.spd,myC.spd);let damages=[];
-                    for(let i=0;i<hits;i++){let sd=Math.max(2,Math.round(oppC.atk*0.3-Math.floor(myC.def/4)));sd=Math.round(sd*(0.9+Math.random()*0.2));damages.push(sd);pHP=Math.max(0,pHP-sd);}
+                    for(let i=0;i<hits;i++){let sd=Math.max(2,Math.round(oppC.atk*0.4-Math.floor(myC.def/4)));sd=Math.round(sd*(0.9+Math.random()*0.2));damages.push(sd);pHP=Math.max(0,pHP-sd);}
                     log.innerHTML+=`\n🌱 相手の種連続発射 ${hits}連撃！`;
                     setTimeout(()=>playSoundEffect('machine-gun.mp3'),50);
                     damages.forEach((sd,i)=>{setTimeout(()=>{triggerEffect("player",sd);if(i===damages.length-1){log.innerHTML+=` 合計: ${damages.reduce((a,b)=>a+b,0)}`;updateHP(pHP,oHP,oppC.hp,myC.hp);battleLogHistory.push(log.innerHTML.replace(/<br\s*\/?>/gi,"\n"));myTurn=true;round++;setTimeout(step,1300);}},150+i*250);});
