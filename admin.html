@@ -51,6 +51,7 @@
         <button style="background:#3498db;" onclick="actSetLevel()">🎮 レベル設定</button>
         <button style="background:#e74c3c;" onclick="actCheckPassword()">🔒 パスワード確認</button>
         <button id="btnTimeSetting" style="background:#7f8c8d;" onclick="actSetTime()">⏰ 時間設定: OFF</button>
+        <button style="background:#d35400;" onclick="actResetBingo()">QR BINGO リセット</button>
     </div>
 
     <div class="section">
@@ -275,6 +276,13 @@ function actSetTime() {
     setDebugTimeOverride(hh, mm);
     updateButtonLabels();
     showCustomAlert("✅ 設定完了", "仮想時刻を " + trimmed + "（日本時間）に設定しました。<br>※デバッグモード中のこのブラウザのみ反映されます。");
+}
+
+function actResetBingo() {
+    showCustomConfirm("QR BINGO リセット", "このブラウザのQR BINGOデータを完全に削除します。<br>次回「QR BINGO」を開いたときは、初回と同じくムービーから始まります。<br><br>本当によろしいですか？", function(){
+        localStorage.removeItem('qr_bingo');
+        showCustomAlert("✅ リセット完了", "QR BINGOデータを削除しました。<br>ゲーム画面をリロードしてください。");
+    });
 }
 
 function actAnalytics() {
