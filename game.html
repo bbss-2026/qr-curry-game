@@ -126,16 +126,21 @@
         }
         .bingo-cell.line-complete { animation: bingoLineGlow 1.2s ease-in-out infinite; border-color:#f1c40f; }
         @keyframes bingoLineGlow { 0%,100%{ box-shadow:0 0 6px #f1c40f; } 50%{ box-shadow:0 0 22px #f1c40f, 0 0 30px #ff9800; } }
+        .bingo-cell.line-new { animation: bingoLineNewFlash 0.5s ease-in-out 4, bingoLineGlow 1.2s ease-in-out infinite 2s; border-color:#f1c40f; z-index:3; }
+        @keyframes bingoLineNewFlash {
+            0%,100% { box-shadow:0 0 6px #f1c40f; transform:scale(1); background:#3a3a3a; }
+            50% { box-shadow:0 0 35px #fff, 0 0 50px #f1c40f, 0 0 65px #ff9800; transform:scale(1.08); background:#5a4a20; }
+        }
         .bingo-reward-info { color:#efdeb1; font-size:13px; text-align:center; line-height:1.8; margin-bottom:16px; }
         .bingo-footer-row { display:flex; gap:8px; width:100%; max-width:380px; }
         .bingo-next-card-hint { color:#bba; font-size:11px; text-align:center; margin-top:8px; }
         .bingo-toast {
-            position:fixed; top:18%; left:50%; transform:translate(-50%,-20px); z-index:9600;
-            background:rgba(20,20,20,0.92); color:#fff; padding:16px 28px; border-radius:10px;
-            font-size:16px; font-weight:bold; text-align:center; opacity:0; transition:opacity 0.3s, transform 0.3s;
-            box-shadow:0 6px 20px rgba(0,0,0,0.4); pointer-events:none;
+            position:fixed; top:18%; left:50%; transform:translate(-50%,-20px) scale(0.9); z-index:9800;
+            background:linear-gradient(135deg, #d35400, #e67e22); color:#fff; padding:18px 32px; border-radius:12px;
+            font-size:19px; font-weight:bold; text-align:center; opacity:0; transition:opacity 0.3s, transform 0.3s;
+            box-shadow:0 8px 28px rgba(0,0,0,0.5), 0 0 0 3px #f1c40f; pointer-events:none; white-space:nowrap;
         }
-        .bingo-toast.show { opacity:1; transform:translate(-50%,0); }
+        .bingo-toast.show { opacity:1; transform:translate(-50%,0) scale(1); }
 
         .bingo-preview-overlay {
             position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.6);
@@ -3513,8 +3518,12 @@ function replayBingoMovie() {
     playBingoOpeningMovie(data);
 }
 
-function renderBingoCellsInto(container, data, withFallAnimation, highlightIdx) {
+function renderBingoCellsInto(container, data, withFallAnimation, highlightIdx, newLineIndices) {
     container.innerHTML = '';
+    const newLineCells = new Set();
+    if(newLineIndices && newLineIndices.length) {
+        newLineIndices.forEach(lineIdx => { BINGO_LINES[lineIdx].forEach(c => newLineCells.add(c)); });
+    }
     data.cardItems.forEach((itemName, idx) => {
         const cell = document.createElement('div');
         cell.className = 'bingo-cell';
@@ -3522,6 +3531,7 @@ function renderBingoCellsInto(container, data, withFallAnimation, highlightIdx) 
             cell.classList.add('fall-in');
             cell.style.animationDelay = (idx * 60) + 'ms';
         }
+        if(newLineCells.has(idx)) cell.classList.add('line-new');
         const inner = document.createElement('div');
         inner.className = 'bingo-cell-inner';
         const known = !!discoveredItems[itemName];
@@ -3608,16 +3618,19 @@ function showBingoToast(text) {
 }
 
 // QRスキャンでアイテム入手した際に呼ぶ：ビンゴカードに該当食材があれば開く
-function showBingoPreview(data, highlightIdx) {
+function showBingoPreview(data, highlightIdx, newLineIndices) {
     const overlay = document.getElementById('bingoPreviewOverlay');
     const grid = document.getElementById('bingoPreviewGrid');
     if(!overlay || !grid) return;
-    renderBingoCellsInto(grid, data, false, highlightIdx);
+    const hasNewLine = newLineIndices && newLineIndices.length > 0;
+    renderBingoCellsInto(grid, data, false, highlightIdx, newLineIndices);
     overlay.classList.add('show');
     if(highlightIdx !== undefined && highlightIdx !== null) {
         setTimeout(() => { playSoundEffect('masuaita.mp3'); }, 1000);
     }
-    setTimeout(() => { overlay.classList.remove('show'); }, 3000);
+    // ビンゴ列が揃った場合は表示時間を延ばし、目立つようにする
+    const displayMs = hasNewLine ? 4200 : 3000;
+    setTimeout(() => { overlay.classList.remove('show'); }, displayMs);
 }
 
 function onItemObtainedForBingo(itemName) {
@@ -3638,19 +3651,22 @@ function onItemObtainedForBingo(itemName) {
     const isCardComplete = data.opened.every(o => o);
     saveBingoData(data);
 
-    // どのマスが開いたかを一瞬プレビュー表示（ビンゴモーダルを開かずに）
-    showBingoPreview(data, idx);
+    // どのマスが開いたか・どの列が揃ったかを一瞬プレビュー表示（ビンゴモーダルを開かずに）
+    showBingoPreview(data, idx, newlyCompleted);
 
     if(newlyCompleted.length > 0) {
         const reward = newlyCompleted.length * 100;
         playerG += reward;
-        playSoundEffect('omedeto.mp3');
-        showBingoToast(`🎉 ビンゴ！ +${reward}G`);
+        const lineWord = newlyCompleted.length > 1 ? `${newlyCompleted.length}列同時` : '1列';
+        setTimeout(() => {
+            playSoundEffect('omedeto.mp3');
+            showBingoToast(`🎉 ビンゴ！${lineWord} +${reward}G`);
+        }, 1600);
         if(data.completedLines.length >= 10 && !data.specialBonusGiven) {
             spicyCoin += 1;
             data.specialBonusGiven = true;
             saveBingoData(data);
-            setTimeout(() => showBingoToast('コンプリート！スパイシーコイン+1'), 1200);
+            setTimeout(() => showBingoToast('コンプリート！スパイシーコイン+1'), 3000);
         }
         saveGame();
     }
