@@ -2032,6 +2032,46 @@ function checkGiftQueue() {
     });
 }
 
+// 宅配カレーが他プレイヤーに使用された結果の報酬・食べ尽くされ通知をログイン時に処理
+function checkDeliveryRewardQueue() {
+    if(!database || !playerId) return;
+    database.ref('deliveryRewardQueue/' + playerId).once('value').then(function(snap){
+        const rewards = snap.val();
+        if(!rewards) return;
+        const normalPool = Object.keys(masterIngredients).filter(k => masterIngredients[k].shop === 0);
+        const midHighPool = Object.keys(masterIngredients).filter(k => masterIngredients[k].shop === 1 || masterIngredients[k].shop === 2);
+        let totalGold = 0;
+        let totalWinItems = [];
+        let eatenUpCurryNames = [];
+        Object.keys(rewards).forEach(function(key){
+            const r = rewards[key];
+            totalGold += (r.usedCount || 0) * 30;
+            for(let i = 0; i < (r.winCount || 0); i++) {
+                const pool = [...normalPool, ...midHighPool];
+                const it = pool[Math.floor(Math.random() * pool.length)];
+                inventory[it] = (inventory[it] || 0) + 1;
+                discoveredItems[it] = true;
+                totalWinItems.push(it);
+            }
+            if(r.eatenUp && r.curryName) eatenUpCurryNames.push(r.curryName);
+        });
+        playerG += totalGold;
+        saveGame(); updateFridgeUI(); updateCookSelects(); updateShopButtons();
+        database.ref('deliveryRewardQueue/' + playerId).remove();
+
+        const itemsHtml = totalWinItems.map(it => {
+            const d = masterIngredients[it];
+            const ico = d && d.icon ? `<img src="${d.icon}" style="width:1.2em;height:1.2em;vertical-align:middle;object-fit:contain;">` : '';
+            return ico + it;
+        }).join(' ');
+        let msg = `🚚 宅配カレーが活躍しました！<br>`;
+        if(totalGold) msg += `💰 +${totalGold}G<br>`;
+        if(totalWinItems.length) msg += `アイテム: ${itemsHtml}<br>`;
+        if(eatenUpCurryNames.length) msg += `<br><span style="color:#e67e22;">「${eatenUpCurryNames.join('」「')}」は食べ尽くされてしまいました…</span>`;
+        showCustomAlert('🚚 宅配カレーの報告', msg);
+    });
+}
+
 function initPlayerId(onReady) {
     if (!playerSecretKey) {
         playerSecretKey = generateSecretKey();
@@ -2048,6 +2088,7 @@ function initPlayerId(onReady) {
                 }
             });
             checkGiftQueue();
+            checkDeliveryRewardQueue();
             checkCloudSyncOnLoad(); // 別デバイスでの進行を検知したら同期確認
         }
         if(onReady) onReady();
@@ -3686,16 +3727,18 @@ function reportDeliveryCurryUsage(candidate, didWin) {
         const data = snap.val();
         if(!data) return; // 既に他の人に上書き・削除されている場合は何もしない
         const newUsedCount = (data.usedCount || 0) + 1;
-        const newWinCount = (data.winCount || 0) + (didWin ? 1 : 0);
-        if(newUsedCount >= 5) {
-            // 5回使用されたら食べ尽くされて消滅。報酬は受取キューに積む
-            database.ref('deliveryRewardQueue/' + candidate.playerId).push({
-                usedCount: newUsedCount, winCount: newWinCount, eatenUp: true,
-                curryName: data.curry ? data.curry.name : '', createdAt: Date.now()
-            });
+        const isEatenUp = newUsedCount >= 5;
+        // 使用されるたびに、その回の報酬（30G・勝利なら食材1個）を即座に受取キューへ積む
+        // （5回使い切るまで待たず、毎回少しずつ受け取れるようにする）
+        database.ref('deliveryRewardQueue/' + candidate.playerId).push({
+            usedCount: 1, winCount: didWin ? 1 : 0, eatenUp: isEatenUp,
+            curryName: data.curry ? data.curry.name : '', createdAt: Date.now()
+        });
+        if(isEatenUp) {
+            // 5回使い切ったら宅配カレー自体は消滅
             ref.remove();
         } else {
-            ref.update({ usedCount: newUsedCount, winCount: newWinCount });
+            ref.update({ usedCount: newUsedCount, winCount: (data.winCount || 0) + (didWin ? 1 : 0) });
         }
     }).catch(function(e){ console.error('reportDeliveryCurryUsage error:', e); });
 }
