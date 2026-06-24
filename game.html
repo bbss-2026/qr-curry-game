@@ -4877,6 +4877,7 @@ function setBattleSpeed(mult) {
     ids.forEach(id => { const btn = document.getElementById(id); if(btn) btn.classList.add('active'); });
 }
 let tagBattleFighters = []; // [自分, 宅配カレー, 敵1, 敵2] の4要素
+let tagStickyFirstSide = null; // ネバネバ効果でどちらが先攻になるか（'player' / 'enemy' / null）
 
 function tagTriggerDamagePop(targetSide, targetIdx, value, color) {
     const pop = document.getElementById('tagDamagePop');
@@ -4997,6 +4998,18 @@ function launchTagBattle(myCurry, deliveryCand, enemies) {
     const myTeam = [myFighter, deliveryFighter];
     const enemyTeam = [enemyFighters[0], enemyFighters[1]];
     let openingLogs = [];
+
+    // 戦闘開始時：ネバネバ（isSticky）を持つチームが必ず先攻を取る
+    tagStickyFirstSide = null;
+    const myHasSticky = myTeam.some(f => f.curry && f.curry.isSticky);
+    const enemyHasSticky = enemyTeam.some(f => f.specialEffect === 'sticky');
+    if(myHasSticky && !enemyHasSticky) {
+        tagStickyFirstSide = 'player';
+        openingLogs.push(`💚 敵はネバネバにかかった！自分たちの先攻攻撃！`);
+    } else if(enemyHasSticky && !myHasSticky) {
+        tagStickyFirstSide = 'enemy';
+        openingLogs.push(`💚 自分たちはネバネバにかかった！敵の先攻攻撃！`);
+    }
     let statusFlashQueue = []; // 演出を順番に再生するためのキュー
     myTeam.forEach(f => {
         if(f.curry && f.curry.isPoison) {
@@ -5094,8 +5107,13 @@ function tagBattleStep(round) {
     if(myTeam.every(f => f.hp <= 0)) { setTimeout(() => tagFinishBattle('lose'), tagDelay(400)); return; }
     if(enemyTeam.every(f => f.hp <= 0)) { setTimeout(() => tagFinishBattle('win'), tagDelay(400)); return; }
 
-    // 行動順（生存者のみ、SPD降順）
-    const order = tagBattleFighters.filter(f => f.hp > 0).sort((a,b) => b.spd - a.spd);
+    // 行動順（生存者のみ、SPD降順）。ただし初回ラウンドはネバネバ（isSticky）を持つチームが先攻
+    let order = tagBattleFighters.filter(f => f.hp > 0).sort((a,b) => b.spd - a.spd);
+    if(round === 1 && tagStickyFirstSide) {
+        const myTeam2 = [tagBattleFighters[0], tagBattleFighters[1]].filter(f => f.hp > 0);
+        const enemyTeam2 = [tagBattleFighters[2], tagBattleFighters[3]].filter(f => f.hp > 0);
+        order = tagStickyFirstSide === 'player' ? [...myTeam2, ...enemyTeam2] : [...enemyTeam2, ...myTeam2];
+    }
     tagRunActionQueue(order, 0, round);
 }
 
