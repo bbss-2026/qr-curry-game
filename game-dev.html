@@ -307,17 +307,22 @@
             position: absolute; font-family: 'Impact', Arial, sans-serif; font-size: 36px; color: #f1c40f;
             -webkit-text-stroke: 1.5px #000; font-weight: bold; display: none; pointer-events: none; z-index: 25;
         }
-        .tag-enemy-zone { display: flex; flex-direction: column; gap: 6px; margin-bottom: 10px; }
-        .tag-enemy-card { display: flex; align-items: center; gap: 8px; background: rgba(0,0,0,0.35); border-radius: 8px; padding: 6px 8px; transition: transform 0.1s; }
-        .tag-enemy-card-visual { width: 44px; height: 44px; border-radius: 50%; overflow: hidden; flex-shrink: 0; border: 2px solid #b88742; background: #1a1a1a; }
+        .tag-enemy-zone { display: flex; flex-direction: column; gap: 10px; margin-bottom: 12px; }
+        .tag-enemy-card { background: rgba(0,0,0,0.35); border-radius: 8px; padding: 8px 10px; transition: transform 0.1s; }
+        .tag-enemy-card-top { display: flex; align-items: center; gap: 8px; }
+        .tag-enemy-card-visual { width: 64px; height: 64px; border-radius: 50%; overflow: hidden; flex-shrink: 0; border: 2px solid #b88742; background: #1a1a1a; }
         .tag-enemy-card-visual img { width: 100%; height: 100%; object-fit: cover; }
-        .tag-enemy-card-info { flex: 1; min-width: 0; color: #fff; }
-        .tag-enemy-card-name { font-size: 12px; font-weight: bold; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-bottom: 2px; }
-        .tag-enemy-card-hp { font-size: 10px; text-align: right; font-weight: bold; margin-top: 2px; }
+        .tag-enemy-card-name { font-size: 13px; font-weight: bold; color: #fff; flex-shrink: 0; max-width: 38%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .tag-enemy-hpbar-bg { flex: 1; max-width: 33%; margin-left: auto; margin-top: 0; }
+        .tag-enemy-card-bottom { display: flex; align-items: center; gap: 6px; margin-top: 6px; padding-left: 4px; color: #ddd; font-size: 11px; }
+        .tag-enemy-curry-emoji { font-size: 16px; flex-shrink: 0; }
+        .tag-enemy-curry-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #f1c40f; font-weight: bold; }
+        .tag-enemy-card-hp { font-weight: bold; flex-shrink: 0; }
         .tag-enemy-card.ko { opacity: 0.4; filter: grayscale(80%); }
         .tag-player-zone { display: flex; gap: 8px; }
         .tag-player-card { flex: 1; min-width: 0; background: rgba(0,0,0,0.7); border-radius: 8px; padding: 8px; color: #fff; }
-        .tag-player-card-name { font-size: 11px; font-weight: bold; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-bottom: 4px; }
+        .tag-player-card-name { font-size: 12px; font-weight: bold; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-bottom: 3px; }
+        .tag-player-card-curryname { font-size: 11px; color: #f1c40f; font-weight: bold; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-bottom: 5px; }
         .tag-player-card-hp { font-size: 10px; text-align: right; font-weight: bold; margin-top: 2px; }
         .tag-player-card.ko { opacity: 0.4; filter: grayscale(80%); }
         .sub-name-label { color: #ffffff; font-size: 13px; font-weight: bold; background: rgba(0,0,0,0.5); padding: 4px 8px; border-radius: 4px; display: inline-block; word-break: break-all; }
@@ -954,19 +959,27 @@
 
                 <div class="tag-enemy-zone" id="tagEnemyZone">
                     <div class="tag-enemy-card" id="tagEnemyCard0">
-                        <div class="tag-enemy-card-visual"><img id="tagEnemyImg0" src="" alt=""></div>
-                        <div class="tag-enemy-card-info">
+                        <div class="tag-enemy-card-top">
+                            <div class="tag-enemy-card-visual"><img id="tagEnemyImg0" src="" alt=""></div>
                             <div class="tag-enemy-card-name" id="tagEnemyName0">敵1</div>
-                            <div class="hp-bar-bg"><div id="tagEnemyHpBar0" class="hp-bar"></div></div>
-                            <div class="tag-enemy-card-hp" id="tagEnemyHpText0">HP: --/--</div>
+                            <div class="hp-bar-bg tag-enemy-hpbar-bg"><div id="tagEnemyHpBar0" class="hp-bar"></div></div>
+                        </div>
+                        <div class="tag-enemy-card-bottom">
+                            <span class="tag-enemy-curry-emoji" id="tagEnemyCurryEmoji0">🍛</span>
+                            <span class="tag-enemy-curry-name" id="tagEnemyCurryName0">カレー名</span>
+                            <span class="tag-enemy-card-hp" id="tagEnemyHpText0">HP: --/--</span>
                         </div>
                     </div>
                     <div class="tag-enemy-card" id="tagEnemyCard1">
-                        <div class="tag-enemy-card-visual"><img id="tagEnemyImg1" src="" alt=""></div>
-                        <div class="tag-enemy-card-info">
+                        <div class="tag-enemy-card-top">
+                            <div class="tag-enemy-card-visual"><img id="tagEnemyImg1" src="" alt=""></div>
                             <div class="tag-enemy-card-name" id="tagEnemyName1">敵2</div>
-                            <div class="hp-bar-bg"><div id="tagEnemyHpBar1" class="hp-bar"></div></div>
-                            <div class="tag-enemy-card-hp" id="tagEnemyHpText1">HP: --/--</div>
+                            <div class="hp-bar-bg tag-enemy-hpbar-bg"><div id="tagEnemyHpBar1" class="hp-bar"></div></div>
+                        </div>
+                        <div class="tag-enemy-card-bottom">
+                            <span class="tag-enemy-curry-emoji" id="tagEnemyCurryEmoji1">🍛</span>
+                            <span class="tag-enemy-curry-name" id="tagEnemyCurryName1">カレー名</span>
+                            <span class="tag-enemy-card-hp" id="tagEnemyHpText1">HP: --/--</span>
                         </div>
                     </div>
                 </div>
@@ -974,11 +987,13 @@
                 <div class="tag-player-zone" id="tagPlayerZone">
                     <div class="tag-player-card" id="tagPlayerCard0">
                         <div class="tag-player-card-name" id="tagPlayerName0">プレイヤー名</div>
+                        <div class="tag-player-card-curryname" id="tagPlayerCurryName0">カレー名</div>
                         <div class="hp-bar-bg"><div id="tagPlayerHpBar0" class="hp-bar"></div></div>
                         <div class="tag-player-card-hp" id="tagPlayerHpText0">HP: --/--</div>
                     </div>
                     <div class="tag-player-card" id="tagPlayerCard1">
-                        <div class="tag-player-card-name" id="tagPlayerName1">宅配カレー</div>
+                        <div class="tag-player-card-name" id="tagPlayerName1">宅配元プレイヤー名</div>
+                        <div class="tag-player-card-curryname" id="tagPlayerCurryName1">カレー名</div>
                         <div class="hp-bar-bg"><div id="tagPlayerHpBar1" class="hp-bar"></div></div>
                         <div class="tag-player-card-hp" id="tagPlayerHpText1">HP: --/--</div>
                     </div>
@@ -4800,6 +4815,11 @@ function tagUpdateAllHpDisplays() {
     });
 }
 
+// 既存の通常戦闘と同様、1アクションごとにログを上書きする（蓄積させない）
+function tagLogSet(text) {
+    const log = document.getElementById('tagBattleLog');
+    if(log) log.innerHTML = text;
+}
 function tagLogAppend(text) {
     const log = document.getElementById('tagBattleLog');
     if(log) log.innerHTML += (log.innerHTML ? '\n' : '') + text;
@@ -4857,10 +4877,16 @@ function launchTagBattle(myCurry, deliveryCand, enemies) {
     document.getElementById('tagBattleLog').innerHTML = `⚔️ タッグ戦開始！`;
     openingLogs.forEach(l => tagLogAppend(l));
 
-    document.getElementById('tagPlayerName0').innerText = myFighter.name + '（' + myCurry.name + '）';
-    document.getElementById('tagPlayerName1').innerText = deliveryFighter.name + '（' + deliveryCand.curry.name + '）';
+    document.getElementById('tagPlayerName0').innerText = myFighter.name;
+    document.getElementById('tagPlayerCurryName0').innerText = myCurry.name;
+    document.getElementById('tagPlayerName1').innerText = deliveryFighter.name;
+    document.getElementById('tagPlayerCurryName1').innerText = deliveryCand.curry.name;
     document.getElementById('tagEnemyName0').innerText = enemyFighters[0].name;
     document.getElementById('tagEnemyName1').innerText = enemyFighters[1].name;
+    document.getElementById('tagEnemyCurryEmoji0').innerText = enemies[0].emoji || '🍛';
+    document.getElementById('tagEnemyCurryEmoji1').innerText = enemies[1].emoji || '🍛';
+    document.getElementById('tagEnemyCurryName0').innerText = enemies[0].curryName;
+    document.getElementById('tagEnemyCurryName1').innerText = enemies[1].curryName;
     document.getElementById('tagEnemyImg0').src = enemies[0].image;
     document.getElementById('tagEnemyImg1').src = enemies[1].image;
 
@@ -4912,6 +4938,10 @@ function tagRunActionQueue(order, i, round) {
     }
     const actor = order[i];
     if(actor.hp <= 0) { tagRunActionQueue(order, i+1, round); return; } // ラウンド中に倒された場合スキップ
+
+    // 各キャラの行動開始時にログをリセット（既存の通常戦闘と同様、蓄積させない）
+    const turnIcon = actor.side === 'player' ? '🔥' : '⚠️';
+    tagLogSet(`${turnIcon} ${actor.name} のターン！`);
 
     tagExecuteTurnStart(actor, () => {
         if(actor.hp <= 0) { setTimeout(() => tagRunActionQueue(order, i+1, round), 300); return; } // 毒等で自滅
