@@ -1706,6 +1706,8 @@ function goToTop() {
     // バトル中は無効
     const arena = document.getElementById("battleArena");
     if(arena && arena.style.display === "block") return;
+    const tagArena = document.getElementById("tagBattleArena");
+    if(tagArena && tagArena.style.display === "block") return;
     // 初期画面を表示
     const pageTop = document.getElementById("pageTop");
     pageTop.style.display = "flex";
@@ -4876,6 +4878,11 @@ function tagPickRandomAliveTarget(fighters) {
 function launchTagBattle(myCurry, deliveryCand, enemies) {
     tagBattleAborted = false;
     tagBattleLogHistory = []; // 戦闘ログ履歴をリセット
+    // 前回のバトルで付いた毒・幻惑の名前色クラスをリセット
+    ['tagPlayerName0','tagPlayerName1','tagEnemyName0','tagEnemyName1'].forEach(id => {
+        const el = document.getElementById(id);
+        if(el) el.classList.remove('name-poisoned', 'name-illuded');
+    });
 
     // 4ファイター構築
     const myFighter = {
@@ -4916,6 +4923,25 @@ function launchTagBattle(myCurry, deliveryCand, enemies) {
                 target.isIlluded = true;
                 openingLogs.push(`🌀 ${target.name} は幻惑にかかった！`);
                 statusFlashQueue.push({ type: 'illusion', el: document.getElementById('tagEnemyName' + target.idx) });
+            }
+        }
+    });
+    // 戦闘開始時：敵側（毒舌料理人ミスズ／イカ星人グニョグニョ）が自分側に毒・幻惑を付与
+    enemyTeam.forEach(ef => {
+        if(ef.specialEffect === 'poison') {
+            const target = tagPickRandomAliveTarget(myTeam);
+            if(target && !target.isPoisoned) {
+                target.isPoisoned = true;
+                openingLogs.push(`☠️ ${target.name} は毒にかかった！`);
+                statusFlashQueue.push({ type: 'poison', el: document.getElementById('tagPlayerName' + target.idx) });
+            }
+        }
+        if(ef.specialEffect === 'illusion') {
+            const target = tagPickRandomAliveTarget(myTeam);
+            if(target && !target.isIlluded) {
+                target.isIlluded = true;
+                openingLogs.push(`🌀 ${target.name} は幻惑にかかった！`);
+                statusFlashQueue.push({ type: 'illusion', el: document.getElementById('tagPlayerName' + target.idx) });
             }
         }
     });
@@ -5062,6 +5088,7 @@ function tagExecuteAction(actor, myTeam, enemyTeam, callback) {
         const avgEnemySpd = (enemyTeam[0].spd + (enemyTeam[1] ? enemyTeam[1].spd : enemyTeam[0].spd)) / 2;
         const hits = rollSeedHits(actor.spd, avgEnemySpd);
         let total = 0;
+        let hitRecords = [];
         for(let h = 0; h < hits; h++) {
             const target = tagPickRandomAliveTarget(enemyTeam);
             if(!target) break;
@@ -5069,11 +5096,21 @@ function tagExecuteAction(actor, myTeam, enemyTeam, callback) {
             d = Math.round(d * (0.9 + Math.random()*0.2));
             target.hp = Math.max(0, target.hp - d);
             total += d;
-            tagTriggerDamagePop('enemy', target.idx, d, '#f1c40f');
+            hitRecords.push({ target, d });
         }
-        tagLogAppend(`🌱 ${actor.name} の種連続発射 ${hits}連撃！合計: ${total}`);
+        tagLogAppend(`🌱 ${actor.name} の種連続発射 ${hits}連撃！`);
         playSoundEffect('machine-gun.mp3');
-        callback(); return;
+        hitRecords.forEach((rec, i) => {
+            setTimeout(() => {
+                tagTriggerDamagePop('enemy', rec.target.idx, rec.d, '#f1c40f');
+                tagUpdateAllHpDisplays();
+                if(i === hitRecords.length - 1) {
+                    tagLogAppend(`合計: ${total} ダメージ！`);
+                }
+            }, i * 220);
+        });
+        setTimeout(callback, hitRecords.length * 220 + 300);
+        return;
     }
     // 通常攻撃（わんぱくならダメージ倍率増加）
     const target = tagPickRandomAliveTarget(enemyTeam);
@@ -5207,6 +5244,7 @@ function tagExecuteEnemyActionImpl(actor, myTeam, enemyTeam, callback) {
         const avgMySpd = (myTeam[0].spd + (myTeam[1] ? myTeam[1].spd : myTeam[0].spd)) / 2;
         const hits = rollSeedHits(actor.spd, avgMySpd);
         let total = 0;
+        let hitRecords2 = [];
         for(let h = 0; h < hits; h++) {
             const target = tagPickRandomAliveTarget(myTeam);
             if(!target) break;
@@ -5214,11 +5252,20 @@ function tagExecuteEnemyActionImpl(actor, myTeam, enemyTeam, callback) {
             d = Math.round(d * (0.9 + Math.random()*0.2));
             target.hp = Math.max(0, target.hp - d);
             total += d;
-            tagTriggerDamagePop('player', target.idx, d, '#f1c40f');
+            hitRecords2.push({ target, d });
         }
-        tagLogAppend(`🌱 ${actor.name} の種連続発射 ${hits}連撃！合計: ${total}`);
+        tagLogAppend(`🌱 ${actor.name} の種連続発射 ${hits}連撃！`);
         playSoundEffect('machine-gun.mp3');
-        callback();
+        hitRecords2.forEach((rec, i) => {
+            setTimeout(() => {
+                tagTriggerDamagePop('player', rec.target.idx, rec.d, '#f1c40f');
+                tagUpdateAllHpDisplays();
+                if(i === hitRecords2.length - 1) {
+                    tagLogAppend(`合計: ${total} ダメージ！`);
+                }
+            }, i * 220);
+        });
+        setTimeout(callback, hitRecords2.length * 220 + 300);
         return;
     }
     tagEnemyNormalAttack(actor, myTeam, callback);
