@@ -871,6 +871,9 @@
             <div style="padding: 8px 0 0 0; display:flex; justify-content:center;">
                 <button id="btnTagBattle" class="btn-bot-img" style="flex:0 0 48%;" onclick="startTagBattle()"><img src="pssen-03.png" alt="タッグ戦"></button>
             </div>
+            <div style="padding: 6px 0 0 0; display:flex; justify-content:center;">
+                <button style="flex:0 0 48%;padding:8px;background:transparent;color:#b88742;border:1px solid #b88742;border-radius:4px;font-size:12px;font-weight:bold;cursor:pointer;" onclick="showTagBattleInfo()">タッグ戦とは？</button>
+            </div>
             <div style="border-top: 1px solid #b88742; margin: 16px 0;"></div>
             <div style="margin-bottom: 12px;">
                 <label style="font-weight:bold; font-size:13px; color:#420000;">対人戦で使用するカレーを選択</label><br>
@@ -4533,6 +4536,23 @@ function showEventInfo() {
         + 'みんなどしどしチャレンジしてみてね！'
         + '</div>';
     showCustomAlert('【特盛りモンスターから街を守れ！】', msg);
+}
+
+function showTagBattleInfo() {
+    const msg = '<div style="text-align:left;font-size:13px;line-height:1.8;color:#420000;">'
+        + '<b>【タッグ戦】</b><br>'
+        + '2vs2のタッグ戦です。<br>'
+        + 'マッチング画面で好きな宅配カレーを選択し、一緒に出撃しましょう！<br>'
+        + '宅配カレーは全プレイヤーの宅配カレーからランダムで3つ表示されます。<br>'
+        + '3つの宅配カレーを全部使い切ると再び3つ補充されます！<br><br>'
+        + '<b>【宅配カレー】</b><br>'
+        + '冷蔵庫でカレーストックの中から1つを宅配カレーに設定できます！<br>'
+        + '宅配カレーに設定したカレーは対戦で使用することができなくなりますが、<br>'
+        + '他のプレイヤーのタッグ戦で宅配カレーとして登場します！<br>'
+        + '他のプレイヤーに宅配カレーが使われるとログイン時に報酬がもらえるよ！<br>'
+        + '宅配カレーは5回使用されると食べ尽くされちゃうのでまた設定してね！'
+        + '</div>';
+    showCustomAlert('【タッグ戦・宅配カレーとは？】', msg);
 }
 
 function playEventMovie(onFinishCallback) {
