@@ -1551,8 +1551,8 @@ const hardBotOpponents = [
 ];
 // タッグ戦専用の新規Bot2体
 const tagBattleExtraBots = [
-    { name: "カレー天使ぴゃぁ", curryName: "甘口お子様カレー", emoji: "✨💖✨", image: "bot10.png", hp: 165, atk: 50, def: 40, spd: 75, expBonus: 20, specialEffect: "angel" },
-    { name: "悪ガキサタン君", curryName: "いたずらカレー", emoji: "✨👿✨", image: "bot11.png", hp: 300, atk: 90, def: 60, spd: 45, expBonus: 20, specialEffect: "brat", isWanpaku: true, isHomerun: true }
+    { name: "カレー天使ぴゃぁ", curryName: "甘口お子様カレー", emoji: "✨💖✨", image: "bot10.png", hp: 210, atk: 50, def: 40, spd: 75, expBonus: 20, specialEffect: "angel" },
+    { name: "悪ガキサタン君", curryName: "いたずらカレー", emoji: "✨👿✨", image: "bot11.png", hp: 320, atk: 110, def: 55, spd: 45, expBonus: 20, specialEffect: "brat", isWanpaku: true, isHomerun: true }
 ];
 // タッグ戦の敵候補（既存8体＋新規2体、マハラジャは除外）
 const tagBattleBotPool = [...botOpponents, ...hardBotOpponents, ...tagBattleExtraBots];
@@ -5356,16 +5356,20 @@ function tagExecuteEnemyActionImpl(actor, myTeam, enemyTeam, callback) {
         if(r < 0.40) {
             tagEnemyNormalAttack(actor, myTeam, callback);
         } else if(r < 0.70) {
-            // 甘口スマイル：自分or味方のHPをランダム対象の最大HPの10%+100回復
-            const target = tagPickRandomAliveTarget(enemyTeam);
-            if(target) {
+            // 甘口スマイル：自分or味方でHPが少ない方の最大HPの10%+100回復（2人ともHP満タンなら代わりに通常攻撃）
+            const aliveAllies = enemyTeam.filter(f => f.hp > 0);
+            const healable = aliveAllies.filter(f => f.hp < f.maxHp);
+            if(healable.length === 0) {
+                tagEnemyNormalAttack(actor, myTeam, callback);
+            } else {
+                const target = healable.reduce((lowest, f) => (f.hp < lowest.hp ? f : lowest), healable[0]);
                 const heal = Math.round(target.maxHp * 0.10) + 100;
                 target.hp = Math.min(target.maxHp, target.hp + heal);
                 tagTriggerDamagePop('enemy', target.idx, -heal, '#2ecc71');
                 tagLogAppend(`💖 ${actor.name} の甘口スマイル！ ${target.name} のHPが ${heal} 回復！`);
                 playSoundEffect('healing.mp3');
+                callback();
             }
-            callback();
         } else {
             // 天使のカレー粉：自分と味方のDEFが3ターンの間1.5倍
             enemyTeam.forEach(f => { if(f.hp > 0) { f.defBuffTurns = 3; } });
