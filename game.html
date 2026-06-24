@@ -26,7 +26,7 @@
             50% { opacity: 0.4; }
         }
         #questGuideChar {
-            position: fixed; right: 12px; bottom: 12px; width: 170px; z-index: 500;
+            position: fixed; right: 12px; bottom: 12px; width: 144.5px; z-index: 500;
             display: none; transform: translateY(210px); transition: transform 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
             pointer-events: auto; cursor: pointer;
         }
@@ -1836,21 +1836,44 @@ function updateMuteIcon() {
     icon.src = isMuted ? 'sound-off.svg' : 'sound-on.svg';
 }
 
+let helpOpenedFromTop = false; // 「？」をトップ画面から開いたかどうかを記憶
+
 function toggleHelp() {
     const guidePanel = document.getElementById('pageGuide');
     if(!guidePanel) return;
     const isShowing = guidePanel.classList.contains('active');
     if(isShowing) {
-        // 遊び方を閉じてクエストタブに戻る
+        // チュートリアルを閉じて、元いた場所に戻る
         guidePanel.classList.remove('active');
-        const questTab = document.querySelector('[onclick*="quest"]');
-        const questPage = document.getElementById('pageQuest');
-        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-        if(questTab) questTab.classList.add('active');
-        document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-        if(questPage) questPage.classList.add('active');
-        showQuestGuideChar();
+        if(helpOpenedFromTop) {
+            // トップ画面から開いていた場合はトップ画面に戻す
+            document.getElementById('gameUI').style.display = 'none';
+            document.getElementById('pageTop').style.display = 'flex';
+        } else {
+            // ゲーム内（プレイヤータブ等）から開いていた場合はプレイヤータブに戻る
+            const questTab = document.querySelector('[onclick*="quest"]');
+            const questPage = document.getElementById('pageQuest');
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            if(questTab) questTab.classList.add('active');
+            document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+            if(questPage) questPage.classList.add('active');
+            showQuestGuideChar();
+        }
     } else {
+        // バトル中は「？」を無効化（戦闘画面から抜けられなくなるのを防ぐ）
+        const arena = document.getElementById('battleArena');
+        const tagArena = document.getElementById('tagBattleArena');
+        if((arena && arena.style.display === 'block') || (tagArena && tagArena.style.display === 'block')) {
+            return;
+        }
+        // 今トップ画面にいるかどうかを記憶しておく
+        const topPage = document.getElementById('pageTop');
+        helpOpenedFromTop = !!(topPage && topPage.style.display !== 'none');
+        if(helpOpenedFromTop) {
+            // トップ画面からの場合：gameUIを表示状態にしてからチュートリアルを被せる
+            topPage.style.display = 'none';
+            document.getElementById('gameUI').style.display = 'block';
+        }
         // 全タブ非表示にしてチュートリアルを表示（常に1ページ目から）
         document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
         document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
@@ -4473,6 +4496,10 @@ function checkEventBannerVisibility() {
     if(!banner) return;
     const visible = (eventEnabled || isDebugMode);
     banner.style.display = visible ? 'block' : 'none';
+    const hasUsableStockForEvent = curryStock.some(c => !c.isDelivering);
+    banner.style.opacity = hasUsableStockForEvent ? '1' : '0.5';
+    banner.style.filter = hasUsableStockForEvent ? 'none' : 'grayscale(70%)';
+    banner.style.pointerEvents = hasUsableStockForEvent ? 'auto' : 'none';
     const replayBtn = document.getElementById('eventReplayBtn');
     if(replayBtn) {
         const hasWatched = localStorage.getItem('qr_event_movie_watched') === '1';
@@ -4592,7 +4619,8 @@ function replayEventMovie() {
 }
 
 function startEventBattle() {
-    if (!curryStock || curryStock.length === 0) { showCustomAlert("⚠️ カレーがありません", "先に調理でカレーを作ってください。"); return; }
+    const usableStockForEvent = curryStock.filter(c => !c.isDelivering);
+    if (!usableStockForEvent || usableStockForEvent.length === 0) { showCustomAlert("⚠️ カレーがありません", "先に調理でカレーを作ってください。"); return; }
     if (!eventEnabled && !isDebugMode) { showCustomAlert("⚠️ イベント終了", "このイベントは現在開催されていません。"); return; }
     if (audioCtx.state === 'suspended') audioCtx.resume();
     const hasWatched = localStorage.getItem('qr_event_movie_watched') === '1';
@@ -5557,14 +5585,19 @@ function updateMatchCurrySelects() {
     if(!sel) return;
     sel.innerHTML = "";
     const usableStock = curryStock.filter(c => !c.isDelivering);
-    if (!usableStock || usableStock.length === 0) { sel.innerHTML = "<option value='-1'>カレーを調理してください</option>"; updateOnlineCurryStatus(-1); return; }
-    curryStock.forEach((c, idx) => { if(c.isDelivering) return; const opt = document.createElement("option"); opt.value = idx; opt.innerText = c.name; sel.appendChild(opt); });
-    updateOnlineCurryStatus(sel.value);
-    // PC対戦ボタンの有効/無効
+    if (!usableStock || usableStock.length === 0) {
+        sel.innerHTML = "<option value='-1'>カレーを調理してください</option>";
+        updateOnlineCurryStatus(-1);
+    } else {
+        curryStock.forEach((c, idx) => { if(c.isDelivering) return; const opt = document.createElement("option"); opt.value = idx; opt.innerText = c.name; sel.appendChild(opt); });
+        updateOnlineCurryStatus(sel.value);
+    }
+    // PC対戦・タッグ戦ボタンの有効/無効（出撃可能なカレーがない場合は押せない）
     const hasStock = usableStock.length > 0;
     const bn = document.getElementById("btnBotNormal"); if(bn) bn.disabled = !hasStock;
     const bh = document.getElementById("btnBotHard"); if(bh) bh.disabled = !hasStock;
     const bt = document.getElementById("btnTagBattle"); if(bt) bt.disabled = !hasStock;
+    if(typeof checkEventBannerVisibility === "function") checkEventBannerVisibility();
 }
 
 function updateOnlineCurryStatus(idx) {
