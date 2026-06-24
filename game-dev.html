@@ -4731,7 +4731,14 @@ function confirmTagDeploy() {
     // 出撃と同時に、選んだ宅配カレーをプールから消費（3つ使い切るまで再抽選しない仕様のため）
     consumeTagDeliveryCandidate(tagBattleSelectedDeliveryIdx);
     document.getElementById('tagMatchFullscreen').classList.remove('active');
-    // バトル開始処理（ステップ4で実装）
+    // タッグ戦アリーナはpageBattle内にあるため、対戦タブをアクティブにしてから表示する
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    const battleTab = document.querySelector('[onclick*="battle"]');
+    if(battleTab) battleTab.classList.add('active');
+    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+    const battlePage = document.getElementById('pageBattle');
+    if(battlePage) battlePage.classList.add('active');
+    // バトル開始処理
     if(typeof launchTagBattle === 'function') {
         launchTagBattle(myCurry, deliveryCand, tagBattleEnemies);
     }
@@ -4845,6 +4852,7 @@ function launchTagBattle(myCurry, deliveryCand, enemies) {
     // バトル画面表示
     document.getElementById('tagBattleResultBox').style.display = 'none';
     const overlay = document.getElementById('tagBattleResultOverlay'); if(overlay) overlay.style.display = 'none';
+    const setupEl = document.getElementById('battleSetup'); if(setupEl) setupEl.style.display = 'none';
     document.getElementById('tagBattleArena').style.display = 'block';
     document.getElementById('tagBattleLog').innerHTML = `⚔️ タッグ戦開始！`;
     openingLogs.forEach(l => tagLogAppend(l));
@@ -5219,6 +5227,7 @@ function endTagBattleScene() {
     stopBattleBGM();
     document.getElementById('tagBattleResultBox').style.display = 'none';
     document.getElementById('tagBattleArena').style.display = 'none';
+    const setupEl = document.getElementById('battleSetup'); if(setupEl) setupEl.style.display = 'block';
     document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
     const battleTab = document.querySelector('[onclick*="battle"]');
     if(battleTab) battleTab.classList.add('active');
