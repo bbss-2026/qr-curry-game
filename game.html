@@ -647,11 +647,41 @@
             </div>
         </div>
 
-        <!-- 管理メニュー -->
-        <div class="btn-admin-group" style="margin-top:8px; padding-top:0;">
-            <button class="btn-sm btn-danger-sm" id="clearSaveDataBtn" onclick="clearSaveData()">全初期化</button>
-            <button class="btn-sm" style="background:#420000;color:#efdeb1;flex:1.5;" onclick="showDataRestoreOptions()">データ復元</button>
+        <!-- システム・設定（アコーディオン） -->
+        <div style="padding-bottom:20px; border-bottom:1px solid #b88742; margin-bottom:20px;">
+            <div class="accordion-item" style="border:1px solid #b88742; border-radius:4px;">
+                <div class="accordion-header" onclick="toggleAccordion(this)" style="font-size:13px; font-weight:bold; color:#420000; letter-spacing:0.08em; padding:14px 12px; border-top:none;">
+                    システム・設定
+                    <span class="accordion-arrow">▼</span>
+                </div>
+                <div class="accordion-body" style="padding:12px 12px 16px 12px;">
+                    <div style="margin-bottom:16px;">
+                        <div style="font-weight:bold; font-size:12px; color:#420000; margin-bottom:8px;">バトル速度</div>
+                        <div class="tag-speed-control">
+                            <button class="tag-speed-btn active" id="settingsSpeedBtn1" onclick="setBattleSpeed(1)">通常</button>
+                            <button class="tag-speed-btn" id="settingsSpeedBtn2" onclick="setBattleSpeed(0.5)">2倍速</button>
+                            <button class="tag-speed-btn" id="settingsSpeedBtn4" onclick="setBattleSpeed(0.25)">4倍速</button>
+                        </div>
+                    </div>
+                    <div style="margin-bottom:16px;">
+                        <div style="font-weight:bold; font-size:12px; color:#420000; margin-bottom:8px;">音量オンオフ</div>
+                        <div class="tag-speed-control">
+                            <button class="tag-speed-btn" id="settingsSoundOnBtn" onclick="setMuteState(false)">🔊 オン</button>
+                            <button class="tag-speed-btn" id="settingsSoundOffBtn" onclick="setMuteState(true)">🔇 オフ</button>
+                        </div>
+                    </div>
+                    <div style="margin-bottom:16px;">
+                        <div style="font-weight:bold; font-size:12px; color:#420000; margin-bottom:8px;">パスワード設定</div>
+                        <button class="btn-sm" style="width:100%;padding:10px 6px;background:#420000;color:#efdeb1;border:none;border-radius:4px;font-weight:bold;font-size:12px;cursor:pointer;" onclick="showPasswordSetup()">🔒 パスワード設定</button>
+                    </div>
+                    <div class="btn-admin-group" style="margin-top:0; padding-top:0;">
+                        <button class="btn-sm btn-danger-sm" id="clearSaveDataBtn" onclick="clearSaveData()">全初期化</button>
+                        <button class="btn-sm" style="background:#420000;color:#efdeb1;flex:1.5;" onclick="showDataRestoreOptions()">データ復元</button>
+                    </div>
+                </div>
+            </div>
         </div>
+
         <div class="copyright-footer">©2026 Battle Curry All Rights Reserved.<br>QRコードは株式会社デンソーウェーブの登録商標です</div>
     </div>
 
@@ -1830,10 +1860,23 @@ function toggleMute() {
     updateMuteIcon();
 }
 
+// システム・設定画面のボタンから直接オン/オフを指定する
+function setMuteState(mute) {
+    isMuted = mute;
+    localStorage.setItem('qr_muted', isMuted ? '1' : '0');
+    if(isMuted && battleBGM) { battleBGM.pause(); }
+    updateMuteIcon();
+}
+
 function updateMuteIcon() {
     const icon = document.getElementById('muteIcon');
-    if(!icon) return;
-    icon.src = isMuted ? 'sound-off.svg' : 'sound-on.svg';
+    if(icon) icon.src = isMuted ? 'sound-off.svg' : 'sound-on.svg';
+    const onBtn = document.getElementById('settingsSoundOnBtn');
+    const offBtn = document.getElementById('settingsSoundOffBtn');
+    if(onBtn && offBtn) {
+        onBtn.classList.toggle('active', !isMuted);
+        offBtn.classList.toggle('active', isMuted);
+    }
 }
 
 let helpOpenedFromTop = false; // 「？」をトップ画面から開いたかどうかを記憶
@@ -3924,7 +3967,7 @@ function syncVsSelection(idx) {
     } else if(statusEl) { statusEl.innerHTML = ""; }
 }
 function startBotBattle() {
-    if (!curryStock || curryStock.length === 0) { showCustomAlert("⚠️ カレーがありません", "先に調理でカレーを作ってください。"); return; }
+    if (!hasUsableCurryForBattle()) { alertNoUsableCurry(); return; }
     if (audioCtx.state === 'suspended') audioCtx.resume();
     isBotMatch = true; currentRoomId = null;
     let oppCurryData = null; let bName = ""; let bVisual = ""; let bCurryEmoji = "🍛";
@@ -4496,10 +4539,6 @@ function checkEventBannerVisibility() {
     if(!banner) return;
     const visible = (eventEnabled || isDebugMode);
     banner.style.display = visible ? 'block' : 'none';
-    const hasUsableStockForEvent = curryStock.some(c => !c.isDelivering);
-    banner.style.opacity = hasUsableStockForEvent ? '1' : '0.5';
-    banner.style.filter = hasUsableStockForEvent ? 'none' : 'grayscale(70%)';
-    banner.style.pointerEvents = hasUsableStockForEvent ? 'auto' : 'none';
     const replayBtn = document.getElementById('eventReplayBtn');
     if(replayBtn) {
         const hasWatched = localStorage.getItem('qr_event_movie_watched') === '1';
@@ -4619,8 +4658,7 @@ function replayEventMovie() {
 }
 
 function startEventBattle() {
-    const usableStockForEvent = curryStock.filter(c => !c.isDelivering);
-    if (!usableStockForEvent || usableStockForEvent.length === 0) { showCustomAlert("⚠️ カレーがありません", "先に調理でカレーを作ってください。"); return; }
+    if (!hasUsableCurryForBattle()) { alertNoUsableCurry(); return; }
     if (!eventEnabled && !isDebugMode) { showCustomAlert("⚠️ イベント終了", "このイベントは現在開催されていません。"); return; }
     if (audioCtx.state === 'suspended') audioCtx.resume();
     const hasWatched = localStorage.getItem('qr_event_movie_watched') === '1';
@@ -4682,8 +4720,7 @@ function clearTagDeliveryPool() {
 }
 
 function startTagBattle() {
-    const usableStock = curryStock.filter(c => !c.isDelivering);
-    if (!usableStock || usableStock.length === 0) { showCustomAlert("⚠️ カレーがありません", "先に調理でカレーを作ってください。"); return; }
+    if (!hasUsableCurryForBattle()) { alertNoUsableCurry(); return; }
     if (audioCtx.state === 'suspended') audioCtx.resume();
     playVsSound();
 
@@ -4900,8 +4937,7 @@ function setBattleSpeed(mult) {
     battleSpeedMultiplier = mult;
     const suffix = mult === 1 ? '1' : (mult === 0.5 ? '2' : '4');
     document.querySelectorAll('.tag-speed-btn').forEach(b => b.classList.remove('active'));
-    document.querySelectorAll('[id^="tagSpeedBtn"], [id^="normalSpeedBtn"]').forEach(b => b.classList.remove('active'));
-    const ids = ['tagSpeedBtn' + suffix, 'normalSpeedBtn' + suffix];
+    const ids = ['tagSpeedBtn' + suffix, 'normalSpeedBtn' + suffix, 'settingsSpeedBtn' + suffix];
     ids.forEach(id => { const btn = document.getElementById(id); if(btn) btn.classList.add('active'); });
 }
 let tagBattleFighters = []; // [自分, 宅配カレー, 敵1, 敵2] の4要素
@@ -5274,7 +5310,7 @@ function tagExecuteAction(actor, myTeam, enemyTeam, callback) {
 }
 
 function startHardBotBattle() {
-    if (!curryStock || curryStock.length === 0) { showCustomAlert("⚠️ カレーがありません", "先に調理でカレーを作ってください。"); return; }
+    if (!hasUsableCurryForBattle()) { alertNoUsableCurry(); return; }
     if (audioCtx.state === 'suspended') audioCtx.resume();
     isBotMatch = true; currentRoomId = null;
     const bot = hardBotOpponents[Math.floor(Math.random() * hardBotOpponents.length)];
@@ -5592,12 +5628,15 @@ function updateMatchCurrySelects() {
         curryStock.forEach((c, idx) => { if(c.isDelivering) return; const opt = document.createElement("option"); opt.value = idx; opt.innerText = c.name; sel.appendChild(opt); });
         updateOnlineCurryStatus(sel.value);
     }
-    // PC対戦・タッグ戦ボタンの有効/無効（出撃可能なカレーがない場合は押せない）
-    const hasStock = usableStock.length > 0;
-    const bn = document.getElementById("btnBotNormal"); if(bn) bn.disabled = !hasStock;
-    const bh = document.getElementById("btnBotHard"); if(bh) bh.disabled = !hasStock;
-    const bt = document.getElementById("btnTagBattle"); if(bt) bt.disabled = !hasStock;
     if(typeof checkEventBannerVisibility === "function") checkEventBannerVisibility();
+}
+
+// 対戦ボタンを押す前に、出撃可能なカレー（宅配中を除く）があるか確認する共通チェック
+function hasUsableCurryForBattle() {
+    return curryStock.some(c => !c.isDelivering);
+}
+function alertNoUsableCurry() {
+    showCustomAlert("⚠️ カレーがありません", "カレーがありません。調理してください。");
 }
 
 function updateOnlineCurryStatus(idx) {
