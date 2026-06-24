@@ -2913,7 +2913,7 @@ function updateFridgeCurryStockGrid() {
     curryStock.forEach((curry, idx) => {
         const itemDiv = document.createElement("div");
         itemDiv.className = "fridge-item discovered";
-        const typeImg = CURRY_TYPE_IMAGES[curry.curryType] || CURRY_TYPE_IMAGES.balance;
+        const typeImg = getCurryImage(curry);
         itemDiv.innerHTML = `<div class="fridge-emoji"><img src="${typeImg}" style="width:40px;height:40px;object-fit:contain;display:block;margin:0 auto;"></div><div style="font-size:11px;line-height:1.3;">${curry.name}</div>`;
         itemDiv.onclick = function() {
             const typeLabel = CURRY_TYPE_LABELS[curry.curryType] || 'バランス型';
@@ -3219,6 +3219,22 @@ const CURRY_TYPE_IMAGES = {
 };
 const CURRY_TYPE_LABELS = { hp: '体力型', atk: '攻撃型', def: '防御型', spd: 'スピード型', balance: 'バランス型' };
 
+// 特殊カレー専用イラスト（型判定より優先）
+const CURRY_SPECIAL_IMAGES = {
+    seafood: 'currymonster/curry_umi.png',
+    poison: 'currymonster/curry_poison.png',
+    homerun: 'currymonster/curry_homerun.png',
+    seed: 'currymonster/curry_tane.png'
+};
+function getCurryImage(curry) {
+    if(!curry) return CURRY_TYPE_IMAGES.balance;
+    if(curry.isSeafood) return CURRY_SPECIAL_IMAGES.seafood;
+    if(curry.isPoison) return CURRY_SPECIAL_IMAGES.poison;
+    if(curry.isHomerun) return CURRY_SPECIAL_IMAGES.homerun;
+    if(curry.isSeed) return CURRY_SPECIAL_IMAGES.seed;
+    return CURRY_TYPE_IMAGES[curry.curryType] || CURRY_TYPE_IMAGES.balance;
+}
+
 function cookCurry() {
     const i1 = document.getElementById("ingredient1").value; const i2 = document.getElementById("ingredient2").value; const i3 = document.getElementById("ingredient3").value; const sp = document.getElementById("spice").value;
     if(i1) inventory[i1]--; if(i2) inventory[i2]--; if(i3) inventory[i3]--; if(sp) inventory[sp]--;
@@ -3334,7 +3350,7 @@ function cookCurry() {
     onCookDone(newCurry); // 実績・デイリー更新
     // カレー結果のイラスト表示（型別イラスト）＋食材アイコン
     const curryImg = document.getElementById("curryVisualImg");
-    curryImg.src = CURRY_TYPE_IMAGES[curryType]; curryImg.style.display = "block";
+    curryImg.src = getCurryImage(newCurry); curryImg.style.display = "block";
     const cookIconsHTML = curryIconsHTML(acts, sp, '32px');
     document.getElementById("cookResultIcons").innerHTML = cookIconsHTML || vis; document.getElementById("curryName").innerText=cName;
     document.getElementById("statHP").innerText=hp; document.getElementById("statATK").innerText=atk; document.getElementById("statDEF").innerText=def; document.getElementById("statSPD").innerText=spd;
