@@ -326,6 +326,10 @@
         .tag-player-card-curryname { font-size: 11px; color: #f1c40f; font-weight: bold; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-bottom: 5px; }
         .tag-player-card-hp { font-size: 10px; text-align: right; font-weight: bold; margin-top: 2px; }
         .tag-player-card.ko { opacity: 0.4; filter: grayscale(80%); }
+        .tag-speed-control { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; }
+        .tag-speed-label { font-size: 11px; color: #888; }
+        .tag-speed-btn { padding: 4px 10px; font-size: 11px; font-weight: bold; border: 1px solid #b88742; border-radius: 12px; background: transparent; color: #b88742; cursor: pointer; }
+        .tag-speed-btn.active { background: #b88742; color: #fff; }
         .sub-name-label { color: #ffffff; font-size: 13px; font-weight: bold; background: rgba(0,0,0,0.5); padding: 4px 8px; border-radius: 4px; display: inline-block; word-break: break-all; }
         
         /* VSカットイン画面 */
@@ -1005,6 +1009,12 @@
                 </div>
             </div>
 
+            <div class="tag-speed-control">
+                <span class="tag-speed-label">再生速度:</span>
+                <button class="tag-speed-btn active" id="tagSpeedBtn1" onclick="setTagBattleSpeed(1)">通常</button>
+                <button class="tag-speed-btn" id="tagSpeedBtn2" onclick="setTagBattleSpeed(0.5)">2倍速</button>
+                <button class="tag-speed-btn" id="tagSpeedBtn4" onclick="setTagBattleSpeed(0.25)">4倍速</button>
+            </div>
             <div class="battle-monitor" id="tagBattleLog"></div>
             <div id="tagBattleResultBox" style="display:none; background:#fffdf0; padding:15px; border-radius:10px; border:2px dashed #9b59b6; margin-top:15px; text-align:center;">
                 <h2 id="tagBattleVerdict" style="color:#e74c3c;">VICTORY!</h2>
@@ -4786,6 +4796,14 @@ function confirmTagDeploy() {
 // タッグ戦バトル本体
 // ============================================================
 let tagBattleAborted = false;
+let tagBattleSpeedMultiplier = 1; // 1=通常速度、0.5=2倍速、0.25=4倍速
+function tagDelay(ms) { return Math.round(ms * tagBattleSpeedMultiplier); }
+function setTagBattleSpeed(mult) {
+    tagBattleSpeedMultiplier = mult;
+    document.querySelectorAll('.tag-speed-btn').forEach(b => b.classList.remove('active'));
+    const btn = document.getElementById('tagSpeedBtn' + (mult === 1 ? '1' : (mult === 0.5 ? '2' : '4')));
+    if(btn) btn.classList.add('active');
+}
 let tagBattleFighters = []; // [自分, 宅配カレー, 敵1, 敵2] の4要素
 
 function tagTriggerDamagePop(targetSide, targetIdx, value, color) {
@@ -4994,15 +5012,15 @@ function tagBattleStep(round) {
     if(tagBattleAborted) return;
     if(round > 20) {
         tagLogAppend(`💨 制限時間切れ！両者引き分けで終了！`);
-        setTimeout(() => tagFinishBattle('draw'), 600);
+        setTimeout(() => tagFinishBattle('draw'), tagDelay(600));
         return;
     }
     const myTeam = [tagBattleFighters[0], tagBattleFighters[1]];
     const enemyTeam = [tagBattleFighters[2], tagBattleFighters[3]];
 
     // 全滅判定
-    if(myTeam.every(f => f.hp <= 0)) { setTimeout(() => tagFinishBattle('lose'), 400); return; }
-    if(enemyTeam.every(f => f.hp <= 0)) { setTimeout(() => tagFinishBattle('win'), 400); return; }
+    if(myTeam.every(f => f.hp <= 0)) { setTimeout(() => tagFinishBattle('lose'), tagDelay(400)); return; }
+    if(enemyTeam.every(f => f.hp <= 0)) { setTimeout(() => tagFinishBattle('win'), tagDelay(400)); return; }
 
     // 行動順（生存者のみ、SPD降順）
     const order = tagBattleFighters.filter(f => f.hp > 0).sort((a,b) => b.spd - a.spd);
@@ -5013,12 +5031,12 @@ function tagRunActionQueue(order, i, round) {
     if(tagBattleAborted) return;
     const myTeam = [tagBattleFighters[0], tagBattleFighters[1]];
     const enemyTeam = [tagBattleFighters[2], tagBattleFighters[3]];
-    if(myTeam.every(f => f.hp <= 0)) { setTimeout(() => tagFinishBattle('lose'), 400); return; }
-    if(enemyTeam.every(f => f.hp <= 0)) { setTimeout(() => tagFinishBattle('win'), 400); return; }
+    if(myTeam.every(f => f.hp <= 0)) { setTimeout(() => tagFinishBattle('lose'), tagDelay(400)); return; }
+    if(enemyTeam.every(f => f.hp <= 0)) { setTimeout(() => tagFinishBattle('win'), tagDelay(400)); return; }
 
     if(i >= order.length) {
         // このラウンド終了、次ラウンドへ
-        setTimeout(() => tagBattleStep(round + 1), 1200);
+        setTimeout(() => tagBattleStep(round + 1), tagDelay(1200));
         return;
     }
     const actor = order[i];
@@ -5030,13 +5048,13 @@ function tagRunActionQueue(order, i, round) {
 
     setTimeout(() => {
         tagExecuteTurnStart(actor, () => {
-            if(actor.hp <= 0) { setTimeout(() => tagRunActionQueue(order, i+1, round), 600); return; } // 毒等で自滅
+            if(actor.hp <= 0) { setTimeout(() => tagRunActionQueue(order, i+1, round), tagDelay(600)); return; } // 毒等で自滅
             tagExecuteAction(actor, myTeam, enemyTeam, () => {
                 tagUpdateAllHpDisplays();
-                setTimeout(() => tagRunActionQueue(order, i+1, round), 1500);
+                setTimeout(() => tagRunActionQueue(order, i+1, round), tagDelay(1500));
             });
         });
-    }, 500);
+    }, tagDelay(500));
 }
 
 // ターン開始時処理：毒ダメージ・カレー天使の天使のカレー粉ターン消費等
@@ -5048,9 +5066,9 @@ function tagExecuteTurnStart(actor, callback) {
         tagTriggerDamagePop(side, actor.idx, d, '#9b59b6');
         tagLogAppend(`☠️ ${actor.name} は毒ダメージ: ${d}`);
         tagUpdateAllHpDisplays();
-        if(actor.hp <= 0) { tagLogAppend(`💀 ${actor.name} は毒でダウン！`); setTimeout(callback, 500); return; }
+        if(actor.hp <= 0) { tagLogAppend(`💀 ${actor.name} は毒でダウン！`); setTimeout(callback, tagDelay(500)); return; }
     }
-    setTimeout(callback, actor.isPoisoned ? 400 : 0);
+    setTimeout(callback, actor.isPoisoned ? tagDelay(400) : 0);
 }
 
 // 1キャラの行動を実行する（プレイヤー側カレー用。敵Bot側はtagExecuteEnemyActionで処理）
@@ -5105,11 +5123,19 @@ function tagExecuteAction(actor, myTeam, enemyTeam, callback) {
                 tagTriggerDamagePop('enemy', rec.target.idx, rec.d, '#f1c40f');
                 tagUpdateAllHpDisplays();
                 if(i === hitRecords.length - 1) {
-                    tagLogAppend(`合計: ${total} ダメージ！`);
+                    // 対象ごとに「何回・合計何ダメージ」を集計して表示
+                    const summary = {};
+                    hitRecords.forEach(r => {
+                        if(!summary[r.target.idx]) summary[r.target.idx] = { name: r.target.name, count: 0, dmg: 0 };
+                        summary[r.target.idx].count++;
+                        summary[r.target.idx].dmg += r.d;
+                    });
+                    const summaryText = Object.values(summary).map(s => `${s.name}に${s.count}回(${s.dmg}ダメージ)`).join(' / ');
+                    tagLogAppend(`${summaryText} 合計: ${total} ダメージ！`);
                 }
-            }, i * 220);
+            }, tagDelay(i * 220));
         });
-        setTimeout(callback, hitRecords.length * 220 + 300);
+        setTimeout(callback, tagDelay(hitRecords.length * 220 + 300));
         return;
     }
     // 通常攻撃（わんぱくならダメージ倍率増加）
@@ -5261,11 +5287,18 @@ function tagExecuteEnemyActionImpl(actor, myTeam, enemyTeam, callback) {
                 tagTriggerDamagePop('player', rec.target.idx, rec.d, '#f1c40f');
                 tagUpdateAllHpDisplays();
                 if(i === hitRecords2.length - 1) {
-                    tagLogAppend(`合計: ${total} ダメージ！`);
+                    const summary2 = {};
+                    hitRecords2.forEach(r => {
+                        if(!summary2[r.target.idx]) summary2[r.target.idx] = { name: r.target.name, count: 0, dmg: 0 };
+                        summary2[r.target.idx].count++;
+                        summary2[r.target.idx].dmg += r.d;
+                    });
+                    const summaryText2 = Object.values(summary2).map(s => `${s.name}に${s.count}回(${s.dmg}ダメージ)`).join(' / ');
+                    tagLogAppend(`${summaryText2} 合計: ${total} ダメージ！`);
                 }
-            }, i * 220);
+            }, tagDelay(i * 220));
         });
-        setTimeout(callback, hitRecords2.length * 220 + 300);
+        setTimeout(callback, tagDelay(hitRecords2.length * 220 + 300));
         return;
     }
     tagEnemyNormalAttack(actor, myTeam, callback);
