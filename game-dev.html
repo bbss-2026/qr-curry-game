@@ -162,6 +162,28 @@
         }
         .bingo-toast.show { opacity:1; transform:translate(-50%,0) scale(1); }
 
+        /* タッグ戦マッチング画面 */
+        .tag-match-body { flex:1; overflow-y:auto; padding:16px; -webkit-overflow-scrolling:touch; }
+        .tag-match-section-label { color:#efdeb1; font-size:13px; font-weight:bold; margin-bottom:8px; border-bottom:1px solid #6b5a3f; padding-bottom:4px; }
+        .tag-enemy-list { display:flex; flex-direction:column; gap:8px; margin-bottom:8px; }
+        .tag-enemy-card { display:flex; align-items:center; gap:10px; background:#2b2b2b; border:1px solid #6b5a3f; border-radius:8px; padding:8px 10px; }
+        .tag-enemy-card img.tag-enemy-icon { width:48px; height:48px; border-radius:50%; object-fit:cover; border:2px solid #b88742; flex-shrink:0; }
+        .tag-enemy-info { flex:1; min-width:0; }
+        .tag-enemy-name { color:#efdeb1; font-size:13px; font-weight:bold; }
+        .tag-enemy-curry { color:#f1c40f; font-size:11px; margin-top:2px; }
+        .tag-delivery-list { display:flex; flex-direction:column; gap:8px; }
+        .tag-delivery-card {
+            display:flex; align-items:center; gap:10px; background:#2b2b2b; border:2px solid #6b5a3f; border-radius:8px;
+            padding:8px 10px; cursor:pointer; transition: border-color 0.15s, background 0.15s;
+        }
+        .tag-delivery-card.selected { border-color:#d35400; background:#3a2a1a; }
+        .tag-delivery-card img.tag-delivery-icon { width:40px; height:40px; border-radius:50%; object-fit:cover; border:2px solid #b88742; flex-shrink:0; }
+        .tag-delivery-card img.tag-delivery-curry-img { width:36px; height:36px; object-fit:contain; flex-shrink:0; }
+        .tag-delivery-info { flex:1; min-width:0; }
+        .tag-delivery-player { color:#efdeb1; font-size:12px; font-weight:bold; }
+        .tag-delivery-curryname { color:#f1c40f; font-size:11px; margin-top:2px; }
+        .tag-delivery-detail-btn { flex-shrink:0; padding:5px 10px; background:#555; color:#efdeb1; border:none; border-radius:4px; font-size:10px; cursor:pointer; }
+
         .bingo-preview-overlay {
             position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.6);
             z-index:9700; display:none; align-items:center; justify-content:center;
@@ -634,6 +656,26 @@
             </div>
         </div>
     </div>
+
+    <!-- タッグ戦マッチング画面 -->
+    <div id="tagMatchFullscreen" class="tutorial-fullscreen">
+        <div class="tutorial-header">
+            <button class="tutorial-close" onclick="closeTagMatchModal()">✕</button>
+            <div class="tutorial-page-indicator">タッグ戦マッチング</div>
+        </div>
+        <div class="tag-match-body">
+            <div class="tag-match-section-label">⚔️ 対戦相手</div>
+            <div class="tag-enemy-list" id="tagEnemyList"></div>
+
+            <div class="tag-match-section-label" style="margin-top:18px;">🍛 自分の出撃カレー</div>
+            <select id="tagMyCurrySelect" class="room-input" style="margin:6px 0;" onchange="updateTagMatchPreview()"></select>
+
+            <div class="tag-match-section-label" style="margin-top:14px;">🚚 タッグを組む宅配カレー</div>
+            <div class="tag-delivery-list" id="tagDeliveryList"></div>
+
+            <button class="tutorial-nav-btn" id="tagDeployBtn" style="width:100%;margin-top:18px;background:#d35400;" onclick="confirmTagDeploy()" disabled>出撃する</button>
+        </div>
+    </div>
     <!-- QRスキャンタブ -->
     <div id="pageScan" class="page" style="text-align:center;">
         <button id="btnQrBingo" class="btn btn-start" onclick="openBingoModal()" style="display:flex;align-items:center;justify-content:center;gap:8px;width:80%;color:#efdeb1;font-size:16px;background:#d35400;margin-bottom:10px;">QR BINGO</button>
@@ -778,6 +820,9 @@
             <div style="padding: 16px 0 0 0; display:flex; gap:6px;">
                 <button id="btnBotNormal" class="btn-bot-img" onclick="startBotBattle()"><img src="pssen-01.png" alt="PCと対戦する（初級）"></button>
                 <button id="btnBotHard" class="btn-bot-img" onclick="startHardBotBattle()"><img src="pssen-02.png" alt="PCと対戦する（中級）"></button>
+            </div>
+            <div style="padding: 8px 0 0 0; display:flex; justify-content:center;">
+                <button id="btnTagBattle" class="btn-bot-img" style="flex:0 0 48%;" onclick="startTagBattle()"><img src="pssen-03.png" alt="タッグ戦"></button>
             </div>
             <div style="border-top: 1px solid #b88742; margin: 16px 0;"></div>
             <div style="margin-bottom: 12px;">
@@ -1348,6 +1393,13 @@ const hardBotOpponents = [
     { name: "ドラゴン料理長", curryName: "炎獄ドラゴンカレー", emoji: "🐲🐉🔥", image: "bot08.png", hp: 400, atk: 100, def: 60, spd: 20, expBonus: 30, specialEffect: "breath" },
     { name: "毒舌料理人ミスズ", curryName: "激辛毒毒カレー", emoji: "☠️🌶️☠️", image: "bot09.png", hp: 360, atk: 90, def: 65, spd: 35, expBonus: 30, specialEffect: "poison" }
 ];
+// タッグ戦専用の新規Bot2体
+const tagBattleExtraBots = [
+    { name: "カレー天使ぴゃぁ", curryName: "甘口お子様カレー", emoji: "✨💖✨", image: "bot10.png", hp: 165, atk: 50, def: 40, spd: 75, expBonus: 20, specialEffect: "angel" },
+    { name: "悪ガキサタン君", curryName: "いたずらカレー", emoji: "✨👿✨", image: "bot11.png", hp: 300, atk: 90, def: 60, spd: 45, expBonus: 20, specialEffect: "brat", isWanpaku: true, isHomerun: true }
+];
+// タッグ戦の敵候補（既存8体＋新規2体、マハラジャは除外）
+const tagBattleBotPool = [...botOpponents, ...hardBotOpponents, ...tagBattleExtraBots];
 let inventory = {}; let scanHistory = {};
 let playerG = 0; let playerEXP = 0; let packTicket = 0; let spicyCoin = 0;
 let curryStock = []; let selectedCurryIndex = -1;
@@ -2995,6 +3047,7 @@ function confirmSetDeliveryCurry(idx) {
         // 削除によってindexがずれる可能性があるため、参照で現在のindexを再特定
         const finalIdx = curryStock.indexOf(newDeliveryCurryRef);
         curryStock[finalIdx].isDelivering = true;
+        publishDeliveryCurryToCloud(curryStock[finalIdx]);
         if(selectedCurryIndex === idx || (curryStock[selectedCurryIndex] && curryStock[selectedCurryIndex].isDelivering)) {
             selectedCurryIndex = curryStock.findIndex(c => !c.isDelivering);
         }
@@ -3276,6 +3329,241 @@ function getCurryImage(curry) {
     if(curry.isHomerun) return CURRY_SPECIAL_IMAGES.homerun;
     if(curry.isSeed) return CURRY_SPECIAL_IMAGES.seed;
     return CURRY_TYPE_IMAGES[curry.curryType] || CURRY_TYPE_IMAGES.balance;
+}
+
+// 在庫消費・DOM操作・実績更新を行わない、純粋なカレー生成ロジック（ダミーキャラ・宅配カレー生成等で共用）
+function buildCurryFromMaterials(materialNames, spiceName) {
+    const i1 = materialNames[0] || ""; const i2 = materialNames[1] || ""; const i3 = materialNames[2] || ""; const sp = spiceName || "";
+    let hp = (i1?masterIngredients[i1].hp:0)+(i2?masterIngredients[i2].hp:0)+(i3?masterIngredients[i3].hp:0);
+    let atk = (i1?masterIngredients[i1].atk:0)+(i2?masterIngredients[i2].atk:0)+(i3?masterIngredients[i3].atk:0);
+    let def = (i1?masterIngredients[i1].def:0)+(i2?masterIngredients[i2].def:0)+(i3?masterIngredients[i3].def:0);
+    let spd = (i1?masterIngredients[i1].spd:0)+(i2?masterIngredients[i2].spd:0)+(i3?masterIngredients[i3].spd:0);
+    let prefix = ""; if(sp){ prefix=masterSpices[sp].name; let mul=masterSpices[sp].mul; let val=masterSpices[sp].val; if(mul==="hp")hp=Math.round(hp*val); if(mul==="atk")atk=Math.round(atk*val); if(mul==="def")def=Math.round(def*val); if(mul==="spd")spd=Math.round(spd*val); }
+    let acts = [i1,i2,i3].filter(Boolean); let cName = ""; let vis = "";
+    let isPoison = false; let hasGold = acts.includes("金箔");
+    let countNas = acts.filter(x => x === "ナス").length;
+    let hasRaisin = acts.includes("レーズン"); let hasSaba = acts.includes("サバ"); let hasTuna = acts.includes("ツナ"); let hasDaikon = acts.includes("大根"); let hasPotato = acts.includes("ジャガイモ");
+    let isMargherita = acts.includes("トマト") && acts.includes("チーズ");
+    let isTonTonTon = acts.filter(x => x === "トンカツ").length === 3;
+    const SEAFOOD_LIST = ["サバ","イカ","小エビ","ホタテ","ツナ","牡蠣","キャビア","オマール海老","ズワイガニ"];
+    let isSeafood = acts.length === 3 && acts.every(x => SEAFOOD_LIST.includes(x));
+    let isIllusion = acts.includes("イカ") && acts.includes("マッシュルーム");
+    let isSticky = acts.includes("オクラ") && acts.includes("チーズ");
+    const SEED_LIST = ["ピーマン","赤パプリカ","黄パプリカ","オクラ","トマト","ナス","レーズン","レンコン"];
+    let seedCount = acts.filter(x => SEED_LIST.includes(x)).length;
+    let isSeed = seedCount >= 2;
+    const WANPAKU_LIST = ["トンカツ","唐揚げ","ウインナー","牛肉"];
+    let wanpakuCount = acts.filter(x => WANPAKU_LIST.includes(x)).length;
+    let wanpakuUnique = new Set(acts.filter(x => WANPAKU_LIST.includes(x))).size;
+    let isWanpaku = acts.length === 3 && wanpakuCount === 3 && wanpakuUnique === 3;
+    const RATATOUILLE_LIST = ["ナス","ピーマン","赤パプリカ","黄パプリカ","トマト","マッシュルーム"];
+    let rataCount = acts.filter(x => RATATOUILLE_LIST.includes(x)).length;
+    let rataUnique = new Set(acts.filter(x => RATATOUILLE_LIST.includes(x))).size;
+    let isRatatouille = acts.length === 3 && rataCount === 3 && rataUnique === 3;
+    const HOMERUN_LIST = ["レンコン","ウインナー","にんじん","大根"];
+    let homerunCount = acts.filter(x => HOMERUN_LIST.includes(x)).length;
+    let isHomerun = homerunCount >= 2;
+    if(acts.length===0){ cName=`${prefix}スパイススープ`; vis="🥣"; } else {
+        if(isMargherita) {
+            const others = acts.filter(x => x !== "トマト" && x !== "チーズ");
+            let body = others.length > 0 ? others.map(x => x).join("") : "";
+            cName = `${prefix}マルゲリータ${body ? body + "の" : ""}カレー`;
+            vis = acts.map(x => masterIngredients[x].emoji).join("");
+        } else if(isTonTonTon) {
+            cName = "3匹のトントントン"; vis = "🐷🐷🐷";
+        } else {
+            let cnts={}; acts.forEach(x=>cnts[x]=(cnts[x]||0)+1); let body="";
+            Object.keys(cnts).forEach(k=>{ if(cnts[k]===3)body+=`トリプル${k}`; else if(cnts[k]===2)body+=`W${k}`; else body+=k; });
+            cName=`${prefix}${body}カレー`; vis=acts.map(x=>masterIngredients[x].emoji).join("");
+            if(isSeafood) cName = `🌊${cName}🌊`;
+        }
+    }
+    if(isMargherita) { hp=Math.round(hp*1.2); atk=Math.round(atk*1.2); def=Math.round(def*1.2); spd=Math.round(spd*1.2); }
+    let poisonChosen = null;
+    let poisonNasPartner = "";
+    if(countNas >= 1 && hasRaisin) { poisonChosen = "poison_nas_partner"; poisonNasPartner = "レーズン"; }
+    else if(countNas >= 1 && hasPotato) { poisonChosen = "poison_nas_partner"; poisonNasPartner = "ジャガイモ"; }
+    else if((hasSaba || hasTuna) && countNas >= 1 && hasDaikon) poisonChosen = "poison_fish";
+    else if(countNas >= 2) poisonChosen = "poison_nas2";
+    let exclusiveCandidates = [];
+    if(!poisonChosen) {
+        if(isMargherita) exclusiveCandidates.push("margherita");
+        if(isTonTonTon) exclusiveCandidates.push("tonton");
+        if(isIllusion) exclusiveCandidates.push("illusion");
+        if(isSticky) exclusiveCandidates.push("sticky");
+        if(isSeed) exclusiveCandidates.push("seed");
+        if(isWanpaku) exclusiveCandidates.push("wanpaku");
+        if(isRatatouille) exclusiveCandidates.push("ratatouille");
+        if(isHomerun) exclusiveCandidates.push("homerun");
+    }
+    const chosen = poisonChosen || (exclusiveCandidates.length > 0 ? exclusiveCandidates[Math.floor(Math.random() * exclusiveCandidates.length)] : null);
+    isPoison=false; isMargherita=false; isTonTonTon=false; isIllusion=false; isSticky=false; isSeed=false; isWanpaku=false; isRatatouille=false; isHomerun=false;
+    if(chosen === "poison_nas_partner") { cName = `☠️瘴気漂う毒ナス${poisonNasPartner}`; isPoison = true; }
+    else if(chosen === "poison_fish") { cName = "☠️デスフィッシュカレー"; isPoison = true; }
+    else if(chosen === "poison_nas2") { cName = "☠️怨念のナス毒沼カレー"; isPoison = true; }
+    else if(chosen === "margherita") { isMargherita = true; }
+    else if(chosen === "tonton") { isTonTonTon = true; }
+    else if(chosen === "illusion") { cName = `🌀幻惑の${cName}`; isIllusion = true; }
+    else if(chosen === "sticky") { cName = `💚ネバネバ${cName}`; isSticky = true; }
+    else if(chosen === "seed") { cName = `🌱種連発${cName}`; isSeed = true; }
+    else if(chosen === "wanpaku") { cName = "🍛これこれ！わんぱくカレー！"; isWanpaku = true; }
+    else if(chosen === "ratatouille") { cName = "☀️太陽のラタトゥイユカレー"; isRatatouille = true; }
+    else if(chosen === "homerun") { cName = `🏏${cName}ホームランカレー`; isHomerun = true; }
+    let isCritical = false;
+    if(hasGold) { cName = `✨黄金仕立ての${cName}`; }
+    if(!hasGold && !isSeafood && Math.random()<0.15){ cName=`💎至高の${cName}`; hp=Math.round(hp*1.4); atk=Math.round(atk*1.4); isCritical = true; }
+    const curryType = getCurryType(hp, atk, def, spd);
+    return { name: cName, visual: vis, hp: hp, atk: atk, def: def, spd: spd, isPoison, hasGold, isMargherita, isTonTonTon, isSeafood, isIllusion, isSticky, isSeed, isWanpaku, isRatatouille, isHomerun, isCritical, materials: acts.length ? acts : [], spice: sp || "", curryType: curryType };
+}
+
+// ランダムに食材プールから1〜3個選んでカレーを生成（ダミーキャラ・宅配カレー生成用）
+function generateRandomCurryFromPool(ingredientPool, includeSpice) {
+    const shuffled = [...ingredientPool].sort(() => Math.random() - 0.5);
+    const materials = shuffled.slice(0, 3);
+    let spice = "";
+    if(includeSpice && Math.random() < 0.5) {
+        const spicePool = Object.keys(masterSpices).filter(k => k !== "マンゴーチャツネ");
+        spice = spicePool[Math.floor(Math.random() * spicePool.length)];
+    }
+    return buildCurryFromMaterials(materials, spice);
+}
+
+// ============================================================
+// ダミーキャラ（タッグ戦の宅配カレー抽選プール用、本物のプレイヤーが少ない場合の補充）
+// ============================================================
+const NORMAL_INGREDIENT_POOL = Object.keys(masterIngredients).filter(k => masterIngredients[k].shop === 0);
+const MID_INGREDIENT_POOL = Object.keys(masterIngredients).filter(k => masterIngredients[k].shop === 0 || masterIngredients[k].shop === 1);
+const HIGH_INGREDIENT_POOL = Object.keys(masterIngredients).filter(k => masterIngredients[k].shop === 0 || masterIngredients[k].shop === 1 || masterIngredients[k].shop === 2);
+
+// 「ノーマルカレー」（特殊効果なし）を確実に生成する
+function generateGuaranteedNormalCurry(pool, maxRetry) {
+    maxRetry = maxRetry || 30;
+    for(let i = 0; i < maxRetry; i++) {
+        const curry = generateRandomCurryFromPool(pool, false);
+        if(!curry.isPoison && !curry.hasGold && !curry.isMargherita && !curry.isTonTonTon && !curry.isSeafood
+            && !curry.isIllusion && !curry.isSticky && !curry.isSeed && !curry.isWanpaku && !curry.isRatatouille && !curry.isHomerun && !curry.isCritical) {
+            return curry;
+        }
+    }
+    // 確実に特殊効果が出ない3食材（金箔・海鮮系を避けたノーマル野菜のみ）でフォールバック
+    return buildCurryFromMaterials(["玉ねぎ", "にんじん", "ジャガイモ"], "");
+}
+// 種連射カレーを確実に生成する
+function generateGuaranteedSeedCurry(pool, maxRetry) {
+    maxRetry = maxRetry || 50;
+    const seedList = ["ピーマン","赤パプリカ","黄パプリカ","オクラ","トマト","ナス","レーズン","レンコン"];
+    const seedPoolFiltered = pool.filter(x => seedList.includes(x));
+    for(let i = 0; i < maxRetry; i++) {
+        const usePool = seedPoolFiltered.length >= 2 ? seedPoolFiltered : pool;
+        const curry = generateRandomCurryFromPool(usePool, false);
+        if(curry.isSeed) return curry;
+    }
+    return buildCurryFromMaterials(["ピーマン", "トマト", "レンコン"], "");
+}
+// ホームランカレーを確実に生成する
+function generateGuaranteedHomerunCurry(pool, maxRetry) {
+    maxRetry = maxRetry || 50;
+    const homerunList = ["レンコン","ウインナー","にんじん","大根"];
+    const homerunPoolFiltered = pool.filter(x => homerunList.includes(x));
+    for(let i = 0; i < maxRetry; i++) {
+        const usePool = homerunPoolFiltered.length >= 2 ? homerunPoolFiltered : pool;
+        const curry = generateRandomCurryFromPool(usePool, false);
+        if(curry.isHomerun) return curry;
+    }
+    return buildCurryFromMaterials(["レンコン", "ウインナー", "玉ねぎ"], "");
+}
+
+// ダミーキャラ定義（固有ID付き、本物のプレイヤーには発行されない予約ID帯）
+const DUMMY_CHARACTERS = [
+    { id: "BC-DUMMY0001", name: "たま", icon: "mayimage02.png", curryGen: () => generateGuaranteedNormalCurry(NORMAL_INGREDIENT_POOL) },
+    { id: "BC-DUMMY0002", name: "筋肉痛マン", icon: "mayimage01.png", curryGen: () => generateGuaranteedNormalCurry(NORMAL_INGREDIENT_POOL) },
+    { id: "BC-DUMMY0003", name: "SPLASH!!!!!", icon: "mayimage05.png", curryGen: () => generateGuaranteedSeedCurry(NORMAL_INGREDIENT_POOL) },
+    { id: "BC-DUMMY0004", name: "るねさん", icon: "mayimage03.png", curryGen: () => generateGuaranteedHomerunCurry(NORMAL_INGREDIENT_POOL) },
+    { id: "BC-DUMMY0005", name: "忍者男爵", icon: "mayimage06.png", curryGen: () => generateGuaranteedNormalCurry(MID_INGREDIENT_POOL) },
+    { id: "BC-DUMMY0006", name: "ああああ", icon: "mayimage01.png", curryGen: () => generateRandomCurryFromPool(MID_INGREDIENT_POOL, false) },
+    { id: "BC-DUMMY0007", name: "銀次郎", icon: "mayimage04.png", curryGen: () => generateRandomCurryFromPool(MID_INGREDIENT_POOL, false) },
+    { id: "BC-DUMMY0008", name: "aya.cake7", icon: "mayimage04.png", curryGen: () => generateRandomCurryFromPool(HIGH_INGREDIENT_POOL, false) },
+    { id: "BC-DUMMY0009", name: "トニーボニーロッカー🦌", icon: "mayimage08.png", curryGen: () => generateRandomCurryFromPool(HIGH_INGREDIENT_POOL, false) },
+    { id: "BC-DUMMY0010", name: "カレーガチ勢🍛", icon: "mayimage07.png", curryGen: () => generateRandomCurryFromPool(HIGH_INGREDIENT_POOL, false) }
+];
+
+// ダミーキャラ全員分の「現在の宅配カレー」を生成（タッグ戦マッチング時に毎回新規生成）
+function generateDummyDeliveryPool() {
+    return DUMMY_CHARACTERS.map(dummy => {
+        const curry = dummy.curryGen();
+        curry.isDelivering = true;
+        return {
+            playerId: dummy.id,
+            playerName: dummy.name,
+            playerIcon: dummy.icon,
+            curry: curry,
+            isDummy: true
+        };
+    });
+}
+
+// ============================================================
+// 宅配カレーのクラウド公開・抽選・使用処理
+// ============================================================
+function publishDeliveryCurryToCloud(curry) {
+    if(!database || !playerId) return;
+    database.ref('deliveryCurries/' + playerId).set({
+        playerName: playerName,
+        playerIcon: currentIconFile,
+        curry: curry,
+        usedCount: 0,
+        winCount: 0,
+        createdAt: Date.now()
+    }).catch(function(e){ console.error('publishDeliveryCurryToCloud error:', e); });
+}
+
+// 自分以外の本物プレイヤーの宅配カレーから最大20件取得し、その中からランダムで指定数を抽選
+// 20件未満の場合はダミーキャラも候補に加える
+function fetchTagDeliveryCandidates(count, callback) {
+    if(!database) { callback(generateDummyDeliveryPool().slice(0, count)); return; }
+    database.ref('deliveryCurries').limitToLast(50).once('value').then(function(snap){
+        const data = snap.val() || {};
+        let realCandidates = Object.keys(data)
+            .filter(pid => pid !== playerId && data[pid] && data[pid].curry)
+            .map(pid => ({
+                playerId: pid,
+                playerName: data[pid].playerName || '名無しの料理人',
+                playerIcon: data[pid].playerIcon || 'mayimage01.png',
+                curry: data[pid].curry,
+                isDummy: false
+            }));
+        let pool = realCandidates;
+        if(realCandidates.length < 20) {
+            pool = pool.concat(generateDummyDeliveryPool());
+        }
+        // ランダムにcount件抽選
+        const shuffled = [...pool].sort(() => Math.random() - 0.5);
+        callback(shuffled.slice(0, count));
+    }).catch(function(){
+        callback(generateDummyDeliveryPool().slice(0, count));
+    });
+}
+
+// 宅配カレーが使用された結果を、その所有者の累計成績に反映（本物のプレイヤーのみ。ダミーは対象外）
+function reportDeliveryCurryUsage(candidate, didWin) {
+    if(!database || !candidate || candidate.isDummy) return;
+    const ref = database.ref('deliveryCurries/' + candidate.playerId);
+    ref.once('value').then(function(snap){
+        const data = snap.val();
+        if(!data) return; // 既に他の人に上書き・削除されている場合は何もしない
+        const newUsedCount = (data.usedCount || 0) + 1;
+        const newWinCount = (data.winCount || 0) + (didWin ? 1 : 0);
+        if(newUsedCount >= 5) {
+            // 5回使用されたら食べ尽くされて消滅。報酬は受取キューに積む
+            database.ref('deliveryRewardQueue/' + candidate.playerId).push({
+                usedCount: newUsedCount, winCount: newWinCount, eatenUp: true,
+                curryName: data.curry ? data.curry.name : '', createdAt: Date.now()
+            });
+            ref.remove();
+        } else {
+            ref.update({ usedCount: newUsedCount, winCount: newWinCount });
+        }
+    }).catch(function(e){ console.error('reportDeliveryCurryUsage error:', e); });
 }
 
 function cookCurry() {
@@ -4143,6 +4431,149 @@ function showEventVsScreen() {
     setTimeout(() => { document.getElementById("vsBadge").style.opacity = "1"; document.getElementById("vsBadge").style.scale = "1"; }, 600);
 }
 
+// ============================================================
+// タッグ戦
+// ============================================================
+let tagBattleEnemies = []; // 今回のタッグ戦の敵2人
+let tagBattleDeliveryCandidates = []; // 宅配カレー選択肢3つ
+let tagBattleSelectedDeliveryIdx = -1; // 選択中の宅配カレーのインデックス（tagBattleDeliveryCandidates内）
+
+function startTagBattle() {
+    const usableStock = curryStock.filter(c => !c.isDelivering);
+    if (!usableStock || usableStock.length === 0) { showCustomAlert("⚠️ カレーがありません", "先に調理でカレーを作ってください。"); return; }
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+
+    // 敵2人をランダム選出（重複なし）
+    const shuffledBots = [...tagBattleBotPool].sort(() => Math.random() - 0.5);
+    tagBattleEnemies = shuffledBots.slice(0, 2);
+
+    tagBattleSelectedDeliveryIdx = -1;
+    renderTagEnemyList();
+    populateTagMyCurrySelect();
+    document.getElementById('tagDeployBtn').disabled = true;
+    document.getElementById('tagDeliveryList').innerHTML = '<div style="color:#999;font-size:12px;text-align:center;padding:10px;">宅配カレーを読み込み中...</div>';
+
+    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.getElementById('tagMatchFullscreen').classList.add('active');
+    hideQuestGuideChar();
+
+    fetchTagDeliveryCandidates(3, function(candidates) {
+        tagBattleDeliveryCandidates = candidates;
+        renderTagDeliveryList();
+    });
+}
+
+function closeTagMatchModal() {
+    document.getElementById('tagMatchFullscreen').classList.remove('active');
+    const battleTab = document.querySelector('[onclick*="battle"]');
+    const battlePage = document.getElementById('pageBattle');
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    if(battleTab) battleTab.classList.add('active');
+    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+    if(battlePage) battlePage.classList.add('active');
+}
+
+function renderTagEnemyList() {
+    const wrap = document.getElementById('tagEnemyList');
+    wrap.innerHTML = '';
+    tagBattleEnemies.forEach(bot => {
+        const card = document.createElement('div');
+        card.className = 'tag-enemy-card';
+        card.innerHTML = `<img class="tag-enemy-icon" src="${bot.image}" alt="${bot.name}">`
+            + `<div class="tag-enemy-info"><div class="tag-enemy-name">${bot.name}</div><div class="tag-enemy-curry">${bot.emoji || ''} ${bot.curryName}</div></div>`;
+        wrap.appendChild(card);
+    });
+}
+
+function populateTagMyCurrySelect() {
+    const sel = document.getElementById('tagMyCurrySelect');
+    sel.innerHTML = '';
+    curryStock.forEach((c, idx) => {
+        if(c.isDelivering) return;
+        const opt = document.createElement('option');
+        opt.value = idx; opt.innerText = c.name;
+        sel.appendChild(opt);
+    });
+    updateTagMatchPreview();
+}
+
+function updateTagMatchPreview() {
+    updateTagDeployButtonState();
+}
+
+function renderTagDeliveryList() {
+    const wrap = document.getElementById('tagDeliveryList');
+    wrap.innerHTML = '';
+    if(tagBattleDeliveryCandidates.length === 0) {
+        wrap.innerHTML = '<div style="color:#999;font-size:12px;text-align:center;padding:10px;">宅配カレーが見つかりませんでした。</div>';
+        return;
+    }
+    tagBattleDeliveryCandidates.forEach((cand, idx) => {
+        const card = document.createElement('div');
+        card.className = 'tag-delivery-card';
+        const curryImg = getCurryImage(cand.curry);
+        card.innerHTML = `<img class="tag-delivery-icon" src="${cand.playerIcon}" alt="">`
+            + `<img class="tag-delivery-curry-img" src="${curryImg}" alt="">`
+            + `<div class="tag-delivery-info"><div class="tag-delivery-player">${cand.playerName}</div><div class="tag-delivery-curryname">${cand.curry.name}</div></div>`
+            + `<button class="tag-delivery-detail-btn" onclick="event.stopPropagation();showTagDeliveryDetail(${idx})">詳細</button>`;
+        card.onclick = function() { selectTagDeliveryCandidate(idx); };
+        wrap.appendChild(card);
+    });
+}
+
+function selectTagDeliveryCandidate(idx) {
+    tagBattleSelectedDeliveryIdx = idx;
+    document.querySelectorAll('#tagDeliveryList .tag-delivery-card').forEach((el, i) => {
+        el.classList.toggle('selected', i === idx);
+    });
+    updateTagDeployButtonState();
+}
+
+function updateTagDeployButtonState() {
+    const sel = document.getElementById('tagMyCurrySelect');
+    const hasMyCurry = sel && sel.value !== '' && sel.options.length > 0;
+    const hasDelivery = tagBattleSelectedDeliveryIdx !== -1;
+    document.getElementById('tagDeployBtn').disabled = !(hasMyCurry && hasDelivery);
+}
+
+function showTagDeliveryDetail(idx) {
+    const cand = tagBattleDeliveryCandidates[idx];
+    if(!cand) return;
+    const curry = cand.curry;
+    const typeImg = getCurryImage(curry);
+    const typeLabel = CURRY_TYPE_LABELS[curry.curryType] || 'バランス型';
+    const iconsHtml = curryIconsHTML(curry.materials, curry.spice, '24px');
+    const skills = getCurrySkills(curry);
+    let skillsHtml = '';
+    if(skills.length > 0) {
+        skillsHtml = skills.map(s => `<div style="margin-top:8px;"><b style="color:#e67e22;">${s.name}</b><br><span style="font-size:12px;">${s.desc}</span></div>`).join('');
+    }
+    const html = `<img src="${cand.playerIcon}" style="width:60px;height:60px;border-radius:50%;object-fit:cover;border:2px solid #b88742;display:block;margin:0 auto 6px;">`
+        + `<div style="font-weight:bold;color:#420000;margin-bottom:2px;">${cand.playerName}</div>`
+        + `<div style="font-size:10px;color:#999;margin-bottom:10px;">${cand.playerId}</div>`
+        + `<img src="${typeImg}" style="width:80px;height:80px;object-fit:contain;display:block;margin:0 auto 10px;">`
+        + `<div style="font-weight:bold;color:#c0392b;margin-bottom:4px;">${typeLabel}</div>`
+        + `<div style="display:flex;justify-content:center;gap:4px;margin-bottom:8px;">${iconsHtml}</div>`
+        + `<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:13px;font-weight:bold;color:#420000;margin-bottom:6px;">`
+        + `<div>HP: ${curry.hp}</div><div>ATK: ${curry.atk}</div><div>DEF: ${curry.def}</div><div>SPD: ${curry.spd}</div>`
+        + `</div>`
+        + skillsHtml;
+    showCustomAlert(curry.name, html);
+}
+
+function confirmTagDeploy() {
+    const myCurryIdx = parseInt(document.getElementById('tagMyCurrySelect').value, 10);
+    const myCurry = curryStock[myCurryIdx];
+    const deliveryCand = tagBattleDeliveryCandidates[tagBattleSelectedDeliveryIdx];
+    if(!myCurry || !deliveryCand) return;
+    document.getElementById('tagMatchFullscreen').classList.remove('active');
+    // バトル開始処理（ステップ4で実装）
+    if(typeof launchTagBattle === 'function') {
+        launchTagBattle(myCurry, deliveryCand, tagBattleEnemies);
+    }
+}
+
 function startHardBotBattle() {
     if (!curryStock || curryStock.length === 0) { showCustomAlert("⚠️ カレーがありません", "先に調理でカレーを作ってください。"); return; }
     if (audioCtx.state === 'suspended') audioCtx.resume();
@@ -4239,6 +4670,7 @@ function updateMatchCurrySelects() {
     const hasStock = usableStock.length > 0;
     const bn = document.getElementById("btnBotNormal"); if(bn) bn.disabled = !hasStock;
     const bh = document.getElementById("btnBotHard"); if(bh) bh.disabled = !hasStock;
+    const bt = document.getElementById("btnTagBattle"); if(bt) bt.disabled = !hasStock;
 }
 
 function updateOnlineCurryStatus(idx) {
