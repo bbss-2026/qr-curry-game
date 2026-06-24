@@ -175,8 +175,8 @@
         }
         .tag-match-section-label { color:#efdeb1; font-size:13px; font-weight:bold; margin-bottom:8px; border-bottom:1px solid #6b5a3f; padding-bottom:4px; }
         .tag-enemy-list { display:flex; flex-direction:column; gap:8px; margin-bottom:8px; }
-        .tag-enemy-card { display:flex; align-items:center; gap:10px; background:#2b2b2b; border:1px solid #6b5a3f; border-radius:8px; padding:8px 10px; }
-        .tag-enemy-card img.tag-enemy-icon { width:48px; height:48px; border-radius:50%; object-fit:cover; border:2px solid #b88742; flex-shrink:0; }
+        .tag-match-enemy-card { display:flex; align-items:center; gap:10px; background:#2b2b2b; border:1px solid #6b5a3f; border-radius:8px; padding:8px 10px; }
+        .tag-match-enemy-card img.tag-enemy-icon { width:48px; height:48px; border-radius:50%; object-fit:cover; border:2px solid #b88742; flex-shrink:0; }
         .tag-enemy-info { flex:1; min-width:0; }
         .tag-enemy-name { color:#efdeb1; font-size:13px; font-weight:bold; }
         .tag-enemy-curry { color:#f1c40f; font-size:11px; margin-top:2px; }
@@ -1759,6 +1759,21 @@ function switchTab(tab, el) {
         } else {
             // 結果表示済み or 勝敗オーバーレイ表示中→通常通りタブ切り替え
             endBattleScene();
+        }
+    }
+    const tagArena = document.getElementById("tagBattleArena");
+    if(tagArena && tagArena.style.display === "block") {
+        const tagResultBox = document.getElementById("tagBattleResultBox");
+        const tagResultOverlay = document.getElementById("tagBattleResultOverlay");
+        const tagOverlayShowing = tagResultOverlay && tagResultOverlay.style.display === "flex";
+        const tagResultShowing = tagResultBox && tagResultBox.style.display !== "none";
+        if(!tagOverlayShowing && !tagResultShowing) {
+            // タッグ戦中（結果未表示）→強制終了
+            tagBattleAborted = true;
+            endTagBattleScene();
+        } else {
+            // 結果表示済み→通常通りタブ切り替え
+            endTagBattleScene();
         }
     }
     document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
@@ -4609,7 +4624,7 @@ function renderTagEnemyList() {
     wrap.innerHTML = '';
     tagBattleEnemies.forEach(bot => {
         const card = document.createElement('div');
-        card.className = 'tag-enemy-card';
+        card.className = 'tag-match-enemy-card';
         card.innerHTML = `<img class="tag-enemy-icon" src="${bot.image}" alt="${bot.name}">`
             + `<div class="tag-enemy-info"><div class="tag-enemy-name">${bot.name}</div><div class="tag-enemy-curry">${bot.emoji || ''} ${bot.curryName}</div></div>`;
         wrap.appendChild(card);
@@ -4933,7 +4948,7 @@ function tagRunActionQueue(order, i, round) {
 
     if(i >= order.length) {
         // このラウンド終了、次ラウンドへ
-        setTimeout(() => tagBattleStep(round + 1), 700);
+        setTimeout(() => tagBattleStep(round + 1), 1200);
         return;
     }
     const actor = order[i];
@@ -4943,13 +4958,15 @@ function tagRunActionQueue(order, i, round) {
     const turnIcon = actor.side === 'player' ? '🔥' : '⚠️';
     tagLogSet(`${turnIcon} ${actor.name} のターン！`);
 
-    tagExecuteTurnStart(actor, () => {
-        if(actor.hp <= 0) { setTimeout(() => tagRunActionQueue(order, i+1, round), 300); return; } // 毒等で自滅
-        tagExecuteAction(actor, myTeam, enemyTeam, () => {
-            tagUpdateAllHpDisplays();
-            setTimeout(() => tagRunActionQueue(order, i+1, round), 500);
+    setTimeout(() => {
+        tagExecuteTurnStart(actor, () => {
+            if(actor.hp <= 0) { setTimeout(() => tagRunActionQueue(order, i+1, round), 600); return; } // 毒等で自滅
+            tagExecuteAction(actor, myTeam, enemyTeam, () => {
+                tagUpdateAllHpDisplays();
+                setTimeout(() => tagRunActionQueue(order, i+1, round), 1500);
+            });
         });
-    });
+    }, 500);
 }
 
 // ターン開始時処理：毒ダメージ・カレー天使の天使のカレー粉ターン消費等
