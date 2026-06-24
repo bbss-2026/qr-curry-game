@@ -313,11 +313,12 @@
         .tag-enemy-card-visual { width: 64px; height: 64px; border-radius: 50%; overflow: hidden; flex-shrink: 0; border: 2px solid #b88742; background: #1a1a1a; }
         .tag-enemy-card-visual img { width: 100%; height: 100%; object-fit: cover; }
         .tag-enemy-card-name { font-size: 13px; font-weight: bold; color: #fff; flex-shrink: 0; max-width: 38%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-        .tag-enemy-hpbar-bg { flex: 1; max-width: 33%; margin-left: auto; margin-top: 0; }
+        .tag-enemy-hp-block { flex: 1; min-width: 0; margin-left: auto; }
+        .tag-enemy-hpbar-bg { width: 100%; margin-top: 0; }
         .tag-enemy-card-bottom { display: flex; align-items: center; gap: 6px; margin-top: 6px; padding-left: 4px; color: #ddd; font-size: 11px; }
         .tag-enemy-curry-emoji { font-size: 16px; flex-shrink: 0; }
         .tag-enemy-curry-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #f1c40f; font-weight: bold; }
-        .tag-enemy-card-hp { font-weight: bold; flex-shrink: 0; }
+        .tag-enemy-card-hp { font-weight: bold; flex-shrink: 0; display: block; text-align: right; font-size: 10px; color: #ddd; margin-top: 2px; }
         .tag-enemy-card.ko { opacity: 0.4; filter: grayscale(80%); }
         .tag-player-zone { display: flex; gap: 8px; }
         .tag-player-card { flex: 1; min-width: 0; background: rgba(0,0,0,0.7); border-radius: 8px; padding: 8px; color: #fff; }
@@ -962,24 +963,28 @@
                         <div class="tag-enemy-card-top">
                             <div class="tag-enemy-card-visual"><img id="tagEnemyImg0" src="" alt=""></div>
                             <div class="tag-enemy-card-name" id="tagEnemyName0">敵1</div>
-                            <div class="hp-bar-bg tag-enemy-hpbar-bg"><div id="tagEnemyHpBar0" class="hp-bar"></div></div>
+                            <div class="tag-enemy-hp-block">
+                                <div class="hp-bar-bg tag-enemy-hpbar-bg"><div id="tagEnemyHpBar0" class="hp-bar"></div></div>
+                                <span class="tag-enemy-card-hp" id="tagEnemyHpText0">HP: --/--</span>
+                            </div>
                         </div>
                         <div class="tag-enemy-card-bottom">
                             <span class="tag-enemy-curry-emoji" id="tagEnemyCurryEmoji0">🍛</span>
                             <span class="tag-enemy-curry-name" id="tagEnemyCurryName0">カレー名</span>
-                            <span class="tag-enemy-card-hp" id="tagEnemyHpText0">HP: --/--</span>
                         </div>
                     </div>
                     <div class="tag-enemy-card" id="tagEnemyCard1">
                         <div class="tag-enemy-card-top">
                             <div class="tag-enemy-card-visual"><img id="tagEnemyImg1" src="" alt=""></div>
                             <div class="tag-enemy-card-name" id="tagEnemyName1">敵2</div>
-                            <div class="hp-bar-bg tag-enemy-hpbar-bg"><div id="tagEnemyHpBar1" class="hp-bar"></div></div>
+                            <div class="tag-enemy-hp-block">
+                                <div class="hp-bar-bg tag-enemy-hpbar-bg"><div id="tagEnemyHpBar1" class="hp-bar"></div></div>
+                                <span class="tag-enemy-card-hp" id="tagEnemyHpText1">HP: --/--</span>
+                            </div>
                         </div>
                         <div class="tag-enemy-card-bottom">
                             <span class="tag-enemy-curry-emoji" id="tagEnemyCurryEmoji1">🍛</span>
                             <span class="tag-enemy-curry-name" id="tagEnemyCurryName1">カレー名</span>
-                            <span class="tag-enemy-card-hp" id="tagEnemyHpText1">HP: --/--</span>
                         </div>
                     </div>
                 </div>
@@ -1005,6 +1010,7 @@
                 <h2 id="tagBattleVerdict" style="color:#e74c3c;">VICTORY!</h2>
                 <p id="tagRewardText" style="font-size:14px; font-weight:bold;"></p>
                 <button class="btn btn-start" onclick="endTagBattleScene()" style="width:100%;">対戦タブに戻る</button>
+                <button class="btn btn-start" onclick="showTagBattleLogHistory()" style="width:100%;margin-top:8px;background:#7f8c8d;">📜 戦闘ログ</button>
             </div>
         </div>
         <div class="copyright-footer">©2026 Battle Curry All Rights Reserved.<br>QRコードは株式会社デンソーウェーブの登録商標です</div>
@@ -4787,8 +4793,11 @@ function tagTriggerDamagePop(targetSide, targetIdx, value, color) {
     if(!targetEl) return;
     const stageRect = document.getElementById('tagBattleStage').getBoundingClientRect();
     const targetRect = targetEl.getBoundingClientRect();
+    // ステージの外にはみ出さないよう、カード内側の上部に表示位置を収める（popUpアニメーションで最大45px上に動くため余裕を持たせる）
+    let topPos = targetRect.top - stageRect.top + 4;
+    if(topPos < 50) topPos = 50;
     pop.style.left = (targetRect.left - stageRect.left + targetRect.width/2 - 20) + 'px';
-    pop.style.top = (targetRect.top - stageRect.top - 10) + 'px';
+    pop.style.top = topPos + 'px';
     pop.innerText = (value > 0 ? '' : '+') + Math.abs(value);
     pop.style.color = color || '#f1c40f';
     pop.style.display = 'block';
@@ -4831,13 +4840,30 @@ function tagUpdateAllHpDisplays() {
 }
 
 // 既存の通常戦闘と同様、1アクションごとにログを上書きする（蓄積させない）
+let tagBattleLogHistory = []; // タッグ戦の戦闘ログ蓄積用
 function tagLogSet(text) {
     const log = document.getElementById('tagBattleLog');
-    if(log) log.innerHTML = text;
+    if(log) {
+        // 直前のログ内容を履歴に保存してから新しい内容に切り替える
+        if(log.innerHTML) tagBattleLogHistory.push(log.innerHTML);
+        log.innerHTML = text;
+    }
 }
 function tagLogAppend(text) {
     const log = document.getElementById('tagBattleLog');
     if(log) log.innerHTML += (log.innerHTML ? '\n' : '') + text;
+}
+function showTagBattleLogHistory() {
+    const allLogs = tagBattleLogHistory.concat(document.getElementById('tagBattleLog') ? [document.getElementById('tagBattleLog').innerHTML] : []);
+    if(allLogs.length === 0) {
+        showCustomAlert("📜 戦闘ログ", "ログがありません。");
+        return;
+    }
+    const rows = allLogs.map(function(entry) {
+        const lines = entry.split("\n").filter(function(l){ return l.trim() !== ""; }).join("<br>");
+        return '<div style="padding:8px 0;border-bottom:1px solid #e0d0b0;font-size:12px;color:#420000;text-align:left;line-height:1.6;">' + lines + '</div>';
+    }).join('');
+    showCustomAlert("📜 戦闘ログ", '<div style="max-height:55vh;overflow-y:auto;text-align:left;">' + rows + '</div>');
 }
 
 // 生存している敵（自分側 or 敵側）からランダムに1人選ぶ
@@ -4849,6 +4875,7 @@ function tagPickRandomAliveTarget(fighters) {
 
 function launchTagBattle(myCurry, deliveryCand, enemies) {
     tagBattleAborted = false;
+    tagBattleLogHistory = []; // 戦闘ログ履歴をリセット
 
     // 4ファイター構築
     const myFighter = {
@@ -4873,14 +4900,23 @@ function launchTagBattle(myCurry, deliveryCand, enemies) {
     const myTeam = [myFighter, deliveryFighter];
     const enemyTeam = [enemyFighters[0], enemyFighters[1]];
     let openingLogs = [];
+    let statusFlashQueue = []; // 演出を順番に再生するためのキュー
     myTeam.forEach(f => {
         if(f.curry && f.curry.isPoison) {
             const target = tagPickRandomAliveTarget(enemyTeam);
-            if(target && !target.isPoisoned) { target.isPoisoned = true; openingLogs.push(`☠️ ${target.name} は毒にかかった！`); }
+            if(target && !target.isPoisoned) {
+                target.isPoisoned = true;
+                openingLogs.push(`☠️ ${target.name} は毒にかかった！`);
+                statusFlashQueue.push({ type: 'poison', el: document.getElementById('tagEnemyName' + target.idx) });
+            }
         }
         if(f.curry && f.curry.isIllusion) {
             const target = tagPickRandomAliveTarget(enemyTeam);
-            if(target && !target.isIlluded) { target.isIlluded = true; openingLogs.push(`🌀 ${target.name} は幻惑にかかった！`); }
+            if(target && !target.isIlluded) {
+                target.isIlluded = true;
+                openingLogs.push(`🌀 ${target.name} は幻惑にかかった！`);
+                statusFlashQueue.push({ type: 'illusion', el: document.getElementById('tagEnemyName' + target.idx) });
+            }
         }
     });
 
@@ -4891,6 +4927,14 @@ function launchTagBattle(myCurry, deliveryCand, enemies) {
     document.getElementById('tagBattleArena').style.display = 'block';
     document.getElementById('tagBattleLog').innerHTML = `⚔️ タッグ戦開始！`;
     openingLogs.forEach(l => tagLogAppend(l));
+    // 毒・幻惑の演出（効果音・画面フラッシュ・名前の色変更）を順番に再生
+    statusFlashQueue.forEach((item, i) => {
+        setTimeout(() => {
+            playSoundEffect(item.type === 'poison' ? 'poison.mp3' : 'genwaku.mp3');
+            playStatusFlash(item.type);
+            if(item.el) item.el.classList.add(item.type === 'poison' ? 'name-poisoned' : 'name-illuded');
+        }, 600 + i * 500);
+    });
 
     document.getElementById('tagPlayerName0').innerText = myFighter.name;
     document.getElementById('tagPlayerCurryName0').innerText = myCurry.name;
@@ -5005,6 +5049,7 @@ function tagExecuteAction(actor, myTeam, enemyTeam, callback) {
         actor.hp = Math.min(actor.maxHp, actor.hp + heal);
         tagTriggerDamagePop('player', actor.idx, -heal, '#2ecc71');
         tagLogAppend(`☀️ ${actor.name} は太陽の光を浴びてHP回復: ${heal}`);
+        playSoundEffect('taiyou.mp3');
     }
     // 種連射：攻撃回数をランダムで敵に振り分け（SPD判定は敵2人の平均値）
     if(curry.isSeed && Math.random() < 0.4) {
@@ -5027,6 +5072,7 @@ function tagExecuteAction(actor, myTeam, enemyTeam, callback) {
             tagTriggerDamagePop('enemy', target.idx, d, '#f1c40f');
         }
         tagLogAppend(`🌱 ${actor.name} の種連続発射 ${hits}連撃！合計: ${total}`);
+        playSoundEffect('machine-gun.mp3');
         callback(); return;
     }
     // 通常攻撃（わんぱくならダメージ倍率増加）
@@ -5039,6 +5085,7 @@ function tagExecuteAction(actor, myTeam, enemyTeam, callback) {
     if(target.curry && target.curry.isRatatouille && isMeatBasedCurry(curry)) d = Math.round(d * 0.2);
     target.hp = Math.max(0, target.hp - d);
     tagTriggerDamagePop('enemy', target.idx, d, isCrit ? '#ff4500' : '#f1c40f');
+    playSoundEffect('punch.mp3');
     if(isCrit) tagLogAppend(`🌶️ ${actor.name} の Spicy Hit!!!! ${target.name} に ${d} ダメージ！`);
     else tagLogAppend(`💥 ${actor.name} の攻撃！ ${target.name} に ${d} ダメージ！`);
     if(target.hp <= 0) tagLogAppend(`💀 ${target.name} はダウン！`);
@@ -5120,6 +5167,8 @@ function tagExecuteEnemyActionImpl(actor, myTeam, enemyTeam, callback) {
         } else {
             // ぼーっとする：自分の毒・幻惑を解除
             actor.isPoisoned = false; actor.isIlluded = false;
+            const nameEl = document.getElementById('tagEnemyName' + actor.idx);
+            if(nameEl) nameEl.classList.remove('name-poisoned', 'name-illuded');
             tagLogAppend(`😶 ${actor.name} はなんだか健康になった`);
             playSoundEffect('poincyo.mp3');
             callback();
