@@ -297,6 +297,29 @@
         .hp-bar.poisoned-bar { background: #9b59b6 !important; }
         
         .damage-pop { position: absolute; font-family: 'Impact', Arial, sans-serif; font-size: 42px; color: #f1c40f; -webkit-text-stroke: 1.5px #000; font-weight: bold; display: none; pointer-events: none; z-index: 10; }
+
+        /* タッグ戦バトル画面 */
+        .tag-battle-stage {
+            position: relative; background: #2c3e50; border: 4px solid #34495e; border-radius: 12px;
+            margin-bottom: 15px; overflow: hidden; padding: 12px; box-sizing: border-box;
+        }
+        .tag-damage-pop {
+            position: absolute; font-family: 'Impact', Arial, sans-serif; font-size: 36px; color: #f1c40f;
+            -webkit-text-stroke: 1.5px #000; font-weight: bold; display: none; pointer-events: none; z-index: 25;
+        }
+        .tag-enemy-zone { display: flex; flex-direction: column; gap: 6px; margin-bottom: 10px; }
+        .tag-enemy-card { display: flex; align-items: center; gap: 8px; background: rgba(0,0,0,0.35); border-radius: 8px; padding: 6px 8px; transition: transform 0.1s; }
+        .tag-enemy-card-visual { width: 44px; height: 44px; border-radius: 50%; overflow: hidden; flex-shrink: 0; border: 2px solid #b88742; background: #1a1a1a; }
+        .tag-enemy-card-visual img { width: 100%; height: 100%; object-fit: cover; }
+        .tag-enemy-card-info { flex: 1; min-width: 0; color: #fff; }
+        .tag-enemy-card-name { font-size: 12px; font-weight: bold; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-bottom: 2px; }
+        .tag-enemy-card-hp { font-size: 10px; text-align: right; font-weight: bold; margin-top: 2px; }
+        .tag-enemy-card.ko { opacity: 0.4; filter: grayscale(80%); }
+        .tag-player-zone { display: flex; gap: 8px; }
+        .tag-player-card { flex: 1; min-width: 0; background: rgba(0,0,0,0.7); border-radius: 8px; padding: 8px; color: #fff; }
+        .tag-player-card-name { font-size: 11px; font-weight: bold; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-bottom: 4px; }
+        .tag-player-card-hp { font-size: 10px; text-align: right; font-weight: bold; margin-top: 2px; }
+        .tag-player-card.ko { opacity: 0.4; filter: grayscale(80%); }
         .sub-name-label { color: #ffffff; font-size: 13px; font-weight: bold; background: rgba(0,0,0,0.5); padding: 4px 8px; border-radius: 4px; display: inline-block; word-break: break-all; }
         
         /* VSカットイン画面 */
@@ -918,6 +941,55 @@
                 <p id="rewardText" style="font-size:14px; font-weight:bold;"></p>
                 <button class="btn btn-start" onclick="endBattleScene()" style="width:100%;">もう一度対戦する</button>
                 <button class="btn btn-start" onclick="showBattleLogHistory()" style="width:100%;margin-top:8px;background:#7f8c8d;">📜 戦闘ログ</button>
+            </div>
+        </div>
+
+        <!-- タッグ戦専用バトルアリーナ -->
+        <div id="tagBattleArena" style="display:none;">
+            <div class="tag-battle-stage" id="tagBattleStage">
+                <div class="tag-damage-pop" id="tagDamagePop" style="display:none;">0</div>
+                <div id="tagBattleResultOverlay" style="display:none; position:absolute; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.6); z-index:20; flex-direction:column; justify-content:center; align-items:center; border-radius:8px;">
+                    <div id="tagBattleResultBig" style="font-size:48px; font-weight:900; font-family:'Impact',Arial,sans-serif; -webkit-text-stroke:2px #000; text-shadow:0 0 20px rgba(0,0,0,0.8); animation:resultPop 0.4s ease-out; white-space:nowrap; max-width:92%; text-align:center;"></div>
+                </div>
+
+                <div class="tag-enemy-zone" id="tagEnemyZone">
+                    <div class="tag-enemy-card" id="tagEnemyCard0">
+                        <div class="tag-enemy-card-visual"><img id="tagEnemyImg0" src="" alt=""></div>
+                        <div class="tag-enemy-card-info">
+                            <div class="tag-enemy-card-name" id="tagEnemyName0">敵1</div>
+                            <div class="hp-bar-bg"><div id="tagEnemyHpBar0" class="hp-bar"></div></div>
+                            <div class="tag-enemy-card-hp" id="tagEnemyHpText0">HP: --/--</div>
+                        </div>
+                    </div>
+                    <div class="tag-enemy-card" id="tagEnemyCard1">
+                        <div class="tag-enemy-card-visual"><img id="tagEnemyImg1" src="" alt=""></div>
+                        <div class="tag-enemy-card-info">
+                            <div class="tag-enemy-card-name" id="tagEnemyName1">敵2</div>
+                            <div class="hp-bar-bg"><div id="tagEnemyHpBar1" class="hp-bar"></div></div>
+                            <div class="tag-enemy-card-hp" id="tagEnemyHpText1">HP: --/--</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="tag-player-zone" id="tagPlayerZone">
+                    <div class="tag-player-card" id="tagPlayerCard0">
+                        <div class="tag-player-card-name" id="tagPlayerName0">プレイヤー名</div>
+                        <div class="hp-bar-bg"><div id="tagPlayerHpBar0" class="hp-bar"></div></div>
+                        <div class="tag-player-card-hp" id="tagPlayerHpText0">HP: --/--</div>
+                    </div>
+                    <div class="tag-player-card" id="tagPlayerCard1">
+                        <div class="tag-player-card-name" id="tagPlayerName1">宅配カレー</div>
+                        <div class="hp-bar-bg"><div id="tagPlayerHpBar1" class="hp-bar"></div></div>
+                        <div class="tag-player-card-hp" id="tagPlayerHpText1">HP: --/--</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="battle-monitor" id="tagBattleLog"></div>
+            <div id="tagBattleResultBox" style="display:none; background:#fffdf0; padding:15px; border-radius:10px; border:2px dashed #9b59b6; margin-top:15px; text-align:center;">
+                <h2 id="tagBattleVerdict" style="color:#e74c3c;">VICTORY!</h2>
+                <p id="tagRewardText" style="font-size:14px; font-weight:bold;"></p>
+                <button class="btn btn-start" onclick="endTagBattleScene()" style="width:100%;">対戦タブに戻る</button>
             </div>
         </div>
         <div class="copyright-footer">©2026 Battle Curry All Rights Reserved.<br>QRコードは株式会社デンソーウェーブの登録商標です</div>
@@ -4665,6 +4737,259 @@ function confirmTagDeploy() {
     }
 }
 
+// ============================================================
+// タッグ戦バトル本体
+// ============================================================
+let tagBattleAborted = false;
+let tagBattleFighters = []; // [自分, 宅配カレー, 敵1, 敵2] の4要素
+
+function tagTriggerDamagePop(targetSide, targetIdx, value, color) {
+    const pop = document.getElementById('tagDamagePop');
+    if(!pop) return;
+    const targetEl = targetSide === 'enemy' ? document.getElementById('tagEnemyCard' + targetIdx) : document.getElementById('tagPlayerCard' + targetIdx);
+    if(!targetEl) return;
+    const stageRect = document.getElementById('tagBattleStage').getBoundingClientRect();
+    const targetRect = targetEl.getBoundingClientRect();
+    pop.style.left = (targetRect.left - stageRect.left + targetRect.width/2 - 20) + 'px';
+    pop.style.top = (targetRect.top - stageRect.top - 10) + 'px';
+    pop.innerText = (value > 0 ? '' : '+') + Math.abs(value);
+    pop.style.color = color || '#f1c40f';
+    pop.style.display = 'block';
+    pop.style.animation = 'none';
+    void pop.offsetWidth;
+    pop.style.animation = 'popUp 0.7s forwards';
+    setTimeout(() => { pop.style.display = 'none'; }, 700);
+    targetEl.style.transform = 'translateX(-4px)';
+    setTimeout(() => { targetEl.style.transform = 'translateX(4px)'; }, 60);
+    setTimeout(() => { targetEl.style.transform = ''; }, 120);
+}
+
+function tagUpdateAllHpDisplays() {
+    [0,1].forEach(i => {
+        const f = tagBattleFighters[i]; // 自分側
+        const bar = document.getElementById('tagPlayerHpBar' + i);
+        const text = document.getElementById('tagPlayerHpText' + i);
+        const card = document.getElementById('tagPlayerCard' + i);
+        if(f && bar && text) {
+            const pct = Math.max(0, f.hp / f.maxHp * 100);
+            bar.style.width = pct + '%';
+            bar.classList.toggle('danger', pct <= 30);
+            text.innerText = 'HP: ' + Math.max(0, f.hp) + '/' + f.maxHp;
+            if(card) card.classList.toggle('ko', f.hp <= 0);
+        }
+    });
+    [0,1].forEach(i => {
+        const f = tagBattleFighters[i+2]; // 敵側
+        const bar = document.getElementById('tagEnemyHpBar' + i);
+        const text = document.getElementById('tagEnemyHpText' + i);
+        const card = document.getElementById('tagEnemyCard' + i);
+        if(f && bar && text) {
+            const pct = Math.max(0, f.hp / f.maxHp * 100);
+            bar.style.width = pct + '%';
+            bar.classList.toggle('danger', pct <= 30);
+            text.innerText = 'HP: ' + Math.max(0, f.hp) + '/' + f.maxHp;
+            if(card) card.classList.toggle('ko', f.hp <= 0);
+        }
+    });
+}
+
+function tagLogAppend(text) {
+    const log = document.getElementById('tagBattleLog');
+    if(log) log.innerHTML += (log.innerHTML ? '\n' : '') + text;
+}
+
+// 生存している敵（自分側 or 敵側）からランダムに1人選ぶ
+function tagPickRandomAliveTarget(fighters) {
+    const alive = fighters.filter(f => f.hp > 0);
+    if(alive.length === 0) return null;
+    return alive[Math.floor(Math.random() * alive.length)];
+}
+
+function launchTagBattle(myCurry, deliveryCand, enemies) {
+    tagBattleAborted = false;
+
+    // 4ファイター構築
+    const myFighter = {
+        side: 'player', idx: 0, name: playerName, curry: myCurry,
+        hp: myCurry.hp, maxHp: myCurry.hp, atk: myCurry.atk, def: myCurry.def, spd: myCurry.spd,
+        isPoisoned: false, isIlluded: false, defBuffTurns: 0, isDelivery: false
+    };
+    const deliveryFighter = {
+        side: 'player', idx: 1, name: deliveryCand.playerName, curry: deliveryCand.curry,
+        hp: deliveryCand.curry.hp, maxHp: deliveryCand.curry.hp, atk: deliveryCand.curry.atk, def: deliveryCand.curry.def, spd: deliveryCand.curry.spd,
+        isPoisoned: false, isIlluded: false, defBuffTurns: 0, isDelivery: true, deliveryCand: deliveryCand
+    };
+    const enemyFighters = enemies.map((bot, i) => ({
+        side: 'enemy', idx: i, name: bot.name, bot: bot,
+        hp: bot.hp, maxHp: bot.hp, atk: bot.atk, def: bot.def, spd: bot.spd,
+        isPoisoned: false, isIlluded: false, defBuffTurns: 0,
+        isWanpaku: !!bot.isWanpaku, isHomerun: !!bot.isHomerun, specialEffect: bot.specialEffect
+    }));
+    tagBattleFighters = [myFighter, deliveryFighter, enemyFighters[0], enemyFighters[1]];
+
+    // 戦闘開始時：毒・幻惑をランダムで敵1人に付与（自分側のカレーが該当効果を持っていれば）
+    const myTeam = [myFighter, deliveryFighter];
+    const enemyTeam = [enemyFighters[0], enemyFighters[1]];
+    let openingLogs = [];
+    myTeam.forEach(f => {
+        if(f.curry && f.curry.isPoison) {
+            const target = tagPickRandomAliveTarget(enemyTeam);
+            if(target && !target.isPoisoned) { target.isPoisoned = true; openingLogs.push(`☠️ ${target.name} は毒にかかった！`); }
+        }
+        if(f.curry && f.curry.isIllusion) {
+            const target = tagPickRandomAliveTarget(enemyTeam);
+            if(target && !target.isIlluded) { target.isIlluded = true; openingLogs.push(`🌀 ${target.name} は幻惑にかかった！`); }
+        }
+    });
+
+    // バトル画面表示
+    document.getElementById('tagBattleResultBox').style.display = 'none';
+    const overlay = document.getElementById('tagBattleResultOverlay'); if(overlay) overlay.style.display = 'none';
+    document.getElementById('tagBattleArena').style.display = 'block';
+    document.getElementById('tagBattleLog').innerHTML = `⚔️ タッグ戦開始！`;
+    openingLogs.forEach(l => tagLogAppend(l));
+
+    document.getElementById('tagPlayerName0').innerText = myFighter.name + '（' + myCurry.name + '）';
+    document.getElementById('tagPlayerName1').innerText = deliveryFighter.name + '（' + deliveryCand.curry.name + '）';
+    document.getElementById('tagEnemyName0').innerText = enemyFighters[0].name;
+    document.getElementById('tagEnemyName1').innerText = enemyFighters[1].name;
+    document.getElementById('tagEnemyImg0').src = enemies[0].image;
+    document.getElementById('tagEnemyImg1').src = enemies[1].image;
+
+    stopBattleBGM();
+    setTimeout(() => playBattleBGM('Revenger.mp3'), 200);
+
+    tagUpdateAllHpDisplays();
+    requestAnimationFrame(() => {
+        const arena = document.getElementById('tagBattleArena');
+        if(arena) arena.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+
+    // 行動順（SPD降順）を決めてターンループ開始
+    let tagRound = 1;
+    setTimeout(() => tagBattleStep(tagRound), 800);
+}
+
+// 1ラウンド = 生存している4人がSPD降順で1回ずつ行動する
+function tagBattleStep(round) {
+    if(tagBattleAborted) return;
+    if(round > 20) {
+        tagLogAppend(`💨 制限時間切れ！両者引き分けで終了！`);
+        setTimeout(() => tagFinishBattle('draw'), 600);
+        return;
+    }
+    const myTeam = [tagBattleFighters[0], tagBattleFighters[1]];
+    const enemyTeam = [tagBattleFighters[2], tagBattleFighters[3]];
+
+    // 全滅判定
+    if(myTeam.every(f => f.hp <= 0)) { setTimeout(() => tagFinishBattle('lose'), 400); return; }
+    if(enemyTeam.every(f => f.hp <= 0)) { setTimeout(() => tagFinishBattle('win'), 400); return; }
+
+    // 行動順（生存者のみ、SPD降順）
+    const order = tagBattleFighters.filter(f => f.hp > 0).sort((a,b) => b.spd - a.spd);
+    tagRunActionQueue(order, 0, round);
+}
+
+function tagRunActionQueue(order, i, round) {
+    if(tagBattleAborted) return;
+    const myTeam = [tagBattleFighters[0], tagBattleFighters[1]];
+    const enemyTeam = [tagBattleFighters[2], tagBattleFighters[3]];
+    if(myTeam.every(f => f.hp <= 0)) { setTimeout(() => tagFinishBattle('lose'), 400); return; }
+    if(enemyTeam.every(f => f.hp <= 0)) { setTimeout(() => tagFinishBattle('win'), 400); return; }
+
+    if(i >= order.length) {
+        // このラウンド終了、次ラウンドへ
+        setTimeout(() => tagBattleStep(round + 1), 700);
+        return;
+    }
+    const actor = order[i];
+    if(actor.hp <= 0) { tagRunActionQueue(order, i+1, round); return; } // ラウンド中に倒された場合スキップ
+
+    tagExecuteTurnStart(actor, () => {
+        if(actor.hp <= 0) { setTimeout(() => tagRunActionQueue(order, i+1, round), 300); return; } // 毒等で自滅
+        tagExecuteAction(actor, myTeam, enemyTeam, () => {
+            tagUpdateAllHpDisplays();
+            setTimeout(() => tagRunActionQueue(order, i+1, round), 500);
+        });
+    });
+}
+
+// ターン開始時処理：毒ダメージ・カレー天使の天使のカレー粉ターン消費等
+function tagExecuteTurnStart(actor, callback) {
+    if(actor.isPoisoned) {
+        const d = 20 + Math.floor(Math.random() * 21);
+        actor.hp = Math.max(0, actor.hp - d);
+        const side = actor.side === 'enemy' ? 'enemy' : 'player';
+        tagTriggerDamagePop(side, actor.idx, d, '#9b59b6');
+        tagLogAppend(`☠️ ${actor.name} は毒ダメージ: ${d}`);
+        tagUpdateAllHpDisplays();
+        if(actor.hp <= 0) { tagLogAppend(`💀 ${actor.name} は毒でダウン！`); setTimeout(callback, 500); return; }
+    }
+    setTimeout(callback, actor.isPoisoned ? 400 : 0);
+}
+
+// 1キャラの行動を実行する（プレイヤー側カレー用。敵Bot側はtagExecuteEnemyActionで処理）
+function tagExecuteAction(actor, myTeam, enemyTeam, callback) {
+    const isMySide = actor.side === 'player';
+    const opponentTeam = isMySide ? enemyTeam : myTeam;
+
+    if(!isMySide) {
+        tagExecuteEnemyAction(actor, myTeam, enemyTeam, callback);
+        return;
+    }
+
+    const curry = actor.curry;
+    // わんぱくミス判定
+    if(curry.isWanpaku && isWanpakuMiss()) {
+        tagLogAppend(`💨 ${actor.name} のわんぱくが暴れすぎて攻撃が外れた！`);
+        callback(); return;
+    }
+    // ラタトゥイユ：自分のターンにHP回復
+    if(curry.isRatatouille) {
+        const heal = Math.round(actor.maxHp * 0.10);
+        actor.hp = Math.min(actor.maxHp, actor.hp + heal);
+        tagTriggerDamagePop('player', actor.idx, -heal, '#2ecc71');
+        tagLogAppend(`☀️ ${actor.name} は太陽の光を浴びてHP回復: ${heal}`);
+    }
+    // 種連射：攻撃回数をランダムで敵に振り分け（SPD判定は敵2人の平均値）
+    if(curry.isSeed && Math.random() < 0.4) {
+        const homerunFoe = enemyTeam.find(f => f.hp > 0 && f.isHomerun);
+        if(homerunFoe && isHomerunReflect(homerunFoe.spd, actor.spd)) {
+            tagLogAppend(`🏏 ${homerunFoe.name} がホームラン！${actor.name} の種連続発射を打ち返して無効化！`);
+            playSoundEffect('homerun.mp3');
+            callback(); return;
+        }
+        const avgEnemySpd = (enemyTeam[0].spd + (enemyTeam[1] ? enemyTeam[1].spd : enemyTeam[0].spd)) / 2;
+        const hits = rollSeedHits(actor.spd, avgEnemySpd);
+        let total = 0;
+        for(let h = 0; h < hits; h++) {
+            const target = tagPickRandomAliveTarget(enemyTeam);
+            if(!target) break;
+            let d = Math.max(2, Math.round(actor.atk*0.4 - target.def/4));
+            d = Math.round(d * (0.9 + Math.random()*0.2));
+            target.hp = Math.max(0, target.hp - d);
+            total += d;
+            tagTriggerDamagePop('enemy', target.idx, d, '#f1c40f');
+        }
+        tagLogAppend(`🌱 ${actor.name} の種連続発射 ${hits}連撃！合計: ${total}`);
+        callback(); return;
+    }
+    // 通常攻撃（わんぱくならダメージ倍率増加）
+    const target = tagPickRandomAliveTarget(enemyTeam);
+    if(!target) { callback(); return; }
+    const isCrit = Math.random() < getCritRate(actor.spd, target.spd);
+    let d = isCrit ? Math.max(8, actor.atk) : Math.max(8, actor.atk - Math.floor(target.def/2));
+    d = Math.round(d * (0.9 + Math.random()*0.2));
+    if(curry.isWanpaku) d = Math.round(d * getWanpakuDamageMultiplier());
+    if(target.curry && target.curry.isRatatouille && isMeatBasedCurry(curry)) d = Math.round(d * 0.2);
+    target.hp = Math.max(0, target.hp - d);
+    tagTriggerDamagePop('enemy', target.idx, d, isCrit ? '#ff4500' : '#f1c40f');
+    if(isCrit) tagLogAppend(`🌶️ ${actor.name} の Spicy Hit!!!! ${target.name} に ${d} ダメージ！`);
+    else tagLogAppend(`💥 ${actor.name} の攻撃！ ${target.name} に ${d} ダメージ！`);
+    if(target.hp <= 0) tagLogAppend(`💀 ${target.name} はダウン！`);
+    callback();
+}
+
 function startHardBotBattle() {
     if (!curryStock || curryStock.length === 0) { showCustomAlert("⚠️ カレーがありません", "先に調理でカレーを作ってください。"); return; }
     if (audioCtx.state === 'suspended') audioCtx.resume();
@@ -4698,7 +5023,210 @@ function startHardBotBattle() {
     setTimeout(() => { document.getElementById("vsBadge").style.opacity = "1"; document.getElementById("vsBadge").style.scale = "1"; }, 600);
 }
 
+// タッグ戦：敵側（Bot）の行動
+function tagExecuteEnemyAction(actor, myTeam, enemyTeam, callback) {
+    tagExecuteEnemyActionImpl(actor, myTeam, enemyTeam, callback);
+}
+function tagExecuteEnemyActionImpl(actor, myTeam, enemyTeam, callback) {
+    const bot = actor.bot;
+    const effect = actor.specialEffect;
+
+    // カレー天使ぴゃぁ専用ロジック
+    if(effect === 'angel') {
+        const r = Math.random();
+        if(r < 0.40) {
+            tagEnemyNormalAttack(actor, myTeam, callback);
+        } else if(r < 0.70) {
+            // 甘口スマイル：自分or味方のHPをランダム対象の最大HPの10%+100回復
+            const target = tagPickRandomAliveTarget(enemyTeam);
+            if(target) {
+                const heal = Math.round(target.maxHp * 0.10) + 100;
+                target.hp = Math.min(target.maxHp, target.hp + heal);
+                tagTriggerDamagePop('enemy', target.idx, -heal, '#2ecc71');
+                tagLogAppend(`💖 ${actor.name} の甘口スマイル！ ${target.name} のHPが ${heal} 回復！`);
+                playSoundEffect('healing.mp3');
+            }
+            callback();
+        } else {
+            // 天使のカレー粉：自分と味方のDEFが3ターンの間1.5倍
+            enemyTeam.forEach(f => { if(f.hp > 0) { f.defBuffTurns = 3; } });
+            tagLogAppend(`✨ ${actor.name} の天使のカレー粉！ DEFが3ターンの間1.5倍に！`);
+            playSoundEffect('healing.mp3');
+            callback();
+        }
+        return;
+    }
+
+    // 悪ガキサタン君専用ロジック
+    if(effect === 'brat') {
+        const r = Math.random();
+        if(r < 0.80) {
+            tagEnemyNormalAttack(actor, myTeam, callback);
+        } else {
+            // ぼーっとする：自分の毒・幻惑を解除
+            actor.isPoisoned = false; actor.isIlluded = false;
+            tagLogAppend(`😶 ${actor.name} はなんだか健康になった`);
+            playSoundEffect('poincyo.mp3');
+            callback();
+        }
+        return;
+    }
+
+    // 既存の通常Bot（毒・幻惑・種連射・熱々ブレス持ち）
+    if(effect === 'breath' && Math.random() < 0.25) {
+        const homerunAlly = myTeam.find(f => f.hp > 0 && f.curry && f.curry.isHomerun);
+        if(homerunAlly && isHomerunReflect(homerunAlly.spd, actor.spd)) {
+            tagLogAppend(`🏏 ${homerunAlly.name} がホームラン！${actor.name} の熱々ブレスを打ち返して無効化！`);
+            playSoundEffect('homerun.mp3');
+            callback();
+            return;
+        }
+        // 熱々ブレス：DEF無視で味方2人に40ダメージ
+        myTeam.forEach(f => {
+            if(f.hp <= 0) return;
+            f.hp = Math.max(0, f.hp - 40);
+            tagTriggerDamagePop('player', f.idx, 40, '#e74c3c');
+        });
+        tagLogAppend(`🔥 ${actor.name} の熱々ブレス！両者にDEF無視40ダメージ！`);
+        playSoundEffect('breath.mp3');
+        callback();
+        return;
+    }
+    if(effect === 'seed' && Math.random() < 0.35) {
+        const homerunAlly2 = myTeam.find(f => f.hp > 0 && f.curry && f.curry.isHomerun);
+        if(homerunAlly2 && isHomerunReflect(homerunAlly2.spd, actor.spd)) {
+            tagLogAppend(`🏏 ${homerunAlly2.name} がホームラン！${actor.name} の種連続発射を打ち返して無効化！`);
+            playSoundEffect('homerun.mp3');
+            callback();
+            return;
+        }
+        const avgMySpd = (myTeam[0].spd + (myTeam[1] ? myTeam[1].spd : myTeam[0].spd)) / 2;
+        const hits = rollSeedHits(actor.spd, avgMySpd);
+        let total = 0;
+        for(let h = 0; h < hits; h++) {
+            const target = tagPickRandomAliveTarget(myTeam);
+            if(!target) break;
+            let d = Math.max(2, Math.round(actor.atk*0.4 - target.def/4));
+            d = Math.round(d * (0.9 + Math.random()*0.2));
+            target.hp = Math.max(0, target.hp - d);
+            total += d;
+            tagTriggerDamagePop('player', target.idx, d, '#f1c40f');
+        }
+        tagLogAppend(`🌱 ${actor.name} の種連続発射 ${hits}連撃！合計: ${total}`);
+        playSoundEffect('machine-gun.mp3');
+        callback();
+        return;
+    }
+    tagEnemyNormalAttack(actor, myTeam, callback);
+}
+
+function tagEnemyNormalAttack(actor, myTeam, callback) {
+    const target = tagPickRandomAliveTarget(myTeam);
+    if(!target) { callback(); return; }
+    const isCrit = Math.random() < getCritRate(actor.spd, target.spd);
+    let effectiveDef = target.def * (target.defBuffTurns > 0 ? 1.5 : 1);
+    let d = isCrit ? Math.max(8, actor.atk) : Math.max(8, actor.atk - Math.floor(effectiveDef/2));
+    d = Math.round(d * (0.9 + Math.random()*0.2));
+    if(actor.isWanpaku) d = Math.round(d * getWanpakuDamageMultiplier());
+    target.hp = Math.max(0, target.hp - d);
+    tagTriggerDamagePop('player', target.idx, d, isCrit ? '#ff4500' : '#f1c40f');
+    if(isCrit) tagLogAppend(`🌶️ ${actor.name} の Spicy Hit!!!! ${target.name} に ${d} ダメージ！`);
+    else tagLogAppend(`💥 ${actor.name} の攻撃！ ${target.name} に ${d} ダメージ！`);
+    if(target.hp <= 0) tagLogAppend(`💀 ${target.name} はダウン！`);
+    playSoundEffect('punch.mp3');
+    if(target.defBuffTurns > 0) target.defBuffTurns--;
+    callback();
+}
+
 function rTrimHtml(str) { return str.replace(/<\/?[^>]+(>|$)/g, ""); }
+
+// タッグ戦の勝敗決定後の処理
+function tagFinishBattle(result) {
+    stopBattleBGM();
+    const myFighter = tagBattleFighters[0];
+    const deliveryFighter = tagBattleFighters[1];
+    const enemy0 = tagBattleFighters[2];
+    const enemy1 = tagBattleFighters[3];
+    const isWin = result === 'win';
+
+    const overlay = document.getElementById('tagBattleResultOverlay');
+    const bigText = document.getElementById('tagBattleResultBig');
+    const verdict = document.getElementById('tagBattleVerdict');
+    const rewardText = document.getElementById('tagRewardText');
+
+    let resultLabel = isWin ? '🏆 勝利!!' : (result === 'lose' ? '💀 敗北...' : '🤝 引き分け');
+    let resultColor = isWin ? '#2ecc71' : (result === 'lose' ? '#ff4444' : '#f1c40f');
+
+    if(overlay && bigText) {
+        bigText.innerText = resultLabel; bigText.style.color = resultColor;
+        overlay.style.display = 'flex';
+        setTimeout(() => { overlay.style.display = 'none'; document.getElementById('tagBattleResultBox').style.display = 'block'; }, 2000);
+    } else {
+        document.getElementById('tagBattleResultBox').style.display = 'block';
+    }
+    verdict.innerText = resultLabel; verdict.style.color = resultColor;
+
+    // 宅配カレーの使用報告（所有者の累計成績に反映、5回で食べ尽くされ）
+    if(deliveryFighter && deliveryFighter.deliveryCand) {
+        reportDeliveryCurryUsage(deliveryFighter.deliveryCand, isWin);
+    }
+
+    if(isWin) {
+        playWinSound();
+        const g = 60;
+        const e = Math.round((enemy0.bot.expBonus + enemy1.bot.expBonus) / 2);
+        // 報酬食材は敵2人分を合算
+        const lootNames = [];
+        [enemy0.bot, enemy1.bot].forEach(bot => {
+            let dropPool;
+            if(tagBattleExtraBots.includes(bot) || hardBotOpponents.includes(bot)) {
+                const midPool = Object.keys(masterIngredients).filter(k => masterIngredients[k].shop === 1);
+                const highPool = Object.keys(masterIngredients).filter(k => masterIngredients[k].shop === 2);
+                dropPool = [...midPool, ...highPool];
+            } else {
+                dropPool = Object.keys(masterIngredients).filter(k => masterIngredients[k].shop === 0);
+            }
+            const itm = dropPool[Math.floor(Math.random() * dropPool.length)];
+            inventory[itm] = (inventory[itm] || 0) + 1;
+            discoveredItems[itm] = true;
+            lootNames.push(itm);
+        });
+        playerG += g;
+        const oldExp = playerEXP; playerEXP += e;
+        const lootHtml = lootNames.map(n => {
+            const d = masterIngredients[n];
+            const icon = d && d.icon ? `<img src="${d.icon}" style="width:1.2em;height:1.2em;vertical-align:middle;object-fit:contain;">` : '';
+            return `${icon}${n}`;
+        }).join(' / ');
+        rewardText.innerHTML = `💰 +${g}G / ✨ +${e}EXP<br>${lootHtml}ゲット！`;
+        setTimeout(() => checkLvUp(oldExp, playerEXP), 800);
+        updateStats(s => { s.totalWins = (s.totalWins||0) + 1; });
+    } else if(result === 'lose') {
+        const oldExp = playerEXP; playerEXP += 2;
+        rewardText.innerHTML = `✨ +2EXP どんまい！`;
+        setTimeout(() => checkLvUp(oldExp, playerEXP), 800);
+    } else {
+        rewardText.innerHTML = `引き分けでした。`;
+    }
+
+    // 自分の出撃カレーを消費（通常戦闘と同様の仕様）
+    const myIdx = curryStock.indexOf(myFighter.curry);
+    if(myIdx !== -1) curryStock.splice(myIdx, 1);
+    saveGame(); updateCookSelects(); updateMatchCurrySelects();
+}
+
+function endTagBattleScene() {
+    stopBattleBGM();
+    document.getElementById('tagBattleResultBox').style.display = 'none';
+    document.getElementById('tagBattleArena').style.display = 'none';
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    const battleTab = document.querySelector('[onclick*="battle"]');
+    if(battleTab) battleTab.classList.add('active');
+    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+    document.getElementById('pageBattle').classList.add('active');
+    showBattleGuideChar();
+}
+
 
 // Bot戦：出撃ボタンを押したとき
 function confirmVsDeploy() {
