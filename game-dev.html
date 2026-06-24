@@ -2982,15 +2982,24 @@ function confirmSetDeliveryCurry(idx) {
     const existingIdx = curryStock.findIndex(c => c.isDelivering);
     let msg = `「${curryStock[idx].name}」を宅配カレーに設定します。<br>設定すると、このカレーは対戦で使用できなくなります。<br>`;
     if(existingIdx !== -1 && existingIdx !== idx) {
-        msg += `<br><span style="color:#e74c3c;font-weight:bold;">既に設定されている宅配カレー「${curryStock[existingIdx].name}」は上書きされ、戻ってきません。</span><br>`;
+        msg += `<br><span style="color:#e74c3c;font-weight:bold;">既に配達中の宅配カレー「${curryStock[existingIdx].name}」は消滅し、戻ってきません。</span><br>`;
     }
     msg += `<br>設定してよろしいですか？`;
     showCustomConfirm("🚚 宅配カレー設定", msg, function() {
-        curryStock.forEach(c => { c.isDelivering = false; });
-        curryStock[idx].isDelivering = true;
-        if(selectedCurryIndex === idx) selectedCurryIndex = curryStock.findIndex((c, i) => i !== idx && !c.isDelivering);
+        // 既に配達中だったカレーは戻らず完全に消滅する（先にindexを確定させてから削除）
+        const oldDeliveringIdx = curryStock.findIndex(c => c.isDelivering);
+        const newDeliveryCurryRef = curryStock[idx];
+        if(oldDeliveringIdx !== -1 && oldDeliveringIdx !== idx) {
+            curryStock.splice(oldDeliveringIdx, 1);
+        }
+        // 削除によってindexがずれる可能性があるため、参照で現在のindexを再特定
+        const finalIdx = curryStock.indexOf(newDeliveryCurryRef);
+        curryStock[finalIdx].isDelivering = true;
+        if(selectedCurryIndex === idx || (curryStock[selectedCurryIndex] && curryStock[selectedCurryIndex].isDelivering)) {
+            selectedCurryIndex = curryStock.findIndex(c => !c.isDelivering);
+        }
         saveGame(); updateFridgeUI(); updateCookSelects(); updateMatchCurrySelects();
-        showCustomAlert("✅ 設定完了", `「${curryStock[idx].name}」を宅配カレーに設定しました。`);
+        showCustomAlert("✅ 設定完了", `「${newDeliveryCurryRef.name}」を宅配カレーに設定しました。`);
     });
 }
 
