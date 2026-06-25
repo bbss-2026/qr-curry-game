@@ -749,7 +749,7 @@
                 <div class="tag-match-section-label" style="margin-top:14px;">タッグを組む宅配カレー</div>
                 <div class="tag-delivery-list" id="tagDeliveryList"></div>
 
-                <button class="tutorial-nav-btn" id="tagDeployBtn" style="width:100%;margin-top:18px;background:#d35400;" onclick="confirmTagDeploy()" disabled>出撃する</button>
+                <button class="tutorial-nav-btn" id="tagDeployBtn" style="width:100%;margin-top:18px;margin-bottom:40px;background:#d35400;" onclick="confirmTagDeploy()" disabled>出撃する</button>
             </div>
         </div>
     </div>
@@ -2135,7 +2135,13 @@ function checkDeliveryRewardQueue() {
             if(r.eatenUp && r.curryName) eatenUpCurryNames.push(r.curryName);
         });
         playerG += totalGold;
-        saveGame(); updateFridgeUI(); updateCookSelects(); updateShopButtons();
+        // 食べ尽くされた宅配カレーを、自分のストックからも完全に削除する
+        // （宅配カレーは常に最大1件のみ設定可能なため、isDeliveringフラグだけで一意に特定できる）
+        if(eatenUpCurryNames.length > 0) {
+            curryStock = curryStock.filter(c => !c.isDelivering);
+            if(selectedCurryIndex >= curryStock.length) selectedCurryIndex = curryStock.length - 1;
+        }
+        saveGame(); updateFridgeUI(); updateCookSelects(); updateShopButtons(); updateMatchCurrySelects();
         database.ref('deliveryRewardQueue/' + playerId).remove();
 
         const itemsHtml = totalWinItems.map(it => {
@@ -4947,6 +4953,22 @@ function setBattleSpeed(mult) {
 let tagBattleFighters = []; // [自分, 宅配カレー, 敵1, 敵2] の4要素
 let tagStickyFirstSide = null; // ネバネバ効果でどちらが先攻になるか（'player' / 'enemy' / null）
 
+// 対戦結果ボックスが画面内（ブラウザの操作バー等と重ならない範囲）に収まるよう自動スクロールする
+function scrollResultIntoView(elementId) {
+    const el = document.getElementById(elementId);
+    if(!el) return;
+    setTimeout(() => {
+        const rect = el.getBoundingClientRect();
+        const viewportHeight = window.innerHeight;
+        // 結果ボックスの下端が画面下端から60px以上の余白を持つように調整
+        const margin = 60;
+        if(rect.bottom > viewportHeight - margin || rect.top < 0) {
+            const scrollOffset = rect.bottom - (viewportHeight - margin);
+            window.scrollBy({ top: scrollOffset, behavior: 'smooth' });
+        }
+    }, 100);
+}
+
 function tagTriggerDamagePop(targetSide, targetIdx, value, color) {
     const pop = document.getElementById('tagDamagePop');
     if(!pop) return;
@@ -5656,9 +5678,10 @@ function tagFinishBattle(result) {
     if(overlay && bigText) {
         bigText.innerText = resultLabel; bigText.style.color = resultColor;
         overlay.style.display = 'flex';
-        setTimeout(() => { overlay.style.display = 'none'; document.getElementById('tagBattleResultBox').style.display = 'block'; }, 2000);
+        setTimeout(() => { overlay.style.display = 'none'; document.getElementById('tagBattleResultBox').style.display = 'block'; scrollResultIntoView('tagBattleResultBox'); }, 2000);
     } else {
         document.getElementById('tagBattleResultBox').style.display = 'block';
+        scrollResultIntoView('tagBattleResultBox');
     }
     verdict.innerText = resultLabel; verdict.style.color = resultColor;
 
@@ -6475,8 +6498,8 @@ function eventBattleFinish(pHP, oHP, myC, wasBlownAway){
     const overlay=document.getElementById("battleResultOverlay"); const bigText=document.getElementById("battleResultBig");
     const verdictText = wasBlownAway ? "💨 吹き飛ばされた..." : "💀 敗北...";
     const verdictColor = wasBlownAway ? "#9b59b6" : "#ff4444";
-    if(overlay&&bigText){ bigText.innerText=verdictText; bigText.style.color=verdictColor; bigText.style.fontSize = wasBlownAway ? "34px" : "52px"; overlay.style.display="flex"; setTimeout(()=>{ overlay.style.display="none"; document.getElementById("battleResultBox").style.display="block"; bigText.style.fontSize="52px"; },2000); }
-    else document.getElementById("battleResultBox").style.display="block";
+    if(overlay&&bigText){ bigText.innerText=verdictText; bigText.style.color=verdictColor; bigText.style.fontSize = wasBlownAway ? "34px" : "52px"; overlay.style.display="flex"; setTimeout(()=>{ overlay.style.display="none"; document.getElementById("battleResultBox").style.display="block"; bigText.style.fontSize="52px"; scrollResultIntoView("battleResultBox"); },2000); }
+    else { document.getElementById("battleResultBox").style.display="block"; scrollResultIntoView("battleResultBox"); }
     document.getElementById("pOwnerText").style.color="#ff4444"; document.getElementById("pHpText").style.color="#ff4444";
 
     const res=document.getElementById("battleVerdict"); const rew=document.getElementById("rewardText");
@@ -6589,6 +6612,7 @@ function startBattleScene(oppN, oppC, myC) {
                         curryStock.splice(selectedCurryIndex, 1); selectedCurryIndex = curryStock.length ? 0 : -1;
                         saveGame(); updateCookSelects(); updateMatchCurrySelects();
                         document.getElementById("battleResultBox").style.display = "block";
+                        scrollResultIntoView("battleResultBox");
                         setTimeout(() => { database.ref('rooms/'+currentRoomId).remove(); currentRoomId=null; }, 2000);
                     });
                 }
@@ -6872,8 +6896,8 @@ function done(pHP, oHP, myC, oppC, wasBlownAway) {
         window.__defeatedByPoison = false;
     }
     const overlay=document.getElementById("battleResultOverlay"); const bigText=document.getElementById("battleResultBig");
-    if(overlay&&bigText){bigText.innerText=isWin?"🏆 勝利!!":"💀 敗北..."; bigText.style.color=isWin?"#2ecc71":"#ff4444"; overlay.style.display="flex"; setTimeout(()=>{overlay.style.display="none"; document.getElementById("battleResultBox").style.display="block";},2000);}
-    else document.getElementById("battleResultBox").style.display="block";
+    if(overlay&&bigText){bigText.innerText=isWin?"🏆 勝利!!":"💀 敗北..."; bigText.style.color=isWin?"#2ecc71":"#ff4444"; overlay.style.display="flex"; setTimeout(()=>{overlay.style.display="none"; document.getElementById("battleResultBox").style.display="block"; scrollResultIntoView("battleResultBox");},2000);}
+    else { document.getElementById("battleResultBox").style.display="block"; scrollResultIntoView("battleResultBox"); }
     if(isWin){document.getElementById("oppOwnerText").style.color="#ff4444"; document.getElementById("oHpText").style.color="#ff4444";}
     else{document.getElementById("pOwnerText").style.color="#ff4444"; document.getElementById("pHpText").style.color="#ff4444";}
     const res=document.getElementById("battleVerdict"); const rew=document.getElementById("rewardText");
