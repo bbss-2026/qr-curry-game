@@ -1597,7 +1597,13 @@ const masterIngredients = {
     "牡蠣": { hp: 90, atk: 35, def: 40, spd: 15, emoji: "🦪", icon: "foods_icon/item_38.svg", shop: 1, desc: "海のミルクと称される濃厚な旨味。DEFとHPを強化する守備型食材。" },
     "キャビア": { hp: 60, atk: 70, def: 20, spd: 50, emoji: "🫀", icon: "foods_icon/item_30.svg", shop: 2, desc: "最高級の魚卵。圧倒的なATKとSPDを持つ超攻撃型の最高級食材。" },
     "オマール海老": { hp: 130, atk: 65, def: 55, spd: 20, emoji: "🦞", icon: "foods_icon/item_28.svg", shop: 2, desc: "王者の風格を持つ海老の王様。HPとATKとDEFすべてを高水準で底上げする。" },
-    "ズワイガニ": { hp: 110, atk: 45, def: 65, spd: 10, emoji: "🦀", icon: "foods_icon/item_27.svg", shop: 2, desc: "甲殻の王。圧倒的なDEFとHPを誇る最強の盾食材。" }
+    "ズワイガニ": { hp: 110, atk: 45, def: 65, spd: 10, emoji: "🦀", icon: "foods_icon/item_27.svg", shop: 2, desc: "甲殻の王。圧倒的なDEFとHPを誇る最強の盾食材。" },
+    "タマゴ": { hp: 65, atk: 20, def: 15, spd: 15, emoji: "🥚", icon: "foods_icon/item_43.svg", shop: 0, desc: "レンチン玉子撃破で解放された食材。優しい味でバランスの良い具材。" },
+    "うずら卵": { hp: 35, atk: 10, def: 10, spd: 40, emoji: "🐣", icon: "foods_icon/item_44.svg", shop: 0, desc: "レンチン玉子撃破で解放された食材。小さくて軽く、すばしっこい一品。" },
+    "りんご": { hp: 40, atk: 10, def: 10, spd: 30, emoji: "🍎", icon: "foods_icon/item_45.svg", shop: 0, desc: "カレー天使ぴゃぁ撃破で解放された食材。甘酸っぱい爽やかな具材。" },
+    "バナナ": { hp: 35, atk: 10, def: 20, spd: 25, emoji: "🍌", icon: "foods_icon/item_46.svg", shop: 0, desc: "カレー天使ぴゃぁ撃破で解放された食材。優しい甘さでDEFも頼れる一品。" },
+    "ハラペーニョ": { hp: 30, atk: 50, def: 5, spd: 25, emoji: "🌶️", icon: "foods_icon/item_47.svg", shop: 0, desc: "悪ガキサタン君撃破で解放された食材。刺激的な辛さで一点突破のATK特化。" },
+    "パクチー": { hp: 25, atk: 35, def: 5, spd: 30, emoji: "🌿", icon: "foods_icon/item_48.svg", shop: 0, desc: "悪ガキサタン君撃破で解放された食材。クセが強く好みが分かれる俊敏な香草。" }
 };
 const masterSpices = {
     "ターメリック": { mul: "hp", val: 1.3, name: "黄金の", emoji: "💛", icon: "foods_icon/item_03.svg", desc: "カレーの黄色を決定づける。HPを1.3倍にする！" },
@@ -1633,6 +1639,32 @@ const tagBattleBotPool = [...botOpponents, ...hardBotOpponents, ...tagBattleExtr
 let inventory = {}; let scanHistory = {};
 let playerG = 0; let playerEXP = 0; let packTicket = 0; let spicyCoin = 0;
 let unlockedFoodIconFeature = (localStorage.getItem('qr_food_icon_unlocked') === '1'); // 実績10個達成で食材アイコンをプレイヤーアイコンに使えるようになる
+// ボス撃破で解放される新食材の管理（解放するまでQR・ガチャ・ビンゴ等の抽選に出現しない）
+const BOSS_UNLOCK_INGREDIENTS = {
+    chinUnlocked: ["タマゴ", "うずら卵"],   // レンチン玉子撃破で解放
+    angelUnlocked: ["りんご", "バナナ"],     // カレー天使ぴゃぁ撃破で解放
+    bratUnlocked: ["ハラペーニョ", "パクチー"] // 悪ガキサタン君撃破で解放
+};
+function getUnlockedBossIngredients() {
+    let list = [];
+    if(localStorage.getItem('qr_unlock_chin') === '1') list = list.concat(BOSS_UNLOCK_INGREDIENTS.chinUnlocked);
+    if(localStorage.getItem('qr_unlock_angel') === '1') list = list.concat(BOSS_UNLOCK_INGREDIENTS.angelUnlocked);
+    if(localStorage.getItem('qr_unlock_brat') === '1') list = list.concat(BOSS_UNLOCK_INGREDIENTS.bratUnlocked);
+    return list;
+}
+// 食材が現在抽選対象として有効か（ボス解放食材は解放済みでなければ false）
+function isIngredientAvailable(name) {
+    const allBossIngredients = [...BOSS_UNLOCK_INGREDIENTS.chinUnlocked, ...BOSS_UNLOCK_INGREDIENTS.angelUnlocked, ...BOSS_UNLOCK_INGREDIENTS.bratUnlocked];
+    if(!allBossIngredients.includes(name)) return true; // ボス解放対象でなければ常に有効
+    return getUnlockedBossIngredients().includes(name);
+}
+// ボス撃破時に呼び、未解放なら新規解放して通知する
+function unlockBossIngredients(bossKey) {
+    const storageKey = 'qr_unlock_' + bossKey;
+    if(localStorage.getItem(storageKey) === '1') return; // 既に解放済み
+    localStorage.setItem(storageKey, '1');
+    showCustomAlert('🔓 食材解放', '新たにQRスキャン食材が2種類解放された！');
+}
 let curryStock = []; let selectedCurryIndex = -1;
 let playerName = "名無しの料理人";
 let recipeBook = {}; let myRoomRef = null; let currentRoomId = null;
@@ -2161,7 +2193,7 @@ function checkGiftQueue() {
     database.ref('giftQueue/' + playerId).once('value').then(function(snap){
         const gifts = snap.val();
         if(!gifts) return;
-        const normalPool = Object.keys(masterIngredients).filter(k => masterIngredients[k].shop === 0);
+        const normalPool = Object.keys(masterIngredients).filter(k => masterIngredients[k].shop === 0 && isIngredientAvailable(k));
         const midHighPool = Object.keys(masterIngredients).filter(k => masterIngredients[k].shop === 1 || masterIngredients[k].shop === 2);
         const spicePool = Object.keys(masterSpices).filter(k => k !== "マンゴーチャツネ");
         let allItems = [];
@@ -2191,7 +2223,7 @@ function checkDeliveryRewardQueue() {
     database.ref('deliveryRewardQueue/' + playerId).once('value').then(function(snap){
         const rewards = snap.val();
         if(!rewards) return;
-        const normalPool = Object.keys(masterIngredients).filter(k => masterIngredients[k].shop === 0);
+        const normalPool = Object.keys(masterIngredients).filter(k => masterIngredients[k].shop === 0 && isIngredientAvailable(k));
         const midHighPool = Object.keys(masterIngredients).filter(k => masterIngredients[k].shop === 1 || masterIngredients[k].shop === 2);
         let totalGold = 0;
         let totalWinItems = [];
@@ -2542,7 +2574,7 @@ function claimSpecialBonus(version) {
         const data = snap.val();
         if(!data || data.version !== version) { showCustomAlert('⚠️ エラー', '特別ボーナスの内容が更新されました。再読み込みしてください。'); loadSpecialBonus(); return; }
         let gotItems = [];
-        const normalPool = Object.keys(masterIngredients).filter(k => masterIngredients[k].shop === 0);
+        const normalPool = Object.keys(masterIngredients).filter(k => masterIngredients[k].shop === 0 && isIngredientAvailable(k));
         const midHighPool = Object.keys(masterIngredients).filter(k => masterIngredients[k].shop === 1 || masterIngredients[k].shop === 2);
         const spicePool = Object.keys(masterSpices).filter(k => k !== "マンゴーチャツネ");
         for(let i=0;i<(data.normalCount||0);i++){ const it=normalPool[Math.floor(Math.random()*normalPool.length)]; inventory[it]=(inventory[it]||0)+1; discoveredItems[it]=true; gotItems.push(it); }
@@ -2584,7 +2616,7 @@ function claimLoginBonus() {
     ld.claimed = true;
     saveLoginData(ld);
     // ノーマルアイテム3個
-    const pool = Object.keys(masterIngredients).filter(k => masterIngredients[k].shop === 0);
+    const pool = Object.keys(masterIngredients).filter(k => masterIngredients[k].shop === 0 && isIngredientAvailable(k));
     let items = [];
     for(let i=0;i<3;i++){
         const it = pool[Math.floor(Math.random()*pool.length)];
@@ -2816,6 +2848,9 @@ function buildSaveDataObject() {
         bingoData: localStorage.getItem('qr_bingo') || '{}',
         icon07got: localStorage.getItem('qr_icon07_got') || '',
         foodIconUnlocked: localStorage.getItem('qr_food_icon_unlocked') || '0',
+        unlockChin: localStorage.getItem('qr_unlock_chin') || '0',
+        unlockAngel: localStorage.getItem('qr_unlock_angel') || '0',
+        unlockBrat: localStorage.getItem('qr_unlock_brat') || '0',
         stockLimit: localStorage.getItem('qr_curry_stock_limit') || '',
         playerId: playerId || '',
         secretKey: playerSecretKey || '',
@@ -2848,6 +2883,9 @@ function applySaveDataObject(decoded) {
     else localStorage.removeItem('qr_bingo');
     if(decoded.icon07got) localStorage.setItem('qr_icon07_got', decoded.icon07got);
     if(decoded.foodIconUnlocked) { localStorage.setItem('qr_food_icon_unlocked', decoded.foodIconUnlocked); unlockedFoodIconFeature = decoded.foodIconUnlocked === '1'; }
+    if(decoded.unlockChin) localStorage.setItem('qr_unlock_chin', decoded.unlockChin);
+    if(decoded.unlockAngel) localStorage.setItem('qr_unlock_angel', decoded.unlockAngel);
+    if(decoded.unlockBrat) localStorage.setItem('qr_unlock_brat', decoded.unlockBrat);
     if(decoded.stockLimit) localStorage.setItem('qr_curry_stock_limit', decoded.stockLimit);
     else localStorage.removeItem('qr_curry_stock_limit');
     localStorage.setItem('selectedPlayerIcon', currentIconFile);
@@ -3047,7 +3085,7 @@ function buyGacha(type) {
     playerG -= cost;
     let winner = ""; let emoji = "";
     if (type === 'normal') {
-        const pool = Object.keys(masterIngredients).filter(k => masterIngredients[k].shop === 0);
+        const pool = Object.keys(masterIngredients).filter(k => masterIngredients[k].shop === 0 && isIngredientAvailable(k));
         winner = pool[Math.floor(Math.random() * pool.length)]; emoji = masterIngredients[winner].emoji;
     } else if (type === 'spice') {
         const pool = Object.keys(masterSpices).filter(k => k !== "マンゴーチャツネ");
@@ -3073,7 +3111,7 @@ function buyGacha(type) {
 function buyJurenGacha() {
     if(playerG < 300) { showCustomAlert("💸 ゴールド不足", "300G 必要です。"); return; }
     playerG -= 300;
-    const normalPool = Object.keys(masterIngredients).filter(k => masterIngredients[k].shop === 0);
+    const normalPool = Object.keys(masterIngredients).filter(k => masterIngredients[k].shop === 0 && isIngredientAvailable(k));
     const midPool = Object.keys(masterIngredients).filter(k => masterIngredients[k].shop === 1);
     const highPool = Object.keys(masterIngredients).filter(k => masterIngredients[k].shop === 2);
     // ノーマル食材10個
@@ -3134,7 +3172,7 @@ function buyGachaPack() {
     if (packTicket < 1) return;
     packTicket--;
     let rewards = [];
-    const normalPool = Object.keys(masterIngredients).filter(k => masterIngredients[k].shop === 0);
+    const normalPool = Object.keys(masterIngredients).filter(k => masterIngredients[k].shop === 0 && isIngredientAvailable(k));
     for(let i=0; i<7; i++) {
         let item = normalPool[Math.floor(Math.random() * normalPool.length)]; rewards.push({ name: item, emoji: masterIngredients[item].emoji });
         inventory[item] = (inventory[item] || 0) + 1; discoveredItems[item] = true;
@@ -3210,7 +3248,7 @@ function processQRData(text, r, g, b) {
         const today = getJSTDateString();
         if (scanHistory[text] === today) { document.getElementById("getBoxTitle").innerText = "⚠️ 使用済み"; document.getElementById("getItemEmoji").innerText = "🙅"; document.getElementById("getItemName").innerText = "本日はスキャン済みです！"; document.getElementById("bonusBadge").style.display = "none"; document.getElementById("getBox").style.display = "block"; return; }
         scanHistory[text] = today;
-        const normalItems = Object.keys(masterIngredients).filter(k => masterIngredients[k].shop === 0);
+        const normalItems = Object.keys(masterIngredients).filter(k => masterIngredients[k].shop === 0 && isIngredientAvailable(k));
         const allItems = [...normalItems, ...Object.keys(masterSpices).filter(k => k !== "マンゴーチャツネ")];
         let sum = 0; for (let i = 0; i < text.length; i++) sum += text.charCodeAt(i);
         let itemName = allItems[sum % allItems.length];
@@ -3854,9 +3892,9 @@ function generateRandomCurryFromPool(ingredientPool, includeSpice) {
 // ============================================================
 // ダミーキャラ（タッグ戦の宅配カレー抽選プール用、本物のプレイヤーが少ない場合の補充）
 // ============================================================
-const NORMAL_INGREDIENT_POOL = Object.keys(masterIngredients).filter(k => masterIngredients[k].shop === 0);
-const MID_INGREDIENT_POOL = Object.keys(masterIngredients).filter(k => masterIngredients[k].shop === 0 || masterIngredients[k].shop === 1);
-const HIGH_INGREDIENT_POOL = Object.keys(masterIngredients).filter(k => masterIngredients[k].shop === 0 || masterIngredients[k].shop === 1 || masterIngredients[k].shop === 2);
+function getNormalIngredientPool() { return Object.keys(masterIngredients).filter(k => masterIngredients[k].shop === 0 && isIngredientAvailable(k)); }
+function getMidIngredientPool() { return Object.keys(masterIngredients).filter(k => (masterIngredients[k].shop === 0 && isIngredientAvailable(k)) || masterIngredients[k].shop === 1); }
+function getHighIngredientPool() { return Object.keys(masterIngredients).filter(k => (masterIngredients[k].shop === 0 && isIngredientAvailable(k)) || masterIngredients[k].shop === 1 || masterIngredients[k].shop === 2); }
 
 // 「ノーマルカレー」（特殊効果なし）を確実に生成する
 function generateGuaranteedNormalCurry(pool, maxRetry) {
@@ -3898,16 +3936,16 @@ function generateGuaranteedHomerunCurry(pool, maxRetry) {
 
 // ダミーキャラ定義（固有ID付き、本物のプレイヤーには発行されない予約ID帯）
 const DUMMY_CHARACTERS = [
-    { id: "BC-DUMMY0001", name: "たま", icon: "myimageicon/mayimage02.png", curryGen: () => generateGuaranteedNormalCurry(NORMAL_INGREDIENT_POOL) },
-    { id: "BC-DUMMY0002", name: "筋肉痛マン", icon: "myimageicon/mayimage01.png", curryGen: () => generateGuaranteedNormalCurry(NORMAL_INGREDIENT_POOL) },
-    { id: "BC-DUMMY0003", name: "SPLASH!!!!!", icon: "myimageicon/mayimage05.png", curryGen: () => generateGuaranteedSeedCurry(NORMAL_INGREDIENT_POOL) },
-    { id: "BC-DUMMY0004", name: "るねさん", icon: "myimageicon/mayimage03.png", curryGen: () => generateGuaranteedHomerunCurry(NORMAL_INGREDIENT_POOL) },
-    { id: "BC-DUMMY0005", name: "忍者男爵", icon: "myimageicon/mayimage06.png", curryGen: () => generateGuaranteedNormalCurry(MID_INGREDIENT_POOL) },
-    { id: "BC-DUMMY0006", name: "ああああ", icon: "myimageicon/mayimage01.png", curryGen: () => generateRandomCurryFromPool(MID_INGREDIENT_POOL, false) },
-    { id: "BC-DUMMY0007", name: "銀次郎", icon: "myimageicon/mayimage04.png", curryGen: () => generateRandomCurryFromPool(MID_INGREDIENT_POOL, false) },
-    { id: "BC-DUMMY0008", name: "aya.cake7", icon: "myimageicon/mayimage04.png", curryGen: () => generateRandomCurryFromPool(HIGH_INGREDIENT_POOL, false) },
-    { id: "BC-DUMMY0009", name: "トニーボニーロッカー🦌", icon: "myimageicon/mayimage08.png", curryGen: () => generateRandomCurryFromPool(HIGH_INGREDIENT_POOL, false) },
-    { id: "BC-DUMMY0010", name: "カレーガチ勢🍛", icon: "myimageicon/mayimage07.png", curryGen: () => generateRandomCurryFromPool(HIGH_INGREDIENT_POOL, false) }
+    { id: "BC-DUMMY0001", name: "たま", icon: "myimageicon/mayimage02.png", curryGen: () => generateGuaranteedNormalCurry(getNormalIngredientPool()) },
+    { id: "BC-DUMMY0002", name: "筋肉痛マン", icon: "myimageicon/mayimage01.png", curryGen: () => generateGuaranteedNormalCurry(getNormalIngredientPool()) },
+    { id: "BC-DUMMY0003", name: "SPLASH!!!!!", icon: "myimageicon/mayimage05.png", curryGen: () => generateGuaranteedSeedCurry(getNormalIngredientPool()) },
+    { id: "BC-DUMMY0004", name: "るねさん", icon: "myimageicon/mayimage03.png", curryGen: () => generateGuaranteedHomerunCurry(getNormalIngredientPool()) },
+    { id: "BC-DUMMY0005", name: "忍者男爵", icon: "myimageicon/mayimage06.png", curryGen: () => generateGuaranteedNormalCurry(getMidIngredientPool()) },
+    { id: "BC-DUMMY0006", name: "ああああ", icon: "myimageicon/mayimage01.png", curryGen: () => generateRandomCurryFromPool(getMidIngredientPool(), false) },
+    { id: "BC-DUMMY0007", name: "銀次郎", icon: "myimageicon/mayimage04.png", curryGen: () => generateRandomCurryFromPool(getMidIngredientPool(), false) },
+    { id: "BC-DUMMY0008", name: "aya.cake7", icon: "myimageicon/mayimage04.png", curryGen: () => generateRandomCurryFromPool(getHighIngredientPool(), false) },
+    { id: "BC-DUMMY0009", name: "トニーボニーロッカー🦌", icon: "myimageicon/mayimage08.png", curryGen: () => generateRandomCurryFromPool(getHighIngredientPool(), false) },
+    { id: "BC-DUMMY0010", name: "カレーガチ勢🍛", icon: "myimageicon/mayimage07.png", curryGen: () => generateRandomCurryFromPool(getHighIngredientPool(), false) }
 ];
 
 // ダミーキャラ全員分の「現在の宅配カレー」を生成（タッグ戦マッチング時に毎回新規生成）
@@ -4230,8 +4268,13 @@ const BINGO_ITEM_POOL = [
     "牛肉","牛すじ","チキン","唐揚げ","トンカツ","ウインナー","ナス","トマト",
     "レンコン","ジャガイモ","ピーマン","レーズン","玉ねぎ","にんじん","大根","マッシュルーム",
     "ひよこ豆","チーズ","イカ","小エビ","ツナ",
-    "ターメリック","クミン","コリアンダー","カルダモン","シナモン","クローブ","ブラックペッパー","チリパウダー"
+    "ターメリック","クミン","コリアンダー","カルダモン","シナモン","クローブ","ブラックペッパー","チリパウダー",
+    "タマゴ","うずら卵","りんご","バナナ","ハラペーニョ","パクチー"
 ];
+// 現在抽選に出してよいビンゴアイテム（ボス解放食材は解放済みでなければ除外）
+function getAvailableBingoItemPool() {
+    return BINGO_ITEM_POOL.filter(name => !masterIngredients[name] || isIngredientAvailable(name));
+}
 // 4x4=16マスのライン定義（横4・縦4・斜め2＝10ライン）
 const BINGO_LINES = [
     [0,1,2,3],[4,5,6,7],[8,9,10,11],[12,13,14,15], // 横
@@ -4249,7 +4292,7 @@ function saveBingoData(data) {
 }
 
 function generateNewBingoCard() {
-    const shuffled = [...BINGO_ITEM_POOL].sort(() => Math.random() - 0.5);
+    const shuffled = [...getAvailableBingoItemPool()].sort(() => Math.random() - 0.5);
     const cardItems = shuffled.slice(0, 16);
     const opened = cardItems.map(() => false);
     const data = {
@@ -5420,7 +5463,7 @@ function tagRunActionQueue(order, i, round) {
 // ターン開始時処理：毒ダメージ・カレー天使の天使のカレー粉ターン消費等
 function tagExecuteTurnStart(actor, callback) {
     if(actor.isPoisoned) {
-        const d = 20 + Math.floor(Math.random() * 21);
+        const d = Math.round(actor.maxHp * 0.08);
         actor.hp = Math.max(0, actor.hp - d);
         const side = actor.side === 'enemy' ? 'enemy' : 'player';
         tagTriggerDamagePop(side, actor.idx, d, '#9b59b6');
@@ -5878,6 +5921,12 @@ function tagFinishBattle(result) {
                 }
             });
         });
+        // タッグ専用ボス（レンチン玉子・カレー天使ぴゃぁ・悪ガキサタン君）撃破による食材解放
+        [enemy0.bot, enemy1.bot].forEach(bot => {
+            if(bot.specialEffect === 'chin') unlockBossIngredients('chin');
+            else if(bot.specialEffect === 'angel') unlockBossIngredients('angel');
+            else if(bot.specialEffect === 'brat') unlockBossIngredients('brat');
+        });
         const g = 60;
         const e = Math.round((enemy0.bot.expBonus + enemy1.bot.expBonus) / 2);
         // 報酬食材は敵2人分を合算
@@ -5889,7 +5938,7 @@ function tagFinishBattle(result) {
                 const highPool = Object.keys(masterIngredients).filter(k => masterIngredients[k].shop === 2);
                 dropPool = [...midPool, ...highPool];
             } else {
-                dropPool = Object.keys(masterIngredients).filter(k => masterIngredients[k].shop === 0);
+                dropPool = Object.keys(masterIngredients).filter(k => masterIngredients[k].shop === 0 && isIngredientAvailable(k));
             }
             const itm = dropPool[Math.floor(Math.random() * dropPool.length)];
             inventory[itm] = (inventory[itm] || 0) + 1;
