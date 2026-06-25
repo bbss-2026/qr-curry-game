@@ -997,6 +997,9 @@
         <div id="tagBattleArena" style="display:none;">
             <div class="tag-battle-stage" id="tagBattleStage">
                 <div class="tag-damage-pop" id="tagDamagePop" style="display:none;">0</div>
+                <div id="tagChinExplosionText" style="display:none; position:absolute; top:0; left:0; width:100%; height:100%; z-index:9600; justify-content:center; align-items:center; pointer-events:none;">
+                    <div style="font-size:15vw; max-font-size:64px; font-weight:900; font-family:'Impact',Arial,sans-serif; color:#ff4500; -webkit-text-stroke:2px #000; text-shadow:0 0 20px rgba(255,69,0,0.9); white-space:nowrap; animation:resultPop 0.4s ease-out;">大爆発</div>
+                </div>
                 <div id="tagBattleResultOverlay" style="display:none; position:absolute; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.6); z-index:20; flex-direction:column; justify-content:center; align-items:center; border-radius:8px;">
                     <div id="tagBattleResultBig" style="font-size:48px; font-weight:900; font-family:'Impact',Arial,sans-serif; -webkit-text-stroke:2px #000; text-shadow:0 0 20px rgba(0,0,0,0.8); animation:resultPop 0.4s ease-out; white-space:nowrap; max-width:92%; text-align:center;"></div>
                 </div>
@@ -5422,10 +5425,13 @@ function tagExecuteEnemyActionImpl(actor, myTeam, enemyTeam, callback) {
         playSoundEffect('chin.mp3');
         tagLogAppend(`🔥 ${actor.name} は更にレンジで加熱された`);
         if(actor.chinCount >= 3) {
-            // 3回目は同じターン内で続けて大爆発を発動（他キャラの行動を挟まない）
+            // 3回目は同じターン内で続けて大爆発を発動（他キャラの行動を挟まない）。
+            // ①加熱表示 → ②「大爆発」の巨大テキスト → ③結果テキスト、の3段階で表示する
             tagTriggerChinGrowEffect(actor, () => {
                 actor.chinCount = 0;
-                tagExecuteChinExplosion(actor, myTeam, callback);
+                tagTriggerChinExplosionText(() => {
+                    tagExecuteChinExplosion(actor, myTeam, callback);
+                });
             });
         } else {
             tagTriggerChinGrowEffect(actor, callback);
@@ -5517,10 +5523,21 @@ function tagEnemyNormalAttack(actor, myTeam, callback) {
 }
 
 // レンチン玉子：大爆発（DEF無視で味方2人に200ダメージ、ホームランで打ち返し可能）
+// レンチン玉子：「大爆発」の巨大テキストを一瞬表示する
+function tagTriggerChinExplosionText(callback) {
+    const wrap = document.getElementById('tagChinExplosionText');
+    if(!wrap) { callback(); return; }
+    wrap.style.display = 'flex';
+    setTimeout(() => {
+        wrap.style.display = 'none';
+        callback();
+    }, battleDelay(900));
+}
+
 function tagExecuteChinExplosion(actor, myTeam, callback) {
     const homerunAlly = myTeam.find(f => f.hp > 0 && f.curry && f.curry.isHomerun);
     if(homerunAlly && isHomerunReflect(homerunAlly.spd, actor.spd)) {
-        tagLogAppend(`🏏 ${homerunAlly.name} がホームラン！${actor.name} の大爆発を打ち返して無効化！`);
+        tagLogSet(`🏏 ${homerunAlly.name} がホームラン！${actor.name} の大爆発を打ち返して無効化！`);
         playSoundEffect('daibakuha.mp3');
         setTimeout(() => { playSoundEffect('homerun.mp3'); }, battleDelay(300));
         // 打ち返された場合はレンチン玉子自身だけがダウン（味方は無傷）
@@ -5530,7 +5547,7 @@ function tagExecuteChinExplosion(actor, myTeam, callback) {
         tagTriggerChinExplosionEffect(actor, () => { callback(); });
         return;
     }
-    tagLogAppend(`💥 ゆで卵はレンジで作らないで!!!!!!!!!!`);
+    tagLogSet(`💥 ゆで卵はレンジで作らないで!!!!!!!!!!`);
     myTeam.forEach(f => {
         if(f.hp <= 0) return;
         f.hp = Math.max(0, f.hp - 200);
