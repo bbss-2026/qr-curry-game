@@ -1210,23 +1210,75 @@ function showIconSelectModal() {
             <img src="${icon}" style="width:64px;height:64px;border-radius:4px;object-fit:cover;display:block;margin:0 auto;">
         </div>`;
     });
+    // 実績10個達成で食材アイコンも選択肢に追加（サムネイル1個、タップで一覧へ）
+    if(unlockedFoodIconFeature) {
+        const isFoodSel = !ALL_ICON_LIST.includes(currentIconFile) && currentIconFile !== '' && isFoodIconPath(currentIconFile);
+        const thumbIcon = isFoodSel ? currentIconFile : getAnyDiscoveredItemIcon();
+        if(thumbIcon) {
+            gridHTML += `<div onclick="showFoodIconSelectModal()" style="cursor:pointer;text-align:center;padding:6px;border-radius:6px;border:2px solid ${isFoodSel?'#b88742':'#e0d0b0'};background:${isFoodSel?'#fff8ee':'transparent'};">
+                <img src="${thumbIcon}" style="width:64px;height:64px;border-radius:4px;object-fit:cover;display:block;margin:0 auto;">
+                <div style="font-size:9px;color:#888;margin-top:2px;">食材から選ぶ</div>
+            </div>`;
+        }
+    }
     gridHTML += '</div>';
     showCustomAlert('アイコン選択', gridHTML);
+}
+
+// 食材・スパイスアイコンがプレイヤーアイコンとして使われているか判定
+function isFoodIconPath(path) {
+    if(!path) return false;
+    const allFoodIcons = [...Object.values(masterIngredients), ...Object.values(masterSpices)].map(d => d.icon);
+    return allFoodIcons.includes(path);
+}
+
+// 入手済みの食材・スパイスの中から1つアイコンパスを返す（サムネイル初期表示用）
+function getAnyDiscoveredItemIcon() {
+    const discoveredNames = Object.keys(discoveredItems).filter(k => discoveredItems[k]);
+    for(const name of discoveredNames) {
+        const data = masterIngredients[name] || masterSpices[name];
+        if(data && data.icon) return data.icon;
+    }
+    return null;
+}
+
+// 入手済みの食材・スパイスアイコン一覧を表示し、選んでプレイヤーアイコンに設定する
+function showFoodIconSelectModal() {
+    const discoveredNames = Object.keys(discoveredItems).filter(k => discoveredItems[k]);
+    if(discoveredNames.length === 0) {
+        showCustomAlert('⚠️ まだありません', 'まだ入手済みの食材・スパイスがありません。');
+        return;
+    }
+    let gridHTML = '<div style="display:grid;grid-template-columns:repeat(5,1fr);gap:6px;padding:4px;max-height:50vh;overflow-y:auto;">';
+    discoveredNames.forEach(name => {
+        const data = masterIngredients[name] || masterSpices[name];
+        if(!data || !data.icon) return;
+        const isSel = data.icon === currentIconFile;
+        gridHTML += `<div onclick="selectFoodIconAsPlayerIcon('${data.icon}')" style="cursor:pointer;text-align:center;padding:4px;border-radius:6px;border:2px solid ${isSel?'#b88742':'#e0d0b0'};background:${isSel?'#fff8ee':'transparent'};">
+            <img src="${data.icon}" style="width:36px;height:36px;object-fit:contain;display:block;margin:0 auto;">
+        </div>`;
+    });
+    gridHTML += '</div>';
+    showCustomAlert('食材・スパイスアイコンから選ぶ', gridHTML);
+}
+
+function selectFoodIconAsPlayerIcon(iconPath) {
+    selectPlayerIcon(iconPath);
 }
 
 function selectPlayerIcon(icon) {
     currentIconFile = icon;
     const img = document.getElementById("playerIconImg");
-    if(img) { img.src = icon; const gi = ALL_ICON_LIST.indexOf(icon)+1; img.setAttribute("data-index", gi); }
+    if(img) { img.src = icon; const gi = ALL_ICON_LIST.indexOf(icon)+1; img.setAttribute("data-index", gi > 0 ? gi : ''); }
     localStorage.setItem("selectedPlayerIcon", icon);
     saveGame();
     document.getElementById("customModal").style.display = "none";
 }
 function setupLoadedIconUI() {
     const img = document.getElementById("playerIconImg");
-    // 解放済みに含まれているか確認
+    // 解放済みに含まれているか確認（食材アイコンが選ばれている場合はそのまま許可）
     const unlocked = getUnlockedIcons();
-    if (!unlocked.includes(currentIconFile)) {
+    if (!unlocked.includes(currentIconFile) && !isFoodIconPath(currentIconFile)) {
         currentIconFile = unlocked[0];
         localStorage.setItem("selectedPlayerIcon", currentIconFile);
     }
@@ -1580,6 +1632,7 @@ const tagBattleExtraBots = [
 const tagBattleBotPool = [...botOpponents, ...hardBotOpponents, ...tagBattleExtraBots];
 let inventory = {}; let scanHistory = {};
 let playerG = 0; let playerEXP = 0; let packTicket = 0; let spicyCoin = 0;
+let unlockedFoodIconFeature = (localStorage.getItem('qr_food_icon_unlocked') === '1'); // 実績10個達成で食材アイコンをプレイヤーアイコンに使えるようになる
 let curryStock = []; let selectedCurryIndex = -1;
 let playerName = "名無しの料理人";
 let recipeBook = {}; let myRoomRef = null; let currentRoomId = null;
@@ -2335,37 +2388,40 @@ const DAILY_QUESTS = [
 
 // --- 実績定義 ---
 const ACHIEVEMENTS = [
-    { id:'scan_1',    text:'QRをスキャンする',          desc:'QRを初めてスキャンする',                       check: d => d.scanTotal >= 1 },
-    { id:'scan_50',   text:'QRを50回スキャンする',      desc:'QRを50回スキャンする',                         check: d => d.scanTotal >= 50 },
-    { id:'scan_100',  text:'QRを100回スキャンする',     desc:'QRを100回スキャンする',                        check: d => d.scanTotal >= 100 },
-    { id:'scan_500',  text:'QRを500回スキャンする',     desc:'QRを500回スキャンする',                        check: d => d.scanTotal >= 500 },
-    { id:'scan_1000', text:'QRを1000回スキャンする',    desc:'QRを1000回スキャンする',                       check: d => d.scanTotal >= 1000 },
-    { id:'bot_all',   text:'PC戦(初級)撃破',            desc:'PCバトル(初級)で全キャラ撃破おめでとう！',     check: d => d.botKills >= 4 },
-    { id:'hard_all',  text:'PC戦(中級)撃破',            desc:'PCバトル(中級)で全キャラ撃破おめでとう！',     check: d => d.hardKills >= 4 },
-    { id:'maharaja',  text:'富豪撃破',                  desc:'マハラジャ撃破おめでとう！',                   check: d => d.maharajaKill >= 1 },
-    { id:'win_100',   text:'めっちゃ勝利する',          desc:'対戦で100勝おめでとう！',                      check: d => d.totalWins >= 100 },
-    { id:'cook_1',    text:'調理をする',                desc:'初めて調理でカレーを作る',                     check: d => d.cookTotal >= 1 },
-    { id:'cook_50',   text:'調理を50回する',            desc:'調理でカレーを50回作る',                       check: d => d.cookTotal >= 50 },
-    { id:'cook_100',  text:'調理を100回する',           desc:'調理でカレーを100回作る',                      check: d => d.cookTotal >= 100 },
-    { id:'cook_500',  text:'調理を500回する',           desc:'調理でカレーを500回作る',                      check: d => d.cookTotal >= 500 },
-    { id:'items_10',  text:'アイテム10種類入手',        desc:'アイテム10種類入手する',                       check: d => d.itemVariety >= 10 },
-    { id:'items_20',  text:'アイテム20種類入手',        desc:'アイテム20種類入手する',                       check: d => d.itemVariety >= 20 },
-    { id:'items_30',  text:'アイテム30種類入手',        desc:'アイテム30種類入手する',                       check: d => d.itemVariety >= 30 },
-    { id:'poison_c',  text:'毒毒しいカレー入手',        desc:'毒カレー完成おめでとう！',                     check: d => d.gotPoison },
-    { id:'illusion_c',text:'惑わしちゃうカレー入手',   desc:'幻惑カレー完成おめでとう！',                   check: d => d.gotIllusion },
-    { id:'seed_c',    text:'連続発射カレー入手',        desc:'種連続発射カレー完成おめでとう！',             check: d => d.gotSeed },
-    { id:'wanpaku_c', text:'わんぱくで良いよね！',      desc:'わんぱくカレー完成おめでとう！',               check: d => d.gotWanpaku },
-    { id:'rata_c',    text:'まるでラタトゥイユ！？',    desc:'ラタトゥイユカレー完成おめでとう！',           check: d => d.gotRatatouille },
-    { id:'homerun_c', text:'目指せホームラン',          desc:'ホームランカレー完成おめでとう！',             check: d => d.gotHomerun },
-    { id:'marg_c',    text:'それってまるでピザ！？',    desc:'マルゲリータカレー完成おめでとう！',           check: d => d.gotMargherita },
-    { id:'sea_c',     text:'あれ？波の音が聞こえる',   desc:'海の幸カレー完成おめでとう！',                 check: d => d.gotSeafood },
-    { id:'bonus_qr',  text:'え、このQR、こんなに！？', desc:'アイテムが多めにもらえるQRを見つけたね！',     check: d => d.gotBonusQR },
-    { id:'event_join', text:'イベントバトルに参加',     desc:'イベントバトルに参加ありがとう！',             check: d => d.eventBattleJoined },
-    { id:'poison_win', text:'毒フィニッシャー',         desc:'毒ダメージでフィニッシュなんてさすが！',       check: d => d.wonByPoison },
-    { id:'seed_7hit',  text:'種7連続発射',              desc:'SPD高くないと7回連射できないんだよ！',         check: d => d.seedMaxHits >= 7 },
-    { id:'tutorial_done', text:'チュートリアル完了',    desc:'チュートリアル完了おめでとう！',               check: d => d.tutorialCompleted },
-    { id:'five_types', text:'基本5タイプカレー入手',    desc:'基本カレー5つのイラストどれがお気に入り？',   check: d => d.gotAllCurryTypes },
-    { id:'guide_snooze', text:'案内人ちょっとあっち行って', desc:'案内人が長押しでしばらく出ないことによく気づいたね！', check: d => d.guideCharSnoozed },
+    { id:'scan_1',    text:'QRをスキャンする',          desc:'QRを初めてスキャンする',                       reward:100, check: d => d.scanTotal >= 1 },
+    { id:'scan_50',   text:'QRを50回スキャンする',      desc:'QRを50回スキャンする',                         reward:100, check: d => d.scanTotal >= 50 },
+    { id:'scan_100',  text:'QRを100回スキャンする',     desc:'QRを100回スキャンする',                        reward:100, check: d => d.scanTotal >= 100 },
+    { id:'scan_500',  text:'QRを500回スキャンする',     desc:'QRを500回スキャンする',                        reward:100, check: d => d.scanTotal >= 500 },
+    { id:'scan_1000', text:'QRを1000回スキャンする',    desc:'QRを1000回スキャンする',                       reward:100, check: d => d.scanTotal >= 1000 },
+    { id:'bot_all',   text:'PC戦(初級)撃破',            desc:'PCバトル(初級)で全キャラ撃破おめでとう！',     reward:100, check: d => d.botKills >= 4 },
+    { id:'hard_all',  text:'PC戦(中級)撃破',            desc:'PCバトル(中級)で全キャラ撃破おめでとう！',     reward:100, check: d => d.hardKills >= 4 },
+    { id:'tag_all',   text:'タッグ戦撃破',              desc:'タッグ戦で全キャラ撃破おめでとう！',           reward:200, check: d => d.botKills >= 4 && d.hardKills >= 4 && d.tagExtraKills >= 3 },
+    { id:'maharaja',  text:'富豪撃破',                  desc:'マハラジャ撃破おめでとう！',                   reward:100, check: d => d.maharajaKill >= 1 },
+    { id:'win_100',   text:'めっちゃ勝利する',          desc:'対戦で100勝おめでとう！',                      reward:100, check: d => d.totalWins >= 100 },
+    { id:'cook_1',    text:'調理をする',                desc:'初めて調理でカレーを作る',                     reward:100, check: d => d.cookTotal >= 1 },
+    { id:'cook_50',   text:'調理を50回する',            desc:'調理でカレーを50回作る',                       reward:100, check: d => d.cookTotal >= 50 },
+    { id:'cook_100',  text:'調理を100回する',           desc:'調理でカレーを100回作る',                      reward:100, check: d => d.cookTotal >= 100 },
+    { id:'cook_500',  text:'調理を500回する',           desc:'調理でカレーを500回作る',                      reward:100, check: d => d.cookTotal >= 500 },
+    { id:'items_10',  text:'アイテム10種類入手',        desc:'アイテム10種類入手する',                       reward:100, check: d => d.itemVariety >= 10 },
+    { id:'items_20',  text:'アイテム20種類入手',        desc:'アイテム20種類入手する',                       reward:100, check: d => d.itemVariety >= 20 },
+    { id:'items_30',  text:'アイテム30種類入手',        desc:'アイテム30種類入手する',                       reward:100, check: d => d.itemVariety >= 30 },
+    { id:'poison_c',  text:'毒毒しいカレー入手',        desc:'毒カレー完成おめでとう！',                     reward:100, check: d => d.gotPoison },
+    { id:'illusion_c',text:'惑わしちゃうカレー入手',   desc:'幻惑カレー完成おめでとう！',                   reward:100, check: d => d.gotIllusion },
+    { id:'seed_c',    text:'連続発射カレー入手',        desc:'種連続発射カレー完成おめでとう！',             reward:100, check: d => d.gotSeed },
+    { id:'wanpaku_c', text:'わんぱくで良いよね！',      desc:'わんぱくカレー完成おめでとう！',               reward:100, check: d => d.gotWanpaku },
+    { id:'rata_c',    text:'まるでラタトゥイユ！？',    desc:'ラタトゥイユカレー完成おめでとう！',           reward:100, check: d => d.gotRatatouille },
+    { id:'homerun_c', text:'目指せホームラン',          desc:'ホームランカレー完成おめでとう！',             reward:100, check: d => d.gotHomerun },
+    { id:'marg_c',    text:'それってまるでピザ！？',    desc:'マルゲリータカレー完成おめでとう！',           reward:100, check: d => d.gotMargherita },
+    { id:'sea_c',     text:'あれ？波の音が聞こえる',   desc:'海の幸カレー完成おめでとう！',                 reward:100, check: d => d.gotSeafood },
+    { id:'bonus_qr',  text:'え、このQR、こんなに！？', desc:'アイテムが多めにもらえるQRを見つけたね！',     reward:100, check: d => d.gotBonusQR },
+    { id:'event_join', text:'イベントバトルに参加',     desc:'イベントバトルに参加ありがとう！',             reward:100, check: d => d.eventBattleJoined },
+    { id:'poison_win', text:'毒フィニッシャー',         desc:'毒ダメージでフィニッシュなんてさすが！',       reward:100, check: d => d.wonByPoison },
+    { id:'seed_7hit',  text:'種7連続発射',              desc:'SPD高くないと7回連射できないんだよ！',         reward:100, check: d => d.seedMaxHits >= 7 },
+    { id:'tutorial_done', text:'チュートリアル完了',    desc:'チュートリアル完了おめでとう！',               reward:100, check: d => d.tutorialCompleted },
+    { id:'five_types', text:'基本5タイプカレー入手',    desc:'基本カレー5つのイラストどれがお気に入り？',   reward:100, check: d => d.gotAllCurryTypes },
+    { id:'guide_snooze', text:'案内人ちょっとあっち行って', desc:'案内人が長押しでしばらく出ないことによく気づいたね！', reward:100, check: d => d.guideCharSnoozed },
+    { id:'achieve_10', text:'実績10個達成',             desc:'食材アイコンをキャラクターアイコンに解放！',   reward:0, rewardType:'unlockFoodIcon', isMetaAchievement:true, requiredCount:10 },
+    { id:'achieve_20', text:'実績20個達成',             desc:'実績を20個達成おめでとう！',                   reward:0, rewardType:'spicyCoin', spicyCoinAmount:1, isMetaAchievement:true, requiredCount:20 },
 ];
 
 // --- グローバル統計（Firebaseに全プレイヤー分集計） ---
@@ -2383,7 +2439,7 @@ function getStats() {
         itemVariety:0,
         gotPoison:false, gotIllusion:false, gotSeed:false,
         gotMargherita:false, gotSeafood:false, gotBonusQR:false,
-        defeatedBots:[], defeatedHardBots:[],
+        defeatedBots:[], defeatedHardBots:[], defeatedTagExtraBots:[], tagExtraKills:0,
         eventBattleJoined:false, wonByPoison:false, seedMaxHits:0,
         gotWanpaku:false, gotRatatouille:false, gotHomerun:false,
         tutorialCompleted:false, curryTypesObtained:[], gotAllCurryTypes:false,
@@ -2593,29 +2649,64 @@ function checkAndRenderAchievements() {
     const stats = getStats();
     const achieved = getAchievements();
     let newlyAchieved = [];
+
+    // 通常実績の判定（メタ実績=実績数トリガー型は対象外）
     ACHIEVEMENTS.forEach(a => {
+        if(a.isMetaAchievement) return;
         if(!achieved[a.id] && a.check(stats)) {
             achieved[a.id] = true;
             newlyAchieved.push(a);
         }
     });
+
+    // メタ実績の判定（他の実績の達成数をトリガーにする実績。自分自身はカウント対象に含めない）
+    ACHIEVEMENTS.forEach(a => {
+        if(!a.isMetaAchievement) return;
+        if(achieved[a.id]) return;
+        const otherAchievedCount = Object.keys(achieved).filter(id => achieved[id] && id !== a.id).length;
+        if(otherAchievedCount >= a.requiredCount) {
+            achieved[a.id] = true;
+            newlyAchieved.push(a);
+        }
+    });
+
     if(newlyAchieved.length > 0) {
         saveAchievements(achieved);
-        playerG += newlyAchieved.length * 100;
+        let totalGoldReward = 0;
+        let specialRewardLines = [];
+        newlyAchieved.forEach(a => {
+            if(a.rewardType === 'spicyCoin') {
+                spicyCoin += (a.spicyCoinAmount || 1);
+                specialRewardLines.push(`🌶️ スパイシーコイン+${a.spicyCoinAmount || 1}`);
+            } else if(a.rewardType === 'unlockFoodIcon') {
+                unlockedFoodIconFeature = true;
+                localStorage.setItem('qr_food_icon_unlocked', '1');
+                specialRewardLines.push(`🖼️ 食材アイコンをプレイヤーアイコンに設定できるようになりました！`);
+            } else {
+                totalGoldReward += (a.reward != null ? a.reward : 100);
+            }
+        });
+        playerG += totalGoldReward;
         saveGame();
         const detail = newlyAchieved.map(a =>
             `<div style="margin-bottom:10px;"><b style="color:#420000;">🏆 ${a.text}</b><br><span style="font-size:12px;color:#5a3a1a;">${a.desc || ''}</span></div>`
         ).join('');
-        showCustomAlert('🏆 実績達成！', `${detail}<br>+${newlyAchieved.length*100}G 獲得！`);
+        let rewardSummary = [];
+        if(totalGoldReward > 0) rewardSummary.push(`+${totalGoldReward}G`);
+        rewardSummary = rewardSummary.concat(specialRewardLines);
+        showCustomAlert('🏆 実績達成！', `${detail}<br>${rewardSummary.join('<br>')}`);
     }
     // 描画
     area.innerHTML = ACHIEVEMENTS.map(a => {
         const done = !!achieved[a.id];
         const clickAttr = done ? `onclick="showAchievementDesc('${a.id}')" style="cursor:pointer;"` : '';
+        const rewardLabel = done
+            ? (a.rewardType === 'spicyCoin' ? `+${a.spicyCoinAmount||1}🌶️` : (a.rewardType === 'unlockFoodIcon' ? '🖼️解放' : `+${a.reward != null ? a.reward : 100}G`))
+            : '';
         return `<div ${clickAttr} style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid #e8d9b8;${done?'cursor:pointer;':''}">
             <span style="font-size:16px;">${done?'🏆':'⬜'}</span>
             <span style="font-size:12px;color:${done?'#420000':'#b0a090'};">${a.text}</span>
-            ${done?'<span style="margin-left:auto;font-size:11px;color:#b88742;">+100G</span>':''}
+            ${done?'<span style="margin-left:auto;font-size:11px;color:#b88742;">'+rewardLabel+'</span>':''}
         </div>`;
     }).join('');
 }
@@ -2724,6 +2815,7 @@ function buildSaveDataObject() {
         specialBonusClaimedVersion: localStorage.getItem('qr_special_bonus_claimed_version') || '0',
         bingoData: localStorage.getItem('qr_bingo') || '{}',
         icon07got: localStorage.getItem('qr_icon07_got') || '',
+        foodIconUnlocked: localStorage.getItem('qr_food_icon_unlocked') || '0',
         stockLimit: localStorage.getItem('qr_curry_stock_limit') || '',
         playerId: playerId || '',
         secretKey: playerSecretKey || '',
@@ -2755,6 +2847,7 @@ function applySaveDataObject(decoded) {
     if(decoded.bingoData) localStorage.setItem('qr_bingo', decoded.bingoData);
     else localStorage.removeItem('qr_bingo');
     if(decoded.icon07got) localStorage.setItem('qr_icon07_got', decoded.icon07got);
+    if(decoded.foodIconUnlocked) { localStorage.setItem('qr_food_icon_unlocked', decoded.foodIconUnlocked); unlockedFoodIconFeature = decoded.foodIconUnlocked === '1'; }
     if(decoded.stockLimit) localStorage.setItem('qr_curry_stock_limit', decoded.stockLimit);
     else localStorage.removeItem('qr_curry_stock_limit');
     localStorage.setItem('selectedPlayerIcon', currentIconFile);
@@ -5767,6 +5860,24 @@ function tagFinishBattle(result) {
 
     if(isWin) {
         playWinSound();
+        // タッグ戦で倒した敵2人の撃破統計を記録（初級・中級・タッグ専用キャラそれぞれ）
+        updateStats(s => {
+            [enemy0.bot, enemy1.bot].forEach(bot => {
+                if(tagBattleExtraBots.includes(bot)) {
+                    if(!s.defeatedTagExtraBots) s.defeatedTagExtraBots = [];
+                    if(!s.defeatedTagExtraBots.includes(bot.name)) s.defeatedTagExtraBots.push(bot.name);
+                    s.tagExtraKills = s.defeatedTagExtraBots.length;
+                } else if(hardBotOpponents.includes(bot)) {
+                    if(!s.defeatedHardBots) s.defeatedHardBots = [];
+                    if(!s.defeatedHardBots.includes(bot.name)) s.defeatedHardBots.push(bot.name);
+                    s.hardKills = s.defeatedHardBots.length;
+                } else if(botOpponents.includes(bot)) {
+                    if(!s.defeatedBots) s.defeatedBots = [];
+                    if(!s.defeatedBots.includes(bot.name)) s.defeatedBots.push(bot.name);
+                    s.botKills = s.defeatedBots.length;
+                }
+            });
+        });
         const g = 60;
         const e = Math.round((enemy0.bot.expBonus + enemy1.bot.expBonus) / 2);
         // 報酬食材は敵2人分を合算
