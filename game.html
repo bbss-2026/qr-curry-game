@@ -1549,10 +1549,11 @@ const hardBotOpponents = [
     { name: "ドラゴン料理長", curryName: "炎獄ドラゴンカレー", emoji: "🐲🐉🔥", image: "bot08.png", hp: 400, atk: 100, def: 60, spd: 20, expBonus: 30, specialEffect: "breath" },
     { name: "毒舌料理人ミスズ", curryName: "激辛毒毒カレー", emoji: "☠️🌶️☠️", image: "bot09.png", hp: 360, atk: 90, def: 65, spd: 35, expBonus: 30, specialEffect: "poison" }
 ];
-// タッグ戦専用の新規Bot2体
+// タッグ戦専用の新規Bot3体
 const tagBattleExtraBots = [
     { name: "カレー天使ぴゃぁ", curryName: "甘口お子様カレー", emoji: "✨💖✨", image: "bot10.png", hp: 210, atk: 50, def: 40, spd: 75, expBonus: 20, specialEffect: "angel" },
-    { name: "悪ガキサタン君", curryName: "いたずらカレー", emoji: "✨👿✨", image: "bot11.png", hp: 320, atk: 110, def: 55, spd: 45, expBonus: 20, specialEffect: "brat", isWanpaku: true, isHomerun: true }
+    { name: "悪ガキサタン君", curryName: "いたずらカレー", emoji: "✨👿✨", image: "bot11.png", hp: 320, atk: 110, def: 55, spd: 45, expBonus: 20, specialEffect: "brat", isWanpaku: true, isHomerun: true },
+    { name: "レンチン玉子", curryName: "ゆで玉子カレー〜この熱さ君に届け〜", emoji: "🔥🥚🔥", image: "bot12.png", hp: 280, atk: 30, def: 130, spd: 10, expBonus: 20, specialEffect: "chin" }
 ];
 // タッグ戦の敵候補（既存8体＋新規2体、マハラジャは除外）
 const tagBattleBotPool = [...botOpponents, ...hardBotOpponents, ...tagBattleExtraBots];
@@ -5054,7 +5055,8 @@ function launchTagBattle(myCurry, deliveryCand, enemies) {
         side: 'enemy', idx: i, name: bot.name, bot: bot,
         hp: bot.hp, maxHp: bot.hp, atk: bot.atk, def: bot.def, spd: bot.spd,
         isPoisoned: false, isIlluded: false, defBuffTurns: 0,
-        isWanpaku: !!bot.isWanpaku, isHomerun: !!bot.isHomerun, specialEffect: bot.specialEffect
+        isWanpaku: !!bot.isWanpaku, isHomerun: !!bot.isHomerun, specialEffect: bot.specialEffect,
+        chinCount: 0, isExploding: false
     }));
     tagBattleFighters = [myFighter, deliveryFighter, enemyFighters[0], enemyFighters[1]];
 
@@ -5167,9 +5169,12 @@ function tagBattleStep(round) {
     const myTeam = [tagBattleFighters[0], tagBattleFighters[1]];
     const enemyTeam = [tagBattleFighters[2], tagBattleFighters[3]];
 
-    // 全滅判定
-    if(myTeam.every(f => f.hp <= 0)) { setTimeout(() => tagFinishBattle('lose'), tagDelay(400)); return; }
-    if(enemyTeam.every(f => f.hp <= 0)) { setTimeout(() => tagFinishBattle('win'), tagDelay(400)); return; }
+    // 全滅判定（両方同時に全滅した場合は引き分け）
+    const myAllDown = myTeam.every(f => f.hp <= 0);
+    const enemyAllDown = enemyTeam.every(f => f.hp <= 0);
+    if(myAllDown && enemyAllDown) { setTimeout(() => tagFinishBattle('draw'), tagDelay(400)); return; }
+    if(myAllDown) { setTimeout(() => tagFinishBattle('lose'), tagDelay(400)); return; }
+    if(enemyAllDown) { setTimeout(() => tagFinishBattle('win'), tagDelay(400)); return; }
 
     // 行動順（生存者のみ、SPD降順）。ただし初回ラウンドはネバネバ（isSticky）を持つチームが先攻
     let order = tagBattleFighters.filter(f => f.hp > 0).sort((a,b) => b.spd - a.spd);
@@ -5185,8 +5190,11 @@ function tagRunActionQueue(order, i, round) {
     if(tagBattleAborted) return;
     const myTeam = [tagBattleFighters[0], tagBattleFighters[1]];
     const enemyTeam = [tagBattleFighters[2], tagBattleFighters[3]];
-    if(myTeam.every(f => f.hp <= 0)) { setTimeout(() => tagFinishBattle('lose'), tagDelay(400)); return; }
-    if(enemyTeam.every(f => f.hp <= 0)) { setTimeout(() => tagFinishBattle('win'), tagDelay(400)); return; }
+    const myAllDown2 = myTeam.every(f => f.hp <= 0);
+    const enemyAllDown2 = enemyTeam.every(f => f.hp <= 0);
+    if(myAllDown2 && enemyAllDown2) { setTimeout(() => tagFinishBattle('draw'), tagDelay(400)); return; }
+    if(myAllDown2) { setTimeout(() => tagFinishBattle('lose'), tagDelay(400)); return; }
+    if(enemyAllDown2) { setTimeout(() => tagFinishBattle('win'), tagDelay(400)); return; }
 
     if(i >= order.length) {
         // このラウンド終了、次ラウンドへ
@@ -5397,6 +5405,29 @@ function tagExecuteEnemyActionImpl(actor, myTeam, enemyTeam, callback) {
         return;
     }
 
+    // レンチン玉子専用ロジック
+    if(effect === 'chin') {
+        const r = Math.random();
+        if(r < 0.40) {
+            tagEnemyNormalAttack(actor, myTeam, callback);
+            return;
+        }
+        // レンジで加熱
+        actor.chinCount = (actor.chinCount || 0) + 1;
+        playSoundEffect('chin.mp3');
+        tagLogAppend(`🔥 ${actor.name} は更にレンジで加熱された`);
+        if(actor.chinCount >= 4) {
+            // 4回目は同じターン内で続けて大爆発を発動（他キャラの行動を挟まない）
+            tagTriggerChinGrowEffect(actor, () => {
+                actor.chinCount = 0;
+                tagExecuteChinExplosion(actor, myTeam, callback);
+            });
+        } else {
+            tagTriggerChinGrowEffect(actor, callback);
+        }
+        return;
+    }
+
     // 既存の通常Bot（毒・幻惑・種連射・熱々ブレス持ち）
     if(effect === 'breath' && Math.random() < 0.25) {
         const homerunAlly = myTeam.find(f => f.hp > 0 && f.curry && f.curry.isHomerun);
@@ -5480,6 +5511,102 @@ function tagEnemyNormalAttack(actor, myTeam, callback) {
     callback();
 }
 
+// レンチン玉子：大爆発（DEF無視で味方2人に200ダメージ、ホームランで打ち返し可能）
+function tagExecuteChinExplosion(actor, myTeam, callback) {
+    const homerunAlly = myTeam.find(f => f.hp > 0 && f.curry && f.curry.isHomerun);
+    if(homerunAlly && isHomerunReflect(homerunAlly.spd, actor.spd)) {
+        tagLogAppend(`🏏 ${homerunAlly.name} がホームラン！${actor.name} の大爆発を打ち返して無効化！`);
+        playSoundEffect('daibakuha.mp3');
+        setTimeout(() => { playSoundEffect('homerun.mp3'); }, battleDelay(300));
+        // 打ち返された場合はレンチン玉子自身だけがダウン（味方は無傷）
+        actor.hp = Math.max(0, actor.hp - 9999);
+        tagTriggerDamagePop('enemy', actor.idx, 9999, '#e74c3c');
+        tagLogAppend(`💀 ${actor.name} は自分の爆発でダウンした！`);
+        tagTriggerChinExplosionEffect(actor, () => { callback(); });
+        return;
+    }
+    tagLogAppend(`💥 ゆで卵はレンジで作らないで!!!!!!!!!!`);
+    myTeam.forEach(f => {
+        if(f.hp <= 0) return;
+        f.hp = Math.max(0, f.hp - 200);
+        tagTriggerDamagePop('player', f.idx, 200, '#e74c3c');
+    });
+    // レンチン玉子自身も大爆発のダメージで必ずダウンする
+    actor.hp = Math.max(0, actor.hp - 9999);
+    tagTriggerDamagePop('enemy', actor.idx, 9999, '#e74c3c');
+    tagLogAppend(`💀 ${actor.name} は自分の爆発でダウンした！`);
+    playSoundEffect('daibakuha.mp3');
+    tagTriggerChinExplosionEffect(actor, callback);
+}
+
+// レンチン玉子：加熱するごとにアイコンが大きくなる演出
+function tagTriggerChinGrowEffect(actor, callback) {
+    const img = document.getElementById('tagEnemyImg' + actor.idx);
+    if(img) {
+        const scale = 1 + (actor.chinCount || 0) * 0.25;
+        img.style.transition = 'transform 0.3s ease-out';
+        img.style.transform = 'scale(' + scale + ')';
+        img.style.filter = 'drop-shadow(0 0 ' + (4 + actor.chinCount * 3) + 'px #ff4500)';
+    }
+    setTimeout(callback, battleDelay(500));
+}
+
+// レンチン玉子：大爆発（画面上を高速で暴れまくって弾け飛ぶ派手な演出）。終了後は必ずレイアウトを元に戻す
+function tagTriggerChinExplosionEffect(actor, callback) {
+    const stage = document.getElementById('tagBattleStage');
+    const originalImg = document.getElementById('tagEnemyImg' + actor.idx);
+    if(!stage || !originalImg) { callback(); return; }
+
+    const stageRect = stage.getBoundingClientRect();
+    const imgRect = originalImg.getBoundingClientRect();
+
+    // overflow:hiddenの制約を受けないよう、演出専用のコピー画像をstage直下にfixedで重ねる
+    const flyingImg = originalImg.cloneNode(true);
+    flyingImg.id = '';
+    flyingImg.style.position = 'fixed';
+    flyingImg.style.left = imgRect.left + 'px';
+    flyingImg.style.top = imgRect.top + 'px';
+    flyingImg.style.width = imgRect.width + 'px';
+    flyingImg.style.height = imgRect.height + 'px';
+    flyingImg.style.borderRadius = '50%';
+    flyingImg.style.zIndex = '9500';
+    flyingImg.style.transition = 'none';
+    flyingImg.style.pointerEvents = 'none';
+    document.body.appendChild(flyingImg);
+    originalImg.style.opacity = '0';
+
+    let frame = 0;
+    const totalFrames = 10;
+    const shakeInterval = setInterval(() => {
+        frame++;
+        const randX = stageRect.left + Math.random() * stageRect.width - imgRect.width/2;
+        const randY = stageRect.top + Math.random() * stageRect.height - imgRect.height/2;
+        const randRot = Math.random() * 720 - 360;
+        const scale = 1.5 + Math.random() * 1.5;
+        flyingImg.style.left = randX + 'px';
+        flyingImg.style.top = randY + 'px';
+        flyingImg.style.transform = `rotate(${randRot}deg) scale(${scale})`;
+        if(frame >= totalFrames) {
+            clearInterval(shakeInterval);
+            // 弾け飛んで消える
+            flyingImg.style.transition = 'transform 0.3s ease-in, opacity 0.3s ease-in, top 0.3s ease-in';
+            flyingImg.style.top = (stageRect.top - 200) + 'px';
+            flyingImg.style.transform = `rotate(1080deg) scale(0.1)`;
+            flyingImg.style.opacity = '0';
+            playSoundEffect('daibakuha.mp3');
+            setTimeout(() => {
+                // 演出用コピーを削除し、必ず元の表示状態に戻す
+                if(flyingImg.parentNode) flyingImg.parentNode.removeChild(flyingImg);
+                originalImg.style.opacity = '1';
+                originalImg.style.transform = '';
+                originalImg.style.filter = '';
+                originalImg.style.transition = '';
+                callback();
+            }, battleDelay(400));
+        }
+    }, battleDelay(80));
+}
+
 function rTrimHtml(str) { return str.replace(/<\/?[^>]+(>|$)/g, ""); }
 
 // タッグ戦の勝敗決定後の処理
@@ -5543,12 +5670,10 @@ function tagFinishBattle(result) {
         rewardText.innerHTML = `💰 +${g}G / ✨ +${e}EXP<br>${lootHtml}ゲット！`;
         setTimeout(() => checkLvUp(oldExp, playerEXP), 800);
         updateStats(s => { s.totalWins = (s.totalWins||0) + 1; });
-    } else if(result === 'lose') {
+    } else if(result === 'lose' || result === 'draw') {
         const oldExp = playerEXP; playerEXP += 2;
-        rewardText.innerHTML = `✨ +2EXP どんまい！`;
+        rewardText.innerHTML = result === 'draw' ? `✨ +2EXP 引き分けでした。` : `✨ +2EXP どんまい！`;
         setTimeout(() => checkLvUp(oldExp, playerEXP), 800);
-    } else {
-        rewardText.innerHTML = `引き分けでした。`;
     }
 
     // 自分の出撃カレーを消費（通常戦闘と同様の仕様）
