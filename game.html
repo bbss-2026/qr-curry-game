@@ -5729,7 +5729,8 @@ function tagFinishBattle(result) {
     // 自分の出撃カレーを消費（通常戦闘と同様の仕様）
     const myIdx = curryStock.indexOf(myFighter.curry);
     if(myIdx !== -1) curryStock.splice(myIdx, 1);
-    saveGame(); updateCookSelects(); updateMatchCurrySelects();
+    if(selectedCurryIndex >= curryStock.length) selectedCurryIndex = curryStock.length - 1;
+    saveGame(); updateFridgeUI(); updateCookSelects(); updateMatchCurrySelects();
 }
 
 function endTagBattleScene() {
@@ -6610,7 +6611,7 @@ function startBattleScene(oppN, oppC, myC) {
                         if(rew) rew.innerHTML = "💰 +50G / ✨ +10EXP";
                         setTimeout(() => checkLvUp(oldEXP, playerEXP), 300);
                         curryStock.splice(selectedCurryIndex, 1); selectedCurryIndex = curryStock.length ? 0 : -1;
-                        saveGame(); updateCookSelects(); updateMatchCurrySelects();
+                        saveGame(); updateFridgeUI(); updateCookSelects(); updateMatchCurrySelects();
                         document.getElementById("battleResultBox").style.display = "block";
                         scrollResultIntoView("battleResultBox");
                         setTimeout(() => { database.ref('rooms/'+currentRoomId).remove(); currentRoomId=null; }, 2000);
@@ -6828,7 +6829,7 @@ function forceForfeit() {
     // 負けメッセージをモーダルで表示
     const oldEXP = playerEXP; playerEXP += 1;
     curryStock.splice(selectedCurryIndex, 1); selectedCurryIndex = curryStock.length ? 0 : -1;
-    saveGame(); updateCookSelects(); updateMatchCurrySelects();
+    saveGame(); updateFridgeUI(); updateCookSelects(); updateMatchCurrySelects();
     setTimeout(() => checkLvUp(oldEXP, playerEXP), 300);
     if(!isBotMatch && currentRoomId && database) {
         // 離脱した自分がホストならカウント（ゲストが離脱した場合はホスト側の相手離脱検知でカウントする）
@@ -6935,7 +6936,7 @@ function done(pHP, oHP, myC, oppC, wasBlownAway) {
         setTimeout(()=>checkLvUp(oldEXP2,playerEXP),800);
     }
     curryStock.splice(selectedCurryIndex,1); selectedCurryIndex=curryStock.length?0:-1;
-    saveGame(); updateCookSelects();
+    saveGame(); updateFridgeUI(); updateCookSelects(); updateMatchCurrySelects();
     if(!isBotMatch&&currentRoomId&&onlineRole==='host'&&database){
         setTimeout(()=>{database.ref('rooms/'+currentRoomId).remove(); currentRoomId=null;},8000);
     }
