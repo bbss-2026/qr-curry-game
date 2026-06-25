@@ -672,6 +672,7 @@ function actShowDeliveryCurryList() {
             if(!curry.name) issues.push('カレー名が空');
             if(!curry.hp || !curry.atk || !curry.def || !curry.spd) issues.push('ステータス不正');
             if(curry.isDelivering !== true) issues.push('isDeliveringフラグがtrueでない');
+            if((d.usedCount || 0) >= 5) issues.push('使用回数が5以上なのに削除されていない（本来は食べ尽くされているはず）');
             const issueHtml = issues.length > 0
                 ? '<div style="color:#e74c3c;font-size:11px;margin-top:4px;">⚠️ ' + issues.join(' / ') + '</div>'
                 : '<div style="color:#2e8b6f;font-size:11px;margin-top:4px;">✅ 正常</div>';
@@ -681,11 +682,24 @@ function actShowDeliveryCurryList() {
                 + '<div style="font-size:11px;color:#555;margin-top:2px;">HP:' + (curry.hp ?? '-') + ' ATK:' + (curry.atk ?? '-') + ' DEF:' + (curry.def ?? '-') + ' SPD:' + (curry.spd ?? '-') + '</div>'
                 + '<div style="font-size:10px;color:#888;margin-top:2px;">使用回数: ' + (d.usedCount || 0) + ' / 勝利回数: ' + (d.winCount || 0) + ' / 登録日時: ' + createdAtStr + '</div>'
                 + issueHtml
+                + '<button onclick="actDeleteDeliveryCurry(\'' + pid + '\')" style="margin-top:6px;padding:4px 10px;font-size:11px;background:#e74c3c;color:#fff;border:none;border-radius:4px;cursor:pointer;">🗑️ このデータを削除</button>'
                 + '</div>';
         });
         resultDiv.innerHTML = html;
     }).catch(function(e){
         resultDiv.innerHTML = '<div style="color:#e74c3c;font-size:13px;">⚠️ 取得に失敗しました。' + e.message + '</div>';
+    });
+}
+
+// 不整合な宅配カレーデータを手動で削除する（食べ尽くされたはずなのに残っていた等の修正用）
+function actDeleteDeliveryCurry(pid) {
+    if(!database) return;
+    showCustomConfirm("🗑️ データ削除", "ID: " + pid + " の宅配カレーデータを削除します。<br>本当によろしいですか？", function(){
+        database.ref('deliveryCurries/' + pid).remove().then(function(){
+            showCustomAlert("✅ 削除完了", "削除しました。", function(){ actShowDeliveryCurryList(); });
+        }).catch(function(e){
+            showCustomAlert("❌ エラー", "削除に失敗しました。" + e.message);
+        });
     });
 }
 
