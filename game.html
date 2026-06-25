@@ -341,7 +341,9 @@
         
         .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(66,0,0,0.5); z-index: 9999; display: none; justify-content: center; align-items: center; overscroll-behavior: contain; }
         body.modal-open { overflow: hidden; }
-        .modal-box { background: #efdeb1; width: 85%; max-width: 380px; max-height: 85vh; overflow-y: auto; padding: 24px; border-radius: 4px; border: 1px solid #b88742; box-shadow: 0 8px 32px rgba(66,0,0,0.2); text-align: center; box-sizing: border-box; -webkit-overflow-scrolling: touch; }
+        .modal-box { background: #efdeb1; width: 85%; max-width: 380px; max-height: 85vh; overflow-y: auto; padding: 24px; border-radius: 4px; border: 1px solid #b88742; box-shadow: 0 8px 32px rgba(66,0,0,0.2); text-align: center; box-sizing: border-box; -webkit-overflow-scrolling: touch; position: relative; }
+        .item-lock-btn { position: absolute; top: 10px; right: 10px; width: 28px; height: 28px; padding: 4px; background: transparent; border: none; cursor: pointer; z-index: 5; }
+        .item-lock-btn img { width: 100%; height: 100%; display: block; }
         .modal-title { font-size: 16px; font-weight: bold; color: #420000; margin-bottom: 12px; letter-spacing: 0.05em; }
         .modal-message { font-size: 13px; color: #420000; margin-bottom: 20px; line-height: 1.6; }
         .modal-btn-group { display: flex; justify-content: center; gap: 10px; flex-wrap: wrap; }
@@ -1118,25 +1120,29 @@ function closeIconGetOverlay() {
 
 function showRecommendModal() {
     const msg = '<div style="font-size:12px;color:#420000;margin-bottom:12px;">優先したいステータスを選んでください（複数選択可）</div>'
-        + '<div style="display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin-bottom:4px;">'
+        + '<div style="display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin-bottom:10px;">'
         + ['HP','ATK','DEF','SPD'].map(s =>
             '<label style="display:flex;align-items:center;gap:4px;padding:8px 12px;background:#f5e9c8;border:1px solid #b88742;border-radius:4px;font-size:13px;font-weight:bold;color:#420000;cursor:pointer;">'
             + '<input type="checkbox" id="recChk' + s + '" style="width:16px;height:16px;">' + s
             + '</label>'
         ).join('')
-        + '</div>';
+        + '</div>'
+        + '<label style="display:flex;align-items:center;gap:6px;justify-content:center;font-size:12px;color:#420000;cursor:pointer;">'
+        + '<input type="checkbox" id="recChkExcludeLocked" checked style="width:16px;height:16px;">ロック食材は除外'
+        + '</label>';
     showCustomConfirm('🍛 おすすめセット', msg, function() {
         const stats = [];
         ['HP','ATK','DEF','SPD'].forEach(s => { const c = document.getElementById('recChk'+s); if(c && c.checked) stats.push(s.toLowerCase()); });
         if(stats.length === 0) { showCustomAlert('⚠️ 未選択', '優先したいステータスを1つ以上選んでください。'); return; }
-        applyRecommendedSet(stats);
+        const excludeLocked = document.getElementById('recChkExcludeLocked').checked;
+        applyRecommendedSet(stats, excludeLocked);
     });
 }
 
-function applyRecommendedSet(priorityStats) {
-    // 在庫1個以上の食材・スパイスのみ対象
-    const availIngredients = Object.keys(masterIngredients).filter(k => (inventory[k]||0) > 0);
-    const availSpices = Object.keys(masterSpices).filter(k => (inventory[k]||0) > 0);
+function applyRecommendedSet(priorityStats, excludeLocked) {
+    // 在庫1個以上の食材・スパイスのみ対象（excludeLockedが真の場合、ロック中のアイテムは除外）
+    const availIngredients = Object.keys(masterIngredients).filter(k => (inventory[k]||0) > 0 && !(excludeLocked && lockedItems[k]));
+    const availSpices = Object.keys(masterSpices).filter(k => (inventory[k]||0) > 0 && !(excludeLocked && lockedItems[k]));
 
     if(availIngredients.length === 0) {
         showCustomAlert('⚠️ 食材不足', '食材の在庫がありません。');
@@ -1593,6 +1599,7 @@ function showBattleLogHistory() {
 }
 let onlineRole = 'host'; // 対人戦での自分の役割
 let discoveredItems = {};
+let lockedItems = {}; // 食材・スパイスのロック状態（ロックされた食材はランダム選択の抽選から除外される）
 let cachedOpponentName = "";
 let cachedOpponentCurry = null;
 window.onload = function() { loadGame(); updateCookSelects(); refreshRecipeBookUI(); updateShopButtons(); listenToRooms(); updateMatchCurrySelects(); setupLoadedIconUI(); updateLvDisplay(); loadNotice(); initQuest(); loadTopNotice(); updateMuteIcon(); initPlayerId(); loadEventEnabledStatus(); setupModalScrollLock(); setupSwipeTabSwitch(); setupGuideCharLongPress(); setupTutorialSwipe(); updateLunchtimeBanner(); setInterval(updateLunchtimeBanner, 60000); };
@@ -2008,6 +2015,7 @@ function saveGame() {
     localStorage.setItem('qr_curry_recipes', JSON.stringify(recipeBook));
     localStorage.setItem('qr_curry_stock', JSON.stringify(curryStock));
     localStorage.setItem('qr_curry_discovered', JSON.stringify(discoveredItems));
+    localStorage.setItem('qr_curry_locked', JSON.stringify(lockedItems));
     document.getElementById("globalG").innerText = playerG;
     document.getElementById("globalTicket").innerText = packTicket;
     document.getElementById("globalSpicyCoin").innerText = spicyCoin;
@@ -2063,6 +2071,7 @@ function saveGameLocalOnly() {
     localStorage.setItem('qr_curry_recipes', JSON.stringify(recipeBook));
     localStorage.setItem('qr_curry_stock', JSON.stringify(curryStock));
     localStorage.setItem('qr_curry_discovered', JSON.stringify(discoveredItems));
+    localStorage.setItem('qr_curry_locked', JSON.stringify(lockedItems));
     document.getElementById("globalG").innerText = playerG;
     document.getElementById("globalTicket").innerText = packTicket;
     document.getElementById("globalSpicyCoin").innerText = spicyCoin;
@@ -2237,6 +2246,7 @@ function loadGame() {
     const savedRecipes = localStorage.getItem('qr_curry_recipes');
     const savedStock = localStorage.getItem('qr_curry_stock');
     const savedDiscovered = localStorage.getItem('qr_curry_discovered');
+    const savedLocked = localStorage.getItem('qr_curry_locked');
     if (savedInv) {
         inventory = JSON.parse(savedInv);
     } else {
@@ -2250,6 +2260,7 @@ function loadGame() {
         discoveredItems = {};
         Object.keys(inventory).forEach(k => { if(inventory[k] > 0) discoveredItems[k] = true; });
     }
+    lockedItems = savedLocked ? JSON.parse(savedLocked) : {};
     if (savedHistory) scanHistory = JSON.parse(savedHistory);
     if (savedG) playerG = parseInt(savedG, 10);
     if (savedEXP) playerEXP = parseInt(savedEXP, 10);
@@ -2691,7 +2702,7 @@ function onBattleWin(type, botName) {
 function buildSaveDataObject() {
     return {
         inventory, scanHistory, playerG, playerEXP, packTicket, spicyCoin,
-        playerName, curryStock, recipeBook, discoveredItems,
+        playerName, curryStock, recipeBook, discoveredItems, lockedItems,
         selectedIcon: currentIconFile,
         unlockedIcons: getUnlockedIcons(),
         stats: localStorage.getItem('qr_stats') || '{}',
@@ -2719,6 +2730,7 @@ function applySaveDataObject(decoded) {
     curryStock = decoded.curryStock || [];
     recipeBook = decoded.recipeBook || {};
     discoveredItems = decoded.discoveredItems || {};
+    lockedItems = decoded.lockedItems || {};
     currentIconFile = decoded.selectedIcon || 'mayimage01.png';
     if(decoded.unlockedIcons) saveUnlockedIcons(decoded.unlockedIcons);
     if(decoded.stats) localStorage.setItem('qr_stats', decoded.stats);
@@ -3041,9 +3053,9 @@ function buyGachaPack() {
     saveGame(); updateFridgeUI(); updateCookSelects();
 }
 function selectRandomIngredients() {
-    const avail = Object.keys(masterIngredients).filter(n => (inventory[n] || 0) > 0);
-    const sps = Object.keys(masterSpices).filter(n => (inventory[n] || 0) > 0);
-    if (avail.length < 3 || sps.length < 1) { showCustomAlert("⚠️ 在庫不足", "具材3種・スパイス1種以上の在庫が必要です！"); return; }
+    const avail = Object.keys(masterIngredients).filter(n => (inventory[n] || 0) > 0 && !lockedItems[n]);
+    const sps = Object.keys(masterSpices).filter(n => (inventory[n] || 0) > 0 && !lockedItems[n]);
+    if (avail.length < 3 || sps.length < 1) { showCustomAlert("⚠️ 在庫不足", "具材3種・スパイス1種以上の在庫（ロック中を除く）が必要です！"); return; }
     let pool = [...avail];
     ["ingredient1", "ingredient2", "ingredient3"].forEach(id => { document.getElementById(id).value = pool.splice(Math.floor(Math.random() * pool.length), 1)[0]; });
     document.getElementById("spice").value = sps[Math.floor(Math.random() * sps.length)];
@@ -3171,6 +3183,18 @@ function updateFridgeUI() {
 
     updateMatchCurrySelects();
 }
+// 食材・スパイスのロック切り替え（ロック中はランダム選択の抽選から除外される）
+function toggleItemLock(name) {
+    lockedItems[name] = !lockedItems[name];
+    saveGame();
+    // モーダルは閉じず、ボタンのアイコンだけその場で切り替える
+    const lockBtn = document.getElementById('itemLockBtnInModal');
+    if(lockBtn) {
+        const img = lockBtn.querySelector('img');
+        if(img) img.src = lockedItems[name] ? 'lock.svg' : 'unlock.svg';
+    }
+}
+
 function createFridgeCard(grid, name, emoji, isSpice) {
     const count = inventory[name] || 0;
     const isDiscovered = discoveredItems[name] || false;
@@ -3187,11 +3211,17 @@ function createFridgeCard(grid, name, emoji, isSpice) {
             let info = isSpice ? `<br><span style="color:#e67e22; font-weight:bold;">📈 効果: ${data.mul === "hp" ? "HP" : data.mul === "atk" ? "攻撃" : data.mul === "def" ? "防御" : "素早さ"} ${data.val}倍！</span>` : `<br><span style="color:#2ecc71; font-weight:bold;">📊 HP:+${data.hp}/ATK:+${data.atk}/DEF:+${data.def}/SPD:+${data.spd}</span>`;
             const itemDataM = isSpice ? masterSpices[name] : masterIngredients[name];
             const iconM = itemDataM && itemDataM.icon ? `<img src="${itemDataM.icon}" style="width:80px;height:80px;object-fit:contain;display:block;margin:0 auto 8px;">` : '';
+            const isLocked = !!lockedItems[name];
+            const lockBtnHtml = `<button class="item-lock-btn" id="itemLockBtnInModal" title="ロック切り替え"><img src="${isLocked ? 'lock.svg' : 'unlock.svg'}" alt=""></button>`;
             showCustomAlert(
-                `${iconM}${name}`, 
+                `${lockBtnHtml}${iconM}${name}`, 
                 `${data.desc}<br><br><b>現在の所持数: <span style="color:#e74c3c;font-size:16px;">${count}</span> 個</b>${info}`, 
                 null, sellItemAction, name
             );
+            setTimeout(() => {
+                const lockBtn = document.getElementById('itemLockBtnInModal');
+                if(lockBtn) lockBtn.onclick = function(e) { e.stopPropagation(); toggleItemLock(name); };
+            }, 0);
         };
     } else {
         itemDiv.className = "fridge-item";
@@ -3442,12 +3472,40 @@ function applyFavRecipe(key) {
         document.getElementById("favRecipeSelect").value = "";
         return;
     }
-    // プルダウンに反映
-    const ingIds = ["ingredient1","ingredient2","ingredient3"];
-    ingIds.forEach((id,i) => { document.getElementById(id).value = ings[i] || ""; updateIngredientHint(i+1); });
-    document.getElementById("spice").value = spiceName || "";
-    updateSpiceHint();
+    // ロック中の食材が含まれているか確認
+    const lockedInRecipe = [...ings, ...(spiceName ? [spiceName] : [])].filter(m => lockedItems[m]);
+    if(lockedInRecipe.length > 0) {
+        showCustomConfirm(
+            "🔒 ロック食材が含まれています",
+            `「${lockedInRecipe.join('、')}」はロックされている食材ですが、使用しますか？<br><br>「確定する」=使用する　「キャンセル」=使用しない（❌になります）`,
+            function() {
+                finalizeFavRecipeApply(ings, spiceName, false);
+                showCustomAlert("✅ 適用完了", "ロック食材もセットされました。");
+            },
+            function() {
+                finalizeFavRecipeApply(ings, spiceName, true);
+                showCustomAlert("✅ 適用完了", "ロック食材の代わりに❌（なし）にしました。");
+            }
+        );
+        document.getElementById("favRecipeSelect").value = "";
+        return;
+    }
+    finalizeFavRecipeApply(ings, spiceName, false);
     document.getElementById("favRecipeSelect").value = "";
+}
+
+// お気に入りレシピをプルダウンに反映する（excludeLockedがtrueの場合、ロック食材は空欄にする）
+function finalizeFavRecipeApply(ings, spiceName, excludeLocked) {
+    const ingIds = ["ingredient1","ingredient2","ingredient3"];
+    ingIds.forEach((id,i) => {
+        const m = ings[i] || "";
+        const useVal = (excludeLocked && lockedItems[m]) ? "" : m;
+        document.getElementById(id).value = useVal;
+        updateIngredientHint(i+1);
+    });
+    const spiceUseVal = (excludeLocked && spiceName && lockedItems[spiceName]) ? "" : (spiceName || "");
+    document.getElementById("spice").value = spiceUseVal;
+    updateSpiceHint();
 }
 
 function pruneRecipeBook() {
