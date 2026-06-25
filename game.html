@@ -514,7 +514,7 @@
     <button id="eventMovieSkipBtn" onclick="skipEventMovie()" style="position:absolute;bottom:24px;right:20px;padding:8px 18px;background:rgba(255,255,255,0.15);color:#fff;border:1px solid rgba(255,255,255,0.6);border-radius:20px;font-size:12px;font-weight:bold;cursor:pointer;">スキップ ▶</button>
 </div>
 <div id="iconGetOverlay">
-    <img id="iconGetImg" src="mayimage07.png" class="icon-get-img" alt="">
+    <img id="iconGetImg" src="myimageicon/mayimage07.png" class="icon-get-img" alt="">
     <div class="icon-get-text">🎉 新プレイヤーアイコン獲得！</div>
     <div class="icon-get-sub" id="iconGetSubText">10連ガチャのガチャの気まぐれ</div>
     <button class="icon-get-btn" onclick="closeIconGetOverlay()">やった！</button>
@@ -605,7 +605,7 @@
     <div id="pageQuest" class="page">
         <!-- ★プレイヤーアイコン＋ID（120%大きく） -->
         <div class="profile-area">
-            <img id="playerIconImg" src="mayimage01.png" data-index="1" onclick="togglePlayerIcon()" style="width: 96px; height: 96px; border: 3px solid #e67e22; border-radius: 50%; cursor: pointer; margin-bottom: 6px; transition: transform 0.2s;">
+            <img id="playerIconImg" src="myimageicon/mayimage01.png" data-index="1" onclick="togglePlayerIcon()" style="width: 96px; height: 96px; border: 3px solid #e67e22; border-radius: 50%; cursor: pointer; margin-bottom: 6px; transition: transform 0.2s;">
             <div id="playerIdDisplay" onclick="copyPlayerId()" style="font-size:10px; color:#b88742; margin-bottom:10px; cursor:pointer; text-decoration:underline dotted;" title="タップでコピー">ID: ----------</div>
             <br>
             <input type="text" id="playerNameInput" class="input-name" placeholder="料理人の名前を入力" onchange="handleNameChange(this.value)">
@@ -1072,11 +1072,23 @@
 </div>
 <script>
 // 全アイコンリスト（番号順）
-const ALL_ICON_LIST = ["mayimage01.png","mayimage02.png","mayimage03.png","mayimage04.png","mayimage05.png","mayimage06.png"];
+const ALL_ICON_LIST = ["myimageicon/mayimage01.png","myimageicon/mayimage02.png","myimageicon/mayimage03.png","myimageicon/mayimage04.png","myimageicon/mayimage05.png","myimageicon/mayimage06.png"];
 // 解放済みアイコン（初期は01〜03）
+// 古い形式（フォルダなしのファイル名のみ）を新しい形式（myimageicon/付き）に変換する
+function migrateIconPath(filename) {
+    if(!filename) return filename;
+    if(filename.indexOf('/') !== -1) return filename; // 既に新形式（フォルダ付き）ならそのまま
+    if(/^mayimage0[1-9]\.png$/.test(filename)) return 'myimageicon/' + filename;
+    return filename;
+}
+
 function getUnlockedIcons() {
     const saved = localStorage.getItem("unlockedIcons");
-    return saved ? JSON.parse(saved) : ["mayimage01.png","mayimage02.png","mayimage03.png"];
+    if(saved) {
+        const list = JSON.parse(saved).map(migrateIconPath);
+        return list;
+    }
+    return ["myimageicon/mayimage01.png","myimageicon/mayimage02.png","myimageicon/mayimage03.png"];
 }
 function saveUnlockedIcons(list) {
     localStorage.setItem("unlockedIcons", JSON.stringify(list));
@@ -1091,7 +1103,7 @@ function unlockIcon(filename) {
     return false;
 }
 
-let currentIconFile = localStorage.getItem("selectedPlayerIcon") || "mayimage01.png";
+let currentIconFile = migrateIconPath(localStorage.getItem("selectedPlayerIcon")) || "myimageicon/mayimage01.png";
 
 function togglePlayerIcon() {
     showIconSelectModal();
@@ -1373,7 +1385,7 @@ function updateLvDisplay() {
 }
 
 // Lvごとの解放アイコン定義
-const LV_UNLOCK_ICONS = { 2: "mayimage04.png", 3: "mayimage05.png", 4: "mayimage06.png", 7: "mayimage08.png", 9: "mayimage09.png" };
+const LV_UNLOCK_ICONS = { 2: "myimageicon/mayimage04.png", 3: "myimageicon/mayimage05.png", 4: "myimageicon/mayimage06.png", 7: "myimageicon/mayimage08.png", 9: "myimageicon/mayimage09.png" };
 
 function getLvUpReward(lv) {
     if (lv === 5) return { type: 'stock', limit: 8 };
@@ -1571,8 +1583,8 @@ let playerG = 0; let playerEXP = 0; let packTicket = 0; let spicyCoin = 0;
 let curryStock = []; let selectedCurryIndex = -1;
 let playerName = "名無しの料理人";
 let recipeBook = {}; let myRoomRef = null; let currentRoomId = null;
-let cachedMyIconFile = "mayimage01.png";
-let cachedOppIconFile = "mayimage01.png";
+let cachedMyIconFile = "myimageicon/mayimage01.png";
+let cachedOppIconFile = "myimageicon/mayimage01.png";
 let isBotMatch = false; let activeBotData = null;
 let isMuted = (localStorage.getItem('qr_muted') === '1');
 let isDebugMode = (localStorage.getItem('qr_debug_mode') === '1');
@@ -2284,7 +2296,7 @@ function handleNameChange(val) {
 }
 function clearSaveData() {
     showCustomConfirm("全初期化", "セーブデータをすべてリセットします（初期配布チケット2枚になります）。<br><br>このデバイスは新しいIDになり、これまでのIDとは別のキャラクターとして始まります。<br>（このIDを他のデバイスでも使っている場合、そちらのデータはそのまま残ります）<br><br>本当によろしいですか？", function() {
-        localStorage.clear(); inventory = {}; scanHistory = {}; playerG = 0; playerEXP = 0; packTicket = 2; curryStock = []; playerName = "名無しの料理人"; recipeBook = {}; discoveredItems = {}; saveUnlockedIcons(["mayimage01.png","mayimage02.png","mayimage03.png"]); currentIconFile = "mayimage01.png"; localStorage.setItem("selectedPlayerIcon", "mayimage01.png");
+        localStorage.clear(); inventory = {}; scanHistory = {}; playerG = 0; playerEXP = 0; packTicket = 2; curryStock = []; playerName = "名無しの料理人"; recipeBook = {}; discoveredItems = {}; saveUnlockedIcons(["myimageicon/mayimage01.png","myimageicon/mayimage02.png","myimageicon/mayimage03.png"]); currentIconFile = "myimageicon/mayimage01.png"; localStorage.setItem("selectedPlayerIcon", "myimageicon/mayimage01.png");
         // このデバイスだけ新しいIDを発行（古いIDのクラウドデータには触れない。他デバイスを保護するため）
         playerId = ''; playerSecretKey = '';
         loadGame(); updateFridgeUI(); updateCookSelects(); refreshRecipeBookUI(); updateShopButtons(); document.getElementById("resultBox").style.display = "none"; updateLvDisplay(); setupLoadedIconUI();
@@ -2731,8 +2743,8 @@ function applySaveDataObject(decoded) {
     recipeBook = decoded.recipeBook || {};
     discoveredItems = decoded.discoveredItems || {};
     lockedItems = decoded.lockedItems || {};
-    currentIconFile = decoded.selectedIcon || 'mayimage01.png';
-    if(decoded.unlockedIcons) saveUnlockedIcons(decoded.unlockedIcons);
+    currentIconFile = migrateIconPath(decoded.selectedIcon) || 'myimageicon/mayimage01.png';
+    if(decoded.unlockedIcons) saveUnlockedIcons(decoded.unlockedIcons.map(migrateIconPath));
     if(decoded.stats) localStorage.setItem('qr_stats', decoded.stats);
     if(decoded.achievements) localStorage.setItem('qr_achievements', decoded.achievements);
     if(decoded.loginData) localStorage.setItem('qr_login', decoded.loginData);
@@ -2986,10 +2998,10 @@ function buyJurenGacha() {
         // プレイヤーアイコン（1回きり）
         localStorage.setItem('qr_icon07_got', '1');
         const unlocked = getUnlockedIcons();
-        if(!unlocked.includes('mayimage07.png')) { unlocked.push('mayimage07.png'); saveUnlockedIcons(unlocked); }
+        if(!unlocked.includes('myimageicon/mayimage07.png')) { unlocked.push('myimageicon/mayimage07.png'); saveUnlockedIcons(unlocked); }
         setupLoadedIconUI();
         bonusMsg = '🎉 特別！新プレイヤーアイコン解放！';
-        setTimeout(() => showIconGetOverlay('mayimage07.png', '10連ガチャの気まぐれ'), 300);
+        setTimeout(() => showIconGetOverlay('myimageicon/mayimage07.png', '10連ガチャの気まぐれ'), 300);
     } else {
         // アイコン取得済みの場合確率再計算
         const base = iconGot ? r : (r - 0.10) / 0.90;
@@ -3793,16 +3805,16 @@ function generateGuaranteedHomerunCurry(pool, maxRetry) {
 
 // ダミーキャラ定義（固有ID付き、本物のプレイヤーには発行されない予約ID帯）
 const DUMMY_CHARACTERS = [
-    { id: "BC-DUMMY0001", name: "たま", icon: "mayimage02.png", curryGen: () => generateGuaranteedNormalCurry(NORMAL_INGREDIENT_POOL) },
-    { id: "BC-DUMMY0002", name: "筋肉痛マン", icon: "mayimage01.png", curryGen: () => generateGuaranteedNormalCurry(NORMAL_INGREDIENT_POOL) },
-    { id: "BC-DUMMY0003", name: "SPLASH!!!!!", icon: "mayimage05.png", curryGen: () => generateGuaranteedSeedCurry(NORMAL_INGREDIENT_POOL) },
-    { id: "BC-DUMMY0004", name: "るねさん", icon: "mayimage03.png", curryGen: () => generateGuaranteedHomerunCurry(NORMAL_INGREDIENT_POOL) },
-    { id: "BC-DUMMY0005", name: "忍者男爵", icon: "mayimage06.png", curryGen: () => generateGuaranteedNormalCurry(MID_INGREDIENT_POOL) },
-    { id: "BC-DUMMY0006", name: "ああああ", icon: "mayimage01.png", curryGen: () => generateRandomCurryFromPool(MID_INGREDIENT_POOL, false) },
-    { id: "BC-DUMMY0007", name: "銀次郎", icon: "mayimage04.png", curryGen: () => generateRandomCurryFromPool(MID_INGREDIENT_POOL, false) },
-    { id: "BC-DUMMY0008", name: "aya.cake7", icon: "mayimage04.png", curryGen: () => generateRandomCurryFromPool(HIGH_INGREDIENT_POOL, false) },
-    { id: "BC-DUMMY0009", name: "トニーボニーロッカー🦌", icon: "mayimage08.png", curryGen: () => generateRandomCurryFromPool(HIGH_INGREDIENT_POOL, false) },
-    { id: "BC-DUMMY0010", name: "カレーガチ勢🍛", icon: "mayimage07.png", curryGen: () => generateRandomCurryFromPool(HIGH_INGREDIENT_POOL, false) }
+    { id: "BC-DUMMY0001", name: "たま", icon: "myimageicon/mayimage02.png", curryGen: () => generateGuaranteedNormalCurry(NORMAL_INGREDIENT_POOL) },
+    { id: "BC-DUMMY0002", name: "筋肉痛マン", icon: "myimageicon/mayimage01.png", curryGen: () => generateGuaranteedNormalCurry(NORMAL_INGREDIENT_POOL) },
+    { id: "BC-DUMMY0003", name: "SPLASH!!!!!", icon: "myimageicon/mayimage05.png", curryGen: () => generateGuaranteedSeedCurry(NORMAL_INGREDIENT_POOL) },
+    { id: "BC-DUMMY0004", name: "るねさん", icon: "myimageicon/mayimage03.png", curryGen: () => generateGuaranteedHomerunCurry(NORMAL_INGREDIENT_POOL) },
+    { id: "BC-DUMMY0005", name: "忍者男爵", icon: "myimageicon/mayimage06.png", curryGen: () => generateGuaranteedNormalCurry(MID_INGREDIENT_POOL) },
+    { id: "BC-DUMMY0006", name: "ああああ", icon: "myimageicon/mayimage01.png", curryGen: () => generateRandomCurryFromPool(MID_INGREDIENT_POOL, false) },
+    { id: "BC-DUMMY0007", name: "銀次郎", icon: "myimageicon/mayimage04.png", curryGen: () => generateRandomCurryFromPool(MID_INGREDIENT_POOL, false) },
+    { id: "BC-DUMMY0008", name: "aya.cake7", icon: "myimageicon/mayimage04.png", curryGen: () => generateRandomCurryFromPool(HIGH_INGREDIENT_POOL, false) },
+    { id: "BC-DUMMY0009", name: "トニーボニーロッカー🦌", icon: "myimageicon/mayimage08.png", curryGen: () => generateRandomCurryFromPool(HIGH_INGREDIENT_POOL, false) },
+    { id: "BC-DUMMY0010", name: "カレーガチ勢🍛", icon: "myimageicon/mayimage07.png", curryGen: () => generateRandomCurryFromPool(HIGH_INGREDIENT_POOL, false) }
 ];
 
 // ダミーキャラ全員分の「現在の宅配カレー」を生成（タッグ戦マッチング時に毎回新規生成）
@@ -3846,7 +3858,7 @@ function fetchTagDeliveryCandidates(count, callback) {
             .map(pid => ({
                 playerId: pid,
                 playerName: data[pid].playerName || '名無しの料理人',
-                playerIcon: data[pid].playerIcon || 'mayimage01.png',
+                playerIcon: data[pid].playerIcon || 'myimageicon/mayimage01.png',
                 curry: data[pid].curry,
                 isDummy: false
             }));
@@ -5947,8 +5959,8 @@ function startOnlineBattle(hN, hC, gN, gC, role, hI, gI) {
     cachedOpponentName = oppN; cachedOpponentCurry = oppC;
     const myC = role === "host" ? hC : gC;
     currentBattleCurry = myC;
-    cachedMyIconFile = role === "host" ? (hI || "mayimage01.png") : (gI || "mayimage01.png");
-    cachedOppIconFile = role === "host" ? (gI || "mayimage01.png") : (hI || "mayimage01.png");
+    cachedMyIconFile = role === "host" ? (hI || "myimageicon/mayimage01.png") : (gI || "myimageicon/mayimage01.png");
+    cachedOppIconFile = role === "host" ? (gI || "myimageicon/mayimage01.png") : (hI || "myimageicon/mayimage01.png");
 
     // VSカットイン表示
     const vs = document.getElementById("vsCutIn");
