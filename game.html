@@ -5039,6 +5039,11 @@ function launchTagBattle(myCurry, deliveryCand, enemies) {
         const el = document.getElementById(id);
         if(el) el.classList.remove('name-poisoned', 'name-illuded');
     });
+    // 前回のバトルでレンチン玉子が拡大したまま残っている可能性があるため、敵アイコンの見た目を確実にリセット
+    ['tagEnemyImg0','tagEnemyImg1'].forEach(id => {
+        const img = document.getElementById(id);
+        if(img) { img.style.transform = ''; img.style.filter = ''; img.style.transition = ''; img.style.opacity = '1'; }
+    });
 
     // 4ファイター構築
     const myFighter = {
@@ -5408,7 +5413,7 @@ function tagExecuteEnemyActionImpl(actor, myTeam, enemyTeam, callback) {
     // レンチン玉子専用ロジック
     if(effect === 'chin') {
         const r = Math.random();
-        if(r < 0.40) {
+        if(r < 0.30) {
             tagEnemyNormalAttack(actor, myTeam, callback);
             return;
         }
@@ -5416,8 +5421,8 @@ function tagExecuteEnemyActionImpl(actor, myTeam, enemyTeam, callback) {
         actor.chinCount = (actor.chinCount || 0) + 1;
         playSoundEffect('chin.mp3');
         tagLogAppend(`🔥 ${actor.name} は更にレンジで加熱された`);
-        if(actor.chinCount >= 4) {
-            // 4回目は同じターン内で続けて大爆発を発動（他キャラの行動を挟まない）
+        if(actor.chinCount >= 3) {
+            // 3回目は同じターン内で続けて大爆発を発動（他キャラの行動を挟まない）
             tagTriggerChinGrowEffect(actor, () => {
                 actor.chinCount = 0;
                 tagExecuteChinExplosion(actor, myTeam, callback);
@@ -5612,6 +5617,11 @@ function rTrimHtml(str) { return str.replace(/<\/?[^>]+(>|$)/g, ""); }
 // タッグ戦の勝敗決定後の処理
 function tagFinishBattle(result) {
     stopBattleBGM();
+    // 戦闘終了時、レンチン玉子等で拡大したままになっている敵アイコンを確実に元のサイズへ戻す
+    ['tagEnemyImg0','tagEnemyImg1'].forEach(id => {
+        const img = document.getElementById(id);
+        if(img) { img.style.transform = ''; img.style.filter = ''; img.style.transition = ''; img.style.opacity = '1'; }
+    });
     const myFighter = tagBattleFighters[0];
     const deliveryFighter = tagBattleFighters[1];
     const enemy0 = tagBattleFighters[2];
