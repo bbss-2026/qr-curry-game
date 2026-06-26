@@ -5284,17 +5284,17 @@ function launchTagBattle(myCurry, deliveryCand, enemies) {
     const myFighter = {
         side: 'player', idx: 0, name: playerName, curry: myCurry,
         hp: myCurry.hp, maxHp: myCurry.hp, atk: myCurry.atk, def: myCurry.def, spd: myCurry.spd,
-        isPoisoned: false, isIlluded: false, defBuffTurns: 0, poisonLevel: 0, isDelivery: false
+        isPoisoned: false, isIlluded: false, defBuffTurns: 0, poisonLevel: 0, fluffyCategory: null, isDelivery: false
     };
     const deliveryFighter = {
         side: 'player', idx: 1, name: deliveryCand.playerName, curry: deliveryCand.curry,
         hp: deliveryCand.curry.hp, maxHp: deliveryCand.curry.hp, atk: deliveryCand.curry.atk, def: deliveryCand.curry.def, spd: deliveryCand.curry.spd,
-        isPoisoned: false, isIlluded: false, defBuffTurns: 0, poisonLevel: 0, isDelivery: true, deliveryCand: deliveryCand
+        isPoisoned: false, isIlluded: false, defBuffTurns: 0, poisonLevel: 0, fluffyCategory: null, isDelivery: true, deliveryCand: deliveryCand
     };
     const enemyFighters = enemies.map((bot, i) => ({
         side: 'enemy', idx: i, name: bot.name, bot: bot,
         hp: bot.hp, maxHp: bot.hp, atk: bot.atk, def: bot.def, spd: bot.spd,
-        isPoisoned: false, isIlluded: false, defBuffTurns: 0, poisonLevel: 0,
+        isPoisoned: false, isIlluded: false, defBuffTurns: 0, poisonLevel: 0, fluffyCategory: null,
         isWanpaku: !!bot.isWanpaku, isHomerun: !!bot.isHomerun, specialEffect: bot.specialEffect,
         chinCount: 0, isExploding: false
     }));
@@ -5304,6 +5304,19 @@ function launchTagBattle(myCurry, deliveryCand, enemies) {
     const myTeam = [myFighter, deliveryFighter];
     const enemyTeam = [enemyFighters[0], enemyFighters[1]];
     let openingLogs = [];
+
+    // 🧀ふわとろオム：戦闘開始時に4人それぞれが軽減対象の系統を個別抽選（持っている人だけ）
+    const FLUFFY_CATEGORY_LABEL_T = { meat: '肉系', seafood: '海鮮系', vegetable: '野菜系', fruit: '果実系' };
+    const FLUFFY_CATEGORY_KEYS_T = Object.keys(FLUFFY_CATEGORY_LABEL_T);
+    let fluffyOpeningQueue = []; // {fighter, category} の演出キュー
+    [...myTeam, ...enemyTeam].forEach(f => {
+        const hasFluffy = f.curry ? f.curry.isFluffyOmelette : false; // 敵Botは現状ふわとろオムを持たないため常にfalse
+        if(hasFluffy) {
+            f.fluffyCategory = FLUFFY_CATEGORY_KEYS_T[Math.floor(Math.random()*FLUFFY_CATEGORY_KEYS_T.length)];
+            openingLogs.push(`🧀 ${f.name} はふわとろバリアにより${FLUFFY_CATEGORY_LABEL_T[f.fluffyCategory]}からの攻撃を軽減する！`);
+            fluffyOpeningQueue.push(f);
+        }
+    });
 
     // 戦闘開始時：ネバネバ（isSticky）を持つチームが必ず先攻を取る
     tagStickyFirstSide = null;
@@ -5371,6 +5384,13 @@ function launchTagBattle(myCurry, deliveryCand, enemies) {
             playStatusFlash(item.type);
             if(item.el) item.el.classList.add(item.type === 'poison' ? 'name-poisoned' : 'name-illuded');
         }, 600 + i * 500);
+    });
+    // ふわとろバリアの演出（効果音＋バリア演出、毒・幻惑の演出が終わった後に再生）
+    fluffyOpeningQueue.forEach((f, i) => {
+        setTimeout(() => {
+            playSoundEffect('healing.mp3');
+            triggerTagFluffyBarrierEffect(f.side, f.idx);
+        }, 600 + statusFlashQueue.length * 500 + i * 700);
     });
 
     document.getElementById('tagPlayerName0').innerText = myFighter.name;
@@ -5550,11 +5570,14 @@ function tagExecuteAction(actor, myTeam, enemyTeam, callback) {
     d = Math.round(d * (0.9 + Math.random()*0.2));
     if(curry.isWanpaku) d = Math.round(d * getWanpakuDamageMultiplier());
     if(target.curry && target.curry.isRatatouille && isMeatBasedCurry(curry)) d = Math.round(d * 0.2);
+    let tagFluffyBlocked = false;
+    if(target.fluffyCategory && curryHasCategory(curry, target.fluffyCategory)) { d = Math.round(d * 0.7); tagFluffyBlocked = true; }
     target.hp = Math.max(0, target.hp - d);
     tagTriggerDamagePop('enemy', target.idx, d, isCrit ? '#ff4500' : '#f1c40f');
     playSoundEffect('punch.mp3');
     if(isCrit) tagLogAppend(`🌶️ ${actor.name} の Spicy Hit!!!! ${target.name} に ${d} ダメージ！`);
     else tagLogAppend(`💥 ${actor.name} の攻撃！ ${target.name} に ${d} ダメージ！`);
+    if(tagFluffyBlocked) tagLogAppend(`🧀 ふわとろバリアにより${FLUFFY_CATEGORY_LABEL_T[target.fluffyCategory]}からの攻撃を軽減`);
     if(target.hp <= 0) tagLogAppend(`💀 ${target.name} はダウン！`);
     // 🍎☠️毒りんご：通常攻撃ヒット時50%で対象を毒状態にする／既に毒なら増幅（対象ごとに個別の毒レベルを持つ）
     if(curry.isPoisonApple && target.hp > 0 && Math.random() < 0.5) {
@@ -5760,10 +5783,13 @@ function tagEnemyNormalAttack(actor, myTeam, callback) {
     let d = isCrit ? Math.max(8, actor.atk) : Math.max(8, actor.atk - Math.floor(effectiveDef/2));
     d = Math.round(d * (0.9 + Math.random()*0.2));
     if(actor.isWanpaku) d = Math.round(d * getWanpakuDamageMultiplier());
+    let tagFluffyBlockedEnemy = false;
+    if(target.fluffyCategory && actor.bot && actor.bot.foodCategory === target.fluffyCategory) { d = Math.round(d * 0.7); tagFluffyBlockedEnemy = true; }
     target.hp = Math.max(0, target.hp - d);
     tagTriggerDamagePop('player', target.idx, d, isCrit ? '#ff4500' : '#f1c40f');
     if(isCrit) tagLogAppend(`🌶️ ${actor.name} の Spicy Hit!!!! ${target.name} に ${d} ダメージ！`);
     else tagLogAppend(`💥 ${actor.name} の攻撃！ ${target.name} に ${d} ダメージ！`);
+    if(tagFluffyBlockedEnemy) tagLogAppend(`🧀 ふわとろバリアにより${FLUFFY_CATEGORY_LABEL_T[target.fluffyCategory]}からの攻撃を軽減`);
     if(target.hp <= 0) tagLogAppend(`💀 ${target.name} はダウン！`);
     playSoundEffect('punch.mp3');
     if(target.defBuffTurns > 0) target.defBuffTurns--;
@@ -7186,6 +7212,17 @@ function updateHP(p, o, om, pm) {
 // 🧀ふわとろオム：優しいバリアが広がる演出（target: 'enemy' or 'player'）
 function triggerFluffyBarrierEffect(target) {
     const zone = target === 'enemy' ? document.getElementById('enemyZone') : document.querySelector('.player-zone');
+    if(!zone) return;
+    const barrier = document.createElement('div');
+    barrier.className = 'fluffy-barrier-ring';
+    zone.style.position = zone.style.position || 'relative';
+    zone.appendChild(barrier);
+    setTimeout(() => { if(barrier.parentNode) barrier.parentNode.removeChild(barrier); }, 900);
+}
+
+// タッグ戦専用：4人それぞれのカード(tagEnemyCard0/1, tagPlayerCard0/1)にバリア演出を出す
+function triggerTagFluffyBarrierEffect(side, idx) {
+    const zone = document.getElementById((side === 'enemy' ? 'tagEnemyCard' : 'tagPlayerCard') + idx);
     if(!zone) return;
     const barrier = document.createElement('div');
     barrier.className = 'fluffy-barrier-ring';
