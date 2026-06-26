@@ -3303,7 +3303,8 @@ function updateFridgeUI() {
     updateFridgeCurryStockGrid();
 
     const ingSort = (document.getElementById("sortIngredients") || {}).value || "default";
-    let ingKeys = Object.keys(masterIngredients);
+    // 未解放（かつ未入手）のボス解放食材は「？」マスも含めて一切表示しない
+    let ingKeys = Object.keys(masterIngredients).filter(k => discoveredItems[k] || isIngredientAvailable(k));
     // 図鑑登録済みを先に、未登録を後ろに固定
     const discovered = ingKeys.filter(k => discoveredItems[k]);
     const undiscovered = ingKeys.filter(k => !discoveredItems[k]);
@@ -6741,7 +6742,7 @@ function eventBattleFinish(pHP, oHP, myC, wasBlownAway){
     const res=document.getElementById("battleVerdict"); const rew=document.getElementById("rewardText");
     res.innerText=verdictText; res.style.color=verdictColor;
 
-    const normalPool=Object.keys(masterIngredients).filter(k=>masterIngredients[k].shop===0);
+    const normalPool=Object.keys(masterIngredients).filter(k=>masterIngredients[k].shop===0 && isIngredientAvailable(k));
     const spicePool=Object.keys(masterSpices).filter(k=>k!=="マンゴーチャツネ");
     let gotItems=[];
     for(let i=0;i<3;i++){ const it=normalPool[Math.floor(Math.random()*normalPool.length)]; inventory[it]=(inventory[it]||0)+1; discoveredItems[it]=true; gotItems.push(it); }
@@ -7152,7 +7153,7 @@ function done(pHP, oHP, myC, oppC, wasBlownAway) {
             const itmIco2=itmD2&&itmD2.icon?`<img src="${itmD2.icon}" style="width:1.2em;height:1.2em;vertical-align:middle;object-fit:contain;">`:'' ;
             loot=`${itmIco2}${itm}ゲット！`;
             onBattleWin('hard', activeBotData.name);}
-        else if(isBotMatch){e=activeBotData.expBonus;let drp=Object.keys(masterIngredients).filter(k=>masterIngredients[k].shop===0);let itm=drp[Math.floor(Math.random()*drp.length)];inventory[itm]=(inventory[itm]||0)+1;discoveredItems[itm]=true;
+        else if(isBotMatch){e=activeBotData.expBonus;let drp=Object.keys(masterIngredients).filter(k=>masterIngredients[k].shop===0 && isIngredientAvailable(k));let itm=drp[Math.floor(Math.random()*drp.length)];inventory[itm]=(inventory[itm]||0)+1;discoveredItems[itm]=true;
             const itmD=masterIngredients[itm];const itmIco=itmD&&itmD.icon?`<img src="${itmD.icon}" style="width:1.2em;height:1.2em;vertical-align:middle;object-fit:contain;">`:'' ;
             loot=`${itmIco}${itm}ゲット！`;
             onBattleWin('bot', activeBotData.name);}
