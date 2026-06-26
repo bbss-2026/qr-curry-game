@@ -6280,7 +6280,7 @@ function calcAllBattleTurns(myC, oppC, oppN, myName) {
                 else{turn.log+=`
 {{DMGLABEL}}: ${d}`;turn.effects.push({type:'enemy',dmg:d});}
                 if(myFluffyBlocked) { turn.log+=`
-🧀 ふわとろバリアにより${FLUFFY_CATEGORY_LABEL[oppFluffyCategory]}からの攻撃を軽減`; turn.effects.push({type:'fluffy-barrier-enemy'}); }
+🧀 ふわとろバリアにより${FLUFFY_CATEGORY_LABEL[oppFluffyCategory]}からの攻撃を軽減`; }
                 // 🍎☠️毒りんご：通常攻撃ヒット時50%で相手を毒状態にする／既に毒なら増幅
                 if(myC.isPoisonApple && Math.random() < 0.5) {
                     if(!isOP) { isOP = true; poisonLevelO = 1; turn.log+=`
@@ -6325,7 +6325,7 @@ function calcAllBattleTurns(myC, oppC, oppN, myName) {
                 else{turn.log+=`
 {{DMGLABEL}}: ${d}`;turn.effects.push({type:'player',dmg:d});}
                 if(oppFluffyBlocked) { turn.log+=`
-🧀 ふわとろバリアにより${FLUFFY_CATEGORY_LABEL[myFluffyCategory]}からの攻撃を軽減`; turn.effects.push({type:'fluffy-barrier-player'}); }
+🧀 ふわとろバリアにより${FLUFFY_CATEGORY_LABEL[myFluffyCategory]}からの攻撃を軽減`; }
                 // 🍎☠️毒りんご：通常攻撃ヒット時50%で相手を毒状態にする／既に毒なら増幅
                 if(oppC.isPoisonApple && Math.random() < 0.5) {
                     if(!isPP) { isPP = true; poisonLevelP = 1; turn.log+=`
@@ -6371,6 +6371,14 @@ function playBattleTurns(turns, myC, oppC, oppN, role) {
                 const d = ptDelay;
                 setTimeout(()=>{ playSoundEffect('genwaku.mp3'); playStatusFlash('illusion'); if(el) el.classList.add('name-illuded'); }, d);
                 ptDelay += 2000;
+            }
+            if(line.includes('ふわとろバリア')) {
+                // 既存の毒・幻惑と同じ判定パターン（el = targetIsPlayer ? oppOwnerText : pOwnerText と同じ対応）
+                const targetIsPlayer = line.includes(isGuest ? oppN : playerName);
+                const zoneTarget = targetIsPlayer ? 'enemy' : 'player';
+                const d = ptDelay;
+                setTimeout(()=>{ playSoundEffect('healing.mp3'); triggerFluffyBarrierEffect(zoneTarget); }, d);
+                ptDelay += 1200;
             }
         });
     }
