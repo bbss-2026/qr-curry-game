@@ -5266,6 +5266,10 @@ function tagPickRandomAliveTarget(fighters) {
     return alive[Math.floor(Math.random() * alive.length)];
 }
 
+// 🧀ふわとろオム：タッグ戦全体で共有する系統ラベル定義（グローバル、各行動関数からも参照するため）
+const FLUFFY_CATEGORY_LABEL_T = { meat: '肉系', seafood: '海鮮系', vegetable: '野菜系', fruit: '果実系' };
+const FLUFFY_CATEGORY_KEYS_T = Object.keys(FLUFFY_CATEGORY_LABEL_T);
+
 function launchTagBattle(myCurry, deliveryCand, enemies) {
     tagBattleAborted = false;
     tagBattleLogHistory = []; // 戦闘ログ履歴をリセット
@@ -5306,8 +5310,6 @@ function launchTagBattle(myCurry, deliveryCand, enemies) {
     let openingLogs = [];
 
     // 🧀ふわとろオム：戦闘開始時に4人それぞれが軽減対象の系統を個別抽選（持っている人だけ）
-    const FLUFFY_CATEGORY_LABEL_T = { meat: '肉系', seafood: '海鮮系', vegetable: '野菜系', fruit: '果実系' };
-    const FLUFFY_CATEGORY_KEYS_T = Object.keys(FLUFFY_CATEGORY_LABEL_T);
     let fluffyOpeningQueue = []; // {fighter, category} の演出キュー
     [...myTeam, ...enemyTeam].forEach(f => {
         const hasFluffy = f.curry ? f.curry.isFluffyOmelette : false; // 敵Botは現状ふわとろオムを持たないため常にfalse
