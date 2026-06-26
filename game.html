@@ -869,7 +869,10 @@
                 <option value="">⭐ お気に入りレシピから選択...</option>
             </select>
         </div>
-        <button class="btn btn-cook" onclick="checkCookStock()" style="margin-bottom:12px;">カレーを調理する</button>
+        <div style="display:flex; gap:8px; margin-bottom:12px;">
+            <button class="btn btn-cook" onclick="checkCookStock()" style="margin-bottom:0; flex:1;">カレーを調理する</button>
+            <button onclick="clearCookSelection()" style="flex:0 0 70px; background:#9a6e30; color:#efdeb1; border:none; border-radius:4px; font-weight:bold; font-size:13px; cursor:pointer;">クリア</button>
+        </div>
         <div class="result-box" id="resultBox" style="display:none; margin-top:16px; margin-bottom:24px; padding:15px; background:#fffdf0; border:2px dashed #e67e22; border-radius:10px; text-align:center;">
             <div id="criticalFlashText" style="color:#d35400; font-weight:bold; font-size:16px; display:none;">✨ 会心の出来！！！ ✨</div>
             <div id="poisonFlashText" style="color:#9b59b6; font-weight:bold; font-size:16px; display:none;">☠️ 危険！怪しい毒気が立ち上っている…！ ☠️</div>
@@ -897,26 +900,28 @@
             </div>
             <button id="favRegisterBtn" onclick="registerLastCookedAsFavorite()" style="margin-top:12px;width:100%;padding:8px;background:#b88742;color:#efdeb1;border:none;border-radius:4px;font-weight:bold;font-size:13px;cursor:pointer;">⭐ お気に入り登録</button>
         </div>
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:2px;">
-            <h3 style="font-size:16px; margin:0;">食材 1</h3>
-            <span id="statHint1" style="font-size:11px; color:#e67e22; font-weight:bold;"></span>
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+            <h3 style="font-size:16px; margin:0;">食材を選ぶ（3つまで）</h3>
         </div>
-        <select id="ingredient1" onchange="updateIngredientHint(1)"></select>
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:2px;">
-            <h3 style="font-size:16px; margin:0;">食材 2</h3>
-            <span id="statHint2" style="font-size:11px; color:#e67e22; font-weight:bold;"></span>
+        <!-- 選択中の食材3枠を表示 -->
+        <div id="cookSelectedSlots" style="display:flex; gap:6px; margin-bottom:8px;"></div>
+        <!-- カテゴリタブ -->
+        <div id="ingredientCategoryTabs" style="display:flex; gap:4px; margin-bottom:8px;"></div>
+        <!-- スワイプ＆タブ切り替え対応のカテゴリパネル -->
+        <div id="ingredientCategoryPanelsWrap" style="overflow:hidden; border:1px solid #b88742; border-radius:6px; background:#fffdf0;">
+            <div id="ingredientCategoryPanels" style="display:flex; transition:transform 0.25s ease;"></div>
         </div>
-        <select id="ingredient2" onchange="updateIngredientHint(2)"></select>
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:2px;">
-            <h3 style="font-size:16px; margin:0;">食材 3</h3>
-            <span id="statHint3" style="font-size:11px; color:#e67e22; font-weight:bold;"></span>
+        <div style="display:flex; justify-content:space-between; align-items:center; margin:14px 0 6px;">
+            <h3 style="font-size:16px; margin:0;">スパイスを選ぶ（任意・1つまで）</h3>
         </div>
-        <select id="ingredient3" onchange="updateIngredientHint(3)"></select>
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:2px;">
-            <h3 style="font-size:16px; margin:0;">スパイス</h3>
-            <span id="statHintSpice" style="font-size:11px; color:#9b59b6; font-weight:bold;"></span>
-        </div>
-        <select id="spice" onchange="updateSpiceHint()"></select>
+        <div id="cookSelectedSpiceSlot" style="display:flex; gap:6px; margin-bottom:8px;"></div>
+        <div id="spiceCategoryPanel" style="border:1px solid #b88742; border-radius:6px; background:#fffdf0; padding:8px;"></div>
+
+        <!-- 既存ロジック互換のための非表示select（内部値の保持に使用、画面には出さない） -->
+        <select id="ingredient1" onchange="updateIngredientHint(1)" style="display:none;"></select>
+        <select id="ingredient2" onchange="updateIngredientHint(2)" style="display:none;"></select>
+        <select id="ingredient3" onchange="updateIngredientHint(3)" style="display:none;"></select>
+        <select id="spice" onchange="updateSpiceHint()" style="display:none;"></select>
         <div id="cookPreviewBox" style="margin-top:14px; padding:10px 12px; background:#f5e9c8; border:1px solid #b88742; border-radius:4px; display:none;">
             <div style="font-size:11px; color:#b88742; font-weight:bold; margin-bottom:6px;">完成時ステータス（合計値）</div>
             <div style="display:grid; grid-template-columns:1fr 1fr; gap:6px; font-size:12px; color:#420000; font-weight:bold;">
@@ -1238,6 +1243,7 @@ function applyRecommendedSet(priorityStats, excludeLocked) {
     document.getElementById("spice").value = bestSpice;
     [1,2,3].forEach(n => updateIngredientHint(n));
     updateSpiceHint();
+    syncCookSelectionFromHiddenSelects();
 
     showCustomAlert('🍛 おすすめセット完了', '優先ステータス（' + priorityStats.map(s=>s.toUpperCase()).join('・') + '）を重視した組み合わせをセットしました！<br>※あくまでおすすめです。最適解ではありません。');
 }
@@ -1764,7 +1770,7 @@ let discoveredItems = {};
 let lockedItems = {}; // 食材・スパイスのロック状態（ロックされた食材はランダム選択の抽選から除外される）
 let cachedOpponentName = "";
 let cachedOpponentCurry = null;
-window.onload = function() { loadGame(); updateCookSelects(); refreshRecipeBookUI(); updateShopButtons(); listenToRooms(); updateMatchCurrySelects(); setupLoadedIconUI(); updateLvDisplay(); loadNotice(); initQuest(); loadTopNotice(); updateMuteIcon(); initPlayerId(); loadEventEnabledStatus(); setupModalScrollLock(); setupSwipeTabSwitch(); setupGuideCharLongPress(); setupTutorialSwipe(); updateLunchtimeBanner(); setInterval(updateLunchtimeBanner, 60000); };
+window.onload = function() { loadGame(); updateCookSelects(); setupCookCategorySwipe(); refreshRecipeBookUI(); updateShopButtons(); listenToRooms(); updateMatchCurrySelects(); setupLoadedIconUI(); updateLvDisplay(); loadNotice(); initQuest(); loadTopNotice(); updateMuteIcon(); initPlayerId(); loadEventEnabledStatus(); setupModalScrollLock(); setupGuideCharLongPress(); setupTutorialSwipe(); updateLunchtimeBanner(); setInterval(updateLunchtimeBanner, 60000); };
 
 // モーダル表示中は背後のページスクロールをロック
 const TAB_ORDER = ['quest', 'scan', 'fridge', 'cook', 'battle'];
@@ -3272,6 +3278,14 @@ function selectRandomIngredients() {
     document.getElementById("spice").value = sps[Math.floor(Math.random() * sps.length)];
     [1,2,3].forEach(n => updateIngredientHint(n));
     updateSpiceHint();
+    syncCookSelectionFromHiddenSelects();
+}
+// 隠しselectの値→新UIの選択状態（cookSelectedIngredients/cookSelectedSpice）に同期する
+// ランダム選択・おすすめセット・お気に入りレシピ適用など、隠しselectを直接書き換える既存処理の後に呼ぶ
+function syncCookSelectionFromHiddenSelects() {
+    cookSelectedIngredients = [1,2,3].map(n => document.getElementById("ingredient"+n).value).filter(Boolean);
+    cookSelectedSpice = document.getElementById("spice").value || "";
+    renderCookPickerUI();
 }
 let video = document.createElement("video"); let canvasElement = document.getElementById("canvas"); let canvas = canvasElement.getContext("2d"); let localStream = null; let animationFrameId = null;
 let lastTickTime = 0;
@@ -3724,6 +3738,7 @@ function finalizeFavRecipeApply(ings, spiceName, excludeLocked) {
     const spiceUseVal = (excludeLocked && spiceName && lockedItems[spiceName]) ? "" : (spiceName || "");
     document.getElementById("spice").value = spiceUseVal;
     updateSpiceHint();
+    syncCookSelectionFromHiddenSelects();
 }
 
 function pruneRecipeBook() {
@@ -3743,7 +3758,178 @@ function updateCookSelects() {
     });
     const spSel = document.getElementById("spice"); spSel.innerHTML = "<option value=''>❌ （なし）</option>";
     Object.keys(masterSpices).forEach(n => { if((inventory[n]||0)>0){ const o=document.createElement("option"); o.value=n; o.text=`${n} (所持数: ${inventory[n]}個)`; spSel.appendChild(o); } });
+    renderCookPickerUI();
 }
+
+// ===== 食材タップ選択UI（カテゴリタブ＋アイコングリッド） =====
+let cookSelectedIngredients = []; // 最大3つ、文字列配列（重複可）
+let cookSelectedSpice = "";
+let cookActiveCategoryIdx = 0;
+const COOK_CATEGORY_DEFS = [
+    { key: "meat", label: "肉系", emoji: "🥩" },
+    { key: "vegetable", label: "野菜系", emoji: "🥬" },
+    { key: "seafood", label: "海鮮系", emoji: "🐟" },
+    { key: "fruit", label: "果実系", emoji: "🍎" },
+    { key: "other", label: "その他", emoji: "🧂" }
+];
+function getCookCategoryItems(catKey) {
+    return Object.keys(masterIngredients).filter(n => {
+        if((inventory[n]||0) <= 0) return false;
+        const cat = getIngredientCategory(n);
+        return catKey === "other" ? !cat : cat === catKey;
+    });
+}
+function renderCookPickerUI() {
+    renderCookSelectedSlots();
+    renderCookCategoryTabs();
+    renderCookCategoryPanels();
+    renderCookSpicePanel();
+}
+function renderCookSelectedSlots() {
+    const wrap = document.getElementById("cookSelectedSlots");
+    if(!wrap) return;
+    wrap.innerHTML = "";
+    for(let i = 0; i < 3; i++) {
+        const name = cookSelectedIngredients[i];
+        const box = document.createElement("div");
+        box.style.cssText = "flex:1; min-height:96px; border:2px dashed #b88742; border-radius:6px; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:4px; cursor:pointer; background:#fffdf0;";
+        if(name) {
+            const d = masterIngredients[name];
+            box.style.border = "2px solid #e67e22";
+            const statLine = d ? `<div style="font-size:11px;color:#2ecc71;font-weight:bold;line-height:1.4;margin-top:2px;">HP+${d.hp} ATK+${d.atk}<br>DEF+${d.def} SPD+${d.spd}</div>` : '';
+            box.innerHTML = (d && d.icon ? `<img src="${d.icon}" style="width:26px;height:26px;object-fit:contain;">` : '') + `<div style="font-size:10px;color:#420000;margin-top:1px;text-align:center;">${name}</div>` + statLine;
+            box.onclick = () => { cookSelectedIngredients.splice(i,1); syncCookSelectionToHiddenSelects(); renderCookPickerUI(); };
+        } else {
+            box.innerHTML = `<div style="font-size:22px;color:#cbb088;">＋</div>`;
+        }
+        wrap.appendChild(box);
+    }
+}
+function renderCookCategoryTabs() {
+    const wrap = document.getElementById("ingredientCategoryTabs");
+    if(!wrap) return;
+    wrap.innerHTML = "";
+    COOK_CATEGORY_DEFS.forEach((c, idx) => {
+        const btn = document.createElement("button");
+        const active = idx === cookActiveCategoryIdx;
+        btn.style.cssText = `flex:1; padding:7px 2px; border-radius:6px; border:1px solid #b88742; font-size:11px; font-weight:bold; cursor:pointer; background:${active?'#b88742':'#f5e9c8'}; color:${active?'#fff':'#420000'};`;
+        btn.innerText = `${c.emoji} ${c.label}`;
+        btn.onclick = () => { cookActiveCategoryIdx = idx; renderCookCategoryPanels(); renderCookCategoryTabs(); };
+        wrap.appendChild(btn);
+    });
+}
+function renderCookCategoryPanels() {
+    const track = document.getElementById("ingredientCategoryPanels");
+    if(!track) return;
+    track.innerHTML = "";
+    track.style.transform = `translateX(-${cookActiveCategoryIdx * 100}%)`;
+    COOK_CATEGORY_DEFS.forEach(c => {
+        const panel = document.createElement("div");
+        panel.style.cssText = "flex:0 0 100%; max-height:280px; overflow-y:auto; padding:8px; box-sizing:border-box;";
+        const items = getCookCategoryItems(c.key);
+        if(items.length === 0) {
+            panel.innerHTML = `<div style="text-align:center;color:#b0a090;font-size:12px;padding:20px 0;">所持している食材がありません</div>`;
+        } else {
+            const grid = document.createElement("div");
+            grid.style.cssText = "display:grid; grid-template-columns:repeat(3,1fr); gap:8px;";
+            items.forEach(name => {
+                const d = masterIngredients[name];
+                const have = inventory[name] || 0;
+                const usedCount = cookSelectedIngredients.filter(x => x === name).length;
+                const isFull = cookSelectedIngredients.length >= 3;
+                const isOverLimit = usedCount >= have;
+                const disabled = isFull || isOverLimit;
+                const cell = document.createElement("div");
+                cell.style.cssText = `text-align:center; padding:6px 2px; border-radius:6px; border:1px solid ${disabled?'#e0d0b0':'#b88742'}; background:${disabled?'#ece2cc':'#fff'}; opacity:${disabled?'0.5':'1'}; cursor:${disabled?'default':'pointer'};`;
+                cell.innerHTML = (d && d.icon ? `<img src="${d.icon}" style="width:32px;height:32px;object-fit:contain;">` : '<div style="font-size:24px;">🍴</div>')
+                    + `<div style="font-size:10px;color:#420000;margin-top:2px;">${name}</div>`
+                    + `<div style="font-size:10px;color:#888;">所持:${have - usedCount}</div>`;
+                if(!disabled) cell.onclick = () => { cookSelectedIngredients.push(name); syncCookSelectionToHiddenSelects(); renderCookPickerUI(); };
+                grid.appendChild(cell);
+            });
+            panel.appendChild(grid);
+        }
+        track.appendChild(panel);
+    });
+}
+function renderCookSpicePanel() {
+    const slotWrap = document.getElementById("cookSelectedSpiceSlot");
+    const panel = document.getElementById("spiceCategoryPanel");
+    if(!slotWrap || !panel) return;
+    slotWrap.innerHTML = "";
+    const slotBox = document.createElement("div");
+    slotBox.style.cssText = "flex:0 0 120px; min-height:80px; border:2px dashed #9b59b6; border-radius:6px; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:4px; cursor:pointer; background:#fffdf0;";
+    if(cookSelectedSpice) {
+        const d = masterSpices[cookSelectedSpice];
+        slotBox.style.border = "2px solid #9b59b6";
+        const statName = d ? (d.mul === "hp" ? "HP" : d.mul === "atk" ? "ATK" : d.mul === "def" ? "DEF" : "SPD") : "";
+        const statLine = d ? `<div style="font-size:11px;color:#9b59b6;font-weight:bold;margin-top:2px;">${statName} ${d.val}倍</div>` : '';
+        slotBox.innerHTML = (d && d.icon ? `<img src="${d.icon}" style="width:26px;height:26px;object-fit:contain;">` : '') + `<div style="font-size:10px;color:#420000;margin-top:1px;">${cookSelectedSpice}</div>` + statLine;
+        slotBox.onclick = () => { cookSelectedSpice = ""; syncCookSelectionToHiddenSelects(); renderCookPickerUI(); };
+    } else {
+        slotBox.innerHTML = `<div style="font-size:20px;color:#cbb088;">＋</div>`;
+    }
+    slotWrap.appendChild(slotBox);
+
+    panel.innerHTML = "";
+    const spiceNames = Object.keys(masterSpices).filter(n => (inventory[n]||0) > 0);
+    if(spiceNames.length === 0) {
+        panel.innerHTML = `<div style="text-align:center;color:#b0a090;font-size:12px;padding:10px 0;">所持しているスパイスがありません</div>`;
+        return;
+    }
+    const grid = document.createElement("div");
+    grid.style.cssText = "display:grid; grid-template-columns:repeat(4,1fr); gap:8px; max-height:200px; overflow-y:auto;";
+    spiceNames.forEach(name => {
+        const d = masterSpices[name];
+        const have = inventory[name] || 0;
+        const disabled = !!cookSelectedSpice && cookSelectedSpice !== name;
+        const cell = document.createElement("div");
+        cell.style.cssText = `text-align:center; padding:6px 2px; border-radius:6px; border:1px solid ${disabled?'#e0d0b0':'#9b59b6'}; background:${disabled?'#ece2cc':'#fff'}; opacity:${disabled?'0.5':'1'}; cursor:${disabled?'default':'pointer'};`;
+        cell.innerHTML = (d && d.icon ? `<img src="${d.icon}" style="width:32px;height:32px;object-fit:contain;">` : '<div style="font-size:24px;">🧂</div>')
+            + `<div style="font-size:10px;color:#420000;margin-top:2px;">${name}</div>`
+            + `<div style="font-size:10px;color:#888;">所持:${have}</div>`;
+        if(!disabled) cell.onclick = () => { cookSelectedSpice = name; syncCookSelectionToHiddenSelects(); renderCookPickerUI(); };
+        grid.appendChild(cell);
+    });
+    panel.appendChild(grid);
+}
+// 新UIの選択結果を、既存ロジックが参照する隠しselectに反映する（互換性維持のため）
+function syncCookSelectionToHiddenSelects() {
+    [0,1,2].forEach(i => {
+        const sel = document.getElementById("ingredient" + (i+1));
+        if(sel) { sel.value = cookSelectedIngredients[i] || ""; }
+    });
+    const spSel = document.getElementById("spice");
+    if(spSel) spSel.value = cookSelectedSpice || "";
+    [1,2,3].forEach(n => updateIngredientHint(n));
+    updateSpiceHint();
+}
+// クリアボタン
+function clearCookSelection() {
+    cookSelectedIngredients = [];
+    cookSelectedSpice = "";
+    syncCookSelectionToHiddenSelects();
+    renderCookPickerUI();
+}
+// カテゴリパネルの横フリック対応
+function setupCookCategorySwipe() {
+    const wrap = document.getElementById("ingredientCategoryPanelsWrap");
+    if(!wrap || wrap.dataset.swipeBound) return;
+    wrap.dataset.swipeBound = "1";
+    let startX = 0, startY = 0, swiping = false;
+    wrap.addEventListener("touchstart", e => { startX = e.touches[0].clientX; startY = e.touches[0].clientY; swiping = true; }, { passive: true });
+    wrap.addEventListener("touchend", e => {
+        if(!swiping) return; swiping = false;
+        const dx = e.changedTouches[0].clientX - startX;
+        const dy = e.changedTouches[0].clientY - startY;
+        if(Math.abs(dx) > 40 && Math.abs(dx) > Math.abs(dy)) {
+            if(dx < 0 && cookActiveCategoryIdx < COOK_CATEGORY_DEFS.length - 1) cookActiveCategoryIdx++;
+            else if(dx > 0 && cookActiveCategoryIdx > 0) cookActiveCategoryIdx--;
+            renderCookCategoryPanels(); renderCookCategoryTabs();
+        }
+    }, { passive: true });
+}
+
 function updateIngredientHint(num) {
     const val = document.getElementById("ingredient" + num).value;
     const el = document.getElementById("statHint" + num);
@@ -3765,6 +3951,8 @@ function updateSpiceHint() {
 function clearAllHints() {
     [1,2,3].forEach(n => { const el = document.getElementById("statHint"+n); if(el) el.innerText=""; });
     const es = document.getElementById("statHintSpice"); if(es) es.innerText="";
+    cookSelectedIngredients = [];
+    cookSelectedSpice = "";
     updateCookPreview();
 }
 
