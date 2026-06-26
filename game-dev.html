@@ -3903,7 +3903,11 @@ function buildCurryFromMaterials(materialNames, spiceName) {
     if(chosen === "poison_nas_partner") { cName = `☠️瘴気漂う毒ナス${poisonNasPartner}`; isPoison = true; }
     else if(chosen === "poison_fish") { cName = "☠️デスフィッシュカレー"; isPoison = true; }
     else if(chosen === "poison_nas2") { cName = "☠️怨念のナス毒沼カレー"; isPoison = true; }
-    else if(chosen === "poison_apple") { cName = "🍎☠️毒りんごカレー"; isPoison = true; isPoisonApple = true; }
+    else if(chosen === "poison_apple") {
+        const extra = acts.filter(x => x !== "りんご" && x !== "ハラペーニョ");
+        cName = `🍎☠️毒りんご${extra.length ? extra[0] : ""}カレー`;
+        isPoison = true; isPoisonApple = true;
+    }
     else if(chosen === "margherita") { isMargherita = true; }
     else if(chosen === "tonton") { isTonTonTon = true; }
     else if(chosen === "illusion") { cName = `🌀幻惑の${cName}`; isIllusion = true; }
@@ -3912,7 +3916,11 @@ function buildCurryFromMaterials(materialNames, spiceName) {
     else if(chosen === "wanpaku") { cName = "🍛これこれ！わんぱくカレー！"; isWanpaku = true; }
     else if(chosen === "ratatouille") { cName = "☀️太陽のラタトゥイユカレー"; isRatatouille = true; }
     else if(chosen === "homerun") { cName = `🏏${cName}ホームランカレー`; isHomerun = true; }
-    else if(chosen === "fluffyomelette") { cName = "🧀ふわとろオムカレー"; isFluffyOmelette = true; }
+    else if(chosen === "fluffyomelette") {
+        const extra = acts.filter(x => x !== "タマゴ" && x !== "チーズ" && x !== "うずら卵");
+        cName = `🧀ふわとろオム${extra.length ? extra[0] : ""}カレー`;
+        isFluffyOmelette = true;
+    }
     else if(chosen === "greencurry") { cName = "🟢激辛エスニック・グリーンカレー"; isGreenCurry = true; }
     let isCritical = false;
     if(hasGold) { cName = `✨黄金仕立ての${cName}`; }
@@ -5288,7 +5296,7 @@ function launchTagBattle(myCurry, deliveryCand, enemies) {
     }
     let statusFlashQueue = []; // 演出を順番に再生するためのキュー
     myTeam.forEach(f => {
-        if(f.curry && f.curry.isPoison) {
+        if(f.curry && f.curry.isPoison && !f.curry.isPoisonApple) {
             const target = tagPickRandomAliveTarget(enemyTeam);
             if(target && !target.isPoisoned) {
                 target.isPoisoned = true;
@@ -6179,7 +6187,8 @@ function rollSeedHits(mySpd, oppSpd) {
 function calcAllBattleTurns(myC, oppC, oppN, myName) {
     let turns = [];
     let pHP = myC.hp, oHP = oppC.hp;
-    let isOP = !!myC.isPoison, isPP = !!oppC.isPoison;
+    // 毒りんご(isPoisonApple)は戦闘開始時には発動しない（通常攻撃ヒット時のみ）
+    let isOP = !!myC.isPoison && !myC.isPoisonApple, isPP = !!oppC.isPoison && !oppC.isPoisonApple;
     let poisonLevelO = isOP ? 1 : 0; // oppC(相手)の毒レベル。1段階ごとに+8%、最大6（48%）
     let poisonLevelP = isPP ? 1 : 0; // myC(自分)の毒レベル
     let myIsIlluded = !!oppC.isIllusion, oppIsIlluded = !!myC.isIllusion;
@@ -6895,7 +6904,7 @@ function startBattleScene(oppN, oppC, myC) {
     }
 
     // Bot戦：リアルタイムstep
-    let isOP=!!myC.isPoison, isPP=!!oppC.isPoison;
+    let isOP=!!myC.isPoison && !myC.isPoisonApple, isPP=!!oppC.isPoison && !oppC.isPoisonApple;
     let poisonLevelO = isOP ? 1 : 0; // oppC(相手)の毒レベル
     let poisonLevelP = isPP ? 1 : 0; // myC(自分)の毒レベル
     let myIsIlluded=!!oppC.isIllusion, oppIsIlluded=!!myC.isIllusion;
@@ -6909,12 +6918,12 @@ function startBattleScene(oppN, oppC, myC) {
 
     // 毒・幻惑の初期演出（演出が終わってからバトル開始）
     let battleStartDelay = 300;
-    if(myC.isPoison){
+    if(myC.isPoison && !myC.isPoisonApple){
         log.innerHTML+=`\n☠️ ${oppN} は毒にかかった！毎ターン毒ダメージ！`;
         setTimeout(()=>{ playSoundEffect('poison.mp3'); playStatusFlash('poison'); document.getElementById('oppOwnerText').classList.add('name-poisoned'); }, battleStartDelay);
         battleStartDelay += 2200;
     }
-    if(oppC.isPoison){
+    if(oppC.isPoison && !oppC.isPoisonApple){
         log.innerHTML+=`\n☠️ ${playerName} は毒にかかった！毎ターン毒ダメージ！`;
         setTimeout(()=>{ playSoundEffect('poison.mp3'); playStatusFlash('poison'); document.getElementById('pOwnerText').classList.add('name-poisoned'); }, battleStartDelay);
         battleStartDelay += 2200;
