@@ -2850,11 +2850,12 @@ function onCookDone(curry) {
         }
     });
     progressDailyQuest('cook');
-    const isSpecial = curry.isPoison||curry.isIllusion||curry.isSeed||curry.isMargherita||curry.isSeafood||curry.isTonTonTon||curry.isSticky||curry.isWanpaku||curry.isRatatouille||curry.isHomerun;
+    const isSpecial = curry.isPoison||curry.isIllusion||curry.isSeed||curry.isMargherita||curry.isSeafood||curry.isTonTonTon||curry.isSticky||curry.isWanpaku||curry.isRatatouille||curry.isHomerun||curry.isFluffyOmelette||curry.isGreenCurry;
     if(isSpecial) progressDailyQuest('special');
     // グローバル集計
     incrementGlobalStat('cook/total');
-    if(curry.isPoison) incrementGlobalStat('cook/poison');
+    if(curry.isPoison && !curry.isPoisonApple) incrementGlobalStat('cook/poison');
+    if(curry.isPoisonApple) incrementGlobalStat('cook/poisonapple');
     if(curry.isIllusion) incrementGlobalStat('cook/illusion');
     if(curry.isSeed) incrementGlobalStat('cook/seed');
     if(curry.isMargherita) incrementGlobalStat('cook/margherita');
@@ -2864,6 +2865,8 @@ function onCookDone(curry) {
     if(curry.isWanpaku) incrementGlobalStat('cook/wanpaku');
     if(curry.isRatatouille) incrementGlobalStat('cook/ratatouille');
     if(curry.isHomerun) incrementGlobalStat('cook/homerun');
+    if(curry.isFluffyOmelette) incrementGlobalStat('cook/fluffyomelette');
+    if(curry.isGreenCurry) incrementGlobalStat('cook/greencurry');
     if(curry.hasGold) incrementGlobalStat('cook/gold');
     if(!isSpecial) incrementGlobalStat('cook/normal');
 }
@@ -5596,21 +5599,23 @@ function tagExecuteAction(actor, myTeam, enemyTeam, callback) {
             playSoundEffect('homerun.mp3');
             actor.hp = Math.max(0, actor.hp - selfDmg);
             tagLogAppend(`🌶️ 反動で${actor.name}にも${selfDmg}ダメージ！`);
+            tagTriggerDamagePop(actor.side, actor.idx, selfDmg, '#e74c3c');
             triggerTagHirihiriEffect(actor.side, actor.idx);
             setTimeout(callback, tagDelay(700));
             return;
         }
-        let hgTotal = 0;
         const aliveEnemies = enemyTeam.filter(f => f.hp > 0);
+        let hitTexts = [];
         aliveEnemies.forEach(target => {
-            let d = Math.max(8, Math.round(actor.atk * (1.1 + Math.random()*0.4)) - Math.floor(target.def/2));
+            let d = Math.max(8, Math.round(actor.atk * (0.6 + Math.random()*0.4)) - Math.floor(target.def/2));
             target.hp = Math.max(0, target.hp - d);
-            hgTotal += d;
+            hitTexts.push(`${target.name}に${d}ダメージ`);
             tagTriggerDamagePop('enemy', target.idx, d, '#e74c3c');
         });
         actor.hp = Math.max(0, actor.hp - selfDmg);
-        tagLogAppend(`🌶️🔥 ${actor.name} のヒリヒリクラッシュ！全体に合計${hgTotal}ダメージ！`);
+        tagLogAppend(`🌶️🔥 ${actor.name} のヒリヒリクラッシュ！全ての敵に攻撃！${hitTexts.join(' / ')}`);
         tagLogAppend(`🌶️ 反動で${actor.name}にも${selfDmg}ダメージ！`);
+        tagTriggerDamagePop(actor.side, actor.idx, selfDmg, '#e74c3c');
         setTimeout(()=>triggerTagHirihiriEffect(actor.side, actor.idx), 300);
         setTimeout(callback, tagDelay(900));
         return;
@@ -5997,6 +6002,7 @@ function tagFinishBattle(result) {
 
     if(isWin) {
         playWinSound();
+        incrementGlobalStat('battle/tag');
         // タッグ戦で倒した敵2人の撃破統計を記録（初級・中級・タッグ専用キャラそれぞれ）
         updateStats(s => {
             [enemy0.bot, enemy1.bot].forEach(bot => {
