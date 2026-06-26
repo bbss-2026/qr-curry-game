@@ -438,6 +438,12 @@
         @keyframes ratatouilleGlow { 0%,100% { box-shadow: 0 0 5px #f1c40f; } 50% { box-shadow: 0 0 20px #f1c40f, 0 0 30px #e67e22; } }
         .homerun-box { animation: homerunGlow 1.5s infinite; border: 3px solid #2980b9 !important; }
         @keyframes homerunGlow { 0%,100% { box-shadow: 0 0 5px #2980b9; } 50% { box-shadow: 0 0 20px #2980b9, 0 0 30px #3498db; } }
+        .poisonapple-box { animation: poisonappleGlow 1.5s infinite; border: 3px dashed #c0392b !important; }
+        @keyframes poisonappleGlow { 0%,100% { box-shadow: 0 0 5px #c0392b; } 50% { box-shadow: 0 0 20px #c0392b, 0 0 30px #e74c3c; } }
+        .fluffyomelette-box { animation: fluffyomeletteGlow 1.5s infinite; border: 3px solid #f1c40f !important; }
+        @keyframes fluffyomeletteGlow { 0%,100% { box-shadow: 0 0 5px #f1c40f; } 50% { box-shadow: 0 0 20px #fff3cd, 0 0 30px #f1c40f; } }
+        .greencurry-box { animation: greencurryGlow 1.5s infinite; border: 3px solid #27ae60 !important; }
+        @keyframes greencurryGlow { 0%,100% { box-shadow: 0 0 5px #27ae60; } 50% { box-shadow: 0 0 20px #e74c3c, 0 0 30px #27ae60; } }
         .margherita-box { animation: margheritaGlow 1.5s infinite; border: 3px solid #e74c3c !important; }
         @keyframes margheritaGlow { 0% { box-shadow: 0 0 5px #e74c3c; } 50% { box-shadow: 0 0 20px #27ae60, 0 0 30px #e74c3c; } 100% { box-shadow: 0 0 5px #e74c3c; } }
         .tonton-box { animation: tontonGlow 1.5s infinite; border: 3px solid #f39c12 !important; }
@@ -845,6 +851,9 @@
             <div id="wanpakuFlashText" style="color:#e67e22; font-weight:bold; font-size:16px; display:none;">🍛 暴れ放題！わんぱくカレー誕生！ 🍛</div>
             <div id="ratatouilleFlashText" style="color:#f1c40f; font-weight:bold; font-size:16px; display:none;">☀️ 太陽の恵み！ラタトゥイユの結界！ ☀️</div>
             <div id="homerunFlashText" style="color:#2980b9; font-weight:bold; font-size:16px; display:none;">🏏 カキーン！ホームランの予感！ 🏏</div>
+            <div id="poisonappleFlashText" style="color:#c0392b; font-weight:bold; font-size:16px; display:none;">🍎☠️ 甘い香りに毒が潜む…！毒りんごの誘惑！ ☠️🍎</div>
+            <div id="fluffyomeletteFlashText" style="color:#f1c40f; font-weight:bold; font-size:16px; display:none;">🧀 ふわとろバリアが優しく包み込む！ 🧀</div>
+            <div id="greencurryFlashText" style="color:#27ae60; font-weight:bold; font-size:16px; display:none;">🟢🌶️ 激辛エスニックの嵐！ヒリヒリ注意！ 🌶️🟢</div>
             <img id="curryVisualImg" src="" alt="" style="display:none; width:140px; height:140px; object-fit:contain; margin:0 auto 6px;">
             <div id="cookResultIcons" style="display:flex; flex-wrap:wrap; justify-content:center; gap:4px; margin-bottom:8px;"></div>
             <div style="font-size:18px; font-weight:bold; color:#c0392b; margin-bottom:10px;" id="curryName">未調理 of カレー</div>
@@ -1645,6 +1654,20 @@ const BOSS_UNLOCK_INGREDIENTS = {
     angelUnlocked: ["りんご", "バナナ"],     // カレー天使ぴゃぁ撃破で解放
     bratUnlocked: ["ハラペーニョ", "パクチー"] // 悪ガキサタン君撃破で解放
 };
+// ふわとろオムカレーの軽減対象判定用、食材の系統分類（該当なしの食材は含まれない）
+const INGREDIENT_CATEGORY = {
+    meat: ["牛肉", "牛すじ", "チキン", "唐揚げ", "トンカツ", "ウインナー", "合鴨"],
+    seafood: ["サバ", "イカ", "小エビ", "ホタテ", "ツナ", "牡蠣", "キャビア", "オマール海老", "ズワイガニ"],
+    vegetable: ["ナス", "トマト", "レンコン", "ピーマン", "赤パプリカ", "黄パプリカ", "玉ねぎ", "にんじん", "大根", "マッシュルーム", "オクラ", "パクチー"],
+    fruit: ["りんご", "バナナ", "レーズン"]
+};
+// 食材名から系統キー（meat/seafood/vegetable/fruit）を取得。該当なしならnull
+function getIngredientCategory(name) {
+    for(const cat in INGREDIENT_CATEGORY) {
+        if(INGREDIENT_CATEGORY[cat].includes(name)) return cat;
+    }
+    return null;
+}
 function getUnlockedBossIngredients() {
     let list = [];
     if(localStorage.getItem('qr_unlock_chin') === '1') list = list.concat(BOSS_UNLOCK_INGREDIENTS.chinUnlocked);
@@ -1663,7 +1686,9 @@ function unlockBossIngredients(bossKey) {
     const storageKey = 'qr_unlock_' + bossKey;
     if(localStorage.getItem(storageKey) === '1') return; // 既に解放済み
     localStorage.setItem(storageKey, '1');
-    showCustomAlert('🔓 食材解放', '新たにQRスキャン食材が2種類解放された！');
+    const bossNames = { chin: 'レンチン玉子', angel: 'カレー天使ぴゃぁ', brat: '悪ガキサタン君' };
+    const bossName = bossNames[bossKey] || '敵';
+    showCustomAlert('🔓 食材解放', `${bossName}撃破により新たにQRスキャン食材が2種類解放された！`);
 }
 let curryStock = []; let selectedCurryIndex = -1;
 let playerName = "名無しの料理人";
@@ -3384,7 +3409,10 @@ const CURRY_SKILL_INFO = [
     { flag: 'hasGold',       name: '✨ 金箔',         desc: '調理完成時に全ステータスが強化。攻撃時に金が舞う。' },
     { flag: 'isWanpaku',     name: '🍛 わんぱく',     desc: '通常攻撃の上下の振り幅が大きくなり、ミスをすることも。' },
     { flag: 'isRatatouille', name: '☀️ ラタトゥイユ', desc: '毎ターン小回復。肉からの攻撃を小軽減' },
-    { flag: 'isHomerun',     name: '🏏 ホームラン',   desc: '敵の技を打ち返して防ぐことがある。' }
+    { flag: 'isHomerun',     name: '🏏 ホームラン',   desc: '敵の技を打ち返して防ぐことがある。' },
+    { flag: 'isPoisonApple', name: '🍎☠️ 毒りんご',  desc: '通常攻撃時50%で相手を毒状態にする。既に毒の相手には毒ダメージを増幅する。' },
+    { flag: 'isFluffyOmelette', name: '🧀 ふわとろオム', desc: '戦闘開始時に抽選した系統（肉/海鮮/野菜/果実）からの攻撃を70%に軽減する。' },
+    { flag: 'isGreenCurry',  name: '🟢 激辛グリーン', desc: '時々全ての敵に強力な一撃。反動で自分もダメージを受ける。' }
 ];
 function getCurrySkills(curry) {
     return CURRY_SKILL_INFO.filter(s => curry[s.flag]);
@@ -3825,6 +3853,14 @@ function buildCurryFromMaterials(materialNames, spiceName) {
     const HOMERUN_LIST = ["レンコン","ウインナー","にんじん","大根"];
     let homerunCount = acts.filter(x => HOMERUN_LIST.includes(x)).length;
     let isHomerun = homerunCount >= 2;
+    // 🍎☠️毒りんご：りんご＋ハラペーニョ（毒系・最優先グループ）
+    let isPoisonApple = acts.includes("りんご") && acts.includes("ハラペーニョ");
+    // 🧀ふわとろオム：タマゴ＋（チーズ or うずら卵）
+    let isFluffyOmelette = acts.includes("タマゴ") && (acts.includes("チーズ") || acts.includes("うずら卵"));
+    // 🟢激辛エスニック・グリーンカレー：ハラペーニョ＋（パクチー2個 or パクチー1個+コリアンダー）
+    let pakuchiCount = acts.filter(x => x === "パクチー").length;
+    let hasCoriander = (sp === "コリアンダー");
+    let isGreenCurry = acts.includes("ハラペーニョ") && ((pakuchiCount >= 2) || (pakuchiCount >= 1 && hasCoriander));
     if(acts.length===0){ cName=`${prefix}スパイススープ`; vis="🥣"; } else {
         if(isMargherita) {
             const others = acts.filter(x => x !== "トマト" && x !== "チーズ");
@@ -3841,12 +3877,14 @@ function buildCurryFromMaterials(materialNames, spiceName) {
         }
     }
     if(isMargherita) { hp=Math.round(hp*1.2); atk=Math.round(atk*1.2); def=Math.round(def*1.2); spd=Math.round(spd*1.2); }
+    if(isGreenCurry) { hp=Math.round(hp*1.2); atk=Math.round(atk*1.2); def=Math.round(def*1.2); spd=Math.round(spd*1.2); }
     let poisonChosen = null;
     let poisonNasPartner = "";
     if(countNas >= 1 && hasRaisin) { poisonChosen = "poison_nas_partner"; poisonNasPartner = "レーズン"; }
     else if(countNas >= 1 && hasPotato) { poisonChosen = "poison_nas_partner"; poisonNasPartner = "ジャガイモ"; }
     else if((hasSaba || hasTuna) && countNas >= 1 && hasDaikon) poisonChosen = "poison_fish";
     else if(countNas >= 2) poisonChosen = "poison_nas2";
+    else if(isPoisonApple) poisonChosen = "poison_apple";
     let exclusiveCandidates = [];
     if(!poisonChosen) {
         if(isMargherita) exclusiveCandidates.push("margherita");
@@ -3857,12 +3895,15 @@ function buildCurryFromMaterials(materialNames, spiceName) {
         if(isWanpaku) exclusiveCandidates.push("wanpaku");
         if(isRatatouille) exclusiveCandidates.push("ratatouille");
         if(isHomerun) exclusiveCandidates.push("homerun");
+        if(isFluffyOmelette) exclusiveCandidates.push("fluffyomelette");
+        if(isGreenCurry) exclusiveCandidates.push("greencurry");
     }
     const chosen = poisonChosen || (exclusiveCandidates.length > 0 ? exclusiveCandidates[Math.floor(Math.random() * exclusiveCandidates.length)] : null);
-    isPoison=false; isMargherita=false; isTonTonTon=false; isIllusion=false; isSticky=false; isSeed=false; isWanpaku=false; isRatatouille=false; isHomerun=false;
+    isPoison=false; isMargherita=false; isTonTonTon=false; isIllusion=false; isSticky=false; isSeed=false; isWanpaku=false; isRatatouille=false; isHomerun=false; isPoisonApple=false; isFluffyOmelette=false; isGreenCurry=false;
     if(chosen === "poison_nas_partner") { cName = `☠️瘴気漂う毒ナス${poisonNasPartner}`; isPoison = true; }
     else if(chosen === "poison_fish") { cName = "☠️デスフィッシュカレー"; isPoison = true; }
     else if(chosen === "poison_nas2") { cName = "☠️怨念のナス毒沼カレー"; isPoison = true; }
+    else if(chosen === "poison_apple") { cName = "🍎☠️毒りんごカレー"; isPoison = true; isPoisonApple = true; }
     else if(chosen === "margherita") { isMargherita = true; }
     else if(chosen === "tonton") { isTonTonTon = true; }
     else if(chosen === "illusion") { cName = `🌀幻惑の${cName}`; isIllusion = true; }
@@ -3871,11 +3912,13 @@ function buildCurryFromMaterials(materialNames, spiceName) {
     else if(chosen === "wanpaku") { cName = "🍛これこれ！わんぱくカレー！"; isWanpaku = true; }
     else if(chosen === "ratatouille") { cName = "☀️太陽のラタトゥイユカレー"; isRatatouille = true; }
     else if(chosen === "homerun") { cName = `🏏${cName}ホームランカレー`; isHomerun = true; }
+    else if(chosen === "fluffyomelette") { cName = "🧀ふわとろオムカレー"; isFluffyOmelette = true; }
+    else if(chosen === "greencurry") { cName = "🟢激辛エスニック・グリーンカレー"; isGreenCurry = true; }
     let isCritical = false;
     if(hasGold) { cName = `✨黄金仕立ての${cName}`; }
     if(!hasGold && !isSeafood && Math.random()<0.15){ cName=`💎至高の${cName}`; hp=Math.round(hp*1.4); atk=Math.round(atk*1.4); isCritical = true; }
     const curryType = getCurryType(hp, atk, def, spd);
-    return { name: cName, visual: vis, hp: hp, atk: atk, def: def, spd: spd, isPoison, hasGold, isMargherita, isTonTonTon, isSeafood, isIllusion, isSticky, isSeed, isWanpaku, isRatatouille, isHomerun, isCritical, materials: acts.length ? acts : [], spice: sp || "", curryType: curryType };
+    return { name: cName, visual: vis, hp: hp, atk: atk, def: def, spd: spd, isPoison, hasGold, isMargherita, isTonTonTon, isSeafood, isIllusion, isSticky, isSeed, isWanpaku, isRatatouille, isHomerun, isPoisonApple, isFluffyOmelette, isGreenCurry, isCritical, materials: acts.length ? acts : [], spice: sp || "", curryType: curryType };
 }
 
 // ランダムに食材プールから1〜3個選んでカレーを生成（ダミーキャラ・宅配カレー生成用）
@@ -4034,102 +4077,26 @@ function reportDeliveryCurryUsage(candidate, didWin) {
 function cookCurry() {
     const i1 = document.getElementById("ingredient1").value; const i2 = document.getElementById("ingredient2").value; const i3 = document.getElementById("ingredient3").value; const sp = document.getElementById("spice").value;
     if(i1) inventory[i1]--; if(i2) inventory[i2]--; if(i3) inventory[i3]--; if(sp) inventory[sp]--;
-    let hp = (i1?masterIngredients[i1].hp:0)+(i2?masterIngredients[i2].hp:0)+(i3?masterIngredients[i3].hp:0);
-    let atk = (i1?masterIngredients[i1].atk:0)+(i2?masterIngredients[i2].atk:0)+(i3?masterIngredients[i3].atk:0);
-    let def = (i1?masterIngredients[i1].def:0)+(i2?masterIngredients[i2].def:0)+(i3?masterIngredients[i3].def:0);
-    let spd = (i1?masterIngredients[i1].spd:0)+(i2?masterIngredients[i2].spd:0)+(i3?masterIngredients[i3].spd:0);
-    let prefix = ""; if(sp){ prefix=masterSpices[sp].name; let mul=masterSpices[sp].mul; let val=masterSpices[sp].val; if(mul==="hp")hp=Math.round(hp*val); if(mul==="atk")atk=Math.round(atk*val); if(mul==="def")def=Math.round(def*val); if(mul==="spd")spd=Math.round(spd*val); }
-    let acts = [i1,i2,i3].filter(Boolean); let cName = ""; let vis = "";
-    let isPoison = false; let hasGold = acts.includes("金箔");
-    let countNas = acts.filter(x => x === "ナス").length;
-    let hasRaisin = acts.includes("レーズン"); let hasSaba = acts.includes("サバ"); let hasTuna = acts.includes("ツナ"); let hasDaikon = acts.includes("大根"); let hasPotato = acts.includes("ジャガイモ");
-    let isMargherita = acts.includes("トマト") && acts.includes("チーズ");
-    let isTonTonTon = acts.filter(x => x === "トンカツ").length === 3;
-    const SEAFOOD_LIST = ["サバ","イカ","小エビ","ホタテ","ツナ","牡蠣","キャビア","オマール海老","ズワイガニ"];
-    let isSeafood = acts.length === 3 && acts.every(x => SEAFOOD_LIST.includes(x));
-    // 新特殊カレー判定
-    let isIllusion = acts.includes("イカ") && acts.includes("マッシュルーム");
-    let isSticky = acts.includes("オクラ") && acts.includes("チーズ");
-    const SEED_LIST = ["ピーマン","赤パプリカ","黄パプリカ","オクラ","トマト","ナス","レーズン","レンコン"];
-    let seedCount = acts.filter(x => SEED_LIST.includes(x)).length;
-    let isSeed = seedCount >= 2;
-    // わんぱくカレー：トンカツ/唐揚げ/ウインナー/牛肉から3種類（重複不可）
-    const WANPAKU_LIST = ["トンカツ","唐揚げ","ウインナー","牛肉"];
-    let wanpakuCount = acts.filter(x => WANPAKU_LIST.includes(x)).length;
-    let wanpakuUnique = new Set(acts.filter(x => WANPAKU_LIST.includes(x))).size;
-    let isWanpaku = acts.length === 3 && wanpakuCount === 3 && wanpakuUnique === 3;
-    // ラタトゥイユカレー：ナス/ピーマン/赤パプリカ/黄パプリカ/トマト/マッシュルームから3種類（重複不可）
-    const RATATOUILLE_LIST = ["ナス","ピーマン","赤パプリカ","黄パプリカ","トマト","マッシュルーム"];
-    let rataCount = acts.filter(x => RATATOUILLE_LIST.includes(x)).length;
-    let rataUnique = new Set(acts.filter(x => RATATOUILLE_LIST.includes(x))).size;
-    let isRatatouille = acts.length === 3 && rataCount === 3 && rataUnique === 3;
-    // ホームランカレー：レンコン/ウインナー/にんじん/大根のうち2個使用（重複可）
-    const HOMERUN_LIST = ["レンコン","ウインナー","にんじん","大根"];
-    let homerunCount = acts.filter(x => HOMERUN_LIST.includes(x)).length;
-    let isHomerun = homerunCount >= 2;
-    if(acts.length===0){ cName=`${prefix}スパイススープ`; vis="🥣"; } else {
-        if(isMargherita) {
-            // トマトとチーズをカレー名から除いて残りの食材で名前を作る
-            const others = acts.filter(x => x !== "トマト" && x !== "チーズ");
-            let body = others.length > 0 ? others.map(x => x).join("") : "";
-            cName = `${prefix}マルゲリータ${body ? body + "の" : ""}カレー`;
-            vis = acts.map(x => masterIngredients[x].emoji).join("");
-        } else if(isTonTonTon) {
-            cName = "3匹のトントントン"; vis = "🐷🐷🐷";
-        } else {
-            let cnts={}; acts.forEach(x=>cnts[x]=(cnts[x]||0)+1); let body="";
-            Object.keys(cnts).forEach(k=>{ if(cnts[k]===3)body+=`トリプル${k}`; else if(cnts[k]===2)body+=`W${k}`; else body+=k; });
-            cName=`${prefix}${body}カレー`; vis=acts.map(x=>masterIngredients[x].emoji).join("");
-            if(isSeafood) cName = `🌊${cName}🌊`;
-        }
-    }
-    // マルゲリータ：全ステータス1.2倍
-    if(isMargherita) { hp=Math.round(hp*1.2); atk=Math.round(atk*1.2); def=Math.round(def*1.2); spd=Math.round(spd*1.2); }
-    // 排他特殊カレー候補をリストアップしてランダム抽選
-    // 毒は最優先（特定食材の確定組み合わせ）
-    let poisonChosen = null;
-    let poisonNasPartner = ""; // ナス毒の相方（レーズンorジャガイモ）表示用
-    if(countNas >= 1 && hasRaisin) { poisonChosen = "poison_nas_partner"; poisonNasPartner = "レーズン"; }
-    else if(countNas >= 1 && hasPotato) { poisonChosen = "poison_nas_partner"; poisonNasPartner = "ジャガイモ"; }
-    else if((hasSaba || hasTuna) && countNas >= 1 && hasDaikon) poisonChosen = "poison_fish";
-    else if(countNas >= 2) poisonChosen = "poison_nas2";
-    // 毒以外の排他候補（ランダム抽選）
-    let exclusiveCandidates = [];
-    if(!poisonChosen) {
-        if(isMargherita) exclusiveCandidates.push("margherita");
-        if(isTonTonTon) exclusiveCandidates.push("tonton");
-        if(isIllusion) exclusiveCandidates.push("illusion");
-        if(isSticky) exclusiveCandidates.push("sticky");
-        if(isSeed) exclusiveCandidates.push("seed");
-        if(isWanpaku) exclusiveCandidates.push("wanpaku");
-        if(isRatatouille) exclusiveCandidates.push("ratatouille");
-        if(isHomerun) exclusiveCandidates.push("homerun");
-    }
-    const chosen = poisonChosen || (exclusiveCandidates.length > 0 ? exclusiveCandidates[Math.floor(Math.random() * exclusiveCandidates.length)] : null);
-    // フラグリセットして選ばれたものだけ有効化
-    isPoison=false; isMargherita=false; isTonTonTon=false; isIllusion=false; isSticky=false; isSeed=false; isWanpaku=false; isRatatouille=false; isHomerun=false;
-    if(chosen === "poison_nas_partner") { cName = `☠️瘴気漂う毒ナス${poisonNasPartner}`; isPoison = true; }
-    else if(chosen === "poison_fish") { cName = "☠️デスフィッシュカレー"; isPoison = true; }
-    else if(chosen === "poison_nas2") { cName = "☠️怨念のナス毒沼カレー"; isPoison = true; }
-    else if(chosen === "margherita") { isMargherita = true; }
-    else if(chosen === "tonton") { isTonTonTon = true; }
-    else if(chosen === "illusion") { cName = `🌀幻惑の${cName}`; isIllusion = true; }
-    else if(chosen === "sticky") { cName = `💚ネバネバ${cName}`; isSticky = true; }
-    else if(chosen === "seed") { cName = `🌱種連発${cName}`; isSeed = true; }
-    else if(chosen === "wanpaku") { cName = "🍛これこれ！わんぱくカレー！"; isWanpaku = true; }
-    else if(chosen === "ratatouille") { cName = "☀️太陽のラタトゥイユカレー"; isRatatouille = true; }
-    else if(chosen === "homerun") { cName = `🏏${cName}ホームランカレー`; isHomerun = true; }
+    // カレーの計算（強さ・特殊効果・名前）は共通関数に一本化。今後の新カレー追加はbuildCurryFromMaterialsだけ直せばよい
+    const newCurry = buildCurryFromMaterials([i1, i2, i3], sp);
+    const { name: cName, visual: vis, hp, atk, def, spd, isPoison, hasGold, isMargherita, isTonTonTon, isSeafood, isIllusion, isSticky, isSeed, isWanpaku, isRatatouille, isHomerun, isPoisonApple, isFluffyOmelette, isGreenCurry, isCritical, materials: acts } = newCurry;
+
     const rKey=[...acts, sp].filter(Boolean).sort().join("+");
     if(!recipeBook[rKey]) { recipeBook[rKey]={name:cName, visual:vis, materials:acts.length?acts:["なし"], spice:sp||""}; pruneRecipeBook(); }
     window.__lastCookedRecipeKey = rKey; // お気に入り登録ボタン用に直近のレシピキーを保持
-    document.getElementById("resultBox").classList.remove("critical-box","poison-box","gold-box","margherita-box","tonton-box","wave-box","illusion-box","sticky-box","seed-box","wanpaku-box","ratatouille-box","homerun-box");
-    ["criticalFlashText","poisonFlashText","goldFlashText","margheritaFlashText","tontonFlashText","waveFlashText","illusionFlashText","stickyFlashText","seedFlashText","wanpakuFlashText","ratatouilleFlashText","homerunFlashText"].forEach(id=>{ const el=document.getElementById(id); if(el) el.style.display="none"; });
-    // 重複OK：金箔・海鮮・会心
-    if(hasGold) { playGoldSound(); cName = `✨黄金仕立ての${cName}`; document.getElementById("resultBox").classList.add("gold-box"); document.getElementById("goldFlashText").style.display="block"; }
+
+    document.getElementById("resultBox").classList.remove("critical-box","poison-box","gold-box","margherita-box","tonton-box","wave-box","illusion-box","sticky-box","seed-box","wanpaku-box","ratatouille-box","homerun-box","poisonapple-box","fluffyomelette-box","greencurry-box");
+    ["criticalFlashText","poisonFlashText","goldFlashText","margheritaFlashText","tontonFlashText","waveFlashText","illusionFlashText","stickyFlashText","seedFlashText","wanpakuFlashText","ratatouilleFlashText","homerunFlashText","poisonappleFlashText","fluffyomeletteFlashText","greencurryFlashText"].forEach(id=>{ const el=document.getElementById(id); if(el) el.style.display="none"; });
+
+    // 重複OK演出：金箔・海鮮・会心
+    if(hasGold) { playGoldSound(); document.getElementById("resultBox").classList.add("gold-box"); document.getElementById("goldFlashText").style.display="block"; }
     if(isSeafood) { playTone(440,'sine',0.3); setTimeout(()=>playTone(550,'sine',0.3),150); document.getElementById("resultBox").classList.add("wave-box"); document.getElementById("waveFlashText").style.display="block"; }
-    if(!hasGold && !isSeafood && Math.random()<0.15){ playCriticalSound(); cName=`💎至高の${cName}`; hp=Math.round(hp*1.4); atk=Math.round(atk*1.4); document.getElementById("resultBox").classList.add("critical-box"); document.getElementById("criticalFlashText").style.display="block"; }
-    // 排他特殊演出（chosenで選ばれた1つのみ）
-    if(isPoison) { playPoisonSound(); document.getElementById("resultBox").classList.add("poison-box"); document.getElementById("poisonFlashText").style.display="block"; }
+    if(isCritical){ playCriticalSound(); document.getElementById("resultBox").classList.add("critical-box"); document.getElementById("criticalFlashText").style.display="block"; }
+
+    // 排他特殊演出（buildCurryFromMaterialsで選ばれた1つのみtrueになっている）
+    if(isPoison) { playPoisonSound(); document.getElementById("resultBox").classList.add("poison-box"); document.getElementById("poisonFlashText").style.display="block";
+        if(isPoisonApple) { const el=document.getElementById("poisonappleFlashText"); if(el) el.style.display="block"; document.getElementById("resultBox").classList.add("poisonapple-box"); }
+    }
     else if(isMargherita) { playCriticalSound(); document.getElementById("resultBox").classList.add("margherita-box"); document.getElementById("margheritaFlashText").style.display="block"; }
     else if(isTonTonTon) { playSoundEffect('pig2.mp3'); document.getElementById("resultBox").classList.add("tonton-box"); document.getElementById("tontonFlashText").style.display="block"; }
     else if(isIllusion) { playTone(300,'sine',0.2); setTimeout(()=>playTone(250,'sine',0.3),200); document.getElementById("resultBox").classList.add("illusion-box"); document.getElementById("illusionFlashText").style.display="block"; }
@@ -4138,9 +4105,10 @@ function cookCurry() {
     else if(isWanpaku) { playTone(440,'square',0.1); setTimeout(()=>playTone(550,'square',0.1),100); setTimeout(()=>playTone(660,'square',0.15),200); document.getElementById("resultBox").classList.add("wanpaku-box"); document.getElementById("wanpakuFlashText").style.display="block"; }
     else if(isRatatouille) { playTone(600,'sine',0.3); setTimeout(()=>playTone(700,'sine',0.3),150); document.getElementById("resultBox").classList.add("ratatouille-box"); document.getElementById("ratatouilleFlashText").style.display="block"; }
     else if(isHomerun) { playTone(300,'square',0.1); setTimeout(()=>playTone(900,'square',0.2),100); document.getElementById("resultBox").classList.add("homerun-box"); document.getElementById("homerunFlashText").style.display="block"; }
+    else if(isFluffyOmelette) { playSoundEffect('healing.mp3'); document.getElementById("resultBox").classList.add("fluffyomelette-box"); const el=document.getElementById("fluffyomeletteFlashText"); if(el) el.style.display="block"; }
+    else if(isGreenCurry) { playSoundEffect('hirihiri.mp3'); document.getElementById("resultBox").classList.add("greencurry-box"); const el=document.getElementById("greencurryFlashText"); if(el) el.style.display="block"; }
+
     if (curryStock.length >= getCurryStockLimit()) curryStock.shift();
-    const curryType = getCurryType(hp, atk, def, spd);
-    const newCurry = { name: cName, visual: vis, hp: hp, atk: atk, def: def, spd: spd, isPoison, hasGold, isMargherita, isTonTonTon, isSeafood, isIllusion, isSticky, isSeed, isWanpaku, isRatatouille, isHomerun, materials: acts.length ? acts : [], spice: sp || "", curryType: curryType };
     curryStock.push(newCurry); selectedCurryIndex = curryStock.length - 1;
     saveGame(); updateFridgeUI(); updateCookSelects(); refreshRecipeBookUI(); updateFavRecipeSelect(); clearAllHints();
     onCookDone(newCurry); // 実績・デイリー更新
@@ -6212,6 +6180,8 @@ function calcAllBattleTurns(myC, oppC, oppN, myName) {
     let turns = [];
     let pHP = myC.hp, oHP = oppC.hp;
     let isOP = !!myC.isPoison, isPP = !!oppC.isPoison;
+    let poisonLevelO = isOP ? 1 : 0; // oppC(相手)の毒レベル。1段階ごとに+8%、最大6（48%）
+    let poisonLevelP = isPP ? 1 : 0; // myC(自分)の毒レベル
     let myIsIlluded = !!oppC.isIllusion, oppIsIlluded = !!myC.isIllusion;
     let statusLines = [];
     if(isOP) statusLines.push(`☠️ ${oppN} は毒にかかった！毎ターン毒ダメージ！`);
@@ -6230,7 +6200,7 @@ function calcAllBattleTurns(myC, oppC, oppN, myName) {
             turn.log = `{{TURNICON}} {{ACTOR}} のターン！`;
             if(myC.isRatatouille) { let heal=Math.round(myC.hp*0.10); pHP=Math.min(myC.hp,pHP+heal); turn.log+=`
 ☀️ 太陽の光を浴びてHP回復: ${heal}`; turn.effects.push({type:'player-heal',dmg:heal}); }
-            if(isPP) { let d=Math.round(myC.hp*0.08); pHP=Math.max(0,pHP-d); turn.log+=`
+            if(isPP) { let d=Math.round(myC.hp*0.08*poisonLevelP); pHP=Math.max(0,pHP-d); turn.log+=`
 ☠️ 毒ダメージ: ${d}`; if(!turn.effects) turn.effects=[]; turn.effects.push({type:'player-poison',dmg:d}); if(pHP<=0){ turn.hostHP=pHP; turn.guestHP=oHP; turns.push(turn); break; } }
             if(myIsIlluded && Math.random() < getIllusionMissRate(myC.spd, oppC.spd)) {
                 turn.log+=`
@@ -6257,10 +6227,17 @@ function calcAllBattleTurns(myC, oppC, oppN, myName) {
 🌟 金箔乱舞！{{DMGLABEL}}: ${d}`;turn.effects.push({type:'enemy-gold',dmg:d});}
                 else{turn.log+=`
 {{DMGLABEL}}: ${d}`;turn.effects.push({type:'enemy',dmg:d});}
+                // 🍎☠️毒りんご：通常攻撃ヒット時50%で相手を毒状態にする／既に毒なら増幅
+                if(myC.isPoisonApple && Math.random() < 0.5) {
+                    if(!isOP) { isOP = true; poisonLevelO = 1; turn.log+=`
+☠️ ${oppN} は毒にかかった！`; turn.effects.push({type:'poison-amplify-enemy'}); }
+                    else if(poisonLevelO < 6) { poisonLevelO++; turn.log+=`
+☠️ 毒のダメージが増幅`; turn.effects.push({type:'poison-amplify-enemy'}); }
+                }
             }
         } else {
             turn.log = `{{TURNICON}} {{ACTOR}} のターン！`;
-            if(isOP) { let d=Math.round(oppC.hp*0.08);oHP=Math.max(0,oHP-d);turn.log+=`
+            if(isOP) { let d=Math.round(oppC.hp*0.08*poisonLevelO);oHP=Math.max(0,oHP-d);turn.log+=`
 ☠️ 毒ダメージ: ${d}`; if(!turn.effects) turn.effects=[]; turn.effects.push({type:'enemy-poison',dmg:d}); if(oHP<=0){ turn.hostHP=pHP; turn.guestHP=oHP; turn.finishedByPoison=true; turns.push(turn); break; } }
             if(oppIsIlluded && Math.random() < getIllusionMissRate(oppC.spd, myC.spd)) {
                 turn.log+=`
@@ -6291,6 +6268,13 @@ function calcAllBattleTurns(myC, oppC, oppN, myName) {
 🌶️ Spicy Hit!!!!!!!! {{DMGLABEL}}: ${d}`;turn.effects.push({type:'player-crit',dmg:d});}
                 else{turn.log+=`
 {{DMGLABEL}}: ${d}`;turn.effects.push({type:'player',dmg:d});}
+                // 🍎☠️毒りんご：通常攻撃ヒット時50%で相手を毒状態にする／既に毒なら増幅
+                if(oppC.isPoisonApple && Math.random() < 0.5) {
+                    if(!isPP) { isPP = true; poisonLevelP = 1; turn.log+=`
+☠️ ${myName} は毒にかかった！`; turn.effects.push({type:'poison-amplify-player'}); }
+                    else if(poisonLevelP < 6) { poisonLevelP++; turn.log+=`
+☠️ 毒のダメージが増幅`; turn.effects.push({type:'poison-amplify-player'}); }
+                }
             }
         }
         // ターン終了時に必ず最新HPを確定（幻惑ミス含む全ケース対応）
@@ -6372,6 +6356,11 @@ function playBattleTurns(turns, myC, oppC, oppN, role) {
             let ef = e.type;
             if(ef === 'homerun-reflect') {
                 playSoundEffect('homerun.mp3');
+                return;
+            }
+            if(ef === 'poison-amplify-enemy' || ef === 'poison-amplify-player') {
+                if(isGuest) ef = (ef === 'poison-amplify-enemy') ? 'poison-amplify-player' : 'poison-amplify-enemy';
+                playSoundEffect('poison.mp3');
                 return;
             }
             if(isGuest) {
@@ -6907,6 +6896,8 @@ function startBattleScene(oppN, oppC, myC) {
 
     // Bot戦：リアルタイムstep
     let isOP=!!myC.isPoison, isPP=!!oppC.isPoison;
+    let poisonLevelO = isOP ? 1 : 0; // oppC(相手)の毒レベル
+    let poisonLevelP = isPP ? 1 : 0; // myC(自分)の毒レベル
     let myIsIlluded=!!oppC.isIllusion, oppIsIlluded=!!myC.isIllusion;
     let myTurn;
     if(myC.isSticky&&!oppC.isSticky){myTurn=true;log.innerHTML+=`
@@ -6946,7 +6937,7 @@ function startBattleScene(oppN, oppC, myC) {
             log.innerHTML=`🔥 自分のターン！`;
             playTone(440,'triangle',0.08); // ターン表示音
             if(myC.isRatatouille){let heal=Math.round(myC.hp*0.10);pHP=Math.min(myC.hp,pHP+heal);log.innerHTML+=`\n☀️ 太陽の光を浴びてHP回復: ${heal}`;playSoundEffect('taiyou.mp3');triggerEffect("player-heal",heal);updateHP(pHP,oHP,oppC.hp,myC.hp);}
-            if(isPP){let d=Math.round(myC.hp*0.08);pHP-=d;log.innerHTML+=`\n☠️ 毒ダメージ: ${d}`;triggerEffect("player-poison",d);updateHP(pHP,oHP,oppC.hp,myC.hp);if(pHP<=0){step();return;}}
+            if(isPP){let d=Math.round(myC.hp*0.08*poisonLevelP);pHP-=d;log.innerHTML+=`\n☠️ 毒ダメージ: ${d}`;triggerEffect("player-poison",d);updateHP(pHP,oHP,oppC.hp,myC.hp);if(pHP<=0){step();return;}}
             // 幻惑ミス（punch.mp3なし、SPD比較で50%/30%）／わんぱくミス（20%）
             if(myIsIlluded&&Math.random()<getIllusionMissRate(myC.spd,oppC.spd)){
                 log.innerHTML+=`\n💨 幻惑で攻撃が外れた！`;
@@ -6963,21 +6954,21 @@ function startBattleScene(oppN, oppC, myC) {
                 damages.forEach((sd,i)=>{setTimeout(()=>{triggerEffect("enemy",sd);if(i===damages.length-1){log.innerHTML+=` 合計: ${damages.reduce((a,b)=>a+b,0)}`;updateHP(pHP,oHP,oppC.hp,myC.hp);battleLogHistory.push(log.innerHTML.replace(/<br\s*\/?>/gi,"\n"));myTurn=false;round++;setTimeout(step,battleDelay(1300));}},battleDelay(150+i*250));});
             } else if(myC.isTonTonTon){
                 playSoundEffect('pig2.mp3');
-                setTimeout(()=>{const isCrit=Math.random()<getCritRate(myC.spd,oppC.spd);let d=isCrit?Math.max(8,myC.atk):Math.max(8,myC.atk-Math.floor(oppC.def/2));d=Math.round(d*(0.9+Math.random()*0.2));if(myC.isWanpaku)d=Math.round(d*getWanpakuDamageMultiplier());if(oppC.isRatatouille&&isMeatBasedCurry(myC))d=Math.round(d*0.2);oHP=Math.max(0,oHP-d);playSoundEffect('punch.mp3');if(isCrit){log.innerHTML+=`\n🌶️ Spicy Hit!!!!!!!! 💥 ダメージ: ${d}`;triggerEffect("enemy-crit",d);}else{log.innerHTML+=`\n💥 ダメージ: ${d}`;triggerEffect("enemy",d);}updateHP(pHP,oHP,oppC.hp,myC.hp);battleLogHistory.push(log.innerHTML.replace(/<br\s*\/?>/gi,"\n"));myTurn=false;round++;setTimeout(step,battleDelay(1100));},battleDelay(400));
+                setTimeout(()=>{const isCrit=Math.random()<getCritRate(myC.spd,oppC.spd);let d=isCrit?Math.max(8,myC.atk):Math.max(8,myC.atk-Math.floor(oppC.def/2));d=Math.round(d*(0.9+Math.random()*0.2));if(myC.isWanpaku)d=Math.round(d*getWanpakuDamageMultiplier());if(oppC.isRatatouille&&isMeatBasedCurry(myC))d=Math.round(d*0.2);oHP=Math.max(0,oHP-d);playSoundEffect('punch.mp3');if(isCrit){log.innerHTML+=`\n🌶️ Spicy Hit!!!!!!!! 💥 ダメージ: ${d}`;triggerEffect("enemy-crit",d);}else{log.innerHTML+=`\n💥 ダメージ: ${d}`;triggerEffect("enemy",d);}if(myC.isPoisonApple&&Math.random()<0.5){if(!isOP){isOP=true;poisonLevelO=1;log.innerHTML+=`\n☠️ ${oppN} は毒にかかった！`;setTimeout(()=>playSoundEffect('poison.mp3'),300);}else if(poisonLevelO<6){poisonLevelO++;log.innerHTML+=`\n☠️ 毒のダメージが増幅`;setTimeout(()=>playSoundEffect('poison.mp3'),300);}}updateHP(pHP,oHP,oppC.hp,myC.hp);battleLogHistory.push(log.innerHTML.replace(/<br\s*\/?>/gi,"\n"));myTurn=false;round++;setTimeout(step,battleDelay(1100));},battleDelay(400));
             } else if(oppC.isTonTonTon){
                 playSoundEffect('pig1.mp3');
-                setTimeout(()=>{const isCrit=Math.random()<getCritRate(myC.spd,oppC.spd);let d=isCrit?Math.max(8,myC.atk):Math.max(8,myC.atk-Math.floor(oppC.def/2));d=Math.round(d*(0.9+Math.random()*0.2));if(myC.isWanpaku)d=Math.round(d*getWanpakuDamageMultiplier());if(oppC.isRatatouille&&isMeatBasedCurry(myC))d=Math.round(d*0.2);oHP=Math.max(0,oHP-d);playSoundEffect('punch.mp3');if(isCrit){log.innerHTML+=`\n🌶️ Spicy Hit!!!!!!!! 💥 ダメージ: ${d}`;triggerEffect("enemy-crit",d);}else{log.innerHTML+=`\n💥 ダメージ: ${d}`;triggerEffect("enemy",d);}updateHP(pHP,oHP,oppC.hp,myC.hp);battleLogHistory.push(log.innerHTML.replace(/<br\s*\/?>/gi,"\n"));myTurn=false;round++;setTimeout(step,battleDelay(1100));},battleDelay(400));
+                setTimeout(()=>{const isCrit=Math.random()<getCritRate(myC.spd,oppC.spd);let d=isCrit?Math.max(8,myC.atk):Math.max(8,myC.atk-Math.floor(oppC.def/2));d=Math.round(d*(0.9+Math.random()*0.2));if(myC.isWanpaku)d=Math.round(d*getWanpakuDamageMultiplier());if(oppC.isRatatouille&&isMeatBasedCurry(myC))d=Math.round(d*0.2);oHP=Math.max(0,oHP-d);playSoundEffect('punch.mp3');if(isCrit){log.innerHTML+=`\n🌶️ Spicy Hit!!!!!!!! 💥 ダメージ: ${d}`;triggerEffect("enemy-crit",d);}else{log.innerHTML+=`\n💥 ダメージ: ${d}`;triggerEffect("enemy",d);}if(myC.isPoisonApple&&Math.random()<0.5){if(!isOP){isOP=true;poisonLevelO=1;log.innerHTML+=`\n☠️ ${oppN} は毒にかかった！`;setTimeout(()=>playSoundEffect('poison.mp3'),300);}else if(poisonLevelO<6){poisonLevelO++;log.innerHTML+=`\n☠️ 毒のダメージが増幅`;setTimeout(()=>playSoundEffect('poison.mp3'),300);}}updateHP(pHP,oHP,oppC.hp,myC.hp);battleLogHistory.push(log.innerHTML.replace(/<br\s*\/?>/gi,"\n"));myTurn=false;round++;setTimeout(step,battleDelay(1100));},battleDelay(400));
             } else if(myC.hasGold){
                 playGoldSound();log.innerHTML+=`\n🌟 金箔乱舞！`;
-                setTimeout(()=>{const isCrit=Math.random()<getCritRate(myC.spd,oppC.spd);let d=isCrit?Math.max(8,myC.atk):Math.max(8,myC.atk-Math.floor(oppC.def/2));d=Math.round(d*(0.9+Math.random()*0.2));if(myC.isWanpaku)d=Math.round(d*getWanpakuDamageMultiplier());if(oppC.isRatatouille&&isMeatBasedCurry(myC))d=Math.round(d*0.2);oHP=Math.max(0,oHP-d);playSoundEffect('punch.mp3');if(isCrit){log.innerHTML+=`\n🌶️ Spicy Hit!!!!!!!! 💥 ダメージ: ${d}`;triggerEffect("enemy-crit",d);}else{log.innerHTML+=`\n💥 ダメージ: ${d}`;triggerEffect("enemy-gold",d);}updateHP(pHP,oHP,oppC.hp,myC.hp);battleLogHistory.push(log.innerHTML.replace(/<br\s*\/?>/gi,"\n"));myTurn=false;round++;setTimeout(step,battleDelay(1100));},battleDelay(400));
+                setTimeout(()=>{const isCrit=Math.random()<getCritRate(myC.spd,oppC.spd);let d=isCrit?Math.max(8,myC.atk):Math.max(8,myC.atk-Math.floor(oppC.def/2));d=Math.round(d*(0.9+Math.random()*0.2));if(myC.isWanpaku)d=Math.round(d*getWanpakuDamageMultiplier());if(oppC.isRatatouille&&isMeatBasedCurry(myC))d=Math.round(d*0.2);oHP=Math.max(0,oHP-d);playSoundEffect('punch.mp3');if(isCrit){log.innerHTML+=`\n🌶️ Spicy Hit!!!!!!!! 💥 ダメージ: ${d}`;triggerEffect("enemy-crit",d);}else{log.innerHTML+=`\n💥 ダメージ: ${d}`;triggerEffect("enemy-gold",d);}if(myC.isPoisonApple&&Math.random()<0.5){if(!isOP){isOP=true;poisonLevelO=1;log.innerHTML+=`\n☠️ ${oppN} は毒にかかった！`;setTimeout(()=>playSoundEffect('poison.mp3'),300);}else if(poisonLevelO<6){poisonLevelO++;log.innerHTML+=`\n☠️ 毒のダメージが増幅`;setTimeout(()=>playSoundEffect('poison.mp3'),300);}}updateHP(pHP,oHP,oppC.hp,myC.hp);battleLogHistory.push(log.innerHTML.replace(/<br\s*\/?>/gi,"\n"));myTurn=false;round++;setTimeout(step,battleDelay(1100));},battleDelay(400));
             } else {
                 // 通常攻撃（ターン音は上で鳴らし済み、ダメージ時にpunch.mp3）
-                setTimeout(()=>{const isCrit=Math.random()<getCritRate(myC.spd,oppC.spd);let d=isCrit?Math.max(8,myC.atk):Math.max(8,myC.atk-Math.floor(oppC.def/2));d=Math.round(d*(0.9+Math.random()*0.2));if(myC.isWanpaku)d=Math.round(d*getWanpakuDamageMultiplier());if(oppC.isRatatouille&&isMeatBasedCurry(myC))d=Math.round(d*0.2);oHP=Math.max(0,oHP-d);playSoundEffect('punch.mp3');if(isCrit){log.innerHTML+=`\n🌶️ Spicy Hit!!!!!!!! 💥 ダメージ: ${d}`;triggerEffect("enemy-crit",d);}else{log.innerHTML+=`\n💥 ダメージ: ${d}`;triggerEffect("enemy",d);}updateHP(pHP,oHP,oppC.hp,myC.hp);battleLogHistory.push(log.innerHTML.replace(/<br\s*\/?>/gi,"\n"));myTurn=false;round++;setTimeout(step,battleDelay(1100));},battleDelay(400));
+                setTimeout(()=>{const isCrit=Math.random()<getCritRate(myC.spd,oppC.spd);let d=isCrit?Math.max(8,myC.atk):Math.max(8,myC.atk-Math.floor(oppC.def/2));d=Math.round(d*(0.9+Math.random()*0.2));if(myC.isWanpaku)d=Math.round(d*getWanpakuDamageMultiplier());if(oppC.isRatatouille&&isMeatBasedCurry(myC))d=Math.round(d*0.2);oHP=Math.max(0,oHP-d);playSoundEffect('punch.mp3');if(isCrit){log.innerHTML+=`\n🌶️ Spicy Hit!!!!!!!! 💥 ダメージ: ${d}`;triggerEffect("enemy-crit",d);}else{log.innerHTML+=`\n💥 ダメージ: ${d}`;triggerEffect("enemy",d);}if(myC.isPoisonApple&&Math.random()<0.5){if(!isOP){isOP=true;poisonLevelO=1;log.innerHTML+=`\n☠️ ${oppN} は毒にかかった！`;setTimeout(()=>playSoundEffect('poison.mp3'),300);}else if(poisonLevelO<6){poisonLevelO++;log.innerHTML+=`\n☠️ 毒のダメージが増幅`;setTimeout(()=>playSoundEffect('poison.mp3'),300);}}updateHP(pHP,oHP,oppC.hp,myC.hp);battleLogHistory.push(log.innerHTML.replace(/<br\s*\/?>/gi,"\n"));myTurn=false;round++;setTimeout(step,battleDelay(1100));},battleDelay(400));
             }
         }else{
             log.innerHTML=`⚠️ 相手のターン！`;
             playTone(330,'triangle',0.08); // ターン表示音
-            if(isOP){let d=Math.round(oppC.hp*0.08);oHP-=d;log.innerHTML+=`\n☠️ 毒ダメージ: ${d}`;triggerEffect("enemy-poison",d);updateHP(pHP,oHP,oppC.hp,myC.hp);if(oHP<=0){window.__defeatedByPoison=true;step();return;}}
+            if(isOP){let d=Math.round(oppC.hp*0.08*poisonLevelO);oHP-=d;log.innerHTML+=`\n☠️ 毒ダメージ: ${d}`;triggerEffect("enemy-poison",d);updateHP(pHP,oHP,oppC.hp,myC.hp);if(oHP<=0){window.__defeatedByPoison=true;step();return;}}
             // 幻惑ミス（punch.mp3なし、SPD比較で50%/30%）／わんぱくミス（20%）
             if(oppIsIlluded&&Math.random()<getIllusionMissRate(oppC.spd,myC.spd)){
                 log.innerHTML+=`\n💨 幻惑で相手の攻撃が外れた！`;
@@ -7007,13 +6998,13 @@ function startBattleScene(oppN, oppC, myC) {
                 }
             } else if(myC.isTonTonTon){
                 playSoundEffect('pig1.mp3');
-                setTimeout(()=>{const isCrit=Math.random()<getCritRate(oppC.spd,myC.spd);let d=isCrit?Math.max(8,oppC.atk):Math.max(8,oppC.atk-Math.floor(myC.def/2));d=Math.round(d*(0.9+Math.random()*0.2));if(oppC.isWanpaku)d=Math.round(d*getWanpakuDamageMultiplier());if(myC.isRatatouille&&(isMeatBasedCurry(oppC)||isMeatBasedBot(oppN)))d=Math.round(d*0.2);pHP=Math.max(0,pHP-d);playSoundEffect('punch.mp3');if(isCrit){log.innerHTML+=`\n🌶️ Spicy Hit!!!!!!!! 💥 ダメージ: ${d}`;triggerEffect("player-crit",d);}else{log.innerHTML+=`\n😢 被弾ダメージ: ${d}`;triggerEffect("player",d);}updateHP(pHP,oHP,oppC.hp,myC.hp);battleLogHistory.push(log.innerHTML.replace(/<br\s*\/?>/gi,"\n"));myTurn=true;round++;setTimeout(step,battleDelay(1100));},battleDelay(400));
+                setTimeout(()=>{const isCrit=Math.random()<getCritRate(oppC.spd,myC.spd);let d=isCrit?Math.max(8,oppC.atk):Math.max(8,oppC.atk-Math.floor(myC.def/2));d=Math.round(d*(0.9+Math.random()*0.2));if(oppC.isWanpaku)d=Math.round(d*getWanpakuDamageMultiplier());if(myC.isRatatouille&&(isMeatBasedCurry(oppC)||isMeatBasedBot(oppN)))d=Math.round(d*0.2);pHP=Math.max(0,pHP-d);playSoundEffect('punch.mp3');if(isCrit){log.innerHTML+=`\n🌶️ Spicy Hit!!!!!!!! 💥 ダメージ: ${d}`;triggerEffect("player-crit",d);}else{log.innerHTML+=`\n😢 被弾ダメージ: ${d}`;triggerEffect("player",d);}if(oppC.isPoisonApple&&Math.random()<0.5){if(!isPP){isPP=true;poisonLevelP=1;log.innerHTML+=`\n☠️ ${playerName} は毒にかかった！`;setTimeout(()=>playSoundEffect('poison.mp3'),300);}else if(poisonLevelP<6){poisonLevelP++;log.innerHTML+=`\n☠️ 毒のダメージが増幅`;setTimeout(()=>playSoundEffect('poison.mp3'),300);}}updateHP(pHP,oHP,oppC.hp,myC.hp);battleLogHistory.push(log.innerHTML.replace(/<br\s*\/?>/gi,"\n"));myTurn=true;round++;setTimeout(step,battleDelay(1100));},battleDelay(400));
             } else if(oppC.isTonTonTon){
                 playSoundEffect('pig2.mp3');
-                setTimeout(()=>{const isCrit=Math.random()<getCritRate(oppC.spd,myC.spd);let d=isCrit?Math.max(8,oppC.atk):Math.max(8,oppC.atk-Math.floor(myC.def/2));d=Math.round(d*(0.9+Math.random()*0.2));if(oppC.isWanpaku)d=Math.round(d*getWanpakuDamageMultiplier());if(myC.isRatatouille&&(isMeatBasedCurry(oppC)||isMeatBasedBot(oppN)))d=Math.round(d*0.2);pHP=Math.max(0,pHP-d);playSoundEffect('punch.mp3');if(isCrit){log.innerHTML+=`\n🌶️ Spicy Hit!!!!!!!! 💥 ダメージ: ${d}`;triggerEffect("player-crit",d);}else{log.innerHTML+=`\n😢 被弾ダメージ: ${d}`;triggerEffect("player",d);}updateHP(pHP,oHP,oppC.hp,myC.hp);battleLogHistory.push(log.innerHTML.replace(/<br\s*\/?>/gi,"\n"));myTurn=true;round++;setTimeout(step,battleDelay(1100));},battleDelay(400));
+                setTimeout(()=>{const isCrit=Math.random()<getCritRate(oppC.spd,myC.spd);let d=isCrit?Math.max(8,oppC.atk):Math.max(8,oppC.atk-Math.floor(myC.def/2));d=Math.round(d*(0.9+Math.random()*0.2));if(oppC.isWanpaku)d=Math.round(d*getWanpakuDamageMultiplier());if(myC.isRatatouille&&(isMeatBasedCurry(oppC)||isMeatBasedBot(oppN)))d=Math.round(d*0.2);pHP=Math.max(0,pHP-d);playSoundEffect('punch.mp3');if(isCrit){log.innerHTML+=`\n🌶️ Spicy Hit!!!!!!!! 💥 ダメージ: ${d}`;triggerEffect("player-crit",d);}else{log.innerHTML+=`\n😢 被弾ダメージ: ${d}`;triggerEffect("player",d);}if(oppC.isPoisonApple&&Math.random()<0.5){if(!isPP){isPP=true;poisonLevelP=1;log.innerHTML+=`\n☠️ ${playerName} は毒にかかった！`;setTimeout(()=>playSoundEffect('poison.mp3'),300);}else if(poisonLevelP<6){poisonLevelP++;log.innerHTML+=`\n☠️ 毒のダメージが増幅`;setTimeout(()=>playSoundEffect('poison.mp3'),300);}}updateHP(pHP,oHP,oppC.hp,myC.hp);battleLogHistory.push(log.innerHTML.replace(/<br\s*\/?>/gi,"\n"));myTurn=true;round++;setTimeout(step,battleDelay(1100));},battleDelay(400));
             } else {
                 // 通常攻撃
-                setTimeout(()=>{const isCrit=Math.random()<getCritRate(oppC.spd,myC.spd);let d=isCrit?Math.max(8,oppC.atk):Math.max(8,oppC.atk-Math.floor(myC.def/2));d=Math.round(d*(0.9+Math.random()*0.2));if(oppC.isWanpaku)d=Math.round(d*getWanpakuDamageMultiplier());if(myC.isRatatouille&&(isMeatBasedCurry(oppC)||isMeatBasedBot(oppN)))d=Math.round(d*0.2);pHP=Math.max(0,pHP-d);playSoundEffect('punch.mp3');if(isCrit){log.innerHTML+=`\n🌶️ Spicy Hit!!!!!!!! 💥 ダメージ: ${d}`;triggerEffect("player-crit",d);}else{log.innerHTML+=`\n😢 被弾ダメージ: ${d}`;triggerEffect("player",d);}updateHP(pHP,oHP,oppC.hp,myC.hp);battleLogHistory.push(log.innerHTML.replace(/<br\s*\/?>/gi,"\n"));myTurn=true;round++;setTimeout(step,battleDelay(1100));},battleDelay(400));
+                setTimeout(()=>{const isCrit=Math.random()<getCritRate(oppC.spd,myC.spd);let d=isCrit?Math.max(8,oppC.atk):Math.max(8,oppC.atk-Math.floor(myC.def/2));d=Math.round(d*(0.9+Math.random()*0.2));if(oppC.isWanpaku)d=Math.round(d*getWanpakuDamageMultiplier());if(myC.isRatatouille&&(isMeatBasedCurry(oppC)||isMeatBasedBot(oppN)))d=Math.round(d*0.2);pHP=Math.max(0,pHP-d);playSoundEffect('punch.mp3');if(isCrit){log.innerHTML+=`\n🌶️ Spicy Hit!!!!!!!! 💥 ダメージ: ${d}`;triggerEffect("player-crit",d);}else{log.innerHTML+=`\n😢 被弾ダメージ: ${d}`;triggerEffect("player",d);}if(oppC.isPoisonApple&&Math.random()<0.5){if(!isPP){isPP=true;poisonLevelP=1;log.innerHTML+=`\n☠️ ${playerName} は毒にかかった！`;setTimeout(()=>playSoundEffect('poison.mp3'),300);}else if(poisonLevelP<6){poisonLevelP++;log.innerHTML+=`\n☠️ 毒のダメージが増幅`;setTimeout(()=>playSoundEffect('poison.mp3'),300);}}updateHP(pHP,oHP,oppC.hp,myC.hp);battleLogHistory.push(log.innerHTML.replace(/<br\s*\/?>/gi,"\n"));myTurn=true;round++;setTimeout(step,battleDelay(1100));},battleDelay(400));
             }
         }
     }
