@@ -6591,6 +6591,12 @@ function launchEventBattle(myC, startHp) {
     }
     applyEnragedDisplay();
 
+    // 🥚ふわとろオム：浪花のカレーライスベイビーは食材系統「該当なし」のため軽減は発生しないが、
+    // バリアを張った演出・ログ表示自体は行う（意味はないが必ずバリアは張る）
+    const FLUFFY_CATEGORY_LABEL_E = { meat: '肉系', seafood: '海鮮系', vegetable: '野菜系', fruit: '果実系' };
+    const FLUFFY_CATEGORY_KEYS_E = Object.keys(FLUFFY_CATEGORY_LABEL_E);
+    let myFluffyCategoryE = myC.isFluffyOmelette ? FLUFFY_CATEGORY_KEYS_E[Math.floor(Math.random()*FLUFFY_CATEGORY_KEYS_E.length)] : null;
+
     updateHP(pHP, oHP, oppC.hp, myC.hp);
     const log = document.getElementById("battleLog"); log.innerHTML = `⚔️ ${EVENT_MONSTER_DATA.name}との決戦開始！`;
     if(myC.isPoison && !myC.isPoisonApple){ log.innerHTML += `\n☠️ ${EVENT_MONSTER_DATA.name} は毒にかかった！毎ターン毒ダメージ！`; }
@@ -6607,11 +6613,6 @@ function launchEventBattle(myC, startHp) {
     let isOppPoisoned = !!myC.isPoison && !myC.isPoisonApple; // 敵（モンスター）が毒状態か（イベント戦は毎ターン20〜40固定ダメージ）
     let eventPoisonLevel = isOppPoisoned ? 1 : 0; // 毒りんごによる増幅レベル（1段階+10、最大5段階で70〜90）
     let isOppIlluded = !!myC.isIllusion; // 敵（モンスター）が幻惑状態か（敵の攻撃がミスしやすくなる）
-    // 🥚ふわとろオム：浪花のカレーライスベイビーは食材系統「該当なし」のため軽減は発生しないが、
-    // バリアを張った演出・ログ表示自体は行う（意味はないが必ずバリアは張る）
-    const FLUFFY_CATEGORY_LABEL_E = { meat: '肉系', seafood: '海鮮系', vegetable: '野菜系', fruit: '果実系' };
-    const FLUFFY_CATEGORY_KEYS_E = Object.keys(FLUFFY_CATEGORY_LABEL_E);
-    let myFluffyCategoryE = myC.isFluffyOmelette ? FLUFFY_CATEGORY_KEYS_E[Math.floor(Math.random()*FLUFFY_CATEGORY_KEYS_E.length)] : null;
     let myTurn = myC.spd >= oppC.spd;
     let round = 1;
 
