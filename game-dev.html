@@ -369,6 +369,27 @@
             60% { transform: translate(-50%, -50%) scale(2.2); opacity: 0.6; }
             100% { transform: translate(-50%, -50%) scale(3); opacity: 0; }
         }
+        .hirihiri-shake { animation: hirihiriShake 0.5s ease-in-out; }
+        @keyframes hirihiriShake {
+            0%, 100% { transform: translate(0, 0); filter: none; }
+            10% { transform: translate(-3px, 2px); filter: hue-rotate(20deg); }
+            20% { transform: translate(3px, -2px); filter: hue-rotate(-20deg); }
+            30% { transform: translate(-3px, -2px); filter: hue-rotate(20deg); }
+            40% { transform: translate(3px, 2px); filter: hue-rotate(-20deg); }
+            50% { transform: translate(-2px, 1px); filter: none; }
+            60% { transform: translate(2px, -1px); filter: hue-rotate(15deg); }
+            70% { transform: translate(-2px, -1px); filter: none; }
+            80% { transform: translate(1px, 1px); }
+            90% { transform: translate(-1px, 0); }
+        }
+        .flash-hirihiri { animation: flashHirihiri 0.4s; }
+        @keyframes flashHirihiri {
+            0% { box-shadow: inset 0 0 0px #fff; }
+            20% { box-shadow: inset 0 0 30px 10px #e74c3c; }
+            40% { box-shadow: inset 0 0 30px 10px #f1c40f; }
+            60% { box-shadow: inset 0 0 30px 10px #27ae60; }
+            100% { box-shadow: inset 0 0 0px #fff; }
+        }
         @keyframes shake {
             0% { transform: translate(0, 0); }
             20% { transform: translate(-10px, 5px); }
@@ -6296,6 +6317,27 @@ function calcAllBattleTurns(myC, oppC, oppN, myName) {
                 turn.log+=`
 🌱 種連続発射 ${hits}連撃！合計: ${seedDmgs.reduce((a,b)=>a+b,0)}`;
                 seedDmgs.forEach(sd=>turn.effects.push({type:'enemy',dmg:sd,seed:true}));
+            } else if(myC.isGreenCurry && Math.random()<0.35) {
+                // 🟢ヒリヒリクラッシュ：相手がホームランを持っていれば打ち返されるが、反動は必ずくらう
+                const selfDmg = Math.round(myC.hp * 0.10);
+                pHP = Math.max(0, pHP - selfDmg);
+                if(oppC.isHomerun && isHomerunReflect(oppC.spd, myC.spd)) {
+                    turn.log+=`
+🏏 ホームラン！{{ACTOR}}のヒリヒリクラッシュを打ち返した！`;
+                    turn.log+=`
+🌶️ 反動で{{ACTOR}}にも${selfDmg}ダメージ！`;
+                    turn.effects.push({type:'homerun-reflect'});
+                    turn.effects.push({type:'player-selfdmg',dmg:selfDmg});
+                } else {
+                    let d = Math.max(8, Math.round(myC.atk * (1.1 + Math.random()*0.4)) - Math.floor(oppC.def/2));
+                    oHP = Math.max(0, oHP - d);
+                    turn.log+=`
+🌶️🔥 ヒリヒリクラッシュ！{{DMGLABEL}}: ${d}`;
+                    turn.log+=`
+🌶️ 反動で{{ACTOR}}にも${selfDmg}ダメージ！`;
+                    turn.effects.push({type:'enemy-hirihiri',dmg:d});
+                    turn.effects.push({type:'player-selfdmg',dmg:selfDmg});
+                }
             } else {
                 const isCrit = Math.random() < getCritRate(myC.spd, oppC.spd);
                 let d = isCrit ? Math.max(8, myC.atk) : Math.max(8,myC.atk-Math.floor(oppC.def/2));
@@ -6342,6 +6384,27 @@ function calcAllBattleTurns(myC, oppC, oppN, myName) {
                     turn.log+=`
 🌱 {{ACTOR}}の種連続発射 ${hits}連撃！合計: ${seedDmgs.reduce((a,b)=>a+b,0)}`;
                     seedDmgs.forEach(sd=>turn.effects.push({type:'player',dmg:sd,seed:true}));
+                }
+            } else if(oppC.isGreenCurry && Math.random()<0.35) {
+                // 🟢ヒリヒリクラッシュ：自分がホームランを持っていれば打ち返せるが、相手の反動は必ず発生する
+                const selfDmg = Math.round(oppC.hp * 0.10);
+                oHP = Math.max(0, oHP - selfDmg);
+                if(myC.isHomerun && isHomerunReflect(myC.spd, oppC.spd)) {
+                    turn.log+=`
+🏏 ホームラン！{{ACTOR}}のヒリヒリクラッシュを打ち返した！`;
+                    turn.log+=`
+🌶️ 反動で{{ACTOR}}にも${selfDmg}ダメージ！`;
+                    turn.effects.push({type:'homerun-reflect'});
+                    turn.effects.push({type:'enemy-selfdmg',dmg:selfDmg});
+                } else {
+                    let d = Math.max(8, Math.round(oppC.atk * (1.1 + Math.random()*0.4)) - Math.floor(myC.def/2));
+                    pHP = Math.max(0, pHP - d);
+                    turn.log+=`
+🌶️🔥 {{ACTOR}}のヒリヒリクラッシュ！{{DMGLABEL}}: ${d}`;
+                    turn.log+=`
+🌶️ 反動で{{ACTOR}}にも${selfDmg}ダメージ！`;
+                    turn.effects.push({type:'player-hirihiri',dmg:d});
+                    turn.effects.push({type:'enemy-selfdmg',dmg:selfDmg});
                 }
             } else {
                 const isCrit = Math.random() < getCritRate(oppC.spd, myC.spd);
@@ -6488,6 +6551,16 @@ function playBattleTurns(turns, myC, oppC, oppN, role) {
                 else if(ef === 'enemy-crit') ef = 'player-crit';
                 else if(ef === 'player-heal') ef = 'enemy-heal';
                 else if(ef === 'enemy-heal') ef = 'player-heal';
+                else if(ef === 'player-hirihiri') ef = 'enemy-hirihiri';
+                else if(ef === 'enemy-hirihiri') ef = 'player-hirihiri';
+                else if(ef === 'player-selfdmg') ef = 'enemy-selfdmg';
+                else if(ef === 'enemy-selfdmg') ef = 'player-selfdmg';
+            }
+            if(ef === 'enemy-hirihiri' || ef === 'player-hirihiri' || ef === 'enemy-selfdmg' || ef === 'player-selfdmg') {
+                const isEnemySide = ef.startsWith('enemy');
+                triggerHirihiriEffect(isEnemySide ? 'enemy' : 'player', e.dmg);
+                if(ef.includes('hirihiri')) playSoundEffect('hirihiri.mp3');
+                return;
             }
             triggerEffect(ef, e.dmg);
             if(ef.includes('heal')) { playSoundEffect('taiyou.mp3'); return; }
@@ -7223,6 +7296,31 @@ function updateHP(p, o, om, pm) {
     document.getElementById("pWeightBar").style.width=(p/pm*100)+"%"; document.getElementById("oWeightBar").style.width=oPct+"%";
 }
 // 🥚ふわとろオム：優しいバリアが広がる演出（target: 'enemy' or 'player'）
+// 🟢激辛グリーンカレー：ヒリヒリクラッシュ・反動ダメージのビリビリ演出（ダメージ数値も表示）
+function triggerHirihiriEffect(target, damage) {
+    if(battleAborted) return;
+    const pop = document.getElementById("damagePop");
+    if(pop && damage != null) {
+        pop.innerHTML = damage;
+        pop.style.display = "block"; pop.style.animation = "none"; pop.className = "damage-pop";
+        pop.offsetHeight;
+        if(target === 'enemy') { pop.style.top="130px"; pop.style.left="25%"; }
+        else { pop.style.top="240px"; pop.style.left="45%"; }
+        pop.style.color = "#e74c3c";
+        pop.style.animation = "popUp 0.6s forwards";
+    }
+    const zone = target === 'enemy' ? document.getElementById('enemyZone') : document.querySelector('.player-zone');
+    if(zone) {
+        zone.classList.add('hirihiri-shake');
+        setTimeout(() => zone.classList.remove('hirihiri-shake'), 500);
+    }
+    const stage = document.getElementById("battleStage");
+    if(stage) {
+        stage.classList.add('flash-hirihiri');
+        setTimeout(() => stage.classList.remove('flash-hirihiri'), 400);
+    }
+}
+
 function triggerFluffyBarrierEffect(target) {
     const zone = target === 'enemy' ? document.getElementById('enemyZone') : document.querySelector('.player-zone');
     if(!zone) return;
