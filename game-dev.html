@@ -603,6 +603,7 @@
         <div id="postDetailDate" style="text-align:center; font-size:11px; color:#b0a090; margin-bottom:6px;"></div>
         <div id="postDetailImageArea" style="text-align:center; margin-bottom:8px;"></div>
         <div id="postDetailBody" style="font-size:14px; color:#420000; line-height:1.7; white-space:pre-wrap; margin-bottom:10px;"></div>
+        <div id="postDetailBottomImageArea" style="text-align:center; margin-bottom:10px; display:none;"></div>
         <div id="postDetailRewardArea" style="font-size:13px; color:#9a6e30; font-weight:bold; margin-bottom:10px;"></div>
         <button class="modal-btn modal-btn-ok" style="width:100%;" onclick="closePostDetailScreen()">受信フォルダへ戻る</button>
         <div id="postDetailExpireNote" style="text-align:center; font-size:11px; color:#b0a090; margin-top:6px;"></div>
@@ -2376,6 +2377,49 @@ function checkGiftQueue() {
     });
 }
 
+// 管理ツールから配信される「お知らせ手紙」を受信する（個別宛・全員宛の両方）
+// announceQueue/{playerId} : 個別宛（送信時に1件追加され、受信後削除）
+// globalAnnouncements/{id} : 全員宛（共通の1件をみんなが参照。各プレイヤーは自分が見た最後のIDをlocalStorageで管理）
+function checkAnnouncements() {
+    if(!database || !playerId) return;
+    // 個別宛
+    database.ref('announceQueue/' + playerId).once('value').then(function(snap){
+        const items = snap.val();
+        if(!items) return;
+        Object.values(items).forEach(function(a){ addPostMessage(buildAnnouncementPostOpts(a)); });
+        database.ref('announceQueue/' + playerId).remove();
+    });
+    // 全員宛
+    database.ref('globalAnnouncements').once('value').then(function(snap){
+        const items = snap.val();
+        if(!items) return;
+        const lastSeen = localStorage.getItem('qr_last_global_announce') || '';
+        const keys = Object.keys(items).sort(); // pushキーは時系列順に並ぶ
+        let newestKey = lastSeen;
+        keys.forEach(function(key){
+            if(key > lastSeen) {
+                addPostMessage(buildAnnouncementPostOpts(items[key]));
+                newestKey = key;
+            }
+        });
+        if(newestKey !== lastSeen) localStorage.setItem('qr_last_global_announce', newestKey);
+    });
+}
+// お知らせデータ（管理ツールで作成）をaddPostMessage用のオプションに変換する
+function buildAnnouncementPostOpts(a) {
+    let body = a.body || '';
+    let image = a.image || null;
+    // 「QR画像をタップでスキャン」注釈付きの店舗紹介QRに対応（imageBottomがある場合はタップでスキャン扱いにする）
+    return {
+        subject: a.subject || 'お知らせ',
+        body: body,
+        image: image,
+        imageBottom: a.imageBottom || null,
+        imageBottomNote: a.imageBottomNote || null,
+        shopQrAction: a.shopQrAction || null // 'shop1' 等、タップ時に店舗QRスキャン相当の処理を呼ぶ識別子
+    };
+}
+
 // 宅配カレーが他プレイヤーに使用された結果の報酬・食べ尽くされ通知をログイン時に処理
 // 宅配カレー報酬は起動時・プレイ中ともにリアルタイム購読（startDeliveryRewardListener）で処理する。
 // 購読開始時にchild_addedが既存データにも発火するため、起動時の一括チェックは別途行わない（重複処理防止）。
@@ -2464,6 +2508,7 @@ function initPlayerId(onReady) {
                 }
             });
             checkGiftQueue();
+            checkAnnouncements(); // 管理ツールから配信されたお知らせ手紙（個別・全員宛）を確認
             checkCloudSyncOnLoad(); // 別デバイスでの進行を検知したら同期確認
             ensureDeliveryCurrySynced(); // ローカルが宅配中なのにFirebase上に存在しない場合、再公開する
             startDeliveryRewardListener(); // 起動時・プレイ中ともにリアルタイムで宅配カレー報酬を検知する
@@ -2578,6 +2623,9 @@ function addPostMessage(opts) {
         subject: opts.subject,
         body: opts.body,
         image: opts.image || null,
+        imageBottom: opts.imageBottom || null,
+        imageBottomNote: opts.imageBottomNote || null,
+        shopQrAction: opts.shopQrAction || null,
         rewardPack: opts.rewardPack || 0,
         rewardGold: opts.rewardGold || 0,
         rewardItems: opts.rewardItems || [],
@@ -2701,6 +2749,17 @@ function openPostDetail(idx) {
     document.getElementById('postDetailBody').innerText = m.body;
     const imgArea = document.getElementById('postDetailImageArea');
     imgArea.innerHTML = m.image ? `<img src="${m.image}" style="max-width:160px; max-height:160px; object-fit:contain;">` : '';
+    // 下部画像（店舗紹介QR等）：shopQrActionがあればタップでスキャン相当の処理を呼ぶ
+    const bottomArea = document.getElementById('postDetailBottomImageArea');
+    if(m.imageBottom) {
+        const clickAttr = m.shopQrAction ? ` onclick="runPostShopQrAction('${m.shopQrAction}')" style="cursor:pointer;"` : '';
+        const noteHtml = m.imageBottomNote ? `<div style="font-size:11px; color:#9a8060; margin-top:4px;">${m.imageBottomNote}</div>` : '';
+        bottomArea.innerHTML = `<img src="${m.imageBottom}" style="max-width:160px; max-height:160px; object-fit:contain;"${clickAttr}>${noteHtml}`;
+        bottomArea.style.display = 'block';
+    } else {
+        bottomArea.innerHTML = '';
+        bottomArea.style.display = 'none';
+    }
     // 既読化（開封時刻を起点に自動削除タイマーを確定させる）
     if(!m.read) {
         m.read = true;
@@ -2713,6 +2772,12 @@ function openPostDetail(idx) {
     renderPostDetailRewardArea(m, idx);
     renderPostDetailExpireNote(m);
     document.getElementById('postDetailOverlay').style.display = 'flex';
+}
+// 手紙内の店舗QR画像タップ時、実際のQRスキャンと同じ処理を呼ぶ（actionKeyで店舗を識別、現状は'shop1'のみ）
+function runPostShopQrAction(actionKey) {
+    if(actionKey === 'shop1') {
+        processShop1QR('hunger_is_the_best_spice_curry', 'hunger_is_the_best_spice_curry');
+    }
 }
 // 添付特典エリア（受け取るボタン／受け取り済み表示）を描画する
 function renderPostDetailRewardArea(m, idx) {
