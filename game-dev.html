@@ -388,6 +388,13 @@
             0%, 100% { opacity: 1; }
             50% { opacity: 0.3; }
         }
+        .post-toast-show { animation: postToastSlide 4s ease-in-out forwards; }
+        @keyframes postToastSlide {
+            0% { transform: translate(-50%, -100%); opacity: 0; }
+            8% { transform: translate(-50%, 0); opacity: 1; }
+            85% { transform: translate(-50%, 0); opacity: 1; }
+            100% { transform: translate(-50%, -100%); opacity: 0; }
+        }
         .hirihiri-shake { animation: hirihiriShake 0.5s ease-in-out; }
         @keyframes hirihiriShake {
             0%, 100% { transform: translate(0, 0); filter: none; }
@@ -558,6 +565,9 @@
     </style>
 </head>
 <body>
+<div id="postToast" style="display:none; position:fixed; top:0; left:50%; transform:translateX(-50%); z-index:100000; background:#420000; color:#efdeb1; padding:10px 18px; border-radius:0 0 10px 10px; font-size:13px; font-weight:bold; box-shadow:0 4px 10px rgba(0,0,0,0.3); cursor:pointer; max-width:90vw; text-align:center; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" onclick="onPostToastClick()">
+    <span id="postToastIcon" style="margin-right:6px;">📩</span><span id="postToastText"></span>
+</div>
 <div id="statusFlashOverlay" class="status-flash-overlay"></div>
 <div id="bingoPreviewOverlay" class="bingo-preview-overlay">
     <div class="bingo-preview-box">
@@ -2404,13 +2414,23 @@ function startDeliveryRewardListener() {
     if(!database || !playerId || deliveryRewardListenerStarted) return;
     deliveryRewardListenerStarted = true;
     const ref = database.ref('deliveryRewardQueue/' + playerId);
-    ref.on('child_added', function(childSnap){
-        const r = childSnap.val();
-        if(!r) return;
-        const wrapped = {}; wrapped[childSnap.key] = r;
-        processDeliveryRewards(wrapped);
-        ref.child(childSnap.key).remove();
-    });
+    // まずログイン時点で既に溜まっている分をまとめて1回の手紙にする
+    ref.once('value').then(function(snap){
+        const rewards = snap.val();
+        if(rewards) {
+            processDeliveryRewards(rewards);
+        }
+        return ref.remove();
+    }).then(function(){
+        // 既存分の処理が完了した後だけ、新規追加分をリアルタイムで検知する（重複防止のため順序を保証）
+        ref.on('child_added', function(childSnap){
+            const r = childSnap.val();
+            if(!r) return;
+            const wrapped = {}; wrapped[childSnap.key] = r;
+            processDeliveryRewards(wrapped);
+            ref.child(childSnap.key).remove();
+        });
+    }).catch(function(e){ console.error('startDeliveryRewardListener error:', e); });
 }
 
 function initPlayerId(onReady) {
@@ -2553,6 +2573,33 @@ function addPostMessage(opts) {
     });
     savePostMessages();
     updatePostButtonUI();
+    // プレイ中（ゲーム画面が表示されている）なら、邪魔にならないトースト通知を出す
+    const gameUI = document.getElementById('gameUI');
+    if(gameUI && gameUI.style.display !== 'none') {
+        showPostToast(opts.subject);
+    }
+}
+// 画面上部に小さく件名を表示するトースト通知（LINE等の通知バナーのイメージ）
+let postToastTimer = null;
+function showPostToast(subject) {
+    const toast = document.getElementById('postToast');
+    const text = document.getElementById('postToastText');
+    if(!toast || !text) return;
+    text.innerText = subject;
+    playSoundEffect('midoku.mp3');
+    toast.style.display = 'block';
+    toast.classList.remove('post-toast-show');
+    void toast.offsetWidth; // reflowでアニメーションを再始動
+    toast.classList.add('post-toast-show');
+    if(postToastTimer) clearTimeout(postToastTimer);
+    postToastTimer = setTimeout(() => { toast.style.display = 'none'; }, 4000);
+}
+// トースト通知をタップしたらそのままポストを開く
+function onPostToastClick() {
+    const toast = document.getElementById('postToast');
+    if(toast) toast.style.display = 'none';
+    if(postToastTimer) clearTimeout(postToastTimer);
+    openPostScreen();
 }
 function getUnreadPostCount() {
     return postMessages.filter(m => !m.read).length;
