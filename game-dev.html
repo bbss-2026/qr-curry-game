@@ -858,8 +858,22 @@
         <div class="get-box" id="getBox" style="display:none; margin-top:20px; padding:15px; background:#fffdf0; border:2px dashed #e67e22; border-radius:10px; text-align:center;">
             <div style="font-size:14px; color:#e67e22; font-weight:bold;" id="getBoxTitle">🎉 食材ゲット！</div>
             <div style="font-size:12px; color:#2ecc71; font-weight:bold; display:none; margin-top:4px;" id="bonusBadge">✨ キーワードボーナス発生！入手数3個！ ✨</div>
-            <div style="font-size:64px;" id="getItemEmoji">🥩</div>
-            <div style="font-size:18px; font-weight:bold; color:#c0392b;" id="getItemName">牛肉</div>
+            <div id="shopQrArea" style="display:none; text-align:left; margin-top:8px;">
+                <div style="font-size:16px; font-weight:bold; color:#420000; text-align:center; margin-bottom:8px;">空腹は最高のスパイスカレー</div>
+                <div style="display:flex; gap:6px; justify-content:center; margin-bottom:8px;">
+                    <img src="shop/shop-1-1.png" style="width:48%; max-width:160px; border-radius:6px; object-fit:cover;">
+                    <img src="shop/shop-1-2.png" style="width:48%; max-width:160px; border-radius:6px; object-fit:cover;">
+                </div>
+                <div style="font-size:12px; color:#5a3a1a; line-height:1.7; margin-bottom:6px;">
+                    グルテンフリーで「美味しいが健康に」<br>
+                    阪急夙川駅から東へ約10分<br>
+                    阪急電車高架下≪阪急夙川サンらいふ≫
+                </div>
+                <div style="font-size:12px; color:#9a6e30; font-weight:bold; text-align:center; margin-bottom:8px;">SNSのフォローよろしくお願いします！</div>
+                <div id="shopQrRewardArea" style="text-align:center;"></div>
+            </div>
+            <div id="getItemEmoji" style="font-size:64px;">🥩</div>
+            <div id="getItemName" style="font-size:18px; font-weight:bold; color:#c0392b;">牛肉</div>
             <button class="btn btn-start" onclick="resetScanner()" style="width:100%; margin-top:15px;">もう一度スキャン</button>
         </div>
         <div style="margin: 16px auto 10px auto; max-width: 420px; background: #fffdf0; border: 1px solid #e0c080; border-radius: 8px; padding: 10px 14px; text-align: left; font-size: 12px; color: #7a6040; line-height: 1.7;">
@@ -3656,11 +3670,76 @@ function tick(timestamp) {
 }
 function stopCamera() { if (animationFrameId) cancelAnimationFrame(animationFrameId); if (localStream) localStream.getTracks().forEach(track => track.stop()); document.getElementById("btnCancel").style.display = "none"; }
 function cancelScanning() { stopCamera(); canvasElement.style.display = "none"; document.getElementById("btnStartCamera").style.display = "inline-block"; }
+// 実店舗「空腹は最高のスパイスカレー」のSNS・公式LINEキーワードと、別窓で開くURLのマッピング
+const SHOP1_KEYWORD_URLS = {
+    "hunger_is_the_best_spice_curry": "https://www.instagram.com/hunger_is_the_best_spice_curry/",
+    "hungerbestspice": "https://x.com/hungerbestspice",
+    "@702isxnk": "https://line.me/R/ti/p/@702isxnk"
+};
 function resetScanner() { document.getElementById("getBox").style.display = "none"; startCamera(); }
+// 実店舗「空腹は最高のスパイスカレー」専用QR処理
+// 初回（永続）はスパイシーコイン1枚、2回目以降はノーマル素材3つ。同日複数回スキャン可（簡略表示）。
+function processShop1QR(text, matchedKeyword) {
+    try {
+        const isFirstTime = localStorage.getItem('qr_shop1_scanned') !== '1';
+        const today = getJSTDateString();
+        const isFirstToday = scanHistory[text] !== today;
+        scanHistory[text] = today;
+
+        // 別ウィンドウでマッチしたSNS・公式LINEのURLを開く（ポップアップブロック対策で先に開く）
+        const openUrl = SHOP1_KEYWORD_URLS[matchedKeyword];
+        if(openUrl) window.open(openUrl, '_blank');
+
+        document.getElementById("getBoxTitle").innerText = "🎉 食材ゲット！";
+        document.getElementById("bonusBadge").style.display = "none";
+        document.getElementById("getItemEmoji").style.display = "none";
+        document.getElementById("getItemName").style.display = "none";
+        document.getElementById("shopQrArea").style.display = "block";
+        const rewardArea = document.getElementById("shopQrRewardArea");
+
+        if(isFirstTime) {
+            localStorage.setItem('qr_shop1_scanned', '1');
+            spicyCoin = (spicyCoin || 0) + 1;
+            rewardArea.innerHTML = `<div style="font-size:14px; font-weight:bold; color:#e67e22;">特別報酬 スパイシーコイン 1枚 GET！</div>`;
+            const coinEl = document.getElementById('globalSpicyCoin'); if(coinEl) coinEl.innerText = spicyCoin;
+        } else if(isFirstToday) {
+            const normalItems = Object.keys(masterIngredients).filter(k => masterIngredients[k].shop === 0 && isIngredientAvailable(k));
+            let gained = [];
+            for(let i = 0; i < 3; i++) {
+                const it = normalItems[Math.floor(Math.random() * normalItems.length)];
+                inventory[it] = (inventory[it] || 0) + 1;
+                discoveredItems[it] = true;
+                gained.push(it);
+            }
+            const itemsHtml = gained.map(it => {
+                const d = masterIngredients[it];
+                const ico = d && d.icon ? `<img src="${d.icon}" style="width:1.4em;height:1.4em;vertical-align:middle;object-fit:contain;">` : '';
+                return `<span style="margin:0 4px;">${ico} ${it}</span>`;
+            }).join('');
+            rewardArea.innerHTML = `<div style="font-size:14px; font-weight:bold; color:#2ecc71;">食材GET！</div><div style="margin-top:4px;">${itemsHtml}</div>`;
+        } else {
+            // 同日2回目以降：報酬内容は載せない
+            rewardArea.innerHTML = '';
+        }
+        document.getElementById("getBox").style.display = "block";
+
+        try { saveGame(); } catch(e) { console.error('saveGame error:', e); }
+        try { updateCookSelects(); } catch(e) { console.error('updateCookSelects error:', e); }
+    } catch(e) {
+        console.error('processShop1QR error:', e);
+    }
+}
 function processQRData(text, r, g, b) {
     try {
+        // 実店舗「空腹は最高のスパイスカレー」のSNS QR判定（許可済み・特別仕様）
+        const matchedShop1Keyword = Object.keys(SHOP1_KEYWORD_URLS).find(kw => text.includes(kw));
+        const isShop1Qr = !!matchedShop1Keyword;
+        if(isShop1Qr) {
+            processShop1QR(text, matchedShop1Keyword);
+            return;
+        }
         const today = getJSTDateString();
-        if (scanHistory[text] === today) { document.getElementById("getBoxTitle").innerText = "⚠️ 使用済み"; document.getElementById("getItemEmoji").innerText = "🙅"; document.getElementById("getItemName").innerText = "本日はスキャン済みです！"; document.getElementById("bonusBadge").style.display = "none"; document.getElementById("getBox").style.display = "block"; return; }
+        if (scanHistory[text] === today) { document.getElementById("getBoxTitle").innerText = "⚠️ 使用済み"; document.getElementById("shopQrArea").style.display = "none"; document.getElementById("getItemEmoji").style.display = "block"; document.getElementById("getItemName").style.display = "block"; document.getElementById("getItemEmoji").innerText = "🙅"; document.getElementById("getItemName").innerText = "本日はスキャン済みです！"; document.getElementById("bonusBadge").style.display = "none"; document.getElementById("getBox").style.display = "block"; return; }
         scanHistory[text] = today;
         const normalItems = Object.keys(masterIngredients).filter(k => masterIngredients[k].shop === 0 && isIngredientAvailable(k));
         const allItems = [...normalItems, ...Object.keys(masterSpices).filter(k => k !== "マンゴーチャツネ")];
@@ -3687,6 +3766,9 @@ function processQRData(text, r, g, b) {
         // 表示処理を先に確定させる（後続の保存・統計処理がエラーになっても結果表示は必ず行う）
         const isSpice = masterSpices[itemName]; const emoji = isSpice ? masterSpices[itemName].emoji : masterIngredients[itemName].emoji;
         document.getElementById("getBoxTitle").innerText = "🎉 食材ゲット！";
+        document.getElementById("shopQrArea").style.display = "none";
+        document.getElementById("getItemEmoji").style.display = "block";
+        document.getElementById("getItemName").style.display = "block";
         const qrItemData = masterIngredients[itemName] || masterSpices[itemName];
         const qrIcon = qrItemData && qrItemData.icon;
         document.getElementById("getItemEmoji").innerHTML = qrIcon ? `<img src="${qrIcon}" style="width:64px;height:64px;object-fit:contain;">` : emoji;
@@ -3703,6 +3785,9 @@ function processQRData(text, r, g, b) {
         const box = document.getElementById("getBox");
         if(box) {
             document.getElementById("getBoxTitle").innerText = "⚠️ エラー";
+            const shopArea = document.getElementById("shopQrArea"); if(shopArea) shopArea.style.display = "none";
+            document.getElementById("getItemEmoji").style.display = "block";
+            document.getElementById("getItemName").style.display = "block";
             document.getElementById("getItemEmoji").innerText = "❓";
             document.getElementById("getItemName").innerText = "読み取りに失敗しました。もう一度お試しください。";
             document.getElementById("bonusBadge").style.display = "none";
