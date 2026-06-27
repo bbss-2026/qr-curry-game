@@ -2067,8 +2067,14 @@ function switchTab(tab, el) {
         const tagOverlayShowing = tagResultOverlay && tagResultOverlay.style.display === "flex";
         const tagResultShowing = tagResultBox && tagResultBox.style.display !== "none";
         if(!tagOverlayShowing && !tagResultShowing) {
-            // タッグ戦中（結果未表示）→強制終了
+            // タッグ戦中（結果未表示）→強制終了。勝敗に関わらず出撃カレーは消費する
             tagBattleAborted = true;
+            if(tagBattleFighters && tagBattleFighters[0] && tagBattleFighters[0].curry) {
+                const myIdx = curryStock.indexOf(tagBattleFighters[0].curry);
+                if(myIdx !== -1) curryStock.splice(myIdx, 1);
+                if(selectedCurryIndex >= curryStock.length) selectedCurryIndex = curryStock.length - 1;
+                saveGame(); updateFridgeUI(); updateCookSelects(); updateMatchCurrySelects();
+            }
             endTagBattleScene();
         } else {
             // 結果表示済み→通常通りタブ切り替え
@@ -2410,26 +2416,17 @@ function processDeliveryRewards(rewards) {
 }
 // プレイ中（ブラウザを開いたまま）にも宅配カレー報酬を即座に検知するためのリアルタイム購読
 let deliveryRewardListenerStarted = false;
+// 宅配カレー報酬はログイン時にまとめて1回だけ手紙にする（プレイ中の連続通知を避けるためリアルタイム検知はしない）
 function startDeliveryRewardListener() {
     if(!database || !playerId || deliveryRewardListenerStarted) return;
     deliveryRewardListenerStarted = true;
     const ref = database.ref('deliveryRewardQueue/' + playerId);
-    // まずログイン時点で既に溜まっている分をまとめて1回の手紙にする
     ref.once('value').then(function(snap){
         const rewards = snap.val();
         if(rewards) {
             processDeliveryRewards(rewards);
         }
         return ref.remove();
-    }).then(function(){
-        // 既存分の処理が完了した後だけ、新規追加分をリアルタイムで検知する（重複防止のため順序を保証）
-        ref.on('child_added', function(childSnap){
-            const r = childSnap.val();
-            if(!r) return;
-            const wrapped = {}; wrapped[childSnap.key] = r;
-            processDeliveryRewards(wrapped);
-            ref.child(childSnap.key).remove();
-        });
     }).catch(function(e){ console.error('startDeliveryRewardListener error:', e); });
 }
 
