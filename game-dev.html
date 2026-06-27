@@ -580,7 +580,7 @@
 <!-- ポスト画面（受信フォルダ一覧） -->
 <div class="modal-overlay" id="postListOverlay" style="display:none;">
     <div class="modal-box" style="max-width:420px; text-align:left;">
-        <div class="modal-title" style="text-align:center;">📮 ポスト</div>
+        <div class="modal-title" style="text-align:center;">Post</div>
         <div id="postListArea" style="max-height:60vh; overflow-y:auto; margin:8px 0;"></div>
         <button class="modal-btn modal-btn-ok" style="width:100%; margin-top:8px;" onclick="closePostListScreen()">閉じる</button>
     </div>
@@ -594,6 +594,7 @@
         <div id="postDetailBody" style="font-size:14px; color:#420000; line-height:1.7; white-space:pre-wrap; margin-bottom:10px;"></div>
         <div id="postDetailRewardArea" style="font-size:13px; color:#9a6e30; font-weight:bold; margin-bottom:10px;"></div>
         <button class="modal-btn modal-btn-ok" style="width:100%;" onclick="closePostDetailScreen()">受信フォルダへ戻る</button>
+        <div id="postDetailExpireNote" style="text-align:center; font-size:11px; color:#b0a090; margin-top:6px;"></div>
     </div>
 </div>
 
@@ -635,8 +636,8 @@
     <!-- ★タイトル。アイコンブロックはここから削除 -->
     <div class="logo-area" id="logoAreaWrap" title="タイトルへ">
         <img src="battlecurry-logo.svg" alt="Battle Curry" onclick="goToTop()" style="cursor:pointer;">
-        <button id="postBtn" onclick="openPostScreen()" style="position:absolute;top:8px;left:8px;width:52px;height:24px;border:none;background:transparent;cursor:pointer;z-index:10;display:none;align-items:center;justify-content:center;padding:0;">
-            <img id="postIcon" src="letter01.svg" style="width:52px;height:24px;" alt="post">
+        <button id="postBtn" onclick="openPostScreen()" style="position:absolute;top:6px;left:8px;width:73px;height:34px;border:none;background:transparent;cursor:pointer;z-index:10;display:none;align-items:center;justify-content:center;padding:0;">
+            <img id="postIcon" src="letter01.svg" style="width:73px;height:34px;" alt="post">
         </button>
         <button id="helpBtn" onclick="toggleHelp()" style="position:absolute;top:8px;right:46px;width:32px;height:32px;border:none;background:transparent;cursor:pointer;z-index:10;display:flex;align-items:center;justify-content:center;padding:0;">
             <img src="help.svg" style="width:28px;height:28px;" alt="?">
@@ -1782,11 +1783,11 @@ function unlockBossIngredients(bossKey) {
 let curryStock = []; let selectedCurryIndex = -1;
 let playerName = "名無しの料理人";
 let recipeBook = {}; let myRoomRef = null; let currentRoomId = null;
-let postMessages = []; // ポスト（受信フォルダ）の手紙一覧。{id, subject, body, image, rewardPack, read, createdAt}
+let postMessages = []; // ポスト（受信フォルダ）の手紙一覧。{id, subject, body, image, rewardPack, read, rewardClaimed, expireAt, expireMinutesAfterRead}
 // デフォルトで入っている手紙（初回プレイ時のみ投入）
 const DEFAULT_POST_MESSAGES = [
     { id: 'default_01', subject: '運営からのお知らせ', body: 'このポストには運営からのお知らせや、イベント情報や報酬などが送られてきます。未読の手紙があるときは手紙マークが点滅しているので、忘れずにチェックしてください。\nまずはこれを受け取ってください！', rewardPack: 2, image: null, read: false },
-    { id: 'default_02', subject: 'これはテストです。', body: 'おばあちゃんは今日も鎧を着て種をまいてるよ🌱🌱🌱🌱🌱🌱🌱🌱🌱', rewardPack: 0, image: 'botimage/bot07.png', read: false }
+    { id: 'default_02', subject: 'これはテストです。', body: 'おばあちゃんは今日も鎧を着て種をまいてるよ🌱🌱🌱🌱🌱🌱🌱🌱🌱', rewardPack: 0, image: 'botimage/bot07.png', read: false, expireMinutesAfterRead: 1 }
 ];
 let cachedMyIconFile = "myimageicon/mayimage01.png";
 let cachedOppIconFile = "myimageicon/mayimage01.png";
@@ -2528,17 +2529,27 @@ function updatePostButtonUI() {
 }
 // ゲームスタート（トップ→プレイヤータブ切り替え）時に呼ぶ。ボタン表示＋未読通知
 function onGameStartShowPost() {
+    purgeExpiredPostMessages();
     const btn = document.getElementById('postBtn');
     if(btn) btn.style.display = 'flex';
     updatePostButtonUI();
     const unread = getUnreadPostCount();
     if(unread > 0) {
-        showCustomAlert('📮 ポスト', `未読のお知らせが${unread}件あります`);
+        playSoundEffect('midokuaruyo.mp3');
+        showCustomAlert('Post', `未読のお知らせが${unread}件あります`);
     }
 }
 function openPostScreen() {
+    purgeExpiredPostMessages();
     renderPostList();
     document.getElementById('postListOverlay').style.display = 'flex';
+}
+// 受信フォルダを開くタイミングで、期限切れの手紙（開封済みかつexpireAtを過ぎたもの）を削除する
+function purgeExpiredPostMessages() {
+    const now = Date.now();
+    const before = postMessages.length;
+    postMessages = postMessages.filter(m => !(m.expireAt && now >= m.expireAt));
+    if(postMessages.length !== before) savePostMessages();
 }
 function closePostListScreen() {
     document.getElementById('postListOverlay').style.display = 'none';
@@ -2550,7 +2561,7 @@ function renderPostList() {
         area.innerHTML = '<div style="text-align:center;color:#b0a090;padding:20px 0;">ポストには何も入っていません</div>';
         return;
     }
-    // 新しい手紙が上に来るよう逆順表示
+    // 新しい手紙が上に来るよう逆順表示（配列の末尾＝最新として追加される想定）
     area.innerHTML = [...postMessages].reverse().map(m => {
         const idx = postMessages.indexOf(m);
         if(m.read) {
@@ -2573,30 +2584,58 @@ function openPostDetail(idx) {
     document.getElementById('postDetailBody').innerText = m.body;
     const imgArea = document.getElementById('postDetailImageArea');
     imgArea.innerHTML = m.image ? `<img src="${m.image}" style="max-width:160px; max-height:160px; object-fit:contain;">` : '';
-    const rewardArea = document.getElementById('postDetailRewardArea');
-    let rewardHtml = '';
-    if(m.rewardPack && !m.rewardClaimed) {
-        rewardHtml = `🎁 添付特典：パック券${m.rewardPack}枚`;
-    } else if(m.rewardPack && m.rewardClaimed) {
-        rewardHtml = `🎁 添付特典：受け取り済み`;
-    }
-    rewardArea.innerHTML = rewardHtml;
-    // 既読化＋特典受け取り
+    // 既読化（開封時刻を起点に自動削除タイマーを確定させる）
     if(!m.read) {
         m.read = true;
-        if(m.rewardPack && !m.rewardClaimed) {
-            packTicket = (packTicket || 0) + m.rewardPack;
-            m.rewardClaimed = true;
-            const ticketEl = document.getElementById('globalTicket'); if(ticketEl) ticketEl.innerText = packTicket;
-            saveGame();
+        if(m.expireMinutesAfterRead) {
+            m.expireAt = Date.now() + m.expireMinutesAfterRead * 60 * 1000;
         }
         savePostMessages();
         updatePostButtonUI();
     }
+    renderPostDetailRewardArea(m, idx);
+    renderPostDetailExpireNote(m);
     document.getElementById('postDetailOverlay').style.display = 'flex';
+}
+// 添付特典エリア（受け取るボタン／受け取り済み表示）を描画する
+function renderPostDetailRewardArea(m, idx) {
+    const rewardArea = document.getElementById('postDetailRewardArea');
+    if(!rewardArea) return;
+    if(!m.rewardPack) { rewardArea.innerHTML = ''; return; }
+    if(m.rewardClaimed) {
+        rewardArea.innerHTML = `🎁 添付特典：パック券${m.rewardPack}枚（受け取り済み）`;
+    } else {
+        rewardArea.innerHTML = `🎁 添付特典：パック券${m.rewardPack}枚　`
+            + `<button onclick="claimPostReward(${idx})" style="padding:4px 12px; background:#e67e22; color:#fff; border:none; border-radius:4px; font-weight:bold; font-size:12px; cursor:pointer;">受け取る</button>`;
+    }
+}
+// 自動削除予定の注意書きを「受信フォルダへ戻る」ボタンの下に表示
+function renderPostDetailExpireNote(m) {
+    const note = document.getElementById('postDetailExpireNote');
+    if(!note) return;
+    if(m.expireAt) {
+        const d = new Date(m.expireAt);
+        const pad = n => String(n).padStart(2, '0');
+        note.innerText = `${d.getFullYear()}/${pad(d.getMonth()+1)}/${pad(d.getDate())}/${pad(d.getHours())}:${pad(d.getMinutes())}に自動で削除されます。`;
+    } else {
+        note.innerText = '';
+    }
+}
+// 添付特典を受け取るボタンの処理
+function claimPostReward(idx) {
+    const m = postMessages[idx];
+    if(!m || !m.rewardPack || m.rewardClaimed) return;
+    packTicket = (packTicket || 0) + m.rewardPack;
+    m.rewardClaimed = true;
+    const ticketEl = document.getElementById('globalTicket'); if(ticketEl) ticketEl.innerText = packTicket;
+    saveGame();
+    savePostMessages();
+    renderPostDetailRewardArea(m, idx);
+    showCustomAlert('🎁 受け取り完了', `パック券${m.rewardPack}枚を受け取りました！`);
 }
 function closePostDetailScreen() {
     document.getElementById('postDetailOverlay').style.display = 'none';
+    purgeExpiredPostMessages();
     renderPostList();
     document.getElementById('postListOverlay').style.display = 'flex';
 }
