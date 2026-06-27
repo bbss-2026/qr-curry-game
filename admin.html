@@ -135,6 +135,13 @@
         </div>
         <div id="announcePreviewArea" style="margin-top:14px;"></div>
     </div>
+
+    <div class="section">
+        <div class="section-label">🗑️ 送信済みお知らせの取り消し</div>
+        <div style="font-size:12px;color:#888;margin-bottom:8px;">「全員に送信」したお知らせのうち、まだ取り消していないものを表示します。取り消すと各プレイヤーのポストから自動的に削除されます（リアルタイム反映、未起動の端末は次回起動時に反映）。</div>
+        <button class="save-btn" style="background:#2e8b6f;" onclick="actShowSentAnnouncements()">🔄 送信済み一覧を表示</button>
+        <div id="sentAnnouncementsResult" style="margin-top:14px;"></div>
+    </div>
 </div>
 
 <div class="modal-overlay" id="customModal">
@@ -823,6 +830,49 @@ function actSendAnnounceToOne() {
             showCustomAlert('✅ 送信完了', 'ID: ' + targetId + ' に送信しました。');
         }).catch(function(e){
             showCustomAlert('❌ エラー', '送信に失敗しました。' + e.message);
+        });
+    });
+}
+
+// ===== 送信済みお知らせ（全員宛）の一覧表示・取り消し =====
+function actShowSentAnnouncements() {
+    if(!database) return;
+    const area = document.getElementById('sentAnnouncementsResult');
+    area.innerHTML = '<div style="color:#888;font-size:12px;">読み込み中...</div>';
+    Promise.all([
+        database.ref('globalAnnouncements').once('value'),
+        database.ref('revokedAnnouncements').once('value')
+    ]).then(function(results){
+        const items = results[0].val() || {};
+        const revoked = results[1].val() || {};
+        const keys = Object.keys(items).sort().reverse(); // 新しい順
+        if(keys.length === 0) {
+            area.innerHTML = '<div style="color:#888;font-size:12px;">送信済みのお知らせ（全員宛）はありません。</div>';
+            return;
+        }
+        let html = '';
+        keys.forEach(function(key){
+            const a = items[key];
+            const isRevoked = !!revoked[key];
+            const dateStr = a.createdAt ? new Date(a.createdAt).toLocaleString('ja-JP') : '不明';
+            html += '<div style="border:1px solid #b88742;border-radius:6px;padding:10px;margin-bottom:8px;background:' + (isRevoked ? '#f0f0f0' : '#fffdf0') + ';">'
+                + '<div style="font-size:13px;font-weight:bold;color:#420000;">' + (a.subject || '(件名なし)') + (isRevoked ? ' <span style="color:#e74c3c;font-size:11px;">【取り消し済み】</span>' : '') + '</div>'
+                + '<div style="font-size:11px;color:#888;margin-top:2px;">送信日時: ' + dateStr + '</div>'
+                + (isRevoked ? '' : '<button onclick="actRevokeAnnouncement(\'' + key + '\')" style="margin-top:6px;padding:4px 12px;font-size:11px;background:#e74c3c;color:#fff;border:none;border-radius:4px;cursor:pointer;">🗑️ このお知らせを取り消す</button>')
+                + '</div>';
+        });
+        area.innerHTML = html;
+    }).catch(function(e){
+        area.innerHTML = '<div style="color:#e74c3c;font-size:13px;">⚠️ 取得に失敗しました。' + e.message + '</div>';
+    });
+}
+function actRevokeAnnouncement(key) {
+    if(!database) return;
+    showCustomConfirm('🗑️ お知らせの取り消し', 'このお知らせを取り消します。各プレイヤーのポストから自動的に削除されます。<br><br>本当によろしいですか？', function(){
+        database.ref('revokedAnnouncements/' + key).set(true).then(function(){
+            showCustomAlert('✅ 取り消し完了', '取り消しました。', function(){ actShowSentAnnouncements(); });
+        }).catch(function(e){
+            showCustomAlert('❌ エラー', '取り消しに失敗しました。' + e.message);
         });
     });
 }
