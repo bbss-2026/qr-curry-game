@@ -120,6 +120,8 @@
             <option value="">なし（画像表示のみ）</option>
             <option value="shop1">店舗QR：空腹は最高のスパイスカレー（Instagramスキャン相当）</option>
         </select>
+        <label style="font-size:12px;color:#555;display:block;margin-bottom:2px;">開封後に自動で消えるまでの時間（分・空欄なら消えない）</label>
+        <input type="number" id="announceExpireMinutes" style="width:100%;padding:8px;border:1px solid #b88742;border-radius:4px;font-size:13px;margin-bottom:12px;box-sizing:border-box;" placeholder="例: 60（1時間）、1440（24時間）">
         <div style="display:flex; gap:8px; margin-bottom:8px;">
             <button class="save-btn" style="background:#9a6e30; flex:1;" onclick="actPreviewAnnounce()">👁️ プレビュー確認</button>
         </div>
@@ -766,9 +768,11 @@ function actLoadAnnounceTemplate() {
     document.getElementById('announceImageBottom').value = t.imageBottom || '';
     document.getElementById('announceImageBottomNote').value = t.imageBottomNote || '';
     document.getElementById('announceShopQrAction').value = t.shopQrAction || '';
+    document.getElementById('announceExpireMinutes').value = t.expireMinutesAfterRead || '';
 }
 // 現在入力中の内容からお知らせデータを組み立てる
 function buildAnnounceDataFromForm() {
+    const expireVal = document.getElementById('announceExpireMinutes').value.trim();
     return {
         subject: document.getElementById('announceSubject').value.trim(),
         body: document.getElementById('announceBody').value,
@@ -776,6 +780,7 @@ function buildAnnounceDataFromForm() {
         imageBottom: document.getElementById('announceImageBottom').value.trim() || null,
         imageBottomNote: document.getElementById('announceImageBottomNote').value.trim() || null,
         shopQrAction: document.getElementById('announceShopQrAction').value || null,
+        expireMinutesAfterRead: expireVal ? parseInt(expireVal, 10) : null,
         createdAt: Date.now()
     };
 }
