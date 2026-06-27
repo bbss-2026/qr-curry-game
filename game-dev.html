@@ -2776,6 +2776,10 @@ function openPostDetail(idx) {
 // 手紙内の店舗QR画像タップ時、実際のQRスキャンと同じ処理を呼ぶ（actionKeyで店舗を識別、現状は'shop1'のみ）
 function runPostShopQrAction(actionKey) {
     if(actionKey === 'shop1') {
+        // ポストの詳細画面を閉じ、QRタブに切り替えてからスキャン結果画面を表示する
+        document.getElementById('postDetailOverlay').style.display = 'none';
+        const scanTabBtn = document.querySelector('[onclick*="switchTab(\'scan\'"]');
+        if(scanTabBtn) switchTab('scan', scanTabBtn);
         processShop1QR('hunger_is_the_best_spice_curry', 'hunger_is_the_best_spice_curry');
     }
 }
