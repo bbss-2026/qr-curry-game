@@ -97,6 +97,42 @@
         <button class="save-btn" style="background:#2e8b6f;" onclick="actShowDeliveryCurryList()">🔄 最新の状態を表示</button>
         <div id="deliveryCurryListResult" style="margin-top:14px;"></div>
     </div>
+
+    <div class="section">
+        <div class="section-label">📮 お知らせ手紙の配信</div>
+        <div style="font-size:12px;color:#888;margin-bottom:8px;">下書きを確認してから「全員に送信」または「個別に送信」を選んでください。</div>
+        <select id="announceTemplateSelect" style="width:100%;padding:8px;border:1px solid #b88742;border-radius:4px;font-size:13px;margin-bottom:8px;" onchange="actLoadAnnounceTemplate()">
+            <option value="">テンプレートを選択...</option>
+            <option value="shop1_intro">カレー店のご紹介（空腹は最高のスパイスカレー）</option>
+        </select>
+        <label style="font-size:12px;color:#555;display:block;margin-bottom:2px;">件名</label>
+        <input type="text" id="announceSubject" style="width:100%;padding:8px;border:1px solid #b88742;border-radius:4px;font-size:13px;margin-bottom:8px;box-sizing:border-box;">
+        <label style="font-size:12px;color:#555;display:block;margin-bottom:2px;">本文</label>
+        <textarea id="announceBody" rows="4" style="width:100%;padding:8px;border:1px solid #b88742;border-radius:4px;font-size:13px;margin-bottom:8px;box-sizing:border-box;"></textarea>
+        <label style="font-size:12px;color:#555;display:block;margin-bottom:2px;">添付画像（上）パス</label>
+        <input type="text" id="announceImage" style="width:100%;padding:8px;border:1px solid #b88742;border-radius:4px;font-size:13px;margin-bottom:8px;box-sizing:border-box;" placeholder="例: shop/shop-1-1.png">
+        <label style="font-size:12px;color:#555;display:block;margin-bottom:2px;">添付画像（下・タップ可能）パス</label>
+        <input type="text" id="announceImageBottom" style="width:100%;padding:8px;border:1px solid #b88742;border-radius:4px;font-size:13px;margin-bottom:8px;box-sizing:border-box;" placeholder="例: shop/shop-1-QR.svg">
+        <label style="font-size:12px;color:#555;display:block;margin-bottom:2px;">下部画像の注釈</label>
+        <input type="text" id="announceImageBottomNote" style="width:100%;padding:8px;border:1px solid #b88742;border-radius:4px;font-size:13px;margin-bottom:8px;box-sizing:border-box;" placeholder="例: QR画像をタップでスキャン">
+        <label style="font-size:12px;color:#555;display:block;margin-bottom:2px;">下部画像タップ時の動作</label>
+        <select id="announceShopQrAction" style="width:100%;padding:8px;border:1px solid #b88742;border-radius:4px;font-size:13px;margin-bottom:12px;">
+            <option value="">なし（画像表示のみ）</option>
+            <option value="shop1">店舗QR：空腹は最高のスパイスカレー（Instagramスキャン相当）</option>
+        </select>
+        <div style="display:flex; gap:8px; margin-bottom:8px;">
+            <button class="save-btn" style="background:#9a6e30; flex:1;" onclick="actPreviewAnnounce()">👁️ プレビュー確認</button>
+        </div>
+        <div style="display:flex; gap:8px;">
+            <button class="save-btn" style="background:#e67e22; flex:1;" onclick="actSendAnnounceToAll()">📢 全員に送信</button>
+        </div>
+        <div style="margin-top:10px; padding-top:10px; border-top:1px solid #e0d0b0;">
+            <label style="font-size:12px;color:#555;display:block;margin-bottom:2px;">個別送信先のプレイヤーID</label>
+            <input type="text" id="announceTargetId" style="width:100%;padding:8px;border:1px solid #b88742;border-radius:4px;font-size:13px;margin-bottom:8px;box-sizing:border-box;" placeholder="プレイヤーIDを入力">
+            <button class="save-btn" style="background:#3498db;width:100%;" onclick="actSendAnnounceToOne()">👤 このIDに個別送信</button>
+        </div>
+        <div id="announcePreviewArea" style="margin-top:14px;"></div>
+    </div>
 </div>
 
 <div class="modal-overlay" id="customModal">
@@ -705,6 +741,83 @@ function actDeleteDeliveryCurry(pid) {
             showCustomAlert("✅ 削除完了", "削除しました。", function(){ actShowDeliveryCurryList(); });
         }).catch(function(e){
             showCustomAlert("❌ エラー", "削除に失敗しました。" + e.message);
+        });
+    });
+}
+
+// ===== お知らせ手紙の配信 =====
+const ANNOUNCE_TEMPLATES = {
+    shop1_intro: {
+        subject: 'カレー店のご紹介',
+        body: '兵庫県西宮にある「空腹は最高のスパイスカレー」さんがバトルカレーのQRカードお店に置いてくださいました！\nお店の公式InstagramのQRをスキャンした方にはスパイシーコインを1枚プレゼントしますので、ぜひフォローしてください！',
+        image: 'shop/shop-1-1.png',
+        imageBottom: 'shop/shop-1-QR.svg',
+        imageBottomNote: 'QR画像をタップでスキャン',
+        shopQrAction: 'shop1'
+    }
+};
+function actLoadAnnounceTemplate() {
+    const key = document.getElementById('announceTemplateSelect').value;
+    if(!key || !ANNOUNCE_TEMPLATES[key]) return;
+    const t = ANNOUNCE_TEMPLATES[key];
+    document.getElementById('announceSubject').value = t.subject || '';
+    document.getElementById('announceBody').value = t.body || '';
+    document.getElementById('announceImage').value = t.image || '';
+    document.getElementById('announceImageBottom').value = t.imageBottom || '';
+    document.getElementById('announceImageBottomNote').value = t.imageBottomNote || '';
+    document.getElementById('announceShopQrAction').value = t.shopQrAction || '';
+}
+// 現在入力中の内容からお知らせデータを組み立てる
+function buildAnnounceDataFromForm() {
+    return {
+        subject: document.getElementById('announceSubject').value.trim(),
+        body: document.getElementById('announceBody').value,
+        image: document.getElementById('announceImage').value.trim() || null,
+        imageBottom: document.getElementById('announceImageBottom').value.trim() || null,
+        imageBottomNote: document.getElementById('announceImageBottomNote').value.trim() || null,
+        shopQrAction: document.getElementById('announceShopQrAction').value || null,
+        createdAt: Date.now()
+    };
+}
+function actPreviewAnnounce() {
+    const a = buildAnnounceDataFromForm();
+    if(!a.subject) { showCustomAlert('⚠️ 件名が空です', '件名を入力してください。'); return; }
+    const area = document.getElementById('announcePreviewArea');
+    let html = '<div style="border:1px solid #b88742;border-radius:8px;padding:14px;background:#fffdf0;max-width:380px;margin:0 auto;">';
+    html += '<div style="font-weight:bold;font-size:16px;text-align:center;color:#420000;margin-bottom:8px;">' + a.subject + '</div>';
+    if(a.image) html += '<div style="text-align:center;margin-bottom:8px;"><img src="' + a.image + '" style="max-width:160px;max-height:160px;object-fit:contain;"></div>';
+    html += '<div style="font-size:13px;color:#420000;line-height:1.7;white-space:pre-wrap;margin-bottom:8px;">' + a.body + '</div>';
+    if(a.imageBottom) {
+        html += '<div style="text-align:center;margin-bottom:8px;"><img src="' + a.imageBottom + '" style="max-width:160px;max-height:160px;object-fit:contain;">';
+        if(a.imageBottomNote) html += '<div style="font-size:11px;color:#9a8060;margin-top:4px;">' + a.imageBottomNote + '</div>';
+        html += '</div>';
+    }
+    html += '</div>';
+    area.innerHTML = html;
+}
+function actSendAnnounceToAll() {
+    if(!database) return;
+    const a = buildAnnounceDataFromForm();
+    if(!a.subject) { showCustomAlert('⚠️ 件名が空です', '件名を入力してください。'); return; }
+    showCustomConfirm('📢 全員に送信', '入力中の内容を、全プレイヤーにお知らせ手紙として送信します。<br>プレビューで内容を確認しましたか？<br><br>本当によろしいですか？', function(){
+        database.ref('globalAnnouncements').push(a).then(function(){
+            showCustomAlert('✅ 送信完了', '全員宛に送信しました。');
+        }).catch(function(e){
+            showCustomAlert('❌ エラー', '送信に失敗しました。' + e.message);
+        });
+    });
+}
+function actSendAnnounceToOne() {
+    if(!database) return;
+    const targetId = document.getElementById('announceTargetId').value.trim();
+    if(!targetId) { showCustomAlert('⚠️ IDが空です', '送信先のプレイヤーIDを入力してください。'); return; }
+    const a = buildAnnounceDataFromForm();
+    if(!a.subject) { showCustomAlert('⚠️ 件名が空です', '件名を入力してください。'); return; }
+    showCustomConfirm('👤 個別送信', 'ID: ' + targetId + ' にお知らせ手紙を送信します。<br><br>本当によろしいですか？', function(){
+        database.ref('announceQueue/' + targetId).push(a).then(function(){
+            showCustomAlert('✅ 送信完了', 'ID: ' + targetId + ' に送信しました。');
+        }).catch(function(e){
+            showCustomAlert('❌ エラー', '送信に失敗しました。' + e.message);
         });
     });
 }
