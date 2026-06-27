@@ -2343,70 +2343,73 @@ function checkGiftQueue() {
 }
 
 // 宅配カレーが他プレイヤーに使用された結果の報酬・食べ尽くされ通知をログイン時に処理
-function checkDeliveryRewardQueue() {
-    if(!database || !playerId) return;
-    database.ref('deliveryRewardQueue/' + playerId).once('value').then(function(snap){
-        const rewards = snap.val();
-        if(!rewards) return;
-        const normalPool = Object.keys(masterIngredients).filter(k => masterIngredients[k].shop === 0 && isIngredientAvailable(k));
-        const midHighPool = Object.keys(masterIngredients).filter(k => masterIngredients[k].shop === 1 || masterIngredients[k].shop === 2);
-        let totalGold = 0;
-        let totalWinItems = [];
-        let eatenUpList = []; // { curryName, curryImage }
-        let activeCurryImage = ''; // 報酬手紙に添付する画像（生きている宅配カレーの画像、複数あれば最後のもの）
-        Object.keys(rewards).forEach(function(key){
-            const r = rewards[key];
-            totalGold += (r.usedCount || 0) * 30;
-            for(let i = 0; i < (r.winCount || 0); i++) {
-                const pool = [...normalPool, ...midHighPool];
-                const it = pool[Math.floor(Math.random() * pool.length)];
-                inventory[it] = (inventory[it] || 0) + 1;
-                discoveredItems[it] = true;
-                totalWinItems.push(it);
-            }
-            if(r.eatenUp && r.curryName) {
-                eatenUpList.push({ curryName: r.curryName, curryImage: r.curryImage || '' });
-            } else if(r.curryImage) {
-                activeCurryImage = r.curryImage;
-            }
-        });
-        playerG += totalGold;
-        // 食べ尽くされた宅配カレーを、自分のストックからも完全に削除する
-        // （宅配カレーは常に最大1件のみ設定可能なため、isDeliveringフラグだけで一意に特定できる）
-        if(eatenUpList.length > 0) {
-            curryStock = curryStock.filter(c => !c.isDelivering);
-            if(selectedCurryIndex >= curryStock.length) selectedCurryIndex = curryStock.length - 1;
+// 宅配カレー報酬は起動時・プレイ中ともにリアルタイム購読（startDeliveryRewardListener）で処理する。
+// 購読開始時にchild_addedが既存データにも発火するため、起動時の一括チェックは別途行わない（重複処理防止）。
+// 受け取ったdeliveryRewardQueueの内容を手紙にする共通処理（起動時チェック・リアルタイム購読の両方から呼ばれる）
+function processDeliveryRewards(rewards) {
+    const normalPool = Object.keys(masterIngredients).filter(k => masterIngredients[k].shop === 0 && isIngredientAvailable(k));
+    const midHighPool = Object.keys(masterIngredients).filter(k => masterIngredients[k].shop === 1 || masterIngredients[k].shop === 2);
+    let totalGold = 0;
+    let totalWinItems = [];
+    let eatenUpList = []; // { curryName, curryImage }
+    let activeCurryImage = ''; // 報酬手紙に添付する画像（生きている宅配カレーの画像、複数あれば最後のもの）
+    Object.keys(rewards).forEach(function(key){
+        const r = rewards[key];
+        totalGold += (r.usedCount || 0) * 30;
+        for(let i = 0; i < (r.winCount || 0); i++) {
+            // 抽選結果だけ確定（在庫への加算は手紙を開封して受け取った時点で行う）
+            const pool = [...normalPool, ...midHighPool];
+            const it = pool[Math.floor(Math.random() * pool.length)];
+            totalWinItems.push(it);
         }
-
-        // 「宅配カレー活躍報告」の手紙（報酬がある場合のみ）
-        if(totalGold > 0 || totalWinItems.length > 0) {
-            const itemsHtml = totalWinItems.map(it => {
-                const d = masterIngredients[it];
-                const ico = d && d.icon ? `<img src="${d.icon}" style="width:1.2em;height:1.2em;vertical-align:middle;object-fit:contain;">` : '';
-                return ico + it;
-            }).join(' ');
-            let body = '宅配カレーが活躍しましたので報酬をお送りします！';
-            addPostMessage({
-                subject: '宅配カレー活躍報告',
-                body: body,
-                image: activeCurryImage || null,
-                rewardGold: totalGold,
-                rewardItems: totalWinItems,
-                expireMinutesAfterRead: 60
-            });
+        if(r.eatenUp && r.curryName) {
+            eatenUpList.push({ curryName: r.curryName, curryImage: r.curryImage || '' });
+        } else if(r.curryImage) {
+            activeCurryImage = r.curryImage;
         }
-        // 「宅配カレー完売報告」の手紙（食べ尽くされたカレーごとに1通）
-        eatenUpList.forEach(function(e){
-            addPostMessage({
-                subject: '宅配カレー完売報告',
-                body: `${e.curryName}は食べ尽くされてしまいました。\nまた設定しましょう！`,
-                image: e.curryImage || null,
-                expireMinutesAfterRead: 60
-            });
-        });
+    });
+    // 食べ尽くされた宅配カレーを、自分のストックからも完全に削除する
+    // （宅配カレーは常に最大1件のみ設定可能なため、isDeliveringフラグだけで一意に特定できる）
+    if(eatenUpList.length > 0) {
+        curryStock = curryStock.filter(c => !c.isDelivering);
+        if(selectedCurryIndex >= curryStock.length) selectedCurryIndex = curryStock.length - 1;
+    }
 
-        saveGame(); updateFridgeUI(); updateCookSelects(); updateShopButtons(); updateMatchCurrySelects();
-        database.ref('deliveryRewardQueue/' + playerId).remove();
+    // 「宅配カレー活躍報告」の手紙（報酬がある場合のみ。受け取りは手紙を開封した時点）
+    if(totalGold > 0 || totalWinItems.length > 0) {
+        addPostMessage({
+            subject: '宅配カレー活躍報告',
+            body: '宅配カレーが活躍しましたので報酬をお送りします！',
+            image: activeCurryImage || null,
+            rewardGold: totalGold,
+            rewardItems: totalWinItems,
+            expireMinutesAfterRead: 60
+        });
+    }
+    // 「宅配カレー完売報告」の手紙（食べ尽くされたカレーごとに1通）
+    eatenUpList.forEach(function(e){
+        addPostMessage({
+            subject: '宅配カレー完売報告',
+            body: `${e.curryName}は食べ尽くされてしまいました。\nまた設定しましょう！`,
+            image: e.curryImage || null,
+            expireMinutesAfterRead: 60
+        });
+    });
+
+    saveGame(); updateFridgeUI(); updateCookSelects(); updateShopButtons(); updateMatchCurrySelects();
+}
+// プレイ中（ブラウザを開いたまま）にも宅配カレー報酬を即座に検知するためのリアルタイム購読
+let deliveryRewardListenerStarted = false;
+function startDeliveryRewardListener() {
+    if(!database || !playerId || deliveryRewardListenerStarted) return;
+    deliveryRewardListenerStarted = true;
+    const ref = database.ref('deliveryRewardQueue/' + playerId);
+    ref.on('child_added', function(childSnap){
+        const r = childSnap.val();
+        if(!r) return;
+        const wrapped = {}; wrapped[childSnap.key] = r;
+        processDeliveryRewards(wrapped);
+        ref.child(childSnap.key).remove();
     });
 }
 
@@ -2426,9 +2429,9 @@ function initPlayerId(onReady) {
                 }
             });
             checkGiftQueue();
-            checkDeliveryRewardQueue();
             checkCloudSyncOnLoad(); // 別デバイスでの進行を検知したら同期確認
             ensureDeliveryCurrySynced(); // ローカルが宅配中なのにFirebase上に存在しない場合、再公開する
+            startDeliveryRewardListener(); // 起動時・プレイ中ともにリアルタイムで宅配カレー報酬を検知する
         }
         if(onReady) onReady();
         return;
@@ -2653,31 +2656,29 @@ function openPostDetail(idx) {
 function renderPostDetailRewardArea(m, idx) {
     const rewardArea = document.getElementById('postDetailRewardArea');
     if(!rewardArea) return;
-    let html = '';
-    // パック券（受け取るボタンが必要なタイプ）
-    if(m.rewardPack) {
-        if(m.rewardClaimed) {
-            html += `🎁 添付特典：パック券${m.rewardPack}枚（受け取り済み）`;
-        } else {
-            html += `🎁 添付特典：パック券${m.rewardPack}枚　`
-                + `<button onclick="claimPostReward(${idx})" style="padding:4px 12px; background:#e67e22; color:#fff; border:none; border-radius:4px; font-weight:bold; font-size:12px; cursor:pointer;">受け取る</button>`;
-        }
+    const hasReward = m.rewardPack || m.rewardGold || (m.rewardItems && m.rewardItems.length > 0);
+    if(!hasReward) { rewardArea.innerHTML = ''; return; }
+
+    // 報酬内容のテキストを組み立て
+    let parts = [];
+    if(m.rewardPack) parts.push(`パック券${m.rewardPack}枚`);
+    if(m.rewardGold) parts.push(`💰${m.rewardGold}G`);
+    if(m.rewardItems && m.rewardItems.length > 0) {
+        const itemsHtml = m.rewardItems.map(it => {
+            const d = masterIngredients[it];
+            const ico = d && d.icon ? `<img src="${d.icon}" style="width:1.2em;height:1.2em;vertical-align:middle;object-fit:contain;">` : '';
+            return ico + it;
+        }).join(' ');
+        parts.push(itemsHtml);
     }
-    // 宅配カレー報酬（既に受け取り済みの実績として表示するのみ）
-    if(m.rewardGold || (m.rewardItems && m.rewardItems.length > 0)) {
-        if(html) html += '<br>';
-        let line = '🎁 受け取った報酬：';
-        if(m.rewardGold) line += `💰+${m.rewardGold}G `;
-        if(m.rewardItems && m.rewardItems.length > 0) {
-            line += m.rewardItems.map(it => {
-                const d = masterIngredients[it];
-                const ico = d && d.icon ? `<img src="${d.icon}" style="width:1.2em;height:1.2em;vertical-align:middle;object-fit:contain;">` : '';
-                return ico + it;
-            }).join(' ');
-        }
-        html += line;
+    const rewardLabel = parts.join('　');
+
+    if(m.rewardClaimed) {
+        rewardArea.innerHTML = `🎁 添付特典：${rewardLabel}（受け取り済み）`;
+    } else {
+        rewardArea.innerHTML = `🎁 添付特典：${rewardLabel}　`
+            + `<button onclick="claimPostReward(${idx})" style="padding:4px 12px; background:#e67e22; color:#fff; border:none; border-radius:4px; font-weight:bold; font-size:12px; cursor:pointer;">受け取る</button>`;
     }
-    rewardArea.innerHTML = html;
 }
 // 自動削除予定の注意書きを「受信フォルダへ戻る」ボタンの下に表示
 function renderPostDetailExpireNote(m) {
@@ -2691,17 +2692,34 @@ function renderPostDetailExpireNote(m) {
         note.innerText = '';
     }
 }
-// 添付特典を受け取るボタンの処理
+// 添付特典を受け取るボタンの処理（パック券・宅配カレー報酬どちらも対応）
 function claimPostReward(idx) {
     const m = postMessages[idx];
-    if(!m || !m.rewardPack || m.rewardClaimed) return;
-    packTicket = (packTicket || 0) + m.rewardPack;
+    if(!m || m.rewardClaimed) return;
+    let receivedParts = [];
+    if(m.rewardPack) {
+        packTicket = (packTicket || 0) + m.rewardPack;
+        const ticketEl = document.getElementById('globalTicket'); if(ticketEl) ticketEl.innerText = packTicket;
+        receivedParts.push(`パック券${m.rewardPack}枚`);
+    }
+    if(m.rewardGold) {
+        playerG += m.rewardGold;
+        const goldEl = document.getElementById('globalG'); if(goldEl) goldEl.innerText = playerG;
+        receivedParts.push(`💰${m.rewardGold}G`);
+    }
+    if(m.rewardItems && m.rewardItems.length > 0) {
+        m.rewardItems.forEach(it => {
+            inventory[it] = (inventory[it] || 0) + 1;
+            discoveredItems[it] = true;
+        });
+        receivedParts.push(`食材${m.rewardItems.length}個`);
+        updateFridgeUI();
+    }
     m.rewardClaimed = true;
-    const ticketEl = document.getElementById('globalTicket'); if(ticketEl) ticketEl.innerText = packTicket;
     saveGame();
     savePostMessages();
     renderPostDetailRewardArea(m, idx);
-    showCustomAlert('🎁 受け取り完了', `パック券${m.rewardPack}枚を受け取りました！`);
+    showCustomAlert('🎁 受け取り完了', `${receivedParts.join('　')}を受け取りました！`);
 }
 function closePostDetailScreen() {
     document.getElementById('postDetailOverlay').style.display = 'none';
