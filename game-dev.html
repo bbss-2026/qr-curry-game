@@ -2416,7 +2416,8 @@ function buildAnnouncementPostOpts(a) {
         image: image,
         imageBottom: a.imageBottom || null,
         imageBottomNote: a.imageBottomNote || null,
-        shopQrAction: a.shopQrAction || null // 'shop1' 等、タップ時に店舗QRスキャン相当の処理を呼ぶ識別子
+        shopQrAction: a.shopQrAction || null, // 'shop1' 等、タップ時に店舗QRスキャン相当の処理を呼ぶ識別子
+        expireMinutesAfterRead: a.expireMinutesAfterRead || null
     };
 }
 
@@ -2535,7 +2536,16 @@ function initPlayerId(onReady) {
                     playerId = candidate;
                     localStorage.setItem('qr_player_id', playerId);
                     updatePlayerIdDisplay();
-                    if(onReady) onReady();
+                    // 新規プレイヤーには、これまで配信された「全員宛お知らせ」が届かないようにする
+                    // （登録時点までの最新キーを既読扱いにしておく）
+                    database.ref('globalAnnouncements').once('value').then(function(snap2){
+                        const items = snap2.val();
+                        if(items) {
+                            const keys = Object.keys(items).sort();
+                            if(keys.length > 0) localStorage.setItem('qr_last_global_announce', keys[keys.length - 1]);
+                        }
+                        if(onReady) onReady();
+                    }).catch(function(){ if(onReady) onReady(); });
                 });
             }
         }).catch(function() {
