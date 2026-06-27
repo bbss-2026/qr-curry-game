@@ -1448,7 +1448,7 @@ function stopBattleBGM() {
     if(battleBGM) { battleBGM.pause(); battleBGM.currentTime = 0; battleBGM = null; }
 }
 function playSoundEffect(src) {
-    if(battleAborted || isMuted) return;
+    if(isMuted) return;
     const se = new Audio(src);
     se.volume = 0.7;
     se.play().catch(e => console.log("SE play error:", e));
@@ -2393,7 +2393,7 @@ function checkAnnouncements() {
     queueRef.on('child_added', function(childSnap){
         const a = childSnap.val();
         if(!a) return;
-        addPostMessage(buildAnnouncementPostOpts(a));
+        addPostMessage(buildAnnouncementPostOpts(a, childSnap.key));
         queueRef.child(childSnap.key).remove();
     });
 
@@ -2407,7 +2407,7 @@ function checkAnnouncements() {
             const keys = Object.keys(items).sort(); // pushキーは時系列順に並ぶ
             keys.forEach(function(key){
                 if(key > lastSeen) {
-                    addPostMessage(buildAnnouncementPostOpts(items[key]));
+                    addPostMessage(buildAnnouncementPostOpts(items[key], key));
                     newestKey = key;
                 }
             });
@@ -2420,17 +2420,49 @@ function checkAnnouncements() {
             if(childSnap.key <= lastSeen2) return; // 既に処理済みのものは無視
             const a = childSnap.val();
             if(!a) return;
-            addPostMessage(buildAnnouncementPostOpts(a));
+            addPostMessage(buildAnnouncementPostOpts(a, childSnap.key));
             localStorage.setItem('qr_last_global_announce', childSnap.key);
         });
     }).catch(function(e){ console.error('checkAnnouncements error:', e); });
+
+    // 誤送信の取り消し対応：revokedAnnouncementsに記録されたIDの手紙を、自分のポストから削除する
+    const revokedRef = database.ref('revokedAnnouncements');
+    revokedRef.once('value').then(function(snap){
+        const revoked = snap.val();
+        if(revoked) {
+            removePostMessagesByAnnounceIds(Object.keys(revoked));
+        }
+    }).then(function(){
+        revokedRef.on('child_added', function(childSnap){
+            removePostMessagesByAnnounceIds([childSnap.key]);
+        });
+    }).catch(function(e){ console.error('revokedAnnouncements check error:', e); });
+}
+// 指定したannounceIdに該当する手紙を、自分のポスト（postMessages）から削除する
+function removePostMessagesByAnnounceIds(ids) {
+    if(!ids || ids.length === 0) return;
+    const before = postMessages.length;
+    postMessages = postMessages.filter(m => !m.announceId || !ids.includes(m.announceId));
+    if(postMessages.length !== before) {
+        savePostMessages();
+        updatePostButtonUI();
+        // 詳細画面やポスト一覧を開いている最中だった場合に備えて再描画する
+        const listOverlay = document.getElementById('postListOverlay');
+        if(listOverlay && listOverlay.style.display === 'flex') renderPostList();
+        const detailOverlay = document.getElementById('postDetailOverlay');
+        if(detailOverlay && detailOverlay.style.display === 'flex') {
+            detailOverlay.style.display = 'none';
+            showCustomAlert('📮 お知らせ', '表示中の手紙が運営により取り消されました。');
+        }
+    }
 }
 // お知らせデータ（管理ツールで作成）をaddPostMessage用のオプションに変換する
-function buildAnnouncementPostOpts(a) {
+function buildAnnouncementPostOpts(a, announceId) {
     let body = a.body || '';
     let image = a.image || null;
     // 「QR画像をタップでスキャン」注釈付きの店舗紹介QRに対応（imageBottomがある場合はタップでスキャン扱いにする）
     return {
+        announceId: announceId || null,
         subject: a.subject || 'お知らせ',
         body: body,
         image: image,
@@ -2650,6 +2682,7 @@ function savePostMessages() {
 function addPostMessage(opts) {
     postMessages.push({
         id: 'msg_' + Date.now() + '_' + Math.floor(Math.random()*10000),
+        announceId: opts.announceId || null, // 管理ツールから配信された手紙の元ID（取り消し処理に使う）
         subject: opts.subject,
         body: opts.body,
         image: opts.image || null,
@@ -2679,7 +2712,12 @@ function showPostToast(subject) {
     const text = document.getElementById('postToastText');
     if(!toast || !text) return;
     text.innerText = subject;
-    playSoundEffect('midoku.mp3');
+    // 戦闘演出用のbattleAbortedフラグの影響を受けないよう、ここではミュート判定のみ行う
+    if(!isMuted) {
+        const se = new Audio('midoku.mp3');
+        se.volume = 0.7;
+        se.play().catch(e => console.log("SE play error:", e));
+    }
     toast.style.display = 'block';
     toast.classList.remove('post-toast-show');
     void toast.offsetWidth; // reflowでアニメーションを再始動
