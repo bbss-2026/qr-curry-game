@@ -590,6 +590,7 @@
 <div class="modal-overlay" id="postDetailOverlay" style="display:none;">
     <div class="modal-box" style="max-width:420px; text-align:left;">
         <div class="modal-title" id="postDetailSubject" style="text-align:center;"></div>
+        <div id="postDetailDate" style="text-align:center; font-size:11px; color:#b0a090; margin-bottom:6px;"></div>
         <div id="postDetailImageArea" style="text-align:center; margin-bottom:8px;"></div>
         <div id="postDetailBody" style="font-size:14px; color:#420000; line-height:1.7; white-space:pre-wrap; margin-bottom:10px;"></div>
         <div id="postDetailRewardArea" style="font-size:13px; color:#9a6e30; font-weight:bold; margin-bottom:10px;"></div>
@@ -1783,11 +1784,10 @@ function unlockBossIngredients(bossKey) {
 let curryStock = []; let selectedCurryIndex = -1;
 let playerName = "名無しの料理人";
 let recipeBook = {}; let myRoomRef = null; let currentRoomId = null;
-let postMessages = []; // ポスト（受信フォルダ）の手紙一覧。{id, subject, body, image, rewardPack, read, rewardClaimed, expireAt, expireMinutesAfterRead}
+let postMessages = []; // ポスト（受信フォルダ）の手紙一覧。{id, subject, body, image, rewardPack, read, rewardClaimed, expireAt, expireMinutesAfterRead, createdAt}
 // デフォルトで入っている手紙（初回プレイ時のみ投入）
 const DEFAULT_POST_MESSAGES = [
-    { id: 'default_01', subject: '運営からのお知らせ', body: 'このポストには運営からのお知らせや、イベント情報や報酬などが送られてきます。未読の手紙があるときは手紙マークが点滅しているので、忘れずにチェックしてください。\nまずはこれを受け取ってください！', rewardPack: 2, image: null, read: false },
-    { id: 'default_02', subject: 'これはテストです。', body: 'おばあちゃんは今日も鎧を着て種をまいてるよ🌱🌱🌱🌱🌱🌱🌱🌱🌱', rewardPack: 0, image: 'botimage/bot07.png', read: false, expireMinutesAfterRead: 1 }
+    { id: 'default_01', subject: '運営からのお知らせ', body: 'このポストには運営からのお知らせや、イベント情報や報酬などが送られてきます。未読の手紙があるときは手紙マークが点滅しているので、忘れずにチェックしてください。\nまずはパック件2枚をプレゼントしますので、冷蔵庫で「10個パックガチャ」引いてみましょう！', rewardPack: 2, image: null, read: false }
 ];
 let cachedMyIconFile = "myimageicon/mayimage01.png";
 let cachedOppIconFile = "myimageicon/mayimage01.png";
@@ -2352,7 +2352,8 @@ function checkDeliveryRewardQueue() {
         const midHighPool = Object.keys(masterIngredients).filter(k => masterIngredients[k].shop === 1 || masterIngredients[k].shop === 2);
         let totalGold = 0;
         let totalWinItems = [];
-        let eatenUpCurryNames = [];
+        let eatenUpList = []; // { curryName, curryImage }
+        let activeCurryImage = ''; // 報酬手紙に添付する画像（生きている宅配カレーの画像、複数あれば最後のもの）
         Object.keys(rewards).forEach(function(key){
             const r = rewards[key];
             totalGold += (r.usedCount || 0) * 30;
@@ -2363,28 +2364,49 @@ function checkDeliveryRewardQueue() {
                 discoveredItems[it] = true;
                 totalWinItems.push(it);
             }
-            if(r.eatenUp && r.curryName) eatenUpCurryNames.push(r.curryName);
+            if(r.eatenUp && r.curryName) {
+                eatenUpList.push({ curryName: r.curryName, curryImage: r.curryImage || '' });
+            } else if(r.curryImage) {
+                activeCurryImage = r.curryImage;
+            }
         });
         playerG += totalGold;
         // 食べ尽くされた宅配カレーを、自分のストックからも完全に削除する
         // （宅配カレーは常に最大1件のみ設定可能なため、isDeliveringフラグだけで一意に特定できる）
-        if(eatenUpCurryNames.length > 0) {
+        if(eatenUpList.length > 0) {
             curryStock = curryStock.filter(c => !c.isDelivering);
             if(selectedCurryIndex >= curryStock.length) selectedCurryIndex = curryStock.length - 1;
         }
+
+        // 「宅配カレー活躍報告」の手紙（報酬がある場合のみ）
+        if(totalGold > 0 || totalWinItems.length > 0) {
+            const itemsHtml = totalWinItems.map(it => {
+                const d = masterIngredients[it];
+                const ico = d && d.icon ? `<img src="${d.icon}" style="width:1.2em;height:1.2em;vertical-align:middle;object-fit:contain;">` : '';
+                return ico + it;
+            }).join(' ');
+            let body = '宅配カレーが活躍しましたので報酬をお送りします！';
+            addPostMessage({
+                subject: '宅配カレー活躍報告',
+                body: body,
+                image: activeCurryImage || null,
+                rewardGold: totalGold,
+                rewardItems: totalWinItems,
+                expireMinutesAfterRead: 60
+            });
+        }
+        // 「宅配カレー完売報告」の手紙（食べ尽くされたカレーごとに1通）
+        eatenUpList.forEach(function(e){
+            addPostMessage({
+                subject: '宅配カレー完売報告',
+                body: `${e.curryName}は食べ尽くされてしまいました。\nまた設定しましょう！`,
+                image: e.curryImage || null,
+                expireMinutesAfterRead: 60
+            });
+        });
+
         saveGame(); updateFridgeUI(); updateCookSelects(); updateShopButtons(); updateMatchCurrySelects();
         database.ref('deliveryRewardQueue/' + playerId).remove();
-
-        const itemsHtml = totalWinItems.map(it => {
-            const d = masterIngredients[it];
-            const ico = d && d.icon ? `<img src="${d.icon}" style="width:1.2em;height:1.2em;vertical-align:middle;object-fit:contain;">` : '';
-            return ico + it;
-        }).join(' ');
-        let msg = `🚚 宅配カレーが活躍しました！<br>`;
-        if(totalGold) msg += `💰 +${totalGold}G<br>`;
-        if(totalWinItems.length) msg += `アイテム: ${itemsHtml}<br>`;
-        if(eatenUpCurryNames.length) msg += `<br><span style="color:#e67e22;">「${eatenUpCurryNames.join('」「')}」は食べ尽くされてしまいました…</span>`;
-        showCustomAlert('🚚 宅配カレーの報告', msg);
     });
 }
 
@@ -2472,8 +2494,6 @@ function loadGame() {
     const savedLocked = localStorage.getItem('qr_curry_locked');
     if (savedInv) {
         inventory = JSON.parse(savedInv);
-    } else {
-        packTicket = 2;
     }
     Object.keys(masterIngredients).forEach(k => { if (inventory[k] === undefined) inventory[k] = 0; });
     Object.keys(masterSpices).forEach(k => { if (inventory[k] === undefined) inventory[k] = 0; });
@@ -2498,6 +2518,8 @@ function loadGame() {
     } else {
         // 初回プレイ時のみデフォルト手紙を投入（添付特典は手紙を開いた時に受け取る）
         postMessages = JSON.parse(JSON.stringify(DEFAULT_POST_MESSAGES));
+        const now = Date.now();
+        postMessages.forEach(m => { m.createdAt = now; });
         localStorage.setItem('qr_post_messages', JSON.stringify(postMessages));
     }
     document.getElementById("playerNameInput").value = playerName;
@@ -2509,6 +2531,25 @@ function loadGame() {
 // ===== ポスト（受信フォルダ）機能 =====
 function savePostMessages() {
     localStorage.setItem('qr_post_messages', JSON.stringify(postMessages));
+}
+// 新しい手紙をポストに追加する共通関数
+// opts: { subject, body, image, rewardPack, expireMinutesAfterRead }
+function addPostMessage(opts) {
+    postMessages.push({
+        id: 'msg_' + Date.now() + '_' + Math.floor(Math.random()*10000),
+        subject: opts.subject,
+        body: opts.body,
+        image: opts.image || null,
+        rewardPack: opts.rewardPack || 0,
+        rewardGold: opts.rewardGold || 0,
+        rewardItems: opts.rewardItems || [],
+        read: false,
+        rewardClaimed: false,
+        expireMinutesAfterRead: opts.expireMinutesAfterRead || null,
+        createdAt: Date.now()
+    });
+    savePostMessages();
+    updatePostButtonUI();
 }
 function getUnreadPostCount() {
     return postMessages.filter(m => !m.read).length;
@@ -2554,6 +2595,13 @@ function purgeExpiredPostMessages() {
 function closePostListScreen() {
     document.getElementById('postListOverlay').style.display = 'none';
 }
+// 手紙の届いた日付を「YYYY/MM/DD」形式で返す（createdAtがない古いデータはなしを返す）
+function formatPostDate(timestamp) {
+    if(!timestamp) return '';
+    const d = new Date(timestamp);
+    const pad = n => String(n).padStart(2, '0');
+    return `${d.getFullYear()}/${pad(d.getMonth()+1)}/${pad(d.getDate())}`;
+}
 function renderPostList() {
     const area = document.getElementById('postListArea');
     if(!area) return;
@@ -2564,14 +2612,17 @@ function renderPostList() {
     // 新しい手紙が上に来るよう逆順表示（配列の末尾＝最新として追加される想定）
     area.innerHTML = [...postMessages].reverse().map(m => {
         const idx = postMessages.indexOf(m);
+        const dateStr = formatPostDate(m.createdAt);
         if(m.read) {
             return `<div onclick="openPostDetail(${idx})" style="padding:10px 8px; border-bottom:1px solid #e8d9b8; cursor:pointer; color:#b0a090;">
                 <span style="font-size:13px;">✉️ ${m.subject}</span>
+                <span style="font-size:10px; color:#b0a090; margin-left:6px;">${dateStr}</span>
             </div>`;
         } else {
             return `<div onclick="openPostDetail(${idx})" style="padding:10px 8px; border-bottom:1px solid #e8d9b8; cursor:pointer; background:#fff8ee;">
                 <span style="font-size:14px; font-weight:bold; color:#420000;">📩 ${m.subject}</span>
                 <span style="font-size:10px; color:#e74c3c; margin-left:6px;">●未読</span>
+                <span style="font-size:10px; color:#b0a090; margin-left:6px;">${dateStr}</span>
             </div>`;
         }
     }).join('');
@@ -2581,6 +2632,7 @@ function openPostDetail(idx) {
     if(!m) return;
     closePostListScreen();
     document.getElementById('postDetailSubject').innerText = m.subject;
+    document.getElementById('postDetailDate').innerText = formatPostDate(m.createdAt);
     document.getElementById('postDetailBody').innerText = m.body;
     const imgArea = document.getElementById('postDetailImageArea');
     imgArea.innerHTML = m.image ? `<img src="${m.image}" style="max-width:160px; max-height:160px; object-fit:contain;">` : '';
@@ -2601,13 +2653,31 @@ function openPostDetail(idx) {
 function renderPostDetailRewardArea(m, idx) {
     const rewardArea = document.getElementById('postDetailRewardArea');
     if(!rewardArea) return;
-    if(!m.rewardPack) { rewardArea.innerHTML = ''; return; }
-    if(m.rewardClaimed) {
-        rewardArea.innerHTML = `🎁 添付特典：パック券${m.rewardPack}枚（受け取り済み）`;
-    } else {
-        rewardArea.innerHTML = `🎁 添付特典：パック券${m.rewardPack}枚　`
-            + `<button onclick="claimPostReward(${idx})" style="padding:4px 12px; background:#e67e22; color:#fff; border:none; border-radius:4px; font-weight:bold; font-size:12px; cursor:pointer;">受け取る</button>`;
+    let html = '';
+    // パック券（受け取るボタンが必要なタイプ）
+    if(m.rewardPack) {
+        if(m.rewardClaimed) {
+            html += `🎁 添付特典：パック券${m.rewardPack}枚（受け取り済み）`;
+        } else {
+            html += `🎁 添付特典：パック券${m.rewardPack}枚　`
+                + `<button onclick="claimPostReward(${idx})" style="padding:4px 12px; background:#e67e22; color:#fff; border:none; border-radius:4px; font-weight:bold; font-size:12px; cursor:pointer;">受け取る</button>`;
+        }
     }
+    // 宅配カレー報酬（既に受け取り済みの実績として表示するのみ）
+    if(m.rewardGold || (m.rewardItems && m.rewardItems.length > 0)) {
+        if(html) html += '<br>';
+        let line = '🎁 受け取った報酬：';
+        if(m.rewardGold) line += `💰+${m.rewardGold}G `;
+        if(m.rewardItems && m.rewardItems.length > 0) {
+            line += m.rewardItems.map(it => {
+                const d = masterIngredients[it];
+                const ico = d && d.icon ? `<img src="${d.icon}" style="width:1.2em;height:1.2em;vertical-align:middle;object-fit:contain;">` : '';
+                return ico + it;
+            }).join(' ');
+        }
+        html += line;
+    }
+    rewardArea.innerHTML = html;
 }
 // 自動削除予定の注意書きを「受信フォルダへ戻る」ボタンの下に表示
 function renderPostDetailExpireNote(m) {
@@ -2648,8 +2718,8 @@ function handleNameChange(val) {
     if (database && playerId) { database.ref('players/' + playerId + '/name').set(val); }
 }
 function clearSaveData() {
-    showCustomConfirm("全初期化", "セーブデータをすべてリセットします（初期配布チケット2枚になります）。<br><br>このデバイスは新しいIDになり、これまでのIDとは別のキャラクターとして始まります。<br>（このIDを他のデバイスでも使っている場合、そちらのデータはそのまま残ります）<br><br>本当によろしいですか？", function() {
-        localStorage.clear(); inventory = {}; scanHistory = {}; playerG = 0; playerEXP = 0; packTicket = 2; curryStock = []; playerName = "名無しの料理人"; recipeBook = {}; discoveredItems = {}; saveUnlockedIcons(["myimageicon/mayimage01.png","myimageicon/mayimage02.png","myimageicon/mayimage03.png"]); currentIconFile = "myimageicon/mayimage01.png"; localStorage.setItem("selectedPlayerIcon", "myimageicon/mayimage01.png");
+    showCustomConfirm("全初期化", "セーブデータをすべてリセットします。<br><br>このデバイスは新しいIDになり、これまでのIDとは別のキャラクターとして始まります。<br>（このIDを他のデバイスでも使っている場合、そちらのデータはそのまま残ります）<br><br>本当によろしいですか？", function() {
+        localStorage.clear(); inventory = {}; scanHistory = {}; playerG = 0; playerEXP = 0; packTicket = 0; curryStock = []; playerName = "名無しの料理人"; recipeBook = {}; discoveredItems = {}; saveUnlockedIcons(["myimageicon/mayimage01.png","myimageicon/mayimage02.png","myimageicon/mayimage03.png"]); currentIconFile = "myimageicon/mayimage01.png"; localStorage.setItem("selectedPlayerIcon", "myimageicon/mayimage01.png");
         // このデバイスだけ新しいIDを発行（古いIDのクラウドデータには触れない。他デバイスを保護するため）
         playerId = ''; playerSecretKey = '';
         loadGame(); updateFridgeUI(); updateCookSelects(); refreshRecipeBookUI(); updateShopButtons(); document.getElementById("resultBox").style.display = "none"; updateLvDisplay(); setupLoadedIconUI();
@@ -4521,7 +4591,9 @@ function reportDeliveryCurryUsage(candidate, didWin) {
         updateOrRemove.then(function(){
             return database.ref('deliveryRewardQueue/' + candidate.playerId).push({
                 usedCount: 1, winCount: didWin ? 1 : 0, eatenUp: isEatenUp,
-                curryName: data.curry ? data.curry.name : '', createdAt: Date.now()
+                curryName: data.curry ? data.curry.name : '',
+                curryImage: data.curry ? getCurryImage(data.curry) : '',
+                createdAt: Date.now()
             });
         }).catch(function(e){
             console.error('reportDeliveryCurryUsage update/remove error:', e);
@@ -4860,6 +4932,17 @@ function updateBingoNewCardButton(data) {
     if(elapsed >= oneWeekMs) {
         btn.disabled = false;
         hint.innerText = '';
+        // 発行可能になった通知は、このカード（createdAtを識別子にする）につき1回だけ送る
+        const notifiedKey = 'qr_bingo_notified_' + data.createdAt;
+        if(!localStorage.getItem(notifiedKey)) {
+            localStorage.setItem(notifiedKey, '1');
+            addPostMessage({
+                subject: 'ビンゴカード発行のお知らせ',
+                body: '新しいビンゴカードが発行可能になりました。',
+                image: 'botimage/bot05.png',
+                expireMinutesAfterRead: 1440
+            });
+        }
     } else {
         btn.disabled = true;
         const remainMs = oneWeekMs - elapsed;
