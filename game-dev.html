@@ -2380,30 +2380,50 @@ function checkGiftQueue() {
 // 管理ツールから配信される「お知らせ手紙」を受信する（個別宛・全員宛の両方）
 // announceQueue/{playerId} : 個別宛（送信時に1件追加され、受信後削除）
 // globalAnnouncements/{id} : 全員宛（共通の1件をみんなが参照。各プレイヤーは自分が見た最後のIDをlocalStorageで管理）
+let announceListenerStarted = false;
+// 管理ツールから配信される「お知らせ手紙」をリアルタイムで受信する（個別宛・全員宛の両方）
+// announceQueue/{playerId} : 個別宛（送信時に1件追加され、受信後削除）
+// globalAnnouncements/{id} : 全員宛（共通の1件をみんなが参照。各プレイヤーは自分が見た最後のIDをlocalStorageで管理）
 function checkAnnouncements() {
-    if(!database || !playerId) return;
-    // 個別宛
-    database.ref('announceQueue/' + playerId).once('value').then(function(snap){
-        const items = snap.val();
-        if(!items) return;
-        Object.values(items).forEach(function(a){ addPostMessage(buildAnnouncementPostOpts(a)); });
-        database.ref('announceQueue/' + playerId).remove();
+    if(!database || !playerId || announceListenerStarted) return;
+    announceListenerStarted = true;
+
+    // 個別宛：リアルタイムで検知し、処理後にその要素だけ削除する
+    const queueRef = database.ref('announceQueue/' + playerId);
+    queueRef.on('child_added', function(childSnap){
+        const a = childSnap.val();
+        if(!a) return;
+        addPostMessage(buildAnnouncementPostOpts(a));
+        queueRef.child(childSnap.key).remove();
     });
-    // 全員宛
-    database.ref('globalAnnouncements').once('value').then(function(snap){
+
+    // 全員宛：まず起動時点までの既存分を一括で既読化（重複防止）してから、それ以降の新規分だけリアルタイム検知する
+    const globalRef = database.ref('globalAnnouncements');
+    globalRef.once('value').then(function(snap){
         const items = snap.val();
-        if(!items) return;
         const lastSeen = localStorage.getItem('qr_last_global_announce') || '';
-        const keys = Object.keys(items).sort(); // pushキーは時系列順に並ぶ
         let newestKey = lastSeen;
-        keys.forEach(function(key){
-            if(key > lastSeen) {
-                addPostMessage(buildAnnouncementPostOpts(items[key]));
-                newestKey = key;
-            }
-        });
+        if(items) {
+            const keys = Object.keys(items).sort(); // pushキーは時系列順に並ぶ
+            keys.forEach(function(key){
+                if(key > lastSeen) {
+                    addPostMessage(buildAnnouncementPostOpts(items[key]));
+                    newestKey = key;
+                }
+            });
+        }
         if(newestKey !== lastSeen) localStorage.setItem('qr_last_global_announce', newestKey);
-    });
+    }).then(function(){
+        // 既存分の処理が完了した後だけ、新規追加分をリアルタイムで検知する（重複防止のため順序を保証）
+        globalRef.on('child_added', function(childSnap){
+            const lastSeen2 = localStorage.getItem('qr_last_global_announce') || '';
+            if(childSnap.key <= lastSeen2) return; // 既に処理済みのものは無視
+            const a = childSnap.val();
+            if(!a) return;
+            addPostMessage(buildAnnouncementPostOpts(a));
+            localStorage.setItem('qr_last_global_announce', childSnap.key);
+        });
+    }).catch(function(e){ console.error('checkAnnouncements error:', e); });
 }
 // お知らせデータ（管理ツールで作成）をaddPostMessage用のオプションに変換する
 function buildAnnouncementPostOpts(a) {
