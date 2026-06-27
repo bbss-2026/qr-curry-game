@@ -859,7 +859,8 @@
             <div style="font-size:14px; color:#e67e22; font-weight:bold;" id="getBoxTitle">🎉 食材ゲット！</div>
             <div style="font-size:12px; color:#2ecc71; font-weight:bold; display:none; margin-top:4px;" id="bonusBadge">✨ キーワードボーナス発生！入手数3個！ ✨</div>
             <div id="shopQrArea" style="display:none; text-align:left; margin-top:8px;">
-                <div style="font-size:16px; font-weight:bold; color:#420000; text-align:center; margin-bottom:8px;">空腹は最高のスパイスカレー</div>
+                <div style="font-size:16px; font-weight:bold; color:#420000; text-align:center; margin-bottom:2px;">空腹は最高のスパイスカレー</div>
+                <div style="font-size:11px; color:#9a8060; text-align:center; margin-bottom:8px;">兵庫県西宮市</div>
                 <div style="display:flex; gap:6px; justify-content:center; margin-bottom:8px;">
                     <img src="shop/shop-1-1.png" style="width:48%; max-width:160px; border-radius:6px; object-fit:cover;">
                     <img src="shop/shop-1-2.png" style="width:48%; max-width:160px; border-radius:6px; object-fit:cover;">
@@ -3673,11 +3674,10 @@ function tick(timestamp) {
 }
 function stopCamera() { if (animationFrameId) cancelAnimationFrame(animationFrameId); if (localStream) localStream.getTracks().forEach(track => track.stop()); document.getElementById("btnCancel").style.display = "none"; }
 function cancelScanning() { stopCamera(); canvasElement.style.display = "none"; document.getElementById("btnStartCamera").style.display = "inline-block"; }
-// 実店舗「空腹は最高のスパイスカレー」のSNS・公式LINEキーワードと、別窓で開くURLのマッピング
+// 実店舗「空腹は最高のスパイスカレー」のSNSキーワードと、別窓で開くURLのマッピング
 const SHOP1_KEYWORD_URLS = {
     "hunger_is_the_best_spice_curry": "https://www.instagram.com/hunger_is_the_best_spice_curry/",
-    "hungerbestspice": "https://x.com/hungerbestspice",
-    "@702isxnk": "https://line.me/R/ti/p/@702isxnk"
+    "hungerbestspice": "https://x.com/hungerbestspice"
 };
 let currentShop1LinkUrl = ''; // 直近にスキャンした店舗QRに対応するリンク（「SNSを開く」ボタン押下時に開く）
 function openShop1Link() {
@@ -3739,18 +3739,10 @@ function processShop1QR(text, matchedKeyword) {
 function processQRData(text, r, g, b) {
     try {
         // 実店舗「空腹は最高のスパイスカレー」のSNS QR判定（許可済み・特別仕様）
-        // QRの実データはURLエンコードされている場合（@ → %40等）があるため、デコードしてから判定する
+        // QRの実データはURLエンコードされている場合があるため、デコードしてから判定する
         let decodedText = text;
         try { decodedText = decodeURIComponent(text); } catch(e) { /* デコード不可ならそのまま使う */ }
-        const matchedShop1Keyword = Object.keys(SHOP1_KEYWORD_URLS).find(kw => {
-            if(text.includes(kw) || decodedText.includes(kw)) return true;
-            // LINEの「@」付きIDは、@を除いたID部分だけでも一致を許容する
-            if(kw.startsWith('@')) {
-                const idOnly = kw.slice(1);
-                return text.includes(idOnly) || decodedText.includes(idOnly);
-            }
-            return false;
-        });
+        const matchedShop1Keyword = Object.keys(SHOP1_KEYWORD_URLS).find(kw => text.includes(kw) || decodedText.includes(kw));
         const isShop1Qr = !!matchedShop1Keyword;
         if(isShop1Qr) {
             processShop1QR(text, matchedShop1Keyword);
