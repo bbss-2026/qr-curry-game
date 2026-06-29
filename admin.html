@@ -64,6 +64,7 @@
             <div><label>ノーマルスパイス(個)</label><input type="number" id="sbSpiceCount" min="0" placeholder="0"></div>
             <div><label>ゴールド(G)</label><input type="number" id="sbGold" min="0" placeholder="0"></div>
             <div><label>パック券(枚)</label><input type="number" id="sbTicket" min="0" placeholder="0"></div>
+            <div><label>スパイシーコイン(枚)</label><input type="number" id="sbSpicyCoin" min="0" placeholder="0"></div>
         </div>
         <div class="btn-row">
             <button style="background:#d35400;" onclick="actSpecialBonusAll()">🌍 全体補充</button>
@@ -183,11 +184,12 @@ const masterIngredients = {
     "マッシュルーム": { shop: 0 }, "ひよこ豆": { shop: 0 }, "金箔": { shop: -2 }, "チーズ": { shop: 0 },
     "イカ": { shop: 0 }, "小エビ": { shop: 0 }, "ホタテ": { shop: 1 }, "ツナ": { shop: 0 },
     "合鴨": { shop: 1 }, "牡蠣": { shop: 1 }, "キャビア": { shop: 2 }, "オマール海老": { shop: 2 }, "ズワイガニ": { shop: 2 },
-    "タマゴ": { shop: 0 }, "うずら卵": { shop: 0 }, "りんご": { shop: 0 }, "バナナ": { shop: 0 }, "ハラペーニョ": { shop: 0 }, "パクチー": { shop: 0 }
+    "タマゴ": { shop: 0 }, "うずら卵": { shop: 0 }, "りんご": { shop: 0 }, "バナナ": { shop: 0 }, "ハラペーニョ": { shop: 0 }, "パクチー": { shop: 0 },
+    "フォアグラ": { shop: 2 }, "トリュフ": { shop: 2 }, "ココナッツ": { shop: 1 }, "アスパラガス": { shop: 1 }
 };
 const masterSpices = {
     "ターメリック": {}, "クミン": {}, "コリアンダー": {}, "カルダモン": {}, "シナモン": {},
-    "クローブ": {}, "ブラックペッパー": {}, "チリパウダー": {}, "マンゴーチャツネ": {}
+    "クローブ": {}, "ブラックペッパー": {}, "チリパウダー": {}, "マンゴーチャツネ": {}, "サフラン": {}
 };
 
 const MAX_LV = 10;
@@ -413,6 +415,7 @@ function actAnalytics() {
             + row('🍎☠️ 毒りんご', cook.poisonapple)
             + row('🥚 ふわとろオム', cook.fluffyomelette)
             + row('🟢 激辛グリーン', cook.greencurry)
+            + row('👑 世界三大珍味', cook.tricaviar)
 
             + section('⚔️ バトル')
             + row('PC戦（初級）', battle.bot)
@@ -536,12 +539,13 @@ function actSpecialBonusAll() {
     const spiceCount = parseInt(document.getElementById("sbSpiceCount").value, 10) || 0;
     const gold = parseInt(document.getElementById("sbGold").value, 10) || 0;
     const ticket = parseInt(document.getElementById("sbTicket").value, 10) || 0;
+    const spicyCoin = parseInt(document.getElementById("sbSpicyCoin").value, 10) || 0;
     database.ref('specialBonus').once('value').then(function(snap){
         const cur = snap.val();
         const newVersion = (cur && cur.version ? cur.version : 0) + 1;
         database.ref('specialBonus').set({
             version: newVersion, normalCount: normalCount, midHighCount: midHighCount,
-            spiceCount: spiceCount, gold: gold, ticket: ticket, updatedAt: Date.now()
+            spiceCount: spiceCount, gold: gold, ticket: ticket, spicyCoin: spicyCoin, updatedAt: Date.now()
         }).then(function(){
             showCustomAlert("✅ 全体補充完了", "特別ボーナスを更新しました（v" + newVersion + "）。<br>全プレイヤーが再度受け取れます。");
         });
@@ -555,13 +559,14 @@ function actSpecialBonusIndiv() {
     const spiceCount = parseInt(document.getElementById("sbSpiceCount").value, 10) || 0;
     const gold = parseInt(document.getElementById("sbGold").value, 10) || 0;
     const ticket = parseInt(document.getElementById("sbTicket").value, 10) || 0;
+    const spicyCoin = parseInt(document.getElementById("sbSpicyCoin").value, 10) || 0;
     const targetId = prompt("👤 プレゼントするプレイヤーのIDを入力してください（例: BC-XXXXXXXX）");
     if(!targetId) return;
     database.ref('players/' + targetId).once('value').then(function(snap){
         if(!snap.exists()) { showCustomAlert("❌ エラー", "そのIDのプレイヤーは見つかりません。"); return; }
         database.ref('giftQueue/' + targetId).push({
             normalCount: normalCount, midHighCount: midHighCount, spiceCount: spiceCount,
-            gold: gold, ticket: ticket, grantedAt: Date.now()
+            gold: gold, ticket: ticket, spicyCoin: spicyCoin, grantedAt: Date.now()
         }).then(function(){
             showCustomAlert("✅ 個別補充完了", "ID: " + targetId + " にプレゼントを送りました。<br>次回そのプレイヤーがアクセスした際に反映されます。");
         });
