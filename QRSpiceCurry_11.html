@@ -616,6 +616,7 @@
 <div class="modal-overlay" id="shopDetailOverlay" style="display:none;">
     <div class="modal-box" style="max-width:380px; text-align:left;">
         <div class="modal-title" id="shopDetailName" style="text-align:center;"></div>
+        <div id="shopDetailImageArea" style="text-align:center; margin:8px 0; display:none;"></div>
         <div id="shopDetailDesc" style="font-size:13px; color:#420000; line-height:1.7; margin:10px 0;"></div>
         <div id="shopDetailPrice" style="font-size:14px; color:#9a6e30; font-weight:bold; text-align:center; margin-bottom:12px;"></div>
         <div class="modal-btn-group">
@@ -3732,16 +3733,24 @@ const SHOP_ITEMS = [
     {
         id: 'unlock_mid',
         name: '中級食材追加3種',
-        desc: '中級食材くじに3種類（ココナッツ・アスパラガス・サフラン）が追加されます。',
+        desc: '中級食材くじに3種類追加されます。',
         priceType: 'coin', price: 1,
         oneTimeOnly: true, unlockKey: 'qr_unlock_coin_mid'
     },
     {
         id: 'unlock_high',
         name: '高級食材追加2種',
-        desc: '高級食材くじに2種類（フォアグラ・トリュフ）が追加されます。',
+        desc: '高級食材くじに2種類追加されます。',
         priceType: 'coin', price: 1,
         oneTimeOnly: true, unlockKey: 'qr_unlock_coin_high'
+    },
+    {
+        id: 'icon_carrot_potato',
+        name: '人参ジャガイモアイコン',
+        desc: 'プレイヤーアイコン',
+        image: 'myimageicon/mayimage10.png',
+        priceType: 'coin', price: 1,
+        oneTimeOnly: true, iconFile: 'myimageicon/mayimage10.png'
     }
 ];
 function openShopModal() {
@@ -3751,11 +3760,18 @@ function openShopModal() {
 function closeShopModal() {
     document.getElementById('shopListOverlay').style.display = 'none';
 }
+// 商品が購入済み（再購入不可）かどうかを判定する
+function isShopItemPurchased(item) {
+    if(!item.oneTimeOnly) return false;
+    if(item.unlockKey) return localStorage.getItem(item.unlockKey) === '1';
+    if(item.iconFile) return getUnlockedIcons().includes(item.iconFile);
+    return false;
+}
 function renderShopList() {
     const area = document.getElementById('shopListArea');
     if(!area) return;
     area.innerHTML = SHOP_ITEMS.map((item, idx) => {
-        const purchased = item.oneTimeOnly && localStorage.getItem(item.unlockKey) === '1';
+        const purchased = isShopItemPurchased(item);
         const priceLabel = item.priceType === 'gold' ? `${item.price}G` : `スパイシーコイン${item.price}枚`;
         return `<div onclick="${purchased ? '' : `openShopDetailModal(${idx})`}" style="display:flex; justify-content:space-between; align-items:center; padding:10px 8px; border-bottom:1px solid #e8d9b8; cursor:${purchased ? 'default' : 'pointer'}; ${purchased ? 'opacity:0.5;' : ''}">
             <span style="font-size:14px; font-weight:bold; color:#420000;">${item.name}${purchased ? '（購入済み）' : ''}</span>
@@ -3770,6 +3786,14 @@ function openShopDetailModal(idx) {
     currentShopItemIdx = idx;
     closeShopModal();
     document.getElementById('shopDetailName').innerText = item.name;
+    const imgArea = document.getElementById('shopDetailImageArea');
+    if(item.image) {
+        imgArea.innerHTML = `<img src="${item.image}" style="width:80px;height:80px;object-fit:contain;border-radius:8px;border:2px solid #b88742;">`;
+        imgArea.style.display = 'block';
+    } else {
+        imgArea.innerHTML = '';
+        imgArea.style.display = 'none';
+    }
     document.getElementById('shopDetailDesc').innerText = item.desc;
     const priceLabel = item.priceType === 'gold' ? `${item.price}G` : `スパイシーコイン${item.price}枚`;
     document.getElementById('shopDetailPrice').innerText = `価格: ${priceLabel}`;
@@ -3810,14 +3834,23 @@ function confirmShopPurchase() {
     }
     if(item.id === 'bingo_maru') {
         const target = findOpenableBingoCell();
+        document.getElementById('shopDetailOverlay').style.display = 'none';
+        document.getElementById('shopListOverlay').style.display = 'none';
         onItemObtainedForBingo(target);
     } else if(item.oneTimeOnly && item.unlockKey) {
         localStorage.setItem(item.unlockKey, '1');
         updateFridgeUI();
+    } else if(item.oneTimeOnly && item.iconFile) {
+        unlockIcon(item.iconFile);
     }
     saveGame();
-    closeShopDetailModal();
-    showCustomAlert('✅ 購入完了', `${item.name}を購入しました！`);
+    if(item.id === 'bingo_maru') {
+        // ビンゴ演出（最大3秒程度）を隠さないよう、アラートは演出終了後に表示する
+        setTimeout(() => { showCustomAlert('✅ 購入完了', `${item.name}を購入しました！`); }, 3500);
+    } else {
+        closeShopDetailModal();
+        showCustomAlert('✅ 購入完了', `${item.name}を購入しました！`);
+    }
 }
 // ビンゴの「まだ開いていない、かつ入手済み食材」のマスを1つランダムに探す
 function findOpenableBingoCell() {
