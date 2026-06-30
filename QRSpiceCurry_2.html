@@ -6258,20 +6258,20 @@ function renderBotProgressModal(difficulty) {
     let html = '';
     const currentBot = list[progress];
     html += `<div style="text-align:center; padding:10px;">`;
-    html += `<div style="font-size:13px; color:#420000; font-weight:bold; margin-bottom:10px;">挑戦中の相手</div>`;
+    html += `<div style="font-size:13px; color:#efdeb1; font-weight:bold; margin-bottom:10px;">挑戦中の相手</div>`;
     html += `<img src="${currentBot.image}" style="width:120px; height:120px; border-radius:50%; border:3px solid #b88742; object-fit:cover; background:#1a1a1a;">`;
-    html += `<div style="font-size:15px; color:#420000; font-weight:bold; margin:10px 0 4px 0;">${currentBot.name}</div>`;
+    html += `<div style="font-size:15px; color:#efdeb1; font-weight:bold; margin:10px 0 4px 0;">${currentBot.name}</div>`;
     html += `<button class="tutorial-nav-btn" style="width:100%; margin-top:10px; background:#e67e22;" onclick="closeBotProgressModal(); launchSpecificBotBattle('${isHard ? 'hard' : 'easy'}', ${progress});">⚔️ 敵と対戦する</button>`;
     html += `</div>`;
 
     if(defeatedList.length > 0) {
-        html += `<div style="border-top:1px solid #e0d0b0; margin-top:16px; padding-top:16px;">`;
-        html += `<div style="font-size:13px; color:#420000; font-weight:bold; margin-bottom:10px; text-align:center;">討伐済みの敵</div>`;
+        html += `<div style="border-top:1px solid #6b5a3f; margin-top:16px; padding-top:16px;">`;
+        html += `<div style="font-size:13px; color:#efdeb1; font-weight:bold; margin-bottom:10px; text-align:center;">討伐済みの敵</div>`;
         html += `<div style="display:flex; flex-wrap:wrap; gap:10px; justify-content:center; margin-bottom:14px;">`;
         defeatedList.forEach(name => {
             const b = list.find(x => x.name === name);
             if(!b) return;
-            html += `<div style="text-align:center; width:64px;"><img src="${b.image}" style="width:56px; height:56px; border-radius:50%; border:2px solid #b88742; object-fit:cover; background:#1a1a1a;"><div style="font-size:9px; color:#420000; margin-top:2px; line-height:1.2;">${b.name}</div></div>`;
+            html += `<div style="text-align:center; width:64px;"><img src="${b.image}" style="width:56px; height:56px; border-radius:50%; border:2px solid #b88742; object-fit:cover; background:#1a1a1a;"><div style="font-size:9px; color:#efdeb1; margin-top:2px; line-height:1.2;">${b.name}</div></div>`;
         });
         html += `</div>`;
         html += `<button class="tutorial-nav-btn" style="width:100%; background:#3498db;" onclick="closeBotProgressModal(); launchDefeatedBotBattle('${isHard ? 'hard' : 'easy'}');">討伐済みの敵と対戦</button>`;
