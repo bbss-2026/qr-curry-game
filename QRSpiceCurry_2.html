@@ -6217,6 +6217,13 @@ function startTagBattle() {
 
 // ===== PC戦（初級・中級）進行状況モーダル =====
 function openBotProgressModal(difficulty) {
+    const isHard = difficulty === 'hard';
+    const cleared = isHard ? isHardCleared() : isEasyCleared();
+    // クリア済みなら進行状況モーダルを経由せず、今まで通り直接マッチング（通常仕様）を開始する
+    if(cleared) {
+        if(isHard) startHardBotBattle(); else startBotBattle();
+        return;
+    }
     document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
     document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
     document.getElementById('botProgressFullscreen').classList.add('active');
@@ -6237,7 +6244,6 @@ function renderBotProgressModal(difficulty) {
     const isHard = difficulty === 'hard';
     const list = isHard ? hardBotOpponents : botOpponents;
     const progress = isHard ? getHardProgress() : getEasyProgress();
-    const cleared = isHard ? isHardCleared() : isEasyCleared();
     const s = getStats();
     const defeatedList = isHard ? (s.defeatedHardBots || []) : (s.defeatedBots || []);
 
@@ -6250,22 +6256,13 @@ function renderBotProgressModal(difficulty) {
     }
 
     let html = '';
-    if(cleared) {
-        // クリア済み：通常仕様（ランダム抽選）の説明
-        html += `<div style="text-align:center; padding:10px 10px 20px 10px;">`;
-        html += `<div style="font-size:14px; color:#420000; font-weight:bold; margin-bottom:10px;">🏆 ${isHard ? '中級' : '初級'}クリア済み！</div>`;
-        html += `<div style="font-size:12px; color:#888; margin-bottom:16px;">${list.map(b=>b.name).join('・')}${isHard ? '' : '・大富豪マハラジャ（低確率）'}の中からランダムで対戦します。</div>`;
-        html += `<button class="tutorial-nav-btn" style="width:100%; background:#e67e22;" onclick="closeBotProgressModal(); ${isHard ? 'startHardBotBattle()' : 'startBotBattle()'};">⚔️ 敵と対戦する</button>`;
-        html += `</div>`;
-    } else {
-        const currentBot = list[progress];
-        html += `<div style="text-align:center; padding:10px;">`;
-        html += `<div style="font-size:13px; color:#420000; font-weight:bold; margin-bottom:10px;">挑戦中の相手</div>`;
-        html += `<img src="${currentBot.image}" style="width:120px; height:120px; border-radius:50%; border:3px solid #b88742; object-fit:cover; background:#1a1a1a;">`;
-        html += `<div style="font-size:15px; color:#420000; font-weight:bold; margin:10px 0 4px 0;">${currentBot.name}</div>`;
-        html += `<button class="tutorial-nav-btn" style="width:100%; margin-top:10px; background:#e67e22;" onclick="closeBotProgressModal(); launchSpecificBotBattle('${isHard ? 'hard' : 'easy'}', ${progress});">⚔️ 敵と対戦する</button>`;
-        html += `</div>`;
-    }
+    const currentBot = list[progress];
+    html += `<div style="text-align:center; padding:10px;">`;
+    html += `<div style="font-size:13px; color:#420000; font-weight:bold; margin-bottom:10px;">挑戦中の相手</div>`;
+    html += `<img src="${currentBot.image}" style="width:120px; height:120px; border-radius:50%; border:3px solid #b88742; object-fit:cover; background:#1a1a1a;">`;
+    html += `<div style="font-size:15px; color:#420000; font-weight:bold; margin:10px 0 4px 0;">${currentBot.name}</div>`;
+    html += `<button class="tutorial-nav-btn" style="width:100%; margin-top:10px; background:#e67e22;" onclick="closeBotProgressModal(); launchSpecificBotBattle('${isHard ? 'hard' : 'easy'}', ${progress});">⚔️ 敵と対戦する</button>`;
+    html += `</div>`;
 
     if(defeatedList.length > 0) {
         html += `<div style="border-top:1px solid #e0d0b0; margin-top:16px; padding-top:16px;">`;
@@ -8536,13 +8533,13 @@ function startBattleScene(oppN, oppC, myC) {
         battleStartDelay += 2200;
     }
     if(myIsIlluded){
-        log.innerHTML+=`\n🌀 ${oppN} は幻惑にかかった！攻撃命中率ダウン！`;
-        setTimeout(()=>{ playSoundEffect('genwaku.mp3'); playStatusFlash('illusion'); document.getElementById('oppOwnerText').classList.add('name-illuded'); }, battleStartDelay);
+        log.innerHTML+=`\n🌀 ${playerName} は幻惑にかかった！攻撃命中率ダウン！`;
+        setTimeout(()=>{ playSoundEffect('genwaku.mp3'); playStatusFlash('illusion'); document.getElementById('pOwnerText').classList.add('name-illuded'); }, battleStartDelay);
         battleStartDelay += 2200;
     }
     if(oppIsIlluded){
-        log.innerHTML+=`\n🌀 ${playerName} は幻惑にかかった！攻撃命中率ダウン！`;
-        setTimeout(()=>{ playSoundEffect('genwaku.mp3'); playStatusFlash('illusion'); document.getElementById('pOwnerText').classList.add('name-illuded'); }, battleStartDelay);
+        log.innerHTML+=`\n🌀 ${oppN} は幻惑にかかった！攻撃命中率ダウン！`;
+        setTimeout(()=>{ playSoundEffect('genwaku.mp3'); playStatusFlash('illusion'); document.getElementById('oppOwnerText').classList.add('name-illuded'); }, battleStartDelay);
         battleStartDelay += 2200;
     }
     triCaviarBonusLogs.forEach(msg => { log.innerHTML+=`\n${msg}`; });
