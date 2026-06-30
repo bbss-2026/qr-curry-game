@@ -1633,8 +1633,8 @@ function grantLvUpReward(lv) {
         resultLines.push('🎟️ パック券を<b>1枚</b>入手しました！');
     }
     if (reward && reward.type === 'items') {
-        const ingPool = Object.keys(masterIngredients).filter(k => !["金箔","赤パプリカ","黄パプリカ"].includes(k));
-        const spcPool = Object.keys(masterSpices);
+        const ingPool = Object.keys(masterIngredients).filter(k => !["金箔","赤パプリカ","黄パプリカ"].includes(k) && isIngredientAvailable(k));
+        const spcPool = Object.keys(masterSpices).filter(k => k !== "マンゴーチャツネ" && k !== "サフラン" && isIngredientAvailable(k));
         const allPool = [...ingPool, ...spcPool];
         let picked = [];
         for (let i = 0; i < 5; i++) {
@@ -2020,6 +2020,8 @@ function confirmOnboardingName() {
     if(!val) val = "名無しの料理人";
     playerName = val;
     document.getElementById("headerPlayerName").innerText = val;
+    const nameTabInput = document.getElementById("playerNameInput");
+    if(nameTabInput) nameTabInput.value = val;
     saveGame();
     if (database && playerId) { database.ref('players/' + playerId + '/name').set(val); }
     showSoundCheckModal();
@@ -2442,7 +2444,7 @@ function checkGiftQueue() {
         if(!gifts) return;
         const normalPool = Object.keys(masterIngredients).filter(k => masterIngredients[k].shop === 0 && isIngredientAvailable(k));
         const midHighPool = Object.keys(masterIngredients).filter(k => (masterIngredients[k].shop === 1 || masterIngredients[k].shop === 2) && isIngredientAvailable(k));
-        const spicePool = Object.keys(masterSpices).filter(k => k !== "マンゴーチャツネ" && k !== "サフラン");
+        const spicePool = Object.keys(masterSpices).filter(k => k !== "マンゴーチャツネ" && k !== "サフラン" && isIngredientAvailable(k));
         let allItems = [];
         let totalGold = 0, totalTicket = 0, totalSpicyCoin = 0;
         Object.keys(gifts).forEach(function(giftKey){
@@ -3061,7 +3063,7 @@ function handleNameChange(val) {
 }
 function clearSaveData() {
     showCustomConfirm("全初期化", "セーブデータをすべてリセットします。<br><br>このデバイスは新しいIDになり、これまでのIDとは別のキャラクターとして始まります。<br>（このIDを他のデバイスでも使っている場合、そちらのデータはそのまま残ります）<br><br>本当によろしいですか？", function() {
-        localStorage.clear(); inventory = {}; scanHistory = {}; playerG = 0; playerEXP = 0; packTicket = 0; curryStock = []; playerName = "名無しの料理人"; recipeBook = {}; discoveredItems = {}; saveUnlockedIcons(["myimageicon/mayimage01.png","myimageicon/mayimage02.png","myimageicon/mayimage03.png"]); currentIconFile = "myimageicon/mayimage01.png"; localStorage.setItem("selectedPlayerIcon", "myimageicon/mayimage01.png");
+        localStorage.clear(); inventory = {}; scanHistory = {}; playerG = 0; playerEXP = 0; packTicket = 0; spicyCoin = 0; curryStock = []; playerName = "名無しの料理人"; recipeBook = {}; discoveredItems = {}; saveUnlockedIcons(["myimageicon/mayimage01.png","myimageicon/mayimage02.png","myimageicon/mayimage03.png"]); currentIconFile = "myimageicon/mayimage01.png"; localStorage.setItem("selectedPlayerIcon", "myimageicon/mayimage01.png");
         // このデバイスだけ新しいIDを発行（古いIDのクラウドデータには触れない。他デバイスを保護するため）
         playerId = ''; playerSecretKey = '';
         loadGame(); updateFridgeUI(); updateCookSelects(); refreshRecipeBookUI(); updateShopButtons(); document.getElementById("resultBox").style.display = "none"; updateLvDisplay(); setupLoadedIconUI();
@@ -3296,7 +3298,7 @@ function claimSpecialBonus(version) {
         let gotItems = [];
         const normalPool = Object.keys(masterIngredients).filter(k => masterIngredients[k].shop === 0 && isIngredientAvailable(k));
         const midHighPool = Object.keys(masterIngredients).filter(k => (masterIngredients[k].shop === 1 || masterIngredients[k].shop === 2) && isIngredientAvailable(k));
-        const spicePool = Object.keys(masterSpices).filter(k => k !== "マンゴーチャツネ" && k !== "サフラン");
+        const spicePool = Object.keys(masterSpices).filter(k => k !== "マンゴーチャツネ" && k !== "サフラン" && isIngredientAvailable(k));
         for(let i=0;i<(data.normalCount||0);i++){ const it=normalPool[Math.floor(Math.random()*normalPool.length)]; inventory[it]=(inventory[it]||0)+1; discoveredItems[it]=true; gotItems.push(it); }
         for(let i=0;i<(data.midHighCount||0);i++){ if(midHighPool.length===0) break; const it=midHighPool[Math.floor(Math.random()*midHighPool.length)]; inventory[it]=(inventory[it]||0)+1; discoveredItems[it]=true; gotItems.push(it); }
         for(let i=0;i<(data.spiceCount||0);i++){ const it=spicePool[Math.floor(Math.random()*spicePool.length)]; inventory[it]=(inventory[it]||0)+1; discoveredItems[it]=true; gotItems.push(it); }
@@ -4006,7 +4008,7 @@ function buyGacha(type) {
         const pool = Object.keys(masterIngredients).filter(k => masterIngredients[k].shop === 0 && isIngredientAvailable(k));
         winner = pool[Math.floor(Math.random() * pool.length)]; emoji = masterIngredients[winner].emoji;
     } else if (type === 'spice') {
-        const pool = Object.keys(masterSpices).filter(k => k !== "マンゴーチャツネ" && k !== "サフラン");
+        const pool = Object.keys(masterSpices).filter(k => k !== "マンゴーチャツネ" && k !== "サフラン" && isIngredientAvailable(k));
         winner = pool[Math.floor(Math.random() * pool.length)]; emoji = masterSpices[winner].emoji;
     } else if (type === 'mid') {
         // 中級食材 + 中級スパイス(サフラン) を合わせたプール
@@ -4099,7 +4101,7 @@ function buyGachaPack() {
         let item = normalPool[Math.floor(Math.random() * normalPool.length)]; rewards.push({ name: item, emoji: masterIngredients[item].emoji });
         inventory[item] = (inventory[item] || 0) + 1; discoveredItems[item] = true;
     }
-    const spicePool = Object.keys(masterSpices);
+    const spicePool = Object.keys(masterSpices).filter(k => k !== "マンゴーチャツネ" && k !== "サフラン" && isIngredientAvailable(k));
     for(let i=0; i<2; i++) {
         let item = spicePool[Math.floor(Math.random() * spicePool.length)]; rewards.push({ name: item, emoji: masterSpices[item].emoji });
         inventory[item] = (inventory[item] || 0) + 1; discoveredItems[item] = true;
@@ -4299,7 +4301,7 @@ function processQRData(text, r, g, b) {
         if (scanHistory[text] === today) { document.getElementById("getBoxTitle").innerText = "⚠️ 使用済み"; document.getElementById("shopQrArea").style.display = "none"; document.getElementById("getItemEmoji").style.display = "block"; document.getElementById("getItemName").style.display = "block"; document.getElementById("getItemEmoji").innerText = "🙅"; document.getElementById("getItemName").innerText = "本日はスキャン済みです！"; document.getElementById("bonusBadge").style.display = "none"; document.getElementById("getBox").style.display = "block"; return; }
         scanHistory[text] = today;
         const normalItems = Object.keys(masterIngredients).filter(k => masterIngredients[k].shop === 0 && isIngredientAvailable(k));
-        const allItems = [...normalItems, ...Object.keys(masterSpices).filter(k => k !== "マンゴーチャツネ" && k !== "サフラン")];
+        const allItems = [...normalItems, ...Object.keys(masterSpices).filter(k => k !== "マンゴーチャツネ" && k !== "サフラン" && isIngredientAvailable(k))];
         let sum = 0; for (let i = 0; i < text.length; i++) sum += text.charCodeAt(i);
         let itemName = allItems[sum % allItems.length];
         if (itemName === "ピーマン" || text.includes("pepper") || text.includes("paprika")) {
@@ -5161,7 +5163,7 @@ function generateRandomCurryFromPool(ingredientPool, includeSpice) {
     const materials = shuffled.slice(0, 3);
     let spice = "";
     if(includeSpice && Math.random() < 0.5) {
-        const spicePool = Object.keys(masterSpices).filter(k => k !== "マンゴーチャツネ" && k !== "サフラン");
+        const spicePool = Object.keys(masterSpices).filter(k => k !== "マンゴーチャツネ" && k !== "サフラン" && isIngredientAvailable(k));
         spice = spicePool[Math.floor(Math.random() * spicePool.length)];
     }
     return buildCurryFromMaterials(materials, spice);
@@ -5492,7 +5494,7 @@ function showDailyAccessDetail(day) {
 // 食材くじ・QRスキャンと同じ「ノーマル」基準を使うことで、食材の等級を変更しても自動的に追従する
 function getAvailableBingoItemPool() {
     const normalIngredients = getNormalIngredientPool();
-    const normalSpices = Object.keys(masterSpices).filter(k => k !== "マンゴーチャツネ" && k !== "サフラン");
+    const normalSpices = Object.keys(masterSpices).filter(k => k !== "マンゴーチャツネ" && k !== "サフラン" && isIngredientAvailable(k));
     return [...normalIngredients, ...normalSpices];
 }
 // 4x4=16マスのライン定義（横4・縦4・斜め2＝10ライン）
@@ -8322,7 +8324,7 @@ function eventBattleFinish(pHP, oHP, myC, wasBlownAway){
     res.innerText=verdictText; res.style.color=verdictColor;
 
     const normalPool=Object.keys(masterIngredients).filter(k=>masterIngredients[k].shop===0 && isIngredientAvailable(k));
-    const spicePool=Object.keys(masterSpices).filter(k=>k!=="マンゴーチャツネ"&&k!=="サフラン");
+    const spicePool=Object.keys(masterSpices).filter(k=>k!=="マンゴーチャツネ"&&k!=="サフラン"&&isIngredientAvailable(k));
     let gotItems=[];
     for(let i=0;i<3;i++){ const it=normalPool[Math.floor(Math.random()*normalPool.length)]; inventory[it]=(inventory[it]||0)+1; discoveredItems[it]=true; gotItems.push(it); }
     const spIt=spicePool[Math.floor(Math.random()*spicePool.length)]; inventory[spIt]=(inventory[spIt]||0)+1; discoveredItems[spIt]=true; gotItems.push(spIt);
