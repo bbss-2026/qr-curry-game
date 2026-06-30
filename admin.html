@@ -848,13 +848,21 @@ function resolveAnnounceItemRewards(a) {
     for(let i = 0; i < (a.normalCount || 0); i++) { rewardItems.push(normalPool[Math.floor(Math.random() * normalPool.length)]); }
     for(let i = 0; i < (a.midHighCount || 0); i++) { if(midHighPool.length === 0) break; rewardItems.push(midHighPool[Math.floor(Math.random() * midHighPool.length)]); }
     for(let i = 0; i < (a.spiceCount || 0); i++) { rewardItems.push(spicePool[Math.floor(Math.random() * spicePool.length)]); }
-    return {
-        announceId: a.announceId,
-        subject: a.subject, body: a.body, image: a.image, imageBottom: a.imageBottom,
-        imageBottomNote: a.imageBottomNote, shopQrAction: a.shopQrAction, expireMinutesAfterRead: a.expireMinutesAfterRead,
-        rewardGold: a.gold || 0, rewardPack: a.ticket || 0, rewardSpicyCoin: a.spicyCoin || 0,
-        rewardItems: rewardItems, createdAt: a.createdAt
+    const result = {
+        subject: a.subject || '',
+        body: a.body || '',
+        image: a.image || null,
+        imageBottom: a.imageBottom || null,
+        imageBottomNote: a.imageBottomNote || null,
+        shopQrAction: a.shopQrAction || null,
+        expireMinutesAfterRead: a.expireMinutesAfterRead || null,
+        rewardGold: a.gold || 0,
+        rewardPack: a.ticket || 0,
+        rewardSpicyCoin: a.spicyCoin || 0,
+        rewardItems: rewardItems,
+        createdAt: a.createdAt || Date.now()
     };
+    return result;
 }
 // 送信完了後、誤って同じ内容を再送信しないようフォーム全体をクリアする
 function clearAnnounceForm() {
