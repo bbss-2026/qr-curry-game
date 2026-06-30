@@ -2006,7 +2006,7 @@ function gameStart() {
 // ===== オンボーディング：① 名前入力 =====
 function showOnboardingNameModal() {
     const msg = '<div style="font-size:14px;color:#420000;margin-bottom:14px;line-height:1.6;">まずは料理人の名前を決めてください！</div>'
-        + '<input type="text" id="onboardingNameInput" placeholder="料理人の名前を入力" maxlength="12" style="width:100%;padding:10px;border:1px solid #b88742;border-radius:4px;font-size:14px;box-sizing:border-box;background:#f5e9c8;color:#420000;margin-bottom:14px;">'
+        + '<input type="text" id="onboardingNameInput" placeholder="料理人の名前を入力" maxlength="12" style="width:100%;padding:10px;border:1px solid #b88742;border-radius:4px;font-size:16px;box-sizing:border-box;background:#f5e9c8;color:#420000;margin-bottom:14px;">'
         + '<button onclick="confirmOnboardingName()" style="width:100%;padding:12px;background:#b88742;color:#efdeb1;border:none;border-radius:4px;font-weight:bold;font-size:14px;cursor:pointer;">次へ</button>';
     document.getElementById("modalTitle").innerHTML = "👤 名前を決めよう";
     document.getElementById("modalMessage").innerHTML = msg;
@@ -3644,7 +3644,7 @@ function showPasswordSetup() {
     const msg = '<div style="font-size:13px;color:#420000;margin-bottom:10px;line-height:1.7;">'
         + '<span style="color:#e74c3c;font-weight:bold;">"パスワードは運営が見ることができます。他のパスワードとの使い回しや個人情報などの入力はおやめください。"</span>'
         + '</div>'
-        + '<input type="text" id="pwSetupInput" placeholder="パスワードを入力" maxlength="20" style="width:100%;padding:10px;border:1px solid #b88742;border-radius:4px;font-size:14px;box-sizing:border-box;background:#f5e9c8;color:#420000;">';
+        + '<input type="text" id="pwSetupInput" placeholder="パスワードを入力" maxlength="20" style="width:100%;padding:10px;border:1px solid #b88742;border-radius:4px;font-size:16px;box-sizing:border-box;background:#f5e9c8;color:#420000;">';
     showCustomConfirm('🔒 パスワード設定', msg, function() {
         const inp = document.getElementById('pwSetupInput');
         const pw = inp ? inp.value.trim() : '';
@@ -3698,8 +3698,8 @@ function closeModalThen(fn) {
 // ===== IDとパスワードで復元 =====
 function showIdPasswordRestore() {
     const msg = '<div style="font-size:12px;color:#420000;margin-bottom:10px;">プレイヤーIDとパスワードを入力してください。<br>最新のデータで復元します。</div>'
-        + '<input type="text" id="restoreIdInput" placeholder="プレイヤーID（例: BC-XXXXXXXX）" style="width:100%;margin-bottom:8px;padding:10px;border:1px solid #b88742;border-radius:4px;font-size:13px;box-sizing:border-box;background:#f5e9c8;color:#420000;">'
-        + '<input type="text" id="restorePwInput" placeholder="パスワード" style="width:100%;padding:10px;border:1px solid #b88742;border-radius:4px;font-size:13px;box-sizing:border-box;background:#f5e9c8;color:#420000;">';
+        + '<input type="text" id="restoreIdInput" placeholder="プレイヤーID（例: BC-XXXXXXXX）" style="width:100%;margin-bottom:8px;padding:10px;border:1px solid #b88742;border-radius:4px;font-size:16px;box-sizing:border-box;background:#f5e9c8;color:#420000;">'
+        + '<input type="text" id="restorePwInput" placeholder="パスワード" style="width:100%;padding:10px;border:1px solid #b88742;border-radius:4px;font-size:16px;box-sizing:border-box;background:#f5e9c8;color:#420000;">';
     showCustomConfirm('🔑 IDとパスワードで復元', msg, function() {
         const idInput = document.getElementById('restoreIdInput');
         const pwInput = document.getElementById('restorePwInput');
