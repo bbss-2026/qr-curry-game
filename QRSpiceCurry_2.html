@@ -248,6 +248,7 @@
         .btn-battle { background: #420000; color: #efdeb1; width: 100%; }
         .btn-bot { background: #b88742; color: #efdeb1; width: 100%; }
         .btn-bot-img { flex: 1; background: transparent; border: none; padding: 0; cursor: pointer; line-height: 0; }
+        .btn-bot-img.battle-mode-locked img { filter: grayscale(100%) brightness(0.6); }
         .btn-bot-img img { width: 100%; height: auto; display: block; border-radius: 6px; box-shadow: 0 2px 6px rgba(0,0,0,0.25); }
         .btn-bot-img:disabled img { opacity: 0.5; filter: grayscale(60%); }
         .btn:active { opacity: 0.8; transform: translateY(1px); }
@@ -893,6 +894,15 @@
             </div>
         </div>
     </div>
+
+    <!-- PC戦（初級・中級）進行状況画面 -->
+    <div id="botProgressFullscreen" class="tutorial-fullscreen">
+        <div class="tutorial-header">
+            <button class="tutorial-close" onclick="closeBotProgressModal()">✕</button>
+            <div class="tutorial-page-indicator" id="botProgressTitle">PCと対戦</div>
+        </div>
+        <div class="tag-match-body" id="botProgressBody"></div>
+    </div>
     <!-- QRスキャンタブ -->
     <div id="pageScan" class="page" style="text-align:center;">
         <button id="btnQrBingo" class="btn btn-start" onclick="openBingoModal()" style="display:flex;align-items:center;justify-content:center;gap:8px;width:80%;color:#efdeb1;font-size:16px;background:#d35400;margin-bottom:10px;">QR BINGO</button>
@@ -1059,14 +1069,14 @@
             <button id="eventReplayBtn" style="display:none;width:100%;margin-bottom:8px;padding:8px;background:transparent;color:#b88742;border:1px solid #b88742;border-radius:4px;font-size:12px;font-weight:bold;cursor:pointer;" onclick="replayEventMovie()">🎬 オープニングムービーをもう一度見る</button>
             <button id="eventInfoBtn" style="display:none;width:100%;margin-bottom:12px;padding:8px;background:transparent;color:#b88742;border:1px solid #b88742;border-radius:4px;font-size:12px;font-weight:bold;cursor:pointer;" onclick="showEventInfo()">📖 特盛りモンスターについて</button>
             <div style="padding: 16px 0 0 0; display:flex; gap:6px;">
-                <button id="btnBotNormal" class="btn-bot-img" onclick="startBotBattle()"><img src="pssen-01.png" alt="PCと対戦する（初級）"></button>
-                <button id="btnBotHard" class="btn-bot-img" onclick="startHardBotBattle()"><img src="pssen-02.png" alt="PCと対戦する（中級）"></button>
+                <button id="btnBotNormal" class="btn-bot-img" onclick="openBotProgressModal('easy')"><img src="pssen-01.png" alt="PCと対戦する（初級）"></button>
+                <button id="btnBotHard" class="btn-bot-img" onclick="openBotProgressModal('hard')"><img src="pssen-02.png" alt="PCと対戦する（中級）"></button>
             </div>
             <div style="padding: 8px 0 0 0; display:flex; justify-content:center;">
                 <button id="btnTagBattle" class="btn-bot-img" style="flex:0 0 48%;" onclick="startTagBattle()"><img src="pssen-03.png" alt="タッグ戦"></button>
             </div>
             <div style="padding: 6px 0 0 0; display:flex; justify-content:center;">
-                <button style="flex:0 0 48%;padding:8px;background:transparent;color:#b88742;border:1px solid #b88742;border-radius:4px;font-size:12px;font-weight:bold;cursor:pointer;" onclick="showTagBattleInfo()">タッグ戦とは？</button>
+                <button id="btnTagBattleInfo" style="flex:0 0 48%;padding:8px;background:transparent;color:#b88742;border:1px solid #b88742;border-radius:4px;font-size:12px;font-weight:bold;cursor:pointer;" onclick="showTagBattleInfo()">タッグ戦とは？</button>
             </div>
             <div style="border-top: 1px solid #b88742; margin: 16px 0;"></div>
             <div style="margin-bottom: 12px;">
@@ -1805,8 +1815,8 @@ const botOpponents = [
 const hardBotOpponents = [
     { name: "イカ星人グニョグニョ", curryName: "イカスミ幻惑カレー", emoji: "🌀🦑🌀", image: "botimage/bot06.png", hp: 250, atk: 95, def: 50, spd: 60, expBonus: 25, specialEffect: "illusion", foodCategory: "seafood" },
     { name: "種まき婆ちゃん", curryName: "懐かしの豆蟹カレー", emoji: "🌱🫘🦀", image: "botimage/bot07.png", hp: 250, atk: 80, def: 140, spd: 15, expBonus: 25, specialEffect: "seed", foodCategory: "seafood" },
-    { name: "ドラゴン料理長", curryName: "炎獄ドラゴンカレー", emoji: "🐲🐉🔥", image: "botimage/bot08.png", hp: 400, atk: 100, def: 60, spd: 20, expBonus: 30, specialEffect: "breath", foodCategory: "meat" },
-    { name: "毒舌料理人ミスズ", curryName: "激辛毒毒カレー", emoji: "☠️🌶️☠️", image: "botimage/bot09.png", hp: 360, atk: 90, def: 65, spd: 35, expBonus: 30, specialEffect: "poison", foodCategory: null }
+    { name: "毒舌料理人ミスズ", curryName: "激辛毒毒カレー", emoji: "☠️🌶️☠️", image: "botimage/bot09.png", hp: 360, atk: 90, def: 65, spd: 35, expBonus: 30, specialEffect: "poison", foodCategory: null },
+    { name: "ドラゴン料理長", curryName: "炎獄ドラゴンカレー", emoji: "🐲🐉🔥", image: "botimage/bot08.png", hp: 400, atk: 100, def: 60, spd: 20, expBonus: 30, specialEffect: "breath", foodCategory: "meat" }
 ];
 // タッグ戦専用の新規Bot3体
 const tagBattleExtraBots = [
@@ -2547,7 +2557,11 @@ function buildAnnouncementPostOpts(a, announceId) {
         imageBottom: a.imageBottom || null,
         imageBottomNote: a.imageBottomNote || null,
         shopQrAction: a.shopQrAction || null, // 'shop1' 等、タップ時に店舗QRスキャン相当の処理を呼ぶ識別子
-        expireMinutesAfterRead: a.expireMinutesAfterRead || null
+        expireMinutesAfterRead: a.expireMinutesAfterRead || null,
+        rewardPack: a.rewardPack || 0,
+        rewardGold: a.rewardGold || 0,
+        rewardSpicyCoin: a.rewardSpicyCoin || 0,
+        rewardItems: a.rewardItems || []
     };
 }
 
@@ -2765,6 +2779,18 @@ function loadGame() {
     document.getElementById("globalG").innerText = playerG;
     document.getElementById("globalTicket").innerText = packTicket;
     document.getElementById("globalSpicyCoin").innerText = spicyCoin;
+    migrateBattleProgressionReset();
+    updateBattleModeLocks();
+}
+// PC戦の段階解放システム導入時、既存プレイヤー全員を公平に「初級から順番」に統一するための1回限りのリセット処理
+// （討伐順序が記録されていない既存データでは正しい進行度を復元できないため、安全に作り直す）
+function migrateBattleProgressionReset() {
+    if(localStorage.getItem('qr_battle_progression_migrated') === '1') return;
+    const s = getStats();
+    s.defeatedBots = [];
+    s.defeatedHardBots = [];
+    saveStats(s);
+    localStorage.setItem('qr_battle_progression_migrated', '1');
 }
 // ===== ポスト（受信フォルダ）機能 =====
 function savePostMessages() {
@@ -2784,6 +2810,7 @@ function addPostMessage(opts) {
         shopQrAction: opts.shopQrAction || null,
         rewardPack: opts.rewardPack || 0,
         rewardGold: opts.rewardGold || 0,
+        rewardSpicyCoin: opts.rewardSpicyCoin || 0,
         rewardItems: opts.rewardItems || [],
         read: false,
         rewardClaimed: false,
@@ -2948,13 +2975,14 @@ function runPostShopQrAction(actionKey) {
 function renderPostDetailRewardArea(m, idx) {
     const rewardArea = document.getElementById('postDetailRewardArea');
     if(!rewardArea) return;
-    const hasReward = m.rewardPack || m.rewardGold || (m.rewardItems && m.rewardItems.length > 0);
+    const hasReward = m.rewardPack || m.rewardGold || m.rewardSpicyCoin || (m.rewardItems && m.rewardItems.length > 0);
     if(!hasReward) { rewardArea.innerHTML = ''; return; }
 
     // 報酬内容のテキストを組み立て
     let parts = [];
     if(m.rewardPack) parts.push(`パック券${m.rewardPack}枚`);
     if(m.rewardGold) parts.push(`💰${m.rewardGold}G`);
+    if(m.rewardSpicyCoin) parts.push(`🌶️${m.rewardSpicyCoin}枚`);
     if(m.rewardItems && m.rewardItems.length > 0) {
         const itemsHtml = m.rewardItems.map(it => {
             const d = masterIngredients[it];
@@ -2998,6 +3026,10 @@ function claimPostReward(idx) {
         playerG += m.rewardGold;
         const goldEl = document.getElementById('globalG'); if(goldEl) goldEl.innerText = playerG;
         receivedParts.push(`💰${m.rewardGold}G`);
+    }
+    if(m.rewardSpicyCoin) {
+        spicyCoin = (spicyCoin || 0) + m.rewardSpicyCoin;
+        receivedParts.push(`🌶️${m.rewardSpicyCoin}枚`);
     }
     if(m.rewardItems && m.rewardItems.length > 0) {
         m.rewardItems.forEach(it => {
@@ -3127,6 +3159,45 @@ function getStats() {
     };
 }
 function saveStats(s) { localStorage.setItem('qr_stats', JSON.stringify(s)); }
+
+// ===== PC戦（初級・中級）の進行度管理 =====
+// botOpponents/hardBotOpponentsの並び順＝解放順。defeatedBots/defeatedHardBotsの「個数」をそのまま進行度として扱う
+// （ただし討伐順がズレるケース、例えば過去のランダム仕様でレオンを先に倒していた等を考慮し、
+//  「配列の先頭から連続して討伐済みかどうか」で進行度を判定する。歯抜けがあれば、その手前で止める）
+function getEasyProgress() {
+    const s = getStats();
+    const defeated = s.defeatedBots || [];
+    let progress = 0;
+    for(let i = 0; i < botOpponents.length; i++) {
+        if(defeated.includes(botOpponents[i].name)) progress++;
+        else break;
+    }
+    return progress; // 0〜4。4で初級クリア（通常仕様=5種抽選に移行）
+}
+function getHardProgress() {
+    if(!isHardModeUnlocked()) return 0;
+    const s = getStats();
+    const defeated = s.defeatedHardBots || [];
+    let progress = 0;
+    for(let i = 0; i < hardBotOpponents.length; i++) {
+        if(defeated.includes(hardBotOpponents[i].name)) progress++;
+        else break;
+    }
+    return progress; // 0〜4。4で中級クリア（通常仕様=4種ランダム抽選に移行）
+}
+function isEasyCleared() { return getEasyProgress() >= botOpponents.length; }
+function isHardCleared() { return getHardProgress() >= hardBotOpponents.length; }
+// 中級モード自体が解放されているか（初級クリアが条件）
+function isHardModeUnlocked() { return isEasyCleared(); }
+// タッグ戦が解放されているか（中級クリアが条件）
+function isTagModeUnlocked() { return isHardCleared(); }
+// イベント戦（特盛りモンスター）が解放されているか（初級クリアが条件。ただし既に参加済みのプレイヤーは救済して解放済み扱いにする）
+function isEventModeUnlocked() {
+    const s = getStats();
+    if(s.eventBattleJoined) return true;
+    return isEasyCleared();
+}
+
 
 function getAchievements() {
     const a = localStorage.getItem('qr_achievements');
@@ -3464,6 +3535,9 @@ function onBattleWin(type, botName) {
     if(type === 'bot') incrementGlobalStat('battle/bot');
     else if(type === 'hard') incrementGlobalStat('battle/hard');
     else if(type === 'room') incrementGlobalStat('battle/room');
+    // 解放通知の判定用：更新前の状態を記録しておく
+    const wasEasyCleared = isEasyCleared();
+    const wasHardCleared = isHardCleared();
     updateStats(s => {
         s.totalWins = (s.totalWins||0) + 1;
         if(type === 'bot') {
@@ -3483,6 +3557,16 @@ function onBattleWin(type, botName) {
             progressDailyQuest('room_win');
         }
     });
+    // 新たに初級・中級がクリアされた瞬間だけ、解放通知を表示する
+    if(!wasEasyCleared && isEasyCleared()) {
+        updateBattleModeLocks();
+        checkEventBannerVisibility();
+        setTimeout(() => showCustomAlert('🎉 新しいモードが解放されました！', 'PCと対戦（中級）が解放されました！'), 1200);
+    }
+    if(!wasHardCleared && isHardCleared()) {
+        updateBattleModeLocks();
+        setTimeout(() => showCustomAlert('🎉 新しいモードが解放されました！', 'タッグ戦が解放されました！'), 1200);
+    }
 }
 
 // ============================================================
@@ -3726,6 +3810,27 @@ function toggleAccordion(header) {
     document.querySelectorAll('.accordion-body').forEach(function(b) { b.classList.remove('open'); });
     document.querySelectorAll('.accordion-arrow').forEach(function(a) { a.classList.remove('open'); });
     if(!isOpen) { body.classList.add('open'); arrow.classList.add('open'); }
+}
+// PC戦（中級）・タッグ戦のロック状態（解放前はグレーアウト＋タップで案内のみ）を更新する
+function updateBattleModeLocks() {
+    const hardUnlocked = isHardModeUnlocked();
+    const tagUnlocked = isTagModeUnlocked();
+
+    const btnHard = document.getElementById('btnBotHard');
+    if(btnHard) {
+        btnHard.classList.toggle('battle-mode-locked', !hardUnlocked);
+        btnHard.onclick = hardUnlocked ? function(){ openBotProgressModal('hard'); } : function(){ showLockedModeAlert(); };
+    }
+    const btnTag = document.getElementById('btnTagBattle');
+    if(btnTag) {
+        btnTag.classList.toggle('battle-mode-locked', !tagUnlocked);
+        btnTag.onclick = tagUnlocked ? function(){ startTagBattle(); } : function(){ showLockedModeAlert(); };
+    }
+    const tagInfoBtn = document.getElementById('btnTagBattleInfo');
+    if(tagInfoBtn) tagInfoBtn.style.display = tagUnlocked ? 'block' : 'none';
+}
+function showLockedModeAlert() {
+    showCustomAlert('🔒 まだ解放されていません', 'このモードはまだ解放されていません。');
 }
 function updateShopButtons() {
     const bNormal = document.getElementById("btnGachaNormal"); const bSpice = document.getElementById("btnGachaSpice");
@@ -5308,6 +5413,10 @@ function startBotBattle() {
         oppCurryData = { name: rTrimHtml(bot.curryName), visual: bVisual, emoji: bCurryEmoji, hp: bot.hp, atk: bot.atk, def: bot.def, spd: bot.spd, isBotImage: true, foodCategory: bot.foodCategory };
         activeBotData = bot;
     }
+    launchVsCutIn(bName, bVisual, oppCurryData);
+}
+// VSカットイン演出の開始（Bot対戦相手が確定した後、共通で呼ばれる）
+function launchVsCutIn(bName, bVisual, oppCurryData) {
     cachedOpponentName = bName;
     cachedOpponentCurry = oppCurryData;
     const vs = document.getElementById("vsCutIn"); vs.style.display = "flex"; playVsSound();
@@ -5876,7 +5985,7 @@ function updateLunchtimeBanner() {
 function checkEventBannerVisibility() {
     const banner = document.getElementById('eventBannerImg');
     if(!banner) return;
-    const visible = (eventEnabled || isDebugMode);
+    const visible = (eventEnabled || isDebugMode) && isEventModeUnlocked();
     banner.style.display = visible ? 'block' : 'none';
     const replayBtn = document.getElementById('eventReplayBtn');
     if(replayBtn) {
@@ -5999,6 +6108,7 @@ function replayEventMovie() {
 function startEventBattle() {
     if (!hasUsableCurryForBattle()) { alertNoUsableCurry(); return; }
     if (!eventEnabled && !isDebugMode) { showCustomAlert("⚠️ イベント終了", "このイベントは現在開催されていません。"); return; }
+    if (!isEventModeUnlocked()) { showLockedModeAlert(); return; }
     if (audioCtx.state === 'suspended') audioCtx.resume();
     const hasWatched = localStorage.getItem('qr_event_movie_watched') === '1';
     if(!hasWatched) {
@@ -6064,6 +6174,7 @@ function clearTagDeliveryPool() {
 
 function startTagBattle() {
     if (!hasUsableCurryForBattle()) { alertNoUsableCurry(); return; }
+    if (!isTagModeUnlocked()) { showLockedModeAlert(); return; }
     if (audioCtx.state === 'suspended') audioCtx.resume();
     playVsSound();
 
@@ -6102,6 +6213,109 @@ function startTagBattle() {
             renderTagDeliveryList();
         });
     }
+}
+
+// ===== PC戦（初級・中級）進行状況モーダル =====
+function openBotProgressModal(difficulty) {
+    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.getElementById('botProgressFullscreen').classList.add('active');
+    hideQuestGuideChar();
+    renderBotProgressModal(difficulty);
+}
+function closeBotProgressModal() {
+    document.getElementById('botProgressFullscreen').classList.remove('active');
+    const battleTab = document.querySelector('[onclick*="battle"]');
+    const battlePage = document.getElementById('pageBattle');
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    if(battleTab) battleTab.classList.add('active');
+    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+    if(battlePage) battlePage.classList.add('active');
+}
+// 進行状況に応じた画面内容を組み立てる
+function renderBotProgressModal(difficulty) {
+    const isHard = difficulty === 'hard';
+    const list = isHard ? hardBotOpponents : botOpponents;
+    const progress = isHard ? getHardProgress() : getEasyProgress();
+    const cleared = isHard ? isHardCleared() : isEasyCleared();
+    const s = getStats();
+    const defeatedList = isHard ? (s.defeatedHardBots || []) : (s.defeatedBots || []);
+
+    document.getElementById('botProgressTitle').innerText = isHard ? 'PCと対戦（中級）' : 'PCと対戦（初級）';
+    const body = document.getElementById('botProgressBody');
+
+    if(!hasUsableCurryForBattle()) {
+        body.innerHTML = '<div style="text-align:center; padding:30px 10px; color:#888; font-size:13px;">使用できるカレーがありません。<br>まずは冷蔵庫で食材を集めて調理しましょう。</div>';
+        return;
+    }
+
+    let html = '';
+    if(cleared) {
+        // クリア済み：通常仕様（ランダム抽選）の説明
+        html += `<div style="text-align:center; padding:10px 10px 20px 10px;">`;
+        html += `<div style="font-size:14px; color:#420000; font-weight:bold; margin-bottom:10px;">🏆 ${isHard ? '中級' : '初級'}クリア済み！</div>`;
+        html += `<div style="font-size:12px; color:#888; margin-bottom:16px;">${list.map(b=>b.name).join('・')}${isHard ? '' : '・大富豪マハラジャ（低確率）'}の中からランダムで対戦します。</div>`;
+        html += `<button class="tutorial-nav-btn" style="width:100%; background:#e67e22;" onclick="closeBotProgressModal(); ${isHard ? 'startHardBotBattle()' : 'startBotBattle()'};">⚔️ 敵と対戦する</button>`;
+        html += `</div>`;
+    } else {
+        const currentBot = list[progress];
+        html += `<div style="text-align:center; padding:10px;">`;
+        html += `<div style="font-size:13px; color:#420000; font-weight:bold; margin-bottom:10px;">挑戦中の相手</div>`;
+        html += `<img src="${currentBot.image}" style="width:120px; height:120px; border-radius:50%; border:3px solid #b88742; object-fit:cover; background:#1a1a1a;">`;
+        html += `<div style="font-size:15px; color:#420000; font-weight:bold; margin:10px 0 4px 0;">${currentBot.name}</div>`;
+        html += `<button class="tutorial-nav-btn" style="width:100%; margin-top:10px; background:#e67e22;" onclick="closeBotProgressModal(); launchSpecificBotBattle('${isHard ? 'hard' : 'easy'}', ${progress});">⚔️ 敵と対戦する</button>`;
+        html += `</div>`;
+    }
+
+    if(defeatedList.length > 0) {
+        html += `<div style="border-top:1px solid #e0d0b0; margin-top:16px; padding-top:16px;">`;
+        html += `<div style="font-size:13px; color:#420000; font-weight:bold; margin-bottom:10px; text-align:center;">討伐済みの敵</div>`;
+        html += `<div style="display:flex; flex-wrap:wrap; gap:10px; justify-content:center; margin-bottom:14px;">`;
+        defeatedList.forEach(name => {
+            const b = list.find(x => x.name === name);
+            if(!b) return;
+            html += `<div style="text-align:center; width:64px;"><img src="${b.image}" style="width:56px; height:56px; border-radius:50%; border:2px solid #b88742; object-fit:cover; background:#1a1a1a;"><div style="font-size:9px; color:#420000; margin-top:2px; line-height:1.2;">${b.name}</div></div>`;
+        });
+        html += `</div>`;
+        html += `<button class="tutorial-nav-btn" style="width:100%; background:#3498db;" onclick="closeBotProgressModal(); launchDefeatedBotBattle('${isHard ? 'hard' : 'easy'}');">討伐済みの敵と対戦</button>`;
+        html += `</div>`;
+    }
+
+    body.innerHTML = html;
+}
+// 進行状況に応じて、特定のBot（list[index]）と対戦を開始する
+function launchSpecificBotBattle(difficulty, index) {
+    if (!hasUsableCurryForBattle()) { alertNoUsableCurry(); return; }
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+    isBotMatch = true; currentRoomId = null;
+    const isHard = difficulty === 'hard';
+    const list = isHard ? hardBotOpponents : botOpponents;
+    const bot = list[index];
+    if(!bot) return;
+    const oppCurryData = {
+        name: isHard ? bot.curryName : rTrimHtml(bot.curryName), visual: bot.image, emoji: bot.emoji,
+        hp: bot.hp, atk: bot.atk, def: bot.def, spd: bot.spd,
+        isBotImage: true, isHardBot: isHard,
+        isIllusion: bot.specialEffect === 'illusion',
+        isSeed:     bot.specialEffect === 'seed',
+        isBreath:   bot.specialEffect === 'breath',
+        isPoison:   bot.specialEffect === 'poison',
+        foodCategory: bot.foodCategory
+    };
+    activeBotData = bot;
+    launchVsCutIn(bot.name, bot.image, oppCurryData);
+}
+// 討伐済みのBotリストからランダムに1体選んで対戦を開始する（「討伐済みの敵と対戦」ボタン用）
+function launchDefeatedBotBattle(difficulty) {
+    if (!hasUsableCurryForBattle()) { alertNoUsableCurry(); return; }
+    const isHard = difficulty === 'hard';
+    const list = isHard ? hardBotOpponents : botOpponents;
+    const s = getStats();
+    const defeatedNames = isHard ? (s.defeatedHardBots || []) : (s.defeatedBots || []);
+    const candidates = list.filter(b => defeatedNames.includes(b.name));
+    if(candidates.length === 0) return;
+    const idx = list.indexOf(candidates[Math.floor(Math.random() * candidates.length)]);
+    launchSpecificBotBattle(difficulty, idx);
 }
 
 function closeTagMatchModal() {
@@ -6773,6 +6987,7 @@ function tagExecuteAction(actor, myTeam, enemyTeam, callback) {
 
 function startHardBotBattle() {
     if (!hasUsableCurryForBattle()) { alertNoUsableCurry(); return; }
+    if (!isHardModeUnlocked()) { showLockedModeAlert(); return; }
     if (audioCtx.state === 'suspended') audioCtx.resume();
     isBotMatch = true; currentRoomId = null;
     const bot = hardBotOpponents[Math.floor(Math.random() * hardBotOpponents.length)];
@@ -6789,20 +7004,7 @@ function startHardBotBattle() {
         foodCategory: bot.foodCategory
     };
     activeBotData = bot;
-    cachedOpponentName = bName;
-    cachedOpponentCurry = oppCurryData;
-    const vs = document.getElementById("vsCutIn"); vs.style.display = "flex"; playVsSound();
-    const vsInteractiveBot = vs ? vs.querySelector('.vs-interactive-area') : null;
-    if(vsInteractiveBot) vsInteractiveBot.style.display = "block";
-    document.getElementById("vsPlayerName").innerText = playerName;
-    if (typeof repopulateVsCurrySelector === "function") repopulateVsCurrySelector();
-    document.getElementById("vsEnemyName").innerText = bName;
-    document.getElementById("vsEnemyVisual").innerHTML = `<img src="${bVisual}" alt="${bName}">`;
-    document.getElementById("vsEnemyCurry").innerText = oppCurryData.name;
-    document.getElementById("vsPlayerVisual").innerHTML = `<img src="${currentIconFile}" style="width:100px;height:100px;border-radius:50%;border:3px solid #e67e22;object-fit:cover;">`;
-    setTimeout(() => { document.getElementById("vsPlayerSide").style.transform = "translateX(0)"; }, 100);
-    setTimeout(() => { document.getElementById("vsEnemySide").style.transform = "translateX(0)"; }, 300);
-    setTimeout(() => { document.getElementById("vsBadge").style.opacity = "1"; document.getElementById("vsBadge").style.scale = "1"; }, 600);
+    launchVsCutIn(bName, bVisual, oppCurryData);
 }
 
 // タッグ戦：敵側（Bot）の行動
