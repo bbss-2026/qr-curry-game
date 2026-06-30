@@ -1903,7 +1903,7 @@ let recipeBook = {}; let myRoomRef = null; let currentRoomId = null;
 let postMessages = []; // ポスト（受信フォルダ）の手紙一覧。{id, subject, body, image, rewardPack, read, rewardClaimed, expireAt, expireMinutesAfterRead, createdAt}
 // デフォルトで入っている手紙（初回プレイ時のみ投入）
 const DEFAULT_POST_MESSAGES = [
-    { id: 'default_01', subject: '運営からのお知らせ', body: 'このポストには運営からのお知らせや、イベント情報や報酬などが送られてきます。未読の手紙があるときは手紙マークが点滅しているので、忘れずにチェックしてください。\nまずはパック件2枚をプレゼントしますので、冷蔵庫で「10個パックくじ」引いてみましょう！', rewardPack: 2, image: null, read: false }
+    { id: 'default_01', subject: '運営からのお知らせ', body: 'このポストには運営からのお知らせや、イベント情報や報酬などが送られてきます。未読の手紙があるときは手紙マークが点滅しているので、忘れずにチェックしてください。\nまずはパック件2枚をプレゼントしますので、下の「受け取る」ボタンで受け取ってから、冷蔵庫で「10個パックくじ」引いてみましょう！', rewardPack: 2, image: null, read: false }
 ];
 let cachedMyIconFile = "myimageicon/mayimage01.png";
 let cachedOppIconFile = "myimageicon/mayimage01.png";
@@ -2056,10 +2056,11 @@ function confirmSoundOff() {
 
 // ===== オンボーディング：③ チュートリアル確認 =====
 function showTutorialCheckModal() {
-    const msg = '<div style="font-size:14px;color:#420000;margin-bottom:16px;line-height:1.6;">遊び方のチュートリアルを見ますか？</div>'
+    const msg = '<img src="tutorial/zakkuritutorial.png" style="width:100%; max-width:100%; height:auto; display:block; margin:0 auto 16px auto; border-radius:8px;">'
+        + '<div style="font-size:14px;color:#420000;margin-bottom:16px;line-height:1.6;text-align:center;">もっと詳しいチュートリアルを見ますか？</div>'
         + '<div style="display:flex;gap:10px;">'
         + '<button onclick="confirmTutorialYes()" style="flex:1;padding:12px;background:#b88742;color:#efdeb1;border:none;border-radius:4px;font-weight:bold;font-size:14px;cursor:pointer;">見る！</button>'
-        + '<button onclick="confirmTutorialNo()" style="flex:1;padding:12px;background:#420000;color:#efdeb1;border:none;border-radius:4px;font-weight:bold;font-size:14px;cursor:pointer;">見ない</button>'
+        + '<button onclick="confirmTutorialNo()" style="flex:1;padding:12px;background:#420000;color:#efdeb1;border:none;border-radius:4px;font-weight:bold;font-size:14px;cursor:pointer;">後で見る</button>'
         + '</div>';
     document.getElementById("modalTitle").innerHTML = "📖 チュートリアル";
     document.getElementById("modalMessage").innerHTML = msg;
