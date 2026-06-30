@@ -123,6 +123,17 @@
         </select>
         <label style="font-size:12px;color:#555;display:block;margin-bottom:2px;">開封後に自動で消えるまでの時間（分・空欄なら消えない）</label>
         <input type="number" id="announceExpireMinutes" style="width:100%;padding:8px;border:1px solid #b88742;border-radius:4px;font-size:13px;margin-bottom:12px;box-sizing:border-box;" placeholder="例: 60（1時間）、1440（24時間）">
+        <div style="margin-top:6px; padding-top:10px; border-top:1px solid #e0d0b0;">
+            <label style="font-size:12px;color:#555;display:block;margin-bottom:6px;font-weight:bold;">🎁 添付アイテム（任意・開封後「受け取る」ボタンで受領）</label>
+            <div class="input-grid">
+                <div><label style="font-size:11px;">ノーマル素材(個)</label><input type="number" id="announceNormalCount" min="0" placeholder="0"></div>
+                <div><label style="font-size:11px;">中級/高級素材(個)</label><input type="number" id="announceMidHighCount" min="0" placeholder="0"></div>
+                <div><label style="font-size:11px;">ノーマルスパイス(個)</label><input type="number" id="announceSpiceCount" min="0" placeholder="0"></div>
+                <div><label style="font-size:11px;">ゴールド(G)</label><input type="number" id="announceGold" min="0" placeholder="0"></div>
+                <div><label style="font-size:11px;">パック券(枚)</label><input type="number" id="announceTicket" min="0" placeholder="0"></div>
+                <div><label style="font-size:11px;">スパイシーコイン(枚)</label><input type="number" id="announceSpicyCoin" min="0" placeholder="0"></div>
+            </div>
+        </div>
         <div style="display:flex; gap:8px; margin-bottom:8px;">
             <button class="save-btn" style="background:#9a6e30; flex:1;" onclick="actPreviewAnnounce()">👁️ プレビュー確認</button>
         </div>
@@ -793,6 +804,12 @@ function buildAnnounceDataFromForm() {
         imageBottomNote: document.getElementById('announceImageBottomNote').value.trim() || null,
         shopQrAction: document.getElementById('announceShopQrAction').value || null,
         expireMinutesAfterRead: expireVal ? parseInt(expireVal, 10) : null,
+        normalCount: parseInt(document.getElementById('announceNormalCount').value, 10) || 0,
+        midHighCount: parseInt(document.getElementById('announceMidHighCount').value, 10) || 0,
+        spiceCount: parseInt(document.getElementById('announceSpiceCount').value, 10) || 0,
+        gold: parseInt(document.getElementById('announceGold').value, 10) || 0,
+        ticket: parseInt(document.getElementById('announceTicket').value, 10) || 0,
+        spicyCoin: parseInt(document.getElementById('announceSpicyCoin').value, 10) || 0,
         createdAt: Date.now()
     };
 }
@@ -809,16 +826,64 @@ function actPreviewAnnounce() {
         if(a.imageBottomNote) html += '<div style="font-size:11px;color:#9a8060;margin-top:4px;">' + a.imageBottomNote + '</div>';
         html += '</div>';
     }
+    const itemParts = [];
+    if(a.normalCount) itemParts.push('ノーマル素材×' + a.normalCount);
+    if(a.midHighCount) itemParts.push('中級/高級素材×' + a.midHighCount);
+    if(a.spiceCount) itemParts.push('ノーマルスパイス×' + a.spiceCount);
+    if(a.gold) itemParts.push('💰' + a.gold + 'G');
+    if(a.ticket) itemParts.push('パック券×' + a.ticket);
+    if(a.spicyCoin) itemParts.push('🌶️' + a.spicyCoin + '枚');
+    if(itemParts.length > 0) {
+        html += '<div style="font-size:12px;color:#9a6e30;font-weight:bold;border-top:1px dashed #b88742;padding-top:8px;margin-top:4px;">🎁 添付: ' + itemParts.join('　') + '</div>';
+    }
     html += '</div>';
     area.innerHTML = html;
+}
+// 個数指定からアイテムをランダム抽選し、手紙データにrewardGold/rewardItems等として確定する
+function resolveAnnounceItemRewards(a) {
+    const normalPool = Object.keys(masterIngredients).filter(k => masterIngredients[k].shop === 0);
+    const midHighPool = Object.keys(masterIngredients).filter(k => masterIngredients[k].shop === 1 || masterIngredients[k].shop === 2);
+    const spicePool = Object.keys(masterSpices).filter(k => k !== 'マンゴーチャツネ' && k !== 'サフラン');
+    let rewardItems = [];
+    for(let i = 0; i < (a.normalCount || 0); i++) { rewardItems.push(normalPool[Math.floor(Math.random() * normalPool.length)]); }
+    for(let i = 0; i < (a.midHighCount || 0); i++) { if(midHighPool.length === 0) break; rewardItems.push(midHighPool[Math.floor(Math.random() * midHighPool.length)]); }
+    for(let i = 0; i < (a.spiceCount || 0); i++) { rewardItems.push(spicePool[Math.floor(Math.random() * spicePool.length)]); }
+    return {
+        announceId: a.announceId,
+        subject: a.subject, body: a.body, image: a.image, imageBottom: a.imageBottom,
+        imageBottomNote: a.imageBottomNote, shopQrAction: a.shopQrAction, expireMinutesAfterRead: a.expireMinutesAfterRead,
+        rewardGold: a.gold || 0, rewardPack: a.ticket || 0, rewardSpicyCoin: a.spicyCoin || 0,
+        rewardItems: rewardItems, createdAt: a.createdAt
+    };
+}
+// 送信完了後、誤って同じ内容を再送信しないようフォーム全体をクリアする
+function clearAnnounceForm() {
+    document.getElementById('announceTemplateSelect').value = '';
+    document.getElementById('announceSubject').value = '';
+    document.getElementById('announceBody').value = '';
+    document.getElementById('announceImage').value = '';
+    document.getElementById('announceImageBottom').value = '';
+    document.getElementById('announceImageBottomNote').value = '';
+    document.getElementById('announceShopQrAction').value = '';
+    document.getElementById('announceExpireMinutes').value = '';
+    document.getElementById('announceNormalCount').value = '';
+    document.getElementById('announceMidHighCount').value = '';
+    document.getElementById('announceSpiceCount').value = '';
+    document.getElementById('announceGold').value = '';
+    document.getElementById('announceTicket').value = '';
+    document.getElementById('announceSpicyCoin').value = '';
+    document.getElementById('announceTargetId').value = '';
+    document.getElementById('announcePreviewArea').innerHTML = '';
 }
 function actSendAnnounceToAll() {
     if(!database) return;
     const a = buildAnnounceDataFromForm();
     if(!a.subject) { showCustomAlert('⚠️ 件名が空です', '件名を入力してください。'); return; }
     showCustomConfirm('📢 全員に送信', '入力中の内容を、全プレイヤーにお知らせ手紙として送信します。<br>プレビューで内容を確認しましたか？<br><br>本当によろしいですか？', function(){
-        database.ref('globalAnnouncements').push(a).then(function(){
+        const finalData = resolveAnnounceItemRewards(a);
+        database.ref('globalAnnouncements').push(finalData).then(function(){
             showCustomAlert('✅ 送信完了', '全員宛に送信しました。');
+            clearAnnounceForm();
         }).catch(function(e){
             showCustomAlert('❌ エラー', '送信に失敗しました。' + e.message);
         });
@@ -831,8 +896,10 @@ function actSendAnnounceToOne() {
     const a = buildAnnounceDataFromForm();
     if(!a.subject) { showCustomAlert('⚠️ 件名が空です', '件名を入力してください。'); return; }
     showCustomConfirm('👤 個別送信', 'ID: ' + targetId + ' にお知らせ手紙を送信します。<br><br>本当によろしいですか？', function(){
-        database.ref('announceQueue/' + targetId).push(a).then(function(){
+        const finalData = resolveAnnounceItemRewards(a);
+        database.ref('announceQueue/' + targetId).push(finalData).then(function(){
             showCustomAlert('✅ 送信完了', 'ID: ' + targetId + ' に送信しました。');
+            clearAnnounceForm();
         }).catch(function(e){
             showCustomAlert('❌ エラー', '送信に失敗しました。' + e.message);
         });
