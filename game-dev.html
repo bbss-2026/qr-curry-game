@@ -2013,7 +2013,7 @@ window.onload = function() { setTimeout(enableGameStart, 5000); loadGame(); upda
 
 function enableGameStart() {
     const btn = document.getElementById('btnGameStart');
-    if(!btn || !btn.disabled) return; // すでに有効なら何もしない
+    if(!btn) return;
     btn.disabled = false;
     btn.innerHTML = 'GAME START';
 }
