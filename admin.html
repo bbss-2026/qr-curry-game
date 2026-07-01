@@ -466,9 +466,13 @@ function actPlayerProgress() {
             if(!sd) return; // savedataがないプレイヤーはスキップ（デバッグ含む）
             totalPlayers++;
 
-            const defeatedBots     = sd.defeatedBots     || [];
-            const defeatedHardBots = sd.defeatedHardBots || [];
-            const defeatedTagBots  = sd.defeatedTagExtraBots || [];
+            // defeatedBotsはsavedata.statsのJSON文字列の中に入っている
+            let stats = {};
+            try { stats = typeof sd.stats === 'string' ? JSON.parse(sd.stats) : (sd.stats || {}); } catch(e) {}
+
+            const defeatedBots     = stats.defeatedBots          || [];
+            const defeatedHardBots = stats.defeatedHardBots       || [];
+            const defeatedTagBots  = stats.defeatedTagExtraBots   || [];
 
             easyBots.forEach(function(n){ if(defeatedBots.indexOf(n)     >= 0) easyCount[n]++; });
             hardBots.forEach(function(n){ if(defeatedHardBots.indexOf(n) >= 0) hardCount[n]++; });
