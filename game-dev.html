@@ -544,7 +544,7 @@
         #eventBgWrap { display: none; }
         .battle-stage.event-mode .hp-container.enemy-hp {
             position: relative; width: 100%; box-sizing: border-box;
-            background: transparent !important; border-radius: 0; padding: 10px 12px 0;
+            background: rgba(0,0,0,0.7) !important; border-radius: 6px; padding: 10px 12px 8px;
             display: flex; flex-direction: column;
         }
         .battle-stage.event-mode #oppOwnerText {
@@ -569,6 +569,13 @@
         @keyframes iconPop { 0%{transform:scale(0) rotate(-10deg);opacity:0;} 70%{transform:scale(1.15) rotate(3deg);} 100%{transform:scale(1) rotate(0deg);opacity:1;} }
         @keyframes iconFadeIn { from{opacity:0;transform:translateY(10px);} to{opacity:1;transform:translateY(0);} }
         @keyframes iconShine { 0%,100%{box-shadow:0 0 40px #f1c40f,0 0 80px #f39c12;} 50%{box-shadow:0 0 60px #f1c40f,0 0 120px #f39c12,0 0 160px #fff;} }
+        /* スパイシーコイン獲得演出 */
+        #coinGetOverlay { position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.75); z-index:99999; display:none; justify-content:center; align-items:center; flex-direction:column; }
+        #coinGetOverlay .coin-get-img { width:200px; height:200px; border-radius:16px; border:6px solid #e67e22; box-shadow:0 0 40px #e67e22, 0 0 80px #d35400; animation:iconPop 0.6s cubic-bezier(0.175,0.885,0.32,1.275) forwards; object-fit:cover; }
+        #coinGetOverlay .coin-get-text { color:#e67e22; font-size:22px; font-weight:bold; margin-top:20px; text-align:center; text-shadow:0 0 10px #d35400; animation:iconFadeIn 0.5s 0.4s both; }
+        #coinGetOverlay .coin-get-amount { color:#efdeb1; font-size:18px; font-weight:bold; margin-top:6px; animation:iconFadeIn 0.5s 0.6s both; }
+        #coinGetOverlay .coin-get-btn { margin-top:28px; padding:12px 32px; background:#b88742; color:#efdeb1; border:none; border-radius:4px; font-size:15px; font-weight:bold; cursor:pointer; animation:iconFadeIn 0.5s 1s both; }
+        @keyframes coinShine { 0%,100%{box-shadow:0 0 40px #e67e22,0 0 80px #d35400;} 50%{box-shadow:0 0 60px #e67e22,0 0 120px #d35400,0 0 160px #fff;} }
     </style>
 </head>
 <body>
@@ -592,6 +599,12 @@
     <div class="icon-get-text">🎉 新プレイヤーアイコン獲得！</div>
     <div class="icon-get-sub" id="iconGetSubText">10連くじのくじの気まぐれ</div>
     <button class="icon-get-btn" onclick="closeIconGetOverlay()">やった！</button>
+</div>
+<div id="coinGetOverlay">
+    <img src="/images/spicycoin.jpg" class="coin-get-img" alt="スパイシーコイン">
+    <div class="coin-get-text">🌶️ スパイシーコイン獲得！</div>
+    <div class="coin-get-amount" id="coinGetAmountText">+1枚</div>
+    <button class="coin-get-btn" onclick="closeCoinGetOverlay()">やった！</button>
 </div>
 
 <!-- ポスト画面（受信フォルダ一覧） -->
@@ -1299,6 +1312,27 @@ function showIconGetOverlay(iconSrc, subText) {
 
 function closeIconGetOverlay() {
     const overlay = document.getElementById('iconGetOverlay');
+    if(overlay) overlay.style.display = 'none';
+}
+
+function showCoinGetOverlay(amount) {
+    const overlay = document.getElementById('coinGetOverlay');
+    const amountEl = document.getElementById('coinGetAmountText');
+    if(!overlay) return;
+    if(amountEl) amountEl.innerText = `+${amount || 1}枚`;
+    const img = overlay.querySelector('.coin-get-img');
+    if(img) {
+        img.style.animation = 'none';
+        img.offsetHeight;
+        img.style.animation = 'iconPop 0.6s cubic-bezier(0.175,0.885,0.32,1.275) forwards';
+        setTimeout(() => { img.style.animation = 'iconPop 0.6s cubic-bezier(0.175,0.885,0.32,1.275) forwards, coinShine 1.5s 0.6s infinite'; }, 0);
+    }
+    overlay.style.display = 'flex';
+    playSoundEffect('syakiin.mp3');
+}
+
+function closeCoinGetOverlay() {
+    const overlay = document.getElementById('coinGetOverlay');
     if(overlay) overlay.style.display = 'none';
 }
 
@@ -3033,6 +3067,7 @@ function claimPostReward(idx) {
     if(m.rewardSpicyCoin) {
         spicyCoin = (spicyCoin || 0) + m.rewardSpicyCoin;
         receivedParts.push(`🌶️${m.rewardSpicyCoin}枚`);
+        setTimeout(() => showCoinGetOverlay(m.rewardSpicyCoin), 500);
     }
     if(m.rewardItems && m.rewardItems.length > 0) {
         m.rewardItems.forEach(it => {
@@ -3306,6 +3341,7 @@ function claimSpecialBonus(version) {
         playerG += (data.gold||0);
         packTicket += (data.ticket||0);
         spicyCoin += (data.spicyCoin||0);
+        if(data.spicyCoin) setTimeout(() => showCoinGetOverlay(data.spicyCoin), 500);
         localStorage.setItem('qr_special_bonus_claimed_version', String(version));
         saveGame(); updateFridgeUI(); updateCookSelects(); updateShopButtons();
         const itemsHtml = gotItems.map(it=>{ const d=masterIngredients[it]||masterSpices[it]; const ico=d&&d.icon?`<img src="${d.icon}" style="width:1.2em;height:1.2em;vertical-align:middle;object-fit:contain;">`:''; return ico+it; }).join(' ');
@@ -3435,6 +3471,7 @@ function checkAndRenderAchievements() {
             if(a.rewardType === 'spicyCoin') {
                 spicyCoin += (a.spicyCoinAmount || 1);
                 specialRewardLines.push(`🌶️ スパイシーコイン+${a.spicyCoinAmount || 1}`);
+                setTimeout(() => showCoinGetOverlay(a.spicyCoinAmount || 1), 800);
             } else if(a.rewardType === 'unlockFoodIcon') {
                 unlockedFoodIconFeature = true;
                 localStorage.setItem('qr_food_icon_unlocked', '1');
@@ -4261,6 +4298,7 @@ function processShop1QR(text, matchedKeyword) {
             spicyCoin = (spicyCoin || 0) + 1;
             rewardArea.innerHTML = `<div style="font-size:14px; font-weight:bold; color:#e67e22;">特別報酬 スパイシーコイン 1枚 GET！</div>`;
             const coinEl = document.getElementById('globalSpicyCoin'); if(coinEl) coinEl.innerText = spicyCoin;
+            setTimeout(() => showCoinGetOverlay(1), 300);
         } else if(isFirstToday) {
             const normalItems = Object.keys(masterIngredients).filter(k => masterIngredients[k].shop === 0 && isIngredientAvailable(k));
             let gained = [];
@@ -5761,6 +5799,7 @@ function onItemObtainedForBingo(itemName) {
             data.specialBonusGiven = true;
             saveBingoData(data);
             setTimeout(() => showBingoToast('コンプリート！スパイシーコイン+1'), 3000);
+            setTimeout(() => showCoinGetOverlay(1), 3500);
         }
         saveGame();
     }
