@@ -45,6 +45,7 @@
     <div class="btn-grid">
         <button style="background:#e67e22;" onclick="actFullcharge()">✨ アイテム全補充</button>
         <button style="background:#2c3e50;" onclick="actAnalytics()">📊 アナリティクス</button>
+        <button style="background:#1a6e3c;" onclick="actPlayerProgress()">🗺️ プレイヤー進行度</button>
         <button id="btnDebugMode" style="background:#7f8c8d;" onclick="actToggleDebugMode()">🐛 デバッグモード: OFF</button>
         <button id="btnEventToggle" style="background:#7f8c8d;" onclick="actEventToggle()">🐙 特盛りイベント: OFF</button>
         <button style="background:#8e44ad;" onclick="actEventDamage()">📊 イベント ダメージ集計</button>
@@ -439,6 +440,69 @@ function actAnalytics() {
             + '</div>';
 
         showCustomAlert('📊 アナリティクス', html);
+    });
+}
+
+function actPlayerProgress() {
+    if(!database) { showCustomAlert("❌ エラー", "通信に問題があります。"); return; }
+    showCustomAlert("🗺️ 読み込み中...", "プレイヤーデータを取得しています。");
+    database.ref('players').once('value').then(function(snap) {
+        const players = snap.val() || {};
+
+        // 集計対象のBot定義
+        const easyBots   = ["見習い料理人タカシ", "魔術師レオン", "ガンコ親父", "宮廷カレー長"];
+        const hardBots   = ["イカ星人グニョグニョ", "種まき婆ちゃん", "ドラゴン料理長", "毒舌料理人ミスズ"];
+        const tagBots    = ["カレー天使ぴゃぁ", "悪ガキサタン君", "レンチン玉子"];
+
+        // カウント初期化
+        const easyCount  = {}; easyBots.forEach(function(n){ easyCount[n] = 0; });
+        const hardCount  = {}; hardBots.forEach(function(n){ hardCount[n] = 0; });
+        const tagCount   = {}; tagBots.forEach(function(n){ tagCount[n] = 0; });
+
+        let totalPlayers = 0;
+
+        Object.keys(players).forEach(function(pid) {
+            const sd = players[pid].savedata;
+            if(!sd) return; // savedataがないプレイヤーはスキップ（デバッグ含む）
+            totalPlayers++;
+
+            const defeatedBots     = sd.defeatedBots     || [];
+            const defeatedHardBots = sd.defeatedHardBots || [];
+            const defeatedTagBots  = sd.defeatedTagExtraBots || [];
+
+            easyBots.forEach(function(n){ if(defeatedBots.indexOf(n)     >= 0) easyCount[n]++; });
+            hardBots.forEach(function(n){ if(defeatedHardBots.indexOf(n) >= 0) hardCount[n]++; });
+            tagBots.forEach(function(n){  if(defeatedTagBots.indexOf(n)  >= 0) tagCount[n]++; });
+        });
+
+        function section(title) {
+            return '<div style="font-size:13px;font-weight:bold;color:#420000;margin:14px 0 6px;border-bottom:1px solid #b88742;padding-bottom:4px;">' + title + '</div>';
+        }
+        function row(label, count) {
+            const pct = totalPlayers > 0 ? Math.round(count / totalPlayers * 100) : 0;
+            const bar = '█'.repeat(Math.min(Math.round(pct / 5), 20));
+            return '<div style="padding:5px 0;border-bottom:1px solid #f0e8d0;font-size:12px;">'
+                + '<div style="display:flex;justify-content:space-between;margin-bottom:2px;">'
+                + '<span style="color:#5a3a1a;">' + label + '</span>'
+                + '<span style="font-weight:bold;color:#420000;">' + count + '人 <span style="color:#999;font-weight:normal;">(' + pct + '%)</span></span>'
+                + '</div>'
+                + '<div style="color:#b88742;font-size:10px;letter-spacing:1px;">' + bar + '</div>'
+                + '</div>';
+        }
+
+        const html = '<div style="text-align:left;max-height:65vh;overflow-y:auto;">'
+            + '<div style="font-size:12px;color:#888;margin-bottom:4px;">集計対象: ' + totalPlayers + '人（デバッグ・未保存プレイヤーを除く）</div>'
+            + section('⚔️ PC戦（初級）')
+            + easyBots.map(function(n){ return row(n, easyCount[n]); }).join('')
+            + section('🔥 PC戦（中級）')
+            + hardBots.map(function(n){ return row(n, hardCount[n]); }).join('')
+            + section('🤝 タッグ戦')
+            + tagBots.map(function(n){ return row(n, tagCount[n]); }).join('')
+            + '</div>';
+
+        showCustomAlert('🗺️ プレイヤー進行度', html);
+    }).catch(function(e) {
+        showCustomAlert("❌ エラー", "データ取得に失敗しました: " + e.message);
     });
 }
 
