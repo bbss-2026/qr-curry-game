@@ -1076,8 +1076,18 @@
         </div>
         <!-- 選択中の食材3枠を表示 -->
         <div id="cookSelectedSlots" style="display:flex; gap:6px; margin-bottom:8px;"></div>
-        <!-- カテゴリタブ -->
-        <div id="ingredientCategoryTabs" style="display:flex; gap:4px; margin-bottom:8px;"></div>
+        <!-- カテゴリタブ＋ソート -->
+        <div style="display:flex; align-items:center; gap:4px; margin-bottom:8px;">
+            <div id="ingredientCategoryTabs" style="display:flex; gap:4px; flex:1;"></div>
+            <select id="cookIngSort" onchange="onCookIngSortChange()" style="font-size:11px; padding:3px 5px; border-radius:6px; border:1px solid #b88742; color:#420000; background:#f5e9c8; font-weight:bold; flex-shrink:0;">
+                <option value="default">並び順</option>
+                <option value="hp">HP高</option>
+                <option value="atk">ATK高</option>
+                <option value="def">DEF高</option>
+                <option value="spd">SPD高</option>
+                <option value="count">所持数多</option>
+            </select>
+        </div>
         <!-- スワイプ＆タブ切り替え対応のカテゴリパネル -->
         <div id="ingredientCategoryPanelsWrap" style="overflow:hidden; border:1px solid #b88742; border-radius:6px; background:#fffdf0;">
             <div id="ingredientCategoryPanels" style="display:flex; transition:transform 0.25s ease;"></div>
@@ -4929,18 +4939,33 @@ let cookSelectedIngredients = []; // 最大3つ、文字列配列（重複可）
 let cookSelectedSpice = "";
 let cookActiveCategoryIdx = 0;
 const COOK_CATEGORY_DEFS = [
-    { key: "meat", label: "肉系", emoji: "🥩" },
-    { key: "vegetable", label: "野菜系", emoji: "🥬" },
-    { key: "seafood", label: "海鮮系", emoji: "🐟" },
-    { key: "fruit", label: "果実系", emoji: "🍎" },
-    { key: "other", label: "その他", emoji: "🧂" }
+    { key: "meat",      label: "🥩" },
+    { key: "vegetable", label: "🥬" },
+    { key: "seafood",   label: "🐟" },
+    { key: "fruit",     label: "🍎" },
+    { key: "other",     label: "その他" }
 ];
+function getCookIngSortOrder() {
+    return localStorage.getItem('qr_cook_ing_sort') || 'default';
+}
+function onCookIngSortChange() {
+    const sel = document.getElementById('cookIngSort');
+    if(sel) localStorage.setItem('qr_cook_ing_sort', sel.value);
+    renderCookCategoryPanels();
+}
 function getCookCategoryItems(catKey) {
-    return Object.keys(masterIngredients).filter(n => {
+    let items = Object.keys(masterIngredients).filter(n => {
         if((inventory[n]||0) <= 0) return false;
         const cat = getIngredientCategory(n);
         return catKey === "other" ? !cat : cat === catKey;
     });
+    const sort = getCookIngSortOrder();
+    if(sort === 'hp')    items.sort((a,b) => masterIngredients[b].hp  - masterIngredients[a].hp);
+    else if(sort === 'atk') items.sort((a,b) => masterIngredients[b].atk - masterIngredients[a].atk);
+    else if(sort === 'def') items.sort((a,b) => masterIngredients[b].def - masterIngredients[a].def);
+    else if(sort === 'spd') items.sort((a,b) => masterIngredients[b].spd - masterIngredients[a].spd);
+    else if(sort === 'count') items.sort((a,b) => (inventory[b]||0) - (inventory[a]||0));
+    return items;
 }
 function renderCookPickerUI() {
     renderCookSelectedSlots();
@@ -4975,11 +5000,14 @@ function renderCookCategoryTabs() {
     COOK_CATEGORY_DEFS.forEach((c, idx) => {
         const btn = document.createElement("button");
         const active = idx === cookActiveCategoryIdx;
-        btn.style.cssText = `flex:1; padding:7px 2px; border-radius:6px; border:1px solid #b88742; font-size:11px; font-weight:bold; cursor:pointer; background:${active?'#b88742':'#f5e9c8'}; color:${active?'#fff':'#420000'};`;
-        btn.innerText = `${c.emoji} ${c.label}`;
+        btn.style.cssText = `flex:1; padding:7px 2px; border-radius:6px; border:1px solid #b88742; font-size:13px; font-weight:bold; cursor:pointer; background:${active?'#b88742':'#f5e9c8'}; color:${active?'#fff':'#420000'};`;
+        btn.innerText = c.label;
         btn.onclick = () => { cookActiveCategoryIdx = idx; renderCookCategoryPanels(); renderCookCategoryTabs(); };
         wrap.appendChild(btn);
     });
+    // ソート選択を保存値に合わせる
+    const sortSel = document.getElementById('cookIngSort');
+    if(sortSel) sortSel.value = getCookIngSortOrder();
 }
 function renderCookCategoryPanels() {
     const track = document.getElementById("ingredientCategoryPanels");
@@ -5007,7 +5035,7 @@ function renderCookCategoryPanels() {
                 cell.innerHTML = (d && d.icon ? `<img src="${d.icon}" style="width:32px;height:32px;object-fit:contain;">` : '<div style="font-size:24px;">🍴</div>')
                     + `<div style="font-size:10px;color:#420000;margin-top:2px;">${name}</div>`
                     + `<div style="font-size:10px;color:#888;">所持:${have - usedCount}</div>`
-                    + `<div style="font-size:9px;color:#aaa;">${d.hp}/${d.atk}/${d.def}/${d.spd}</div>`;
+                    + `<div style="font-size:10px;color:#aaa;">${d.hp}/${d.atk}/${d.def}/${d.spd}</div>`;
                 if(!disabled) cell.onclick = () => {
                     if(isFull) {
                         cookSelectedIngredients[2] = name; // 3つ目と入れ替え
