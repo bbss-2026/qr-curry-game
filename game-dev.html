@@ -1078,14 +1078,14 @@
         <div id="cookSelectedSlots" style="display:flex; gap:6px; margin-bottom:8px;"></div>
         <!-- カテゴリタブ＋ソート -->
         <div style="display:flex; align-items:center; gap:4px; margin-bottom:8px;">
-            <div id="ingredientCategoryTabs" style="display:flex; gap:4px; flex:1;"></div>
-            <select id="cookIngSort" onchange="onCookIngSortChange()" style="font-size:11px; padding:3px 5px; border-radius:6px; border:1px solid #b88742; color:#420000; background:#f5e9c8; font-weight:bold; flex-shrink:0;">
-                <option value="default">並び順</option>
-                <option value="hp">HP高</option>
-                <option value="atk">ATK高</option>
-                <option value="def">DEF高</option>
-                <option value="spd">SPD高</option>
-                <option value="count">所持数多</option>
+            <div id="ingredientCategoryTabs" style="display:flex; gap:4px; flex:1; min-width:0;"></div>
+            <select id="cookIngSort" onchange="onCookIngSortChange()" style="font-size:11px; padding:3px 4px; border-radius:6px; border:1px solid #b88742; color:#420000; background:#f5e9c8; font-weight:bold; width:auto; flex-shrink:0;">
+                <option value="default">並替</option>
+                <option value="hp">HP↓</option>
+                <option value="atk">ATK↓</option>
+                <option value="def">DEF↓</option>
+                <option value="spd">SPD↓</option>
+                <option value="count">所持↓</option>
             </select>
         </div>
         <!-- スワイプ＆タブ切り替え対応のカテゴリパネル -->
