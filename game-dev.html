@@ -646,6 +646,20 @@
     </div>
 </div>
 
+<!-- カレー店情報モーダル -->
+<div class="modal-overlay" id="curryShopInfoOverlay" style="display:none;">
+    <div class="modal-box" style="max-width:380px; text-align:left;">
+        <div id="curryShopInfoName" style="font-size:16px; font-weight:bold; color:#420000; text-align:center; margin-bottom:4px;"></div>
+        <div id="curryShopInfoLocation" style="font-size:11px; color:#9a8060; text-align:center; margin-bottom:10px;"></div>
+        <div id="curryShopInfoPhotos" style="display:flex; gap:6px; justify-content:center; margin-bottom:10px;"></div>
+        <div id="curryShopInfoDesc" style="font-size:12px; color:#5a3a1a; line-height:1.8; margin-bottom:12px;"></div>
+        <div id="curryShopInfoLinkArea" style="text-align:center; margin-bottom:12px;"></div>
+        <div class="modal-btn-group">
+            <button class="modal-btn modal-btn-ok" style="width:100%;" onclick="closeCurryShopInfoModal()">閉じる</button>
+        </div>
+    </div>
+</div>
+
 <div class="modal-overlay" id="postListOverlay" style="display:none;">
     <div class="modal-box" style="max-width:420px; text-align:left;">
         <div class="modal-title" style="text-align:center;">Post</div>
@@ -786,6 +800,19 @@
         <div id="specialBonusWrap" style="border-bottom:1px solid #b88742; padding-bottom:20px; margin-bottom:20px; display:none;">
             <div style="font-size:13px; font-weight:bold; color:#420000; letter-spacing:0.08em; margin-bottom:12px;">特別ボーナス</div>
             <div id="specialBonusArea"></div>
+        </div>
+
+        <!-- 実績（アコーディオン） -->
+        <div style="padding-bottom:20px; border-bottom:1px solid #b88742; margin-bottom:20px;">
+            <div class="accordion-item" style="border:1px solid #b88742; border-radius:4px;">
+                <div class="accordion-header" onclick="toggleAccordion(this)" style="font-size:13px; font-weight:bold; color:#420000; letter-spacing:0.08em; padding:14px 12px; border-top:none;">
+                    カレー店情報
+                    <span class="accordion-arrow">▼</span>
+                </div>
+                <div class="accordion-body" style="padding:12px 12px 16px 12px;">
+                    <div id="shopInfoList"></div>
+                </div>
+            </div>
         </div>
 
         <!-- 実績（アコーディオン） -->
@@ -1970,7 +1997,7 @@ let discoveredItems = {};
 let lockedItems = {}; // 食材・スパイスのロック状態（ロックされた食材はランダム選択の抽選から除外される）
 let cachedOpponentName = "";
 let cachedOpponentCurry = null;
-window.onload = function() { loadGame(); updateCookSelects(); setupCookCategorySwipe(); refreshRecipeBookUI(); updateShopButtons(); listenToRooms(); updateMatchCurrySelects(); setupLoadedIconUI(); updateLvDisplay(); loadNotice(); initQuest(); loadTopNotice(); updateMuteIcon(); initPlayerId(); loadEventEnabledStatus(); setupModalScrollLock(); setupGuideCharLongPress(); setupTutorialSwipe(); updateLunchtimeBanner(); setInterval(updateLunchtimeBanner, 60000); };
+window.onload = function() { loadGame(); updateCookSelects(); setupCookCategorySwipe(); refreshRecipeBookUI(); updateShopButtons(); listenToRooms(); updateMatchCurrySelects(); setupLoadedIconUI(); updateLvDisplay(); loadNotice(); initQuest(); loadTopNotice(); updateMuteIcon(); initPlayerId(); loadEventEnabledStatus(); setupModalScrollLock(); setupGuideCharLongPress(); setupTutorialSwipe(); updateLunchtimeBanner(); setInterval(updateLunchtimeBanner, 60000); checkBingoNewCardNotification(); renderShopInfoList(); };
 
 // モーダル表示中は背後のページスクロールをロック
 const TAB_ORDER = ['quest', 'scan', 'fridge', 'cook', 'battle'];
@@ -2231,7 +2258,7 @@ function switchTab(tab, el) {
     const targetPage = document.getElementById('page' + tab.charAt(0).toUpperCase() + tab.slice(1));
     if(targetPage) targetPage.classList.add('active');
     cancelScanning();
-    if(tab === 'quest') { renderLoginBonus(); renderDailyQuest(); checkAndRenderAchievements(); loadSpecialBonus(); showQuestGuideChar(); }
+    if(tab === 'quest') { renderLoginBonus(); renderDailyQuest(); checkAndRenderAchievements(); loadSpecialBonus(); renderShopInfoList(); showQuestGuideChar(); }
     else if(tab === 'fridge') { showFridgeGuideChar(); }
     else if(tab === 'cook') { showCookGuideChar(); }
     else if(tab === 'battle') { showBattleGuideChar(); }
@@ -3850,6 +3877,52 @@ function toggleAccordion(header) {
     document.querySelectorAll('.accordion-body').forEach(function(b) { b.classList.remove('open'); });
     document.querySelectorAll('.accordion-arrow').forEach(function(a) { a.classList.remove('open'); });
     if(!isOpen) { body.classList.add('open'); arrow.classList.add('open'); }
+}
+
+// ===== カレー店情報 =====
+const CURRY_SHOPS = [
+    {
+        id: 'shop1',
+        name: '空腹は最高のスパイスカレー',
+        location: '兵庫県西宮市',
+        photos: ['shop/shop-1-1.png', 'shop/shop-1-2.png'],
+        desc: 'グルテンフリーで「美味しいが健康に」\n阪急夙川駅から東へ約10分\n阪急電車高架下≪阪急夙川サンらいふ≫',
+        linkLabel: 'Instagram',
+        linkUrl: 'https://www.instagram.com/hunger_is_the_best_spice_curry/'
+    }
+];
+
+function renderShopInfoList() {
+    const area = document.getElementById('shopInfoList');
+    if(!area) return;
+    area.innerHTML = CURRY_SHOPS.map(shop =>
+        `<div onclick="openCurryShopInfoModal('${shop.id}')" style="display:flex; align-items:center; gap:10px; padding:10px 8px; border-bottom:1px solid #e8d8b0; cursor:pointer; background:transparent;" onmouseover="this.style.background='#f5e9c8'" onmouseout="this.style.background='transparent'">
+            <img src="${shop.photos[0]}" style="width:48px; height:48px; border-radius:6px; object-fit:cover; flex-shrink:0;">
+            <div style="flex:1; min-width:0;">
+                <div style="font-size:13px; font-weight:bold; color:#420000;">${shop.name}</div>
+                <div style="font-size:11px; color:#9a8060; margin-top:2px;">${shop.location}</div>
+            </div>
+            <span style="color:#b88742; font-size:12px; flex-shrink:0;">▶</span>
+        </div>`
+    ).join('');
+}
+
+function openCurryShopInfoModal(shopId) {
+    const shop = CURRY_SHOPS.find(s => s.id === shopId);
+    if(!shop) return;
+    document.getElementById('curryShopInfoName').innerText = shop.name;
+    document.getElementById('curryShopInfoLocation').innerText = '📍 ' + shop.location;
+    document.getElementById('curryShopInfoPhotos').innerHTML = shop.photos
+        .map(p => `<img src="${p}" style="width:48%; max-width:160px; border-radius:6px; object-fit:cover;">`)
+        .join('');
+    document.getElementById('curryShopInfoDesc').innerText = shop.desc;
+    document.getElementById('curryShopInfoLinkArea').innerHTML =
+        `<button onclick="window.open('${shop.linkUrl}','_blank')" style="padding:10px 24px; background:#e67e22; color:#fff; border:none; border-radius:6px; font-weight:bold; font-size:13px; cursor:pointer;">${shop.linkLabel}</button>`;
+    document.getElementById('curryShopInfoOverlay').style.display = 'flex';
+}
+
+function closeCurryShopInfoModal() {
+    document.getElementById('curryShopInfoOverlay').style.display = 'none';
 }
 // PC戦（中級）・タッグ戦のロック状態（解放前はグレーアウト＋タップで案内のみ）を更新する
 function updateBattleModeLocks() {
@@ -5698,14 +5771,12 @@ function highlightCompletedLines(data) {
     });
 }
 
-function updateBingoNewCardButton(data) {
-    const btn = document.getElementById('bingoNewCardBtn');
-    const hint = document.getElementById('bingoNextCardHint');
+function checkBingoNewCardNotification() {
+    const data = getBingoData();
+    if(!data) return;
     const oneWeekMs = 7 * 24 * 60 * 60 * 1000;
     const elapsed = Date.now() - data.createdAt;
     if(elapsed >= oneWeekMs) {
-        btn.disabled = false;
-        hint.innerText = '';
         // 発行可能になった通知は、このカード（createdAtを識別子にする）につき1回だけ送る
         const notifiedKey = 'qr_bingo_notified_' + data.createdAt;
         if(!localStorage.getItem(notifiedKey)) {
@@ -5717,6 +5788,18 @@ function updateBingoNewCardButton(data) {
                 expireMinutesAfterRead: 1440
             });
         }
+    }
+}
+
+function updateBingoNewCardButton(data) {
+    const btn = document.getElementById('bingoNewCardBtn');
+    const hint = document.getElementById('bingoNextCardHint');
+    const oneWeekMs = 7 * 24 * 60 * 60 * 1000;
+    const elapsed = Date.now() - data.createdAt;
+    if(elapsed >= oneWeekMs) {
+        btn.disabled = false;
+        hint.innerText = '';
+        checkBingoNewCardNotification();
     } else {
         btn.disabled = true;
         const remainMs = oneWeekMs - elapsed;
