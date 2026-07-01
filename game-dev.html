@@ -7057,9 +7057,20 @@ function tagExecuteAction(actor, myTeam, enemyTeam, callback) {
     }
 
     const curry = actor.curry;
+    // 幻惑ミス判定
+    if(actor.isIlluded) {
+        const aliveEnemySpd = enemyTeam.filter(f => f.hp > 0).map(f => f.spd);
+        const avgEnemySpd = aliveEnemySpd.length ? aliveEnemySpd.reduce((a,b)=>a+b,0)/aliveEnemySpd.length : 50;
+        if(Math.random() < getIllusionMissRate(actor.spd, avgEnemySpd)) {
+            playSoundEffect('miss.mp3');
+            tagLogAppend(`💨 ${actor.name} は幻惑で攻撃が外れた！`);
+            callback(); return;
+        }
+    }
     // わんぱくミス判定
     if((curry.isWanpaku || curry.isTonTonTon) && isWanpakuMiss()) {
         if(curry.isTonTonTon) playSoundEffect('pig2.mp3');
+        playSoundEffect('miss.mp3');
         tagLogAppend(`💨 ${actor.name} のわんぱくが暴れすぎて攻撃が外れた！`);
         callback(); return;
     }
@@ -7209,6 +7220,22 @@ function tagExecuteEnemyAction(actor, myTeam, enemyTeam, callback) {
 function tagExecuteEnemyActionImpl(actor, myTeam, enemyTeam, callback) {
     const bot = actor.bot;
     const effect = actor.specialEffect;
+    // 幻惑ミス判定（敵が幻惑にかかっている場合）
+    if(actor.isIlluded) {
+        const aliveMySpd = myTeam.filter(f => f.hp > 0).map(f => f.spd);
+        const avgMySpd = aliveMySpd.length ? aliveMySpd.reduce((a,b)=>a+b,0)/aliveMySpd.length : 50;
+        if(Math.random() < getIllusionMissRate(actor.spd, avgMySpd)) {
+            playSoundEffect('miss.mp3');
+            tagLogAppend(`💨 ${actor.name} は幻惑で攻撃が外れた！`);
+            callback(); return;
+        }
+    }
+    // わんぱくミス判定（敵がわんぱく持ちの場合）
+    if(actor.isWanpaku && isWanpakuMiss()) {
+        playSoundEffect('miss.mp3');
+        tagLogAppend(`💨 ${actor.name} のわんぱくが暴れすぎて攻撃が外れた！`);
+        callback(); return;
+    }
 
     // カレー天使ぴゃぁ専用ロジック
     if(effect === 'angel') {
@@ -8069,6 +8096,7 @@ function playBattleTurns(turns, myC, oppC, oppN, role) {
             .replace(/\{\{TURNICON\}\}/g, isMyTurnNow ? '🔥' : '⚠️');
 
         log.innerHTML = resolvedLog;
+        if(resolvedLog.includes('💨')) playSoundEffect('miss.mp3');
         battleLogHistory.push(resolvedLog.replace(/<br\s*\/?>/gi, '\n'));
         playTone(isMyTurnNow ? 440 : 330, 'triangle', 0.08);
         updateHP(myHP, oppHP, oppC.hp, myC.hp);
@@ -8274,6 +8302,7 @@ function launchEventBattle(myC, startHp) {
             if(myC.isRatatouille){ let heal=Math.round(myC.hp*0.10); pHP=Math.min(myC.hp,pHP+heal); log.innerHTML+=`\n☀️ 太陽の光を浴びてHP回復: ${heal}`; playSoundEffect('taiyou.mp3'); triggerEffect("player-heal",heal); updateHP(pHP,oHP,oppC.hp,myC.hp); }
             if((myC.isWanpaku || myC.isTonTonTon) && isWanpakuMiss()){
                 if(myC.isTonTonTon) playSoundEffect('pig2.mp3');
+                playSoundEffect('miss.mp3');
                 log.innerHTML+=`\n💨 わんぱくが暴れすぎて攻撃が外れた！`;
                 setTimeout(()=>{ updateHP(pHP,oHP,oppC.hp,myC.hp); battleLogHistory.push(log.innerHTML.replace(/<br\s*\/?>/gi,"\n")); myTurn=false; round++; setTimeout(eventStep,battleDelay(1100)); },battleDelay(400));
             } else if(myC.isSeed && Math.random()<0.3){
@@ -8346,6 +8375,7 @@ function launchEventBattle(myC, startHp) {
                 // ===== 通常モード：通常50% / 熱々ブレス20% / 五月雨突き20% / たこ焼き10% =====
                 if(er<0.50){
                     if(isOppIlluded && Math.random() < getIllusionMissRate(oppC.spd, myC.spd)){
+                        playSoundEffect('miss.mp3');
                         log.innerHTML+=`\n💨 幻惑で${EVENT_MONSTER_DATA.name}の攻撃が外れた！`;
                         setTimeout(()=>{ updateHP(pHP,oHP,oppC.hp,myC.hp); battleLogHistory.push(log.innerHTML.replace(/<br\s*\/?>/gi,"\n")); myTurn=true; round++; setTimeout(eventStep,battleDelay(1100)); },battleDelay(400));
                         return;
@@ -8411,6 +8441,7 @@ function launchEventBattle(myC, startHp) {
                 // ===== 怒りモード（HP50%以下）：通常25% / 怒りSpicyHit15% / 熱々ブレス20% / 五月雨突き20% / たこ焼き20% =====
                 if(er<0.25){
                     if(isOppIlluded && Math.random() < getIllusionMissRate(oppC.spd, myC.spd)){
+                        playSoundEffect('miss.mp3');
                         log.innerHTML+=`\n💨 幻惑で${EVENT_MONSTER_DATA.name}の攻撃が外れた！`;
                         setTimeout(()=>{ updateHP(pHP,oHP,oppC.hp,myC.hp); battleLogHistory.push(log.innerHTML.replace(/<br\s*\/?>/gi,"\n")); myTurn=true; round++; setTimeout(eventStep,battleDelay(1100)); },battleDelay(400));
                         return;
@@ -8765,10 +8796,12 @@ function startBattleScene(oppN, oppC, myC) {
             if(isPP){let d=Math.round(myC.hp*0.08*poisonLevelP);pHP-=d;log.innerHTML+=`\n☠️ 毒ダメージ: ${d}`;triggerEffect("player-poison",d);updateHP(pHP,oHP,oppC.hp,myC.hp);if(pHP<=0){step();return;}}
             // 幻惑ミス（punch.mp3なし、SPD比較で50%/30%）／わんぱくミス（20%）
             if(myIsIlluded&&Math.random()<getIllusionMissRate(myC.spd,oppC.spd)){
+                playSoundEffect('miss.mp3');
                 log.innerHTML+=`\n💨 幻惑で攻撃が外れた！`;
                 setTimeout(()=>{updateHP(pHP,oHP,oppC.hp,myC.hp);battleLogHistory.push(log.innerHTML.replace(/<br\s*\/?>/gi,"\n"));myTurn=false;round++;setTimeout(step,battleDelay(1100));},battleDelay(400));
             } else if((myC.isWanpaku || myC.isTonTonTon) && isWanpakuMiss()){
                 if(myC.isTonTonTon) playSoundEffect('pig2.mp3');
+                playSoundEffect('miss.mp3');
                 log.innerHTML+=`\n💨 わんぱくが暴れすぎて攻撃が外れた！`;
                 setTimeout(()=>{updateHP(pHP,oHP,oppC.hp,myC.hp);battleLogHistory.push(log.innerHTML.replace(/<br\s*\/?>/gi,"\n"));myTurn=false;round++;setTimeout(step,battleDelay(1100));},battleDelay(400));
             } else if(myC.isSeed&&Math.random()<0.3){
@@ -8820,10 +8853,12 @@ function startBattleScene(oppN, oppC, myC) {
             if(isOP){let d=Math.round(oppC.hp*0.08*poisonLevelO);oHP-=d;log.innerHTML+=`\n☠️ 毒ダメージ: ${d}`;triggerEffect("enemy-poison",d);updateHP(pHP,oHP,oppC.hp,myC.hp);if(oHP<=0){window.__defeatedByPoison=true;step();return;}}
             // 幻惑ミス（punch.mp3なし、SPD比較で50%/30%）／わんぱくミス（20%）
             if(oppIsIlluded&&Math.random()<getIllusionMissRate(oppC.spd,myC.spd)){
+                playSoundEffect('miss.mp3');
                 log.innerHTML+=`\n💨 幻惑で相手の攻撃が外れた！`;
                 setTimeout(()=>{updateHP(pHP,oHP,oppC.hp,myC.hp);battleLogHistory.push(log.innerHTML.replace(/<br\s*\/?>/gi,"\n"));myTurn=true;round++;setTimeout(step,battleDelay(1100));},battleDelay(400));
             } else if((oppC.isWanpaku || oppC.isTonTonTon)&&isWanpakuMiss()){
                 if(oppC.isTonTonTon) playSoundEffect('pig1.mp3');
+                playSoundEffect('miss.mp3');
                 log.innerHTML+=`\n💨 相手のわんぱくが暴れすぎて攻撃が外れた！`;
                 setTimeout(()=>{updateHP(pHP,oHP,oppC.hp,myC.hp);battleLogHistory.push(log.innerHTML.replace(/<br\s*\/?>/gi,"\n"));myTurn=true;round++;setTimeout(step,battleDelay(1100));},battleDelay(400));
             } else if(oppC.isBreath&&Math.random()<(1/3)){
