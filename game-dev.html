@@ -530,6 +530,10 @@
         .btn-gamestart { width: 88%; max-width: 360px; padding: 14px; background: #b88742; color: #efdeb1; font-size: 16px; font-weight: bold; letter-spacing: 0.12em; border: none; border-radius: 4px; cursor: pointer; transition: opacity 0.15s; display: block; text-align: center; }
         .btn-gamestart:hover { opacity: 0.85; }
         .btn-gamestart:active { opacity: 0.7; transform: translateY(1px); }
+        .btn-gamestart:disabled { background: #8a7050; cursor: not-allowed; opacity: 0.75; transform: none; }
+        .btn-gamestart:disabled:hover { opacity: 0.75; }
+        @keyframes btnSpin { to { transform: rotate(360deg); } }
+        .btn-loading-spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid rgba(239,222,177,0.35); border-top-color: #efdeb1; border-radius: 50%; animation: btnSpin 0.8s linear infinite; vertical-align: middle; margin-right: 8px; position: relative; top: -1px; }
         .top-notice { width: 88%; max-width: 360px; margin-top: 20px; font-size: 11px; color: #420000; line-height: 1.7; display: none; border-left: 3px solid #b88742; padding-left: 12px; }
 
         /* イベントバナー */
@@ -737,7 +741,7 @@
     <!-- 初期画面 -->
     <div id="pageTop">
         <img src="topimage01.png" alt="Battle Curry" class="top-image">
-        <button class="btn-gamestart" onclick="gameStart()">GAME START</button>
+        <button class="btn-gamestart" id="btnGameStart" onclick="gameStart()" disabled><span class="btn-loading-spinner"></span>Loading...</button>
         <div class="top-notice" id="topNoticeBox"></div>
         <div class="top-notice" id="topInfoTextBox" style="margin-top:12px;"></div>
         <a href="https://x.com/BattleCurryGame" target="_blank" style="display:block;width:88%;max-width:360px;margin-top:16px;padding:10px;background:transparent;color:#420000;border:1px solid #b88742;border-radius:4px;font-size:12px;font-weight:bold;cursor:pointer;text-align:center;text-decoration:none;box-sizing:border-box;">𝕏 @BattleCurryGame</a>
@@ -2005,7 +2009,14 @@ let discoveredItems = {};
 let lockedItems = {}; // 食材・スパイスのロック状態（ロックされた食材はランダム選択の抽選から除外される）
 let cachedOpponentName = "";
 let cachedOpponentCurry = null;
-window.onload = function() { loadGame(); updateCookSelects(); setupCookCategorySwipe(); refreshRecipeBookUI(); updateShopButtons(); listenToRooms(); updateMatchCurrySelects(); setupLoadedIconUI(); updateLvDisplay(); loadNotice(); initQuest(); loadTopNotice(); updateMuteIcon(); initPlayerId(); loadEventEnabledStatus(); setupModalScrollLock(); setupGuideCharLongPress(); setupTutorialSwipe(); updateLunchtimeBanner(); setInterval(updateLunchtimeBanner, 60000); checkBingoNewCardNotification(); renderShopInfoList(); };
+window.onload = function() { loadGame(); updateCookSelects(); setupCookCategorySwipe(); refreshRecipeBookUI(); updateShopButtons(); listenToRooms(); updateMatchCurrySelects(); setupLoadedIconUI(); updateLvDisplay(); loadNotice(); initQuest(); loadTopNotice(); updateMuteIcon(); initPlayerId(enableGameStart); loadEventEnabledStatus(); setupModalScrollLock(); setupGuideCharLongPress(); setupTutorialSwipe(); updateLunchtimeBanner(); setInterval(updateLunchtimeBanner, 60000); checkBingoNewCardNotification(); renderShopInfoList(); setTimeout(enableGameStart, 5000); };
+
+function enableGameStart() {
+    const btn = document.getElementById('btnGameStart');
+    if(!btn || !btn.disabled) return; // すでに有効なら何もしない
+    btn.disabled = false;
+    btn.innerHTML = 'GAME START';
+}
 
 // モーダル表示中は背後のページスクロールをロック
 const TAB_ORDER = ['quest', 'scan', 'fridge', 'cook', 'battle'];
