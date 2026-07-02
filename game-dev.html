@@ -1015,6 +1015,8 @@
                 <option value="def">DEF 高順</option>
                 <option value="spd">SPD 高順</option>
                 <option value="count">所持数 多順</option>
+                <option value="rarity">レア度 高順</option>
+                <option value="rarity">レア度 高順</option>
             </select>
         </div>
         <div class="fridge-grid" id="fridgeIngredientsGrid"></div>
@@ -1024,6 +1026,7 @@
             <select id="sortSpices" onchange="updateFridgeUI()" style="font-size:11px; padding:3px 5px; border-radius:6px; border:1px solid #b88742; color:#420000; background:#f5e9c8; font-weight:bold; width:auto; margin:0;">
                 <option value="default">並び順：デフォルト</option>
                 <option value="count">所持数 多順</option>
+                <option value="rarity">レア度 高順</option>
             </select>
         </div>
         <div class="fridge-grid" id="fridgeSpicesGrid"></div>
@@ -4512,15 +4515,15 @@ function applyRarityBorder(el, shop, bgColor) {
     const bg = bgColor || '#fff8ee';
     if(shop === 1) {
         // 中級：銀グラデーション
-        el.style.border = '2px solid transparent';
+        el.style.border = '3px solid transparent';
         el.style.background = `linear-gradient(${bg},${bg}) padding-box, linear-gradient(135deg,#888,#dde,#fff,#ccc,#888) border-box`;
     } else if(shop === 2) {
         // 高級：金グラデーション
-        el.style.border = '2px solid transparent';
+        el.style.border = '3px solid transparent';
         el.style.background = `linear-gradient(${bg},${bg}) padding-box, linear-gradient(135deg,#a07820,#ffe066,#fff8c0,#d4af37,#a07820) border-box`;
     } else if(shop < 0) {
         // 特殊（赤パプリカ・黄パプリカ・金箔）
-        el.style.border = '2px solid #4b6687';
+        el.style.border = '3px solid #4b6687';
     }
 }
 
@@ -4539,6 +4542,11 @@ function updateFridgeUI() {
     if (ingSort !== "default") {
         discovered.sort((a, b) => {
             if (ingSort === "count") return (inventory[b]||0) - (inventory[a]||0);
+            if (ingSort === "rarity") {
+                const ra = masterIngredients[a].shop < 0 ? 99 : (masterIngredients[a].shop || 0);
+                const rb = masterIngredients[b].shop < 0 ? 99 : (masterIngredients[b].shop || 0);
+                return rb - ra;
+            }
             return masterIngredients[b][ingSort] - masterIngredients[a][ingSort];
         });
     }
@@ -4551,6 +4559,8 @@ function updateFridgeUI() {
     const undiscSpc = spcKeys.filter(k => !discoveredItems[k]);
     if (spcSort === "count") {
         discSpc.sort((a, b) => (inventory[b]||0) - (inventory[a]||0));
+    } else if (spcSort === "rarity") {
+        discSpc.sort((a, b) => (masterSpices[b].shop || 0) - (masterSpices[a].shop || 0));
     }
     [...discSpc, ...undiscSpc].forEach(name => createFridgeCard(spcGrid, name, masterSpices[name].emoji, true));
 
@@ -4589,10 +4599,19 @@ function createFridgeCard(grid, name, emoji, isSpice) {
             let info = isSpice ? `<br><span style="color:#e67e22; font-weight:bold;">📈 効果: ${data.mul === "hp" ? "HP" : data.mul === "atk" ? "攻撃" : data.mul === "def" ? "防御" : "素早さ"} ${data.val}倍！</span>` : `<br><span style="color:#2ecc71; font-weight:bold;">📊 HP:+${data.hp}/ATK:+${data.atk}/DEF:+${data.def}/SPD:+${data.spd}</span>`;
             const itemDataM = isSpice ? masterSpices[name] : masterIngredients[name];
             const iconM = itemDataM && itemDataM.icon ? `<img src="${itemDataM.icon}" style="width:80px;height:80px;object-fit:contain;display:block;margin:0 auto 8px;">` : '';
+            const shop = itemDataM ? (itemDataM.shop || 0) : 0;
+            const rarityMap = {
+                0:  { label: 'ノーマル', color: '#888' },
+                1:  { label: '中級',     color: '#a0a0a0' },
+                2:  { label: '高級',     color: '#c8a800' },
+            };
+            const rarity = shop < 0
+                ? `<span style="font-size:11px;color:#4b6687;font-weight:bold;">特殊</span>`
+                : `<span style="font-size:11px;color:${(rarityMap[shop]||rarityMap[0]).color};font-weight:bold;">${(rarityMap[shop]||rarityMap[0]).label}</span>`;
             const isLocked = !!lockedItems[name];
             const lockBtnHtml = `<button class="item-lock-btn" id="itemLockBtnInModal" title="ロック切り替え"><img src="${isLocked ? 'lock.svg' : 'unlock.svg'}" alt=""></button>`;
             showCustomAlert(
-                `${lockBtnHtml}${iconM}${name}`, 
+                `${lockBtnHtml}${iconM}${name}<br>${rarity}`, 
                 `${data.desc}<br><br><b>現在の所持数: <span style="color:#e74c3c;font-size:16px;">${count}</span> 個</b>${info}`, 
                 null, sellItemAction, name
             );
@@ -4985,6 +5004,11 @@ function getCookCategoryItems(catKey) {
     else if(sort === 'def') items.sort((a,b) => masterIngredients[b].def - masterIngredients[a].def);
     else if(sort === 'spd') items.sort((a,b) => masterIngredients[b].spd - masterIngredients[a].spd);
     else if(sort === 'count') items.sort((a,b) => (inventory[b]||0) - (inventory[a]||0));
+    else if(sort === 'rarity') items.sort((a,b) => {
+        const ra = masterIngredients[a].shop < 0 ? 99 : (masterIngredients[a].shop || 0);
+        const rb = masterIngredients[b].shop < 0 ? 99 : (masterIngredients[b].shop || 0);
+        return rb - ra;
+    });
     return items;
 }
 function renderCookPickerUI() {
@@ -5003,7 +5027,11 @@ function renderCookSelectedSlots() {
         box.style.cssText = "flex:1; min-height:96px; border:2px dashed #b88742; border-radius:6px; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:4px; cursor:pointer; background:#fffdf0;";
         if(name) {
             const d = masterIngredients[name];
-            box.style.border = "2px solid #e67e22";
+            if(d && d.shop !== 0) {
+                applyRarityBorder(box, d.shop, '#fffdf0');
+            } else {
+                box.style.border = "3px solid #e67e22";
+            }
             const statLine = d ? `<div style="font-size:11px;color:#2ecc71;font-weight:bold;line-height:1.4;margin-top:2px;">HP+${d.hp} ATK+${d.atk}<br>DEF+${d.def} SPD+${d.spd}</div>` : '';
             box.innerHTML = (d && d.icon ? `<img src="${d.icon}" style="width:26px;height:26px;object-fit:contain;">` : '') + `<div style="font-size:10px;color:#420000;margin-top:1px;text-align:center;">${name}</div>` + statLine;
             box.onclick = () => { cookSelectedIngredients.splice(i,1); syncCookSelectionToHiddenSelects(); renderCookPickerUI(); };
@@ -5093,10 +5121,14 @@ function renderCookSpicePanel() {
     if(!slotWrap || !panel) return;
     slotWrap.innerHTML = "";
     const slotBox = document.createElement("div");
-    slotBox.style.cssText = "flex:0 0 120px; min-height:80px; border:2px dashed #9b59b6; border-radius:6px; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:4px; cursor:pointer; background:#fffdf0;";
+    slotBox.style.cssText = "flex:0 0 120px; min-height:80px; border:2px dashed #b88742; border-radius:6px; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:4px; cursor:pointer; background:#fffdf0;";
     if(cookSelectedSpice) {
         const d = masterSpices[cookSelectedSpice];
-        slotBox.style.border = "2px solid #9b59b6";
+        if(d && d.shop !== 0) {
+            applyRarityBorder(slotBox, d.shop, '#fffdf0');
+        } else {
+            slotBox.style.border = "3px solid #9b59b6";
+        }
         const statLine = d ? `<div style="font-size:11px;color:#9b59b6;font-weight:bold;margin-top:2px;">${formatSpiceEffectText(d)}</div>` : '';
         slotBox.innerHTML = (d && d.icon ? `<img src="${d.icon}" style="width:26px;height:26px;object-fit:contain;">` : '') + `<div style="font-size:10px;color:#420000;margin-top:1px;">${cookSelectedSpice}</div>` + statLine;
         slotBox.onclick = () => { cookSelectedSpice = ""; syncCookSelectionToHiddenSelects(); renderCookPickerUI(); };
