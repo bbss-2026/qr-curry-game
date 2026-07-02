@@ -245,6 +245,7 @@
         .btn-cancel { background: #420000; color: #efdeb1; }
         .btn-cook { background: #b88742; color: #efdeb1; width: 100%; }
         .btn-rand { background: #420000; color: #efdeb1; width: 100%; margin-bottom: 15px; }
+        .btn-cook-sub { height:44px; background:#9a6e30; color:#efdeb1; border:none; border-radius:4px; font-weight:bold; font-size:13px; cursor:pointer; letter-spacing:0.04em; }
         .btn-battle { background: #420000; color: #efdeb1; width: 100%; }
         .btn-bot { background: #b88742; color: #efdeb1; width: 100%; }
         .btn-bot-img { flex: 1; background: transparent; border: none; padding: 0; cursor: pointer; line-height: 0; }
@@ -1042,16 +1043,18 @@
 
     <!-- 調理タブ -->
     <div id="pageCook" class="page">
-        <button class="btn btn-rand" style="background:#9a6e30;" onclick="applyRecommendedSet()">おすすめセット</button>
-        <button class="btn btn-rand" style="background:#6a5a40; flex:0 0 72px;" onclick="showCookConditionModal()">条件選択</button>
+        <div style="display:flex; gap:8px; margin-bottom:8px;">
+            <button class="btn-cook-sub" style="flex:1;" onclick="applyRecommendedSet()">おすすめセット</button>
+            <button class="btn-cook-sub" style="flex:0 0 70px;" onclick="showCookConditionModal()">条件選択</button>
+        </div>
         <div id="favRecipeArea" style="margin-bottom:8px; display:none;">
             <select id="favRecipeSelect" class="fav-recipe-select" onchange="applyFavRecipe(this.value)">
                 <option value="">⭐ お気に入りレシピから選択...</option>
             </select>
         </div>
         <div style="display:flex; gap:8px; margin-bottom:12px;">
-            <button class="btn btn-cook" onclick="checkCookStock()" style="margin-bottom:0; flex:1;">カレーを調理する</button>
-            <button onclick="clearCookSelection()" style="flex:0 0 70px; background:#9a6e30; color:#efdeb1; border:none; border-radius:4px; font-weight:bold; font-size:13px; cursor:pointer;">クリア</button>
+            <button class="btn btn-cook" onclick="checkCookStock()" style="margin-bottom:0; flex:1; padding:12px; height:44px;">カレーを調理する</button>
+            <button onclick="clearCookSelection()" style="flex:0 0 70px; height:44px; background:#9a6e30; color:#efdeb1; border:none; border-radius:4px; font-weight:bold; font-size:13px; cursor:pointer;">クリア</button>
         </div>
         <div class="result-box" id="resultBox" style="display:none; margin-top:16px; margin-bottom:24px; padding:15px; background:#fffdf0; border:2px dashed #e67e22; border-radius:10px; text-align:center;">
             <div id="criticalFlashText" style="color:#d35400; font-weight:bold; font-size:16px; display:none;">✨ 会心の出来！！！ ✨</div>
@@ -1493,11 +1496,6 @@ function applyRecommendedSet() {
     [1,2,3].forEach(n => updateIngredientHint(n));
     updateSpiceHint();
     syncCookSelectionFromHiddenSelects();
-
-    const label = priorityStats.length > 0
-        ? '優先ステータス（' + priorityStats.map(s=>s.toUpperCase()).join('・') + '）を重視した'
-        : 'ランダムな';
-    showCustomAlert('🍛 おすすめセット完了', label + '組み合わせをセットしました！<br>※あくまでおすすめです。最適解ではありません。');
 }
 
 function showIconSelectModal() {
