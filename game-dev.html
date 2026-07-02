@@ -1870,16 +1870,16 @@ const masterIngredients = {
     "アスパラガス": { hp: 70, atk: 45, def: 35, spd: 45, emoji: "🥒", icon: "foods_icon/item_52.svg", shop: 1, desc: "すっと伸びるシャキシャキの食感。バットのような形でホームランにも一役買う。" }
 };
 const masterSpices = {
-    "ターメリック": { mul: "hp", val: 1.3, name: "黄金の", emoji: "💛", icon: "foods_icon/item_03.svg", desc: "カレーの黄色を決定づける。HPを1.3倍にする！" },
-    "クミン": { mul: "def", val: 1.4, name: "薫る", emoji: "🤎", icon: "foods_icon/item_31.svg", desc: "芳香を放ち、全体のDEFを1.4倍に跳ね上げる。" },
-    "コリアンダー": { mul: "hp", val: 1.2, name: "爽やか緑の", emoji: "💚", icon: "foods_icon/item_25.svg", desc: "爽やかな風味を持ち、HPを1.2倍にする。" },
-    "カルダモン": { mul: "spd", val: 1.5, name: "気高き", emoji: "🌱", icon: "foods_icon/item_29.svg", desc: "スパイスの女王。SPDを1.5倍にする大人気種。" },
-    "シナモン": { mul: "spd", val: 1.3, name: "甘美な", emoji: "🪵", icon: "foods_icon/item_26.svg", desc: "甘くエキゾチックな香りの樹皮。SPDを1.3倍にする。" },
-    "クローブ": { mul: "def", val: 1.3, name: "深遠なる", emoji: "📌", icon: "foods_icon/item_32.svg", desc: "しびれるような刺激的な香り。DEFを1.3倍にする！" },
-    "ブラックペッパー": { mul: "atk", val: 1.3, name: "刺激の", emoji: "🖤", icon: "foods_icon/item_35.svg", desc: "シャープな辛味がATKを1.3倍にする。" },
-    "チリパウダー": { mul: "atk", val: 1.3, name: "爆炎の", emoji: "❤️", icon: "foods_icon/item_34.svg", desc: "燃え盛るような激辛スパイス。ATKを1.3倍に！" },
-    "サフラン": { mul: "atk", val: 1.2, mul2: "spd", val2: 1.3, name: "黄金香る", emoji: "🌼", icon: "foods_icon/item_53.svg", desc: "世界最高額のスパイス。ATKを1.2倍、SPDを1.3倍に引き上げる、珍しい二重効果！" },
-    "マンゴーチャツネ": { mul: "hp", val: 1.5, name: "甘熟の", emoji: "🥭", icon: "foods_icon/item_37.svg", desc: "甘くトロピカルなインド伝来の秘伝ソース。HPを驚異の1.5倍に引き上げる！" }
+    "ターメリック":     { mul: "hp",  val: 1.3, name: "黄金の",   emoji: "💛", icon: "foods_icon/item_03.svg", shop: 0, desc: "カレーの黄色を決定づける。HPを1.3倍にする！" },
+    "クミン":           { mul: "def", val: 1.4, name: "薫る",     emoji: "🤎", icon: "foods_icon/item_31.svg", shop: 0, desc: "芳香を放ち、全体のDEFを1.4倍に跳ね上げる。" },
+    "コリアンダー":     { mul: "hp",  val: 1.2, name: "爽やか緑の", emoji: "💚", icon: "foods_icon/item_25.svg", shop: 0, desc: "爽やかな風味を持ち、HPを1.2倍にする。" },
+    "カルダモン":       { mul: "spd", val: 1.5, name: "気高き",   emoji: "🌱", icon: "foods_icon/item_29.svg", shop: 0, desc: "スパイスの女王。SPDを1.5倍にする大人気種。" },
+    "シナモン":         { mul: "spd", val: 1.3, name: "甘美な",   emoji: "🪵", icon: "foods_icon/item_26.svg", shop: 0, desc: "甘くエキゾチックな香りの樹皮。SPDを1.3倍にする。" },
+    "クローブ":         { mul: "def", val: 1.3, name: "深遠なる", emoji: "📌", icon: "foods_icon/item_32.svg", shop: 0, desc: "しびれるような刺激的な香り。DEFを1.3倍にする！" },
+    "ブラックペッパー": { mul: "atk", val: 1.3, name: "刺激の",   emoji: "🖤", icon: "foods_icon/item_35.svg", shop: 0, desc: "シャープな辛味がATKを1.3倍にする。" },
+    "チリパウダー":     { mul: "atk", val: 1.3, name: "爆炎の",   emoji: "❤️", icon: "foods_icon/item_34.svg", shop: 0, desc: "燃え盛るような激辛スパイス。ATKを1.3倍に！" },
+    "サフラン":         { mul: "atk", val: 1.2, mul2: "spd", val2: 1.3, name: "黄金香る", emoji: "🌼", icon: "foods_icon/item_53.svg", shop: 1, desc: "世界最高額のスパイス。ATKを1.2倍、SPDを1.3倍に引き上げる、珍しい二重効果！" },
+    "マンゴーチャツネ": { mul: "hp",  val: 1.5, name: "甘熟の",   emoji: "🥭", icon: "foods_icon/item_37.svg", shop: 2, desc: "甘くトロピカルなインド伝来の秘伝ソース。HPを驚異の1.5倍に引き上げる！" }
 };
 // 大富豪マハラジャ：戦闘開始時に5段階の強さから均等な確率(各20%)でランダム抽選される（見た目は固定）
 // Lv1=魔術師レオン相当(最弱) 〜 Lv5=宮廷カレー長を上回る(最強)
@@ -4507,6 +4507,23 @@ function processQRData(text, r, g, b) {
         }
     }
 }
+// ===== レア度ボーダースタイル =====
+function applyRarityBorder(el, shop, bgColor) {
+    const bg = bgColor || '#fff8ee';
+    if(shop === 1) {
+        // 中級：銀グラデーション
+        el.style.border = '2px solid transparent';
+        el.style.background = `linear-gradient(${bg},${bg}) padding-box, linear-gradient(135deg,#888,#dde,#fff,#ccc,#888) border-box`;
+    } else if(shop === 2) {
+        // 高級：金グラデーション
+        el.style.border = '2px solid transparent';
+        el.style.background = `linear-gradient(${bg},${bg}) padding-box, linear-gradient(135deg,#a07820,#ffe066,#fff8c0,#d4af37,#a07820) border-box`;
+    } else if(shop < 0) {
+        // 特殊（赤パプリカ・黄パプリカ・金箔）
+        el.style.border = '2px solid #4b6687';
+    }
+}
+
 function updateFridgeUI() {
     const ingGrid = document.getElementById("fridgeIngredientsGrid");
     const spcGrid = document.getElementById("fridgeSpicesGrid");
@@ -4562,6 +4579,11 @@ function createFridgeCard(grid, name, emoji, isSpice) {
         const iconSrc = itemData2 && itemData2.icon ? itemData2.icon : null;
         const emojiDisp = iconSrc ? `<img src="${iconSrc}" style="width:40px;height:40px;object-fit:contain;display:block;margin:0 auto;">` : `<span style="font-size:28px;">${emoji}</span>`;
         itemDiv.innerHTML = `<div class="fridge-emoji">${emojiDisp}</div><div>${name}</div><div>${count}個</div>`;
+        // レア度ボーダー（食材・スパイス共通）
+        if(itemData2) {
+            const bg = count === 0 ? '#ede0c4' : '#fff8ee';
+            applyRarityBorder(itemDiv, itemData2.shop, bg);
+        }
         itemDiv.onclick = function() {
             const data = isSpice ? masterSpices[name] : masterIngredients[name];
             let info = isSpice ? `<br><span style="color:#e67e22; font-weight:bold;">📈 効果: ${data.mul === "hp" ? "HP" : data.mul === "atk" ? "攻撃" : data.mul === "def" ? "防御" : "素早さ"} ${data.val}倍！</span>` : `<br><span style="color:#2ecc71; font-weight:bold;">📊 HP:+${data.hp}/ATK:+${data.atk}/DEF:+${data.def}/SPD:+${data.spd}</span>`;
@@ -5040,6 +5062,8 @@ function renderCookCategoryPanels() {
                     + `<div style="font-size:10px;color:#420000;margin-top:2px;">${name}</div>`
                     + `<div style="font-size:10px;color:#888;">所持:${have - usedCount}</div>`
                     + `<div style="font-size:10px;color:#aaa;">${d.hp}/${d.atk}/${d.def}/${d.spd}</div>`;
+                // レア度ボーダー
+                if(!disabled && d && d.shop !== 0) applyRarityBorder(cell, d.shop, '#fff');
                 if(!disabled) cell.onclick = () => {
                     if(isFull) {
                         cookSelectedIngredients[2] = name; // 3つ目と入れ替え
@@ -5094,12 +5118,13 @@ function renderCookSpicePanel() {
         const have = inventory[name] || 0;
         const isSelected = cookSelectedSpice === name;
         const cell = document.createElement("div");
-        cell.style.cssText = `text-align:center; padding:6px 2px; border-radius:6px; border:2px solid ${isSelected?'#9b59b6':'#d0b8e0'}; background:${isSelected?'#f3e8ff':'#fff'}; cursor:pointer;`;
+        cell.style.cssText = `text-align:center; padding:6px 2px; border-radius:6px; border:${isSelected?'2px':'1px'} solid ${isSelected?'#420000':'#b88742'}; background:${isSelected?'#f5e9c8':'#fff'}; cursor:pointer;`;
         cell.innerHTML = (d && d.icon ? `<img src="${d.icon}" style="width:32px;height:32px;object-fit:contain;">` : '<div style="font-size:24px;">🧂</div>')
             + `<div style="font-size:10px;color:#420000;margin-top:2px;">${name}</div>`
             + `<div style="font-size:10px;color:#888;">所持:${have}</div>`
-            + `<div style="font-size:9px;color:#aaa;">${formatSpiceEffectText(d)}</div>`;
+            + `<div style="font-size:10px;color:#aaa;">${formatSpiceEffectText(d)}</div>`;
         cell.onclick = () => { cookSelectedSpice = name; syncCookSelectionToHiddenSelects(); renderCookPickerUI(); };
+        if(d && d.shop) applyRarityBorder(cell, d.shop, isSelected ? '#f5e9c8' : '#fff');
         grid.appendChild(cell);
     });
     panel.appendChild(grid);
