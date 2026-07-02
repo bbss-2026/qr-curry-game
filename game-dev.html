@@ -594,6 +594,13 @@
     </div>
 </div>
 <div id="questGuideChar"><img id="questGuideImg" src="" alt=""><div id="questGuideSnoozeLabel" style="display:none;position:absolute;top:-28px;left:50%;transform:translateX(-50%);background:#420000;color:#efdeb1;font-size:11px;font-weight:bold;padding:4px 10px;border-radius:12px;white-space:nowrap;">30分非表示にしました</div><div id="cookGuideSpeechBubble" class="cook-guide-speech"></div></div>
+<div id="cookStatFixed" style="position:fixed; right:12px; bottom:12px; z-index:500; display:none; background:#fffdf0; border:2px solid #b88742; border-radius:12px; padding:10px 14px; font-size:12px; color:#420000; font-weight:bold; line-height:1.7; box-shadow:0 4px 12px rgba(0,0,0,0.2); min-width:130px;">
+    <div style="font-size:10px; color:#b88742; margin-bottom:4px; font-weight:bold;">完成時ステータス</div>
+    <div>HP：<span id="fixedPreviewHP">0</span></div>
+    <div>ATK：<span id="fixedPreviewATK">0</span></div>
+    <div>DEF：<span id="fixedPreviewDEF">0</span></div>
+    <div>SPD：<span id="fixedPreviewSPD">0</span></div>
+</div>
 <div id="eventMovieOverlay" style="position:fixed;top:0;left:0;width:100%;height:100%;background:#000;z-index:99998;display:none;justify-content:center;align-items:center;flex-direction:column;">
     <video id="eventMovieVideo" src="tokumoritoujyo.mp4" playsinline style="max-width:100%;max-height:100%;"></video>
     <button id="eventMovieSkipBtn" onclick="skipEventMovie()" style="position:absolute;bottom:24px;right:20px;padding:8px 18px;background:rgba(255,255,255,0.15);color:#fff;border:1px solid rgba(255,255,255,0.6);border-radius:20px;font-size:12px;font-weight:bold;cursor:pointer;">スキップ ▶</button>
@@ -1109,15 +1116,7 @@
         <select id="ingredient2" onchange="updateIngredientHint(2)" style="display:none;"></select>
         <select id="ingredient3" onchange="updateIngredientHint(3)" style="display:none;"></select>
         <select id="spice" onchange="updateSpiceHint()" style="display:none;"></select>
-        <div id="cookPreviewBox" style="margin-top:14px; padding:10px 12px; background:#f5e9c8; border:1px solid #b88742; border-radius:4px; display:none;">
-            <div style="font-size:11px; color:#b88742; font-weight:bold; margin-bottom:6px;">完成時ステータス（合計値）</div>
-            <div style="display:grid; grid-template-columns:1fr 1fr; gap:6px; font-size:12px; color:#420000; font-weight:bold;">
-                <div>HP: <span id="previewHP">0</span></div>
-                <div>ATK: <span id="previewATK">0</span></div>
-                <div>DEF: <span id="previewDEF">0</span></div>
-                <div>SPD: <span id="previewSPD">0</span></div>
-            </div>
-        </div>
+        <div id="cookPreviewBox" style="display:none;">
         <div style="margin-top:25px; border-top:1px solid #b88742; padding-top:16px; display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
             <h3 style="color:#420000; font-size:13px; letter-spacing:0.08em; font-weight:bold; margin:0;">発見したレシピ履歴</h3>
             <select id="sortRecipes" onchange="onRecipeSortChange()" style="font-size:11px; padding:3px 5px; border-radius:6px; border:1px solid #b88742; color:#420000; background:#f5e9c8; font-weight:bold; width:auto;">
@@ -5024,15 +5023,15 @@ function renderCookSelectedSlots() {
     for(let i = 0; i < 3; i++) {
         const name = cookSelectedIngredients[i];
         const box = document.createElement("div");
-        box.style.cssText = "flex:1; min-height:96px; border:2px dashed #b88742; border-radius:6px; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:4px; cursor:pointer; background:#fffdf0;";
+        box.style.cssText = "flex:1; min-height:96px; border:1px dashed #b88742; border-radius:6px; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:4px; cursor:pointer; background:#fffdf0;";
         if(name) {
             const d = masterIngredients[name];
             if(d && d.shop !== 0) {
                 applyRarityBorder(box, d.shop, '#fffdf0');
             } else {
-                box.style.border = "3px solid #e67e22";
+                box.style.border = "1px solid #b88742";
             }
-            const statLine = d ? `<div style="font-size:11px;color:#2ecc71;font-weight:bold;line-height:1.4;margin-top:2px;">HP+${d.hp} ATK+${d.atk}<br>DEF+${d.def} SPD+${d.spd}</div>` : '';
+            const statLine = d ? `<div style="font-size:11px;color:#5a3a1a;font-weight:bold;line-height:1.4;margin-top:2px;">HP+${d.hp} ATK+${d.atk}<br>DEF+${d.def} SPD+${d.spd}</div>` : '';
             box.innerHTML = (d && d.icon ? `<img src="${d.icon}" style="width:26px;height:26px;object-fit:contain;">` : '') + `<div style="font-size:10px;color:#420000;margin-top:1px;text-align:center;">${name}</div>` + statLine;
             box.onclick = () => { cookSelectedIngredients.splice(i,1); syncCookSelectionToHiddenSelects(); renderCookPickerUI(); };
         } else {
@@ -5121,15 +5120,15 @@ function renderCookSpicePanel() {
     if(!slotWrap || !panel) return;
     slotWrap.innerHTML = "";
     const slotBox = document.createElement("div");
-    slotBox.style.cssText = "flex:0 0 120px; min-height:80px; border:2px dashed #b88742; border-radius:6px; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:4px; cursor:pointer; background:#fffdf0;";
+    slotBox.style.cssText = "flex:0 0 120px; min-height:80px; border:1px dashed #b88742; border-radius:6px; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:4px; cursor:pointer; background:#fffdf0;";
     if(cookSelectedSpice) {
         const d = masterSpices[cookSelectedSpice];
         if(d && d.shop !== 0) {
             applyRarityBorder(slotBox, d.shop, '#fffdf0');
         } else {
-            slotBox.style.border = "3px solid #9b59b6";
+            slotBox.style.border = "1px solid #b88742";
         }
-        const statLine = d ? `<div style="font-size:11px;color:#9b59b6;font-weight:bold;margin-top:2px;">${formatSpiceEffectText(d)}</div>` : '';
+        const statLine = d ? `<div style="font-size:11px;color:#5a3a1a;font-weight:bold;margin-top:2px;">${formatSpiceEffectText(d)}</div>` : '';
         slotBox.innerHTML = (d && d.icon ? `<img src="${d.icon}" style="width:26px;height:26px;object-fit:contain;">` : '') + `<div style="font-size:10px;color:#420000;margin-top:1px;">${cookSelectedSpice}</div>` + statLine;
         slotBox.onclick = () => { cookSelectedSpice = ""; syncCookSelectionToHiddenSelects(); renderCookPickerUI(); };
     } else {
@@ -5234,9 +5233,17 @@ function updateCookPreview() {
     const i2 = document.getElementById("ingredient2").value;
     const i3 = document.getElementById("ingredient3").value;
     const sp = document.getElementById("spice").value;
-    const box = document.getElementById("cookPreviewBox");
-    if(!box) return;
-    if(!i1 && !i2 && !i3 && !sp) { box.style.display = "none"; return; }
+    const fixedPanel = document.getElementById("cookStatFixed");
+    const guideChar = document.getElementById("questGuideChar");
+    if(!i1 && !i2 && !i3 && !sp) {
+        // 何もセットされていない → 固定パネル非表示・案内人復帰
+        if(fixedPanel) fixedPanel.style.display = "none";
+        if(guideChar && guideChar.dataset.hiddenByCook === '1') {
+            guideChar.dataset.hiddenByCook = '0';
+            guideChar.style.display = guideChar.dataset.prevDisplay || '';
+        }
+        return;
+    }
     let hp=0, atk=0, def=0, spd=0;
     [i1,i2,i3].forEach(name => {
         const d = masterIngredients[name];
@@ -5248,7 +5255,6 @@ function updateCookPreview() {
         else if(sd.mul === "atk") atk = Math.round(atk * sd.val);
         else if(sd.mul === "def") def = Math.round(def * sd.val);
         else if(sd.mul === "spd") spd = Math.round(spd * sd.val);
-        // サフラン等、2つ目のステータスも同時に上昇する特殊スパイス対応
         if(sd.mul2) {
             if(sd.mul2 === "hp") hp = Math.round(hp * sd.val2);
             else if(sd.mul2 === "atk") atk = Math.round(atk * sd.val2);
@@ -5256,11 +5262,22 @@ function updateCookPreview() {
             else if(sd.mul2 === "spd") spd = Math.round(spd * sd.val2);
         }
     }
-    document.getElementById("previewHP").innerText = hp;
-    document.getElementById("previewATK").innerText = atk;
-    document.getElementById("previewDEF").innerText = def;
-    document.getElementById("previewSPD").innerText = spd;
-    box.style.display = "block";
+    // 固定パネルを更新・表示
+    const fHP = document.getElementById("fixedPreviewHP");
+    const fATK = document.getElementById("fixedPreviewATK");
+    const fDEF = document.getElementById("fixedPreviewDEF");
+    const fSPD = document.getElementById("fixedPreviewSPD");
+    if(fHP) fHP.innerText = hp;
+    if(fATK) fATK.innerText = atk;
+    if(fDEF) fDEF.innerText = def;
+    if(fSPD) fSPD.innerText = spd;
+    if(fixedPanel) fixedPanel.style.display = "block";
+    // 案内人を隠す
+    if(guideChar && guideChar.style.display !== "none" && guideChar.dataset.hiddenByCook !== '1') {
+        guideChar.dataset.prevDisplay = guideChar.style.display;
+        guideChar.dataset.hiddenByCook = '1';
+        guideChar.style.display = "none";
+    }
 }
 function checkCookStock() {
     const i1 = document.getElementById("ingredient1").value; const i2 = document.getElementById("ingredient2").value; const i3 = document.getElementById("ingredient3").value; const sp = document.getElementById("spice").value;
@@ -5653,6 +5670,7 @@ function cookCurry() {
     if (curryStock.length >= getCurryStockLimit()) curryStock.shift();
     curryStock.push(newCurry); selectedCurryIndex = curryStock.length - 1;
     saveGame(); updateFridgeUI(); updateCookSelects(); refreshRecipeBookUI(); updateFavRecipeSelect(); clearAllHints();
+    clearCookSelection();
     onCookDone(newCurry); // 実績・デイリー更新
     // カレー結果のイラスト表示（型別イラスト）＋食材アイコン
     const curryImg = document.getElementById("curryVisualImg");
