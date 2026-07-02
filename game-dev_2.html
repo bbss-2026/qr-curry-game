@@ -5694,6 +5694,11 @@ function cookCurry() {
     ["criticalFlashText","poisonFlashText","goldFlashText","margheritaFlashText","tontonFlashText","waveFlashText","illusionFlashText","stickyFlashText","seedFlashText","wanpakuFlashText","ratatouilleFlashText","homerunFlashText","poisonappleFlashText","fluffyomeletteFlashText","greencurryFlashText"].forEach(id=>{ const el=document.getElementById(id); if(el) el.style.display="none"; });
 
     // 重複OK演出：金箔・海鮮・会心
+    // 前回の特殊演出をリセット
+    const resultBox = document.getElementById("resultBox");
+    ['gold-box','wave-box','critical-box','poison-box','poisonapple-box','margherita-box','tonton-box','illusion-box','sticky-box','seed-box','wanpaku-box','ratatouille-box','homerun-box','fluffyomelette-box','greencurry-box','tricaviar-box'].forEach(c => resultBox.classList.remove(c));
+    ['goldFlashText','waveFlashText','criticalFlashText','poisonFlashText','poisonappleFlashText','margheritaFlashText','tontonFlashText','illusionFlashText','stickyFlashText','seedFlashText','wanpakuFlashText','ratatouilleFlashText','homerunFlashText','fluffyomeletteFlashText','greencurryFlashText','tricaviarFlashText'].forEach(id => { const el=document.getElementById(id); if(el) el.style.display='none'; });
+
     if(hasGold) { playGoldSound(); document.getElementById("resultBox").classList.add("gold-box"); document.getElementById("goldFlashText").style.display="block"; }
     if(isSeafood) { playTone(440,'sine',0.3); setTimeout(()=>playTone(550,'sine',0.3),150); document.getElementById("resultBox").classList.add("wave-box"); document.getElementById("waveFlashText").style.display="block"; }
     if(isCritical){ playCriticalSound(); document.getElementById("resultBox").classList.add("critical-box"); document.getElementById("criticalFlashText").style.display="block"; }
