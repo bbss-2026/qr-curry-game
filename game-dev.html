@@ -4932,11 +4932,11 @@ let cookSelectedIngredients = []; // 最大3つ、文字列配列（重複可）
 let cookSelectedSpice = "";
 let cookActiveCategoryIdx = 0;
 const COOK_CATEGORY_DEFS = [
-    { key: "meat",      label: "🥩" },
-    { key: "vegetable", label: "🥬" },
-    { key: "seafood",   label: "🐟" },
-    { key: "fruit",     label: "🍎" },
-    { key: "other",     label: "その他" }
+    { key: "meat",      img: "baseui/cookfoods-01.png" },
+    { key: "vegetable", img: "baseui/cookfoods-02.png" },
+    { key: "seafood",   img: "baseui/cookfoods-03.png" },
+    { key: "fruit",     img: "baseui/cookfoods-04.png" },
+    { key: "other",     img: "baseui/cookfoods-05.png" }
 ];
 function getCookIngSortOrder() {
     return localStorage.getItem('qr_cook_ing_sort') || 'default';
@@ -4993,22 +4993,21 @@ function renderCookCategoryTabs() {
     const wrap = document.getElementById("ingredientCategoryTabs");
     if(!wrap) return;
     wrap.innerHTML = "";
-    const total = COOK_CATEGORY_DEFS.length;
     COOK_CATEGORY_DEFS.forEach((c, idx) => {
         const btn = document.createElement("button");
         const active = idx === cookActiveCategoryIdx;
         const isFirst = idx === 0;
         const radius = isFirst ? '8px 0 0 8px' : '0';
         const borderLeft = isFirst ? '1px solid #b88742' : 'none';
-        btn.style.cssText = `flex:1; height:32px; border-radius:${radius}; border:1px solid #b88742; border-left:${borderLeft}; font-size:13px; font-weight:bold; cursor:pointer; background:${active?'#b88742':'#f5e9c8'}; color:${active?'#fff':'#420000'}; padding:0; min-width:0;`;
-        btn.innerText = c.label;
+        btn.style.cssText = `flex:1; height:32px; border-radius:${radius}; border:1px solid #b88742; border-left:${borderLeft}; cursor:pointer; padding:0; min-width:0; overflow:hidden; opacity:${active?'1':'0.6'};`;
+        btn.innerHTML = `<img src="${c.img}" style="width:100%; height:32px; object-fit:cover; display:block;">`;
+        if(active) btn.style.outline = '2px solid #7a5a20';
         btn.onclick = () => { cookActiveCategoryIdx = idx; renderCookCategoryPanels(); renderCookCategoryTabs(); };
         wrap.appendChild(btn);
     });
-    // ソートボタンのラベル更新
-    const SORT_LABELS = { default:'並替', hp:'HP↓', atk:'ATK↓', def:'DEF↓', spd:'SPD↓', count:'所持↓' };
+    // ソートボタンの画像更新
     const sortBtn = document.getElementById('cookIngSortBtn');
-    if(sortBtn) sortBtn.innerText = SORT_LABELS[getCookIngSortOrder()] || '並替';
+    if(sortBtn) sortBtn.innerHTML = `<img src="baseui/cookfoods-06.png" style="width:100%; height:32px; object-fit:cover; display:block;">`;
 }
 function renderCookCategoryPanels() {
     const track = document.getElementById("ingredientCategoryPanels");
