@@ -595,7 +595,7 @@
 </div>
 <div id="questGuideChar"><img id="questGuideImg" src="" alt=""><div id="questGuideSnoozeLabel" style="display:none;position:absolute;top:-28px;left:50%;transform:translateX(-50%);background:#420000;color:#efdeb1;font-size:11px;font-weight:bold;padding:4px 10px;border-radius:12px;white-space:nowrap;">30分非表示にしました</div><div id="cookGuideSpeechBubble" class="cook-guide-speech"></div></div>
 <div id="cookStatFixed" style="position:fixed; right:12px; bottom:12px; z-index:500; display:none; background:#fffdf0; border:2px solid #b88742; border-radius:12px; padding:10px 14px; font-size:12px; color:#420000; font-weight:bold; line-height:1.7; box-shadow:0 4px 12px rgba(0,0,0,0.2); min-width:130px;">
-    <div style="font-size:10px; color:#b88742; margin-bottom:4px; font-weight:bold;">完成時ステータス</div>
+    <div style="font-size:10px; color:#b88742; margin-bottom:4px; font-weight:bold;">完成時ステータス予想</div>
     <div>HP：<span id="fixedPreviewHP">0</span></div>
     <div>ATK：<span id="fixedPreviewATK">0</span></div>
     <div>DEF：<span id="fixedPreviewDEF">0</span></div>
@@ -1042,8 +1042,8 @@
 
     <!-- 調理タブ -->
     <div id="pageCook" class="page">
-        <button class="btn btn-rand" onclick="selectRandomIngredients()">ランダム選択</button>
-        <button class="btn btn-rand" style="background:#9a6e30;" onclick="showRecommendModal()">おすすめセット</button>
+        <button class="btn btn-rand" style="background:#9a6e30;" onclick="applyRecommendedSet()">おすすめセット</button>
+        <button class="btn btn-rand" style="background:#6a5a40; flex:0 0 72px;" onclick="showCookConditionModal()">条件選択</button>
         <div id="favRecipeArea" style="margin-bottom:8px; display:none;">
             <select id="favRecipeSelect" class="fav-recipe-select" onchange="applyFavRecipe(this.value)">
                 <option value="">⭐ お気に入りレシピから選択...</option>
@@ -1116,7 +1116,7 @@
         <select id="ingredient2" onchange="updateIngredientHint(2)" style="display:none;"></select>
         <select id="ingredient3" onchange="updateIngredientHint(3)" style="display:none;"></select>
         <select id="spice" onchange="updateSpiceHint()" style="display:none;"></select>
-        <div id="cookPreviewBox" style="display:none;">
+        <div id="cookPreviewBox" style="display:none;"></div>
         <div style="margin-top:25px; border-top:1px solid #b88742; padding-top:16px; display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
             <h3 style="color:#420000; font-size:13px; letter-spacing:0.08em; font-weight:bold; margin:0;">発見したレシピ履歴</h3>
             <select id="sortRecipes" onchange="onRecipeSortChange()" style="font-size:11px; padding:3px 5px; border-radius:6px; border:1px solid #b88742; color:#420000; background:#f5e9c8; font-weight:bold; width:auto;">
@@ -1391,67 +1391,101 @@ function closeCoinGetOverlay() {
     if(overlay) overlay.style.display = 'none';
 }
 
-function showRecommendModal() {
-    const msg = '<div style="font-size:12px;color:#420000;margin-bottom:12px;">優先したいステータスを選んでください（複数選択可）</div>'
-        + '<div style="display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin-bottom:10px;">'
+function getCookCondition() {
+    try { return JSON.parse(localStorage.getItem('qr_cook_condition') || '{}'); } catch(e) { return {}; }
+}
+function saveCookCondition(cond) {
+    localStorage.setItem('qr_cook_condition', JSON.stringify(cond));
+}
+
+function showCookConditionModal() {
+    const cond = getCookCondition();
+    const stats = cond.stats || [];
+    const msg = '<div style="font-size:12px;color:#420000;margin-bottom:10px;">優先ステータス（複数可・未選択でランダム）</div>'
+        + '<div style="display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin-bottom:14px;">'
         + ['HP','ATK','DEF','SPD'].map(s =>
-            '<label style="display:flex;align-items:center;gap:4px;padding:8px 12px;background:#f5e9c8;border:1px solid #b88742;border-radius:4px;font-size:13px;font-weight:bold;color:#420000;cursor:pointer;">'
-            + '<input type="checkbox" id="recChk' + s + '" style="width:16px;height:16px;">' + s
-            + '</label>'
+            `<label style="display:flex;align-items:center;gap:4px;padding:8px 12px;background:#f5e9c8;border:1px solid #b88742;border-radius:4px;font-size:13px;font-weight:bold;color:#420000;cursor:pointer;">`
+            + `<input type="checkbox" id="condChk${s}" ${stats.includes(s.toLowerCase())?'checked':''} style="width:16px;height:16px;">${s}`
+            + `</label>`
         ).join('')
         + '</div>'
-        + '<label style="display:flex;align-items:center;gap:6px;justify-content:center;font-size:12px;color:#420000;cursor:pointer;">'
-        + '<input type="checkbox" id="recChkExcludeLocked" checked style="width:16px;height:16px;">ロック食材は除外'
-        + '</label>';
-    showCustomConfirm('🍛 おすすめセット', msg, function() {
-        const stats = [];
-        ['HP','ATK','DEF','SPD'].forEach(s => { const c = document.getElementById('recChk'+s); if(c && c.checked) stats.push(s.toLowerCase()); });
-        if(stats.length === 0) { showCustomAlert('⚠️ 未選択', '優先したいステータスを1つ以上選んでください。'); return; }
-        const excludeLocked = document.getElementById('recChkExcludeLocked').checked;
-        applyRecommendedSet(stats, excludeLocked);
+        + '<div style="font-size:12px;color:#420000;margin-bottom:8px;font-weight:bold;">除外する食材</div>'
+        + '<div style="display:flex;flex-direction:column;gap:6px;margin-bottom:4px;">'
+        + [
+            { id:'condExcLock',    label:'ロック食材',  key:'excludeLocked',  def:true },
+            { id:'condExcMid',     label:'中級食材',    key:'excludeMid',     def:false },
+            { id:'condExcHigh',    label:'高級食材',    key:'excludeHigh',    def:false },
+            { id:'condExcSpecial', label:'特殊食材',    key:'excludeSpecial', def:false },
+          ].map(o =>
+            `<label style="display:flex;align-items:center;gap:8px;font-size:12px;color:#420000;cursor:pointer;">`
+            + `<input type="checkbox" id="${o.id}" ${(cond[o.key]??o.def)?'checked':''} style="width:16px;height:16px;">${o.label}`
+            + `</label>`
+          ).join('')
+        + '</div>';
+    showCustomConfirm('⚙️ 条件選択', msg, function() {
+        const newCond = {
+            stats: ['HP','ATK','DEF','SPD'].filter(s => { const c = document.getElementById('condChk'+s); return c && c.checked; }).map(s => s.toLowerCase()),
+            excludeLocked:  !!(document.getElementById('condExcLock')    && document.getElementById('condExcLock').checked),
+            excludeMid:     !!(document.getElementById('condExcMid')     && document.getElementById('condExcMid').checked),
+            excludeHigh:    !!(document.getElementById('condExcHigh')    && document.getElementById('condExcHigh').checked),
+            excludeSpecial: !!(document.getElementById('condExcSpecial') && document.getElementById('condExcSpecial').checked),
+        };
+        saveCookCondition(newCond);
+        showCustomAlert('✅ 保存しました', '条件を保存しました。「おすすめセット」を押すとこの条件で選択します。');
     });
 }
 
-function applyRecommendedSet(priorityStats, excludeLocked) {
-    // 在庫1個以上の食材・スパイスのみ対象（excludeLockedが真の場合、ロック中のアイテムは除外）
-    const availIngredients = Object.keys(masterIngredients).filter(k => (inventory[k]||0) > 0 && !(excludeLocked && lockedItems[k]));
-    const availSpices = Object.keys(masterSpices).filter(k => (inventory[k]||0) > 0 && !(excludeLocked && lockedItems[k]));
+function applyRecommendedSet() {
+    const cond = getCookCondition();
+    const priorityStats = cond.stats || [];
+    const excludeLocked  = cond.excludeLocked  ?? true;
+    const excludeMid     = cond.excludeMid     ?? false;
+    const excludeHigh    = cond.excludeHigh    ?? false;
+    const excludeSpecial = cond.excludeSpecial ?? false;
 
-    if(availIngredients.length === 0) {
-        showCustomAlert('⚠️ 食材不足', '食材の在庫がありません。');
-        return;
+    const availIngredients = Object.keys(masterIngredients).filter(k => {
+        if((inventory[k]||0) <= 0) return false;
+        if(excludeLocked  && lockedItems[k]) return false;
+        const shop = masterIngredients[k].shop || 0;
+        if(excludeMid     && shop === 1) return false;
+        if(excludeHigh    && shop === 2) return false;
+        if(excludeSpecial && shop < 0)  return false;
+        return true;
+    });
+    const availSpices = Object.keys(masterSpices).filter(k => {
+        if((inventory[k]||0) <= 0) return false;
+        if(excludeLocked && lockedItems[k]) return false;
+        const shop = masterSpices[k].shop || 0;
+        if(excludeMid     && shop === 1) return false;
+        if(excludeHigh    && shop === 2) return false;
+        return true;
+    });
+
+    if(availIngredients.length === 0) { showCustomAlert('⚠️ 食材不足', '条件に合う食材の在庫がありません。'); return; }
+
+    let picks = [];
+    if(priorityStats.length === 0) {
+        // 条件なし → ランダム選択
+        for(let i = 0; i < 3; i++) picks.push(availIngredients[Math.floor(Math.random() * availIngredients.length)]);
+    } else {
+        function scoreOf(d) { let s=0; priorityStats.forEach(st => { s += d[st]||0; }); return s; }
+        const sorted = [...availIngredients].sort((a,b) => scoreOf(masterIngredients[b]) - scoreOf(masterIngredients[a]));
+        const topPool = sorted.slice(0, Math.min(5, sorted.length));
+        for(let i = 0; i < 3; i++) picks.push(topPool[Math.floor(Math.random() * topPool.length)]);
     }
 
-    // 各食材のスコアを計算（優先ステータスの合計）
-    function scoreOf(d) {
-        let s = 0;
-        priorityStats.forEach(st => { s += d[st] || 0; });
-        return s;
-    }
-
-    // 食材をスコア降順にソートし、上位3つ（重複可）を採用
-    // 計算量を絞るため、上位5件からランダム性を持たせつつ高スコアを優先
-    const sortedIngredients = [...availIngredients].sort((a,b) => scoreOf(masterIngredients[b]) - scoreOf(masterIngredients[a]));
-    const topPool = sortedIngredients.slice(0, Math.min(5, sortedIngredients.length));
-    const picks = [];
-    for(let i = 0; i < 3; i++) {
-        picks.push(topPool[Math.floor(Math.random() * topPool.length)]);
-    }
-
-    // スパイス選定：優先ステータスに対応するmulを持つスパイスを優先
     let bestSpice = '';
     if(availSpices.length > 0) {
-        const matchSpices = availSpices.filter(k => priorityStats.includes(masterSpices[k].mul));
-        if(matchSpices.length > 0) {
-            // valが一番高いものを選ぶ
-            bestSpice = matchSpices.sort((a,b) => masterSpices[b].val - masterSpices[a].val)[0];
+        if(priorityStats.length > 0) {
+            const match = availSpices.filter(k => priorityStats.includes(masterSpices[k].mul));
+            bestSpice = match.length > 0
+                ? match.sort((a,b) => masterSpices[b].val - masterSpices[a].val)[0]
+                : availSpices[Math.floor(Math.random() * availSpices.length)];
         } else {
-            // 該当なしならランダム
             bestSpice = availSpices[Math.floor(Math.random() * availSpices.length)];
         }
     }
 
-    // プルダウンに反映
     document.getElementById("ingredient1").value = picks[0] || "";
     document.getElementById("ingredient2").value = picks[1] || "";
     document.getElementById("ingredient3").value = picks[2] || "";
@@ -1460,7 +1494,10 @@ function applyRecommendedSet(priorityStats, excludeLocked) {
     updateSpiceHint();
     syncCookSelectionFromHiddenSelects();
 
-    showCustomAlert('🍛 おすすめセット完了', '優先ステータス（' + priorityStats.map(s=>s.toUpperCase()).join('・') + '）を重視した組み合わせをセットしました！<br>※あくまでおすすめです。最適解ではありません。');
+    const label = priorityStats.length > 0
+        ? '優先ステータス（' + priorityStats.map(s=>s.toUpperCase()).join('・') + '）を重視した'
+        : 'ランダムな';
+    showCustomAlert('🍛 おすすめセット完了', label + '組み合わせをセットしました！<br>※あくまでおすすめです。最適解ではありません。');
 }
 
 function showIconSelectModal() {
