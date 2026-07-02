@@ -1077,9 +1077,9 @@
         <!-- 選択中の食材3枠を表示 -->
         <div id="cookSelectedSlots" style="display:flex; gap:6px; margin-bottom:8px;"></div>
         <!-- カテゴリタブ＋ソート -->
-        <div style="display:flex; align-items:stretch; gap:4px; margin-bottom:8px;">
-            <div id="ingredientCategoryTabs" style="display:flex; gap:4px; flex:1; min-width:0;"></div>
-            <button id="cookIngSortBtn" onclick="onCookIngSortCycle()" style="flex-shrink:0; width:48px; height:44px; border-radius:8px; border:1px solid #b88742; background:#f5e9c8; color:#420000; font-size:10px; font-weight:bold; cursor:pointer; line-height:1.2; padding:2px;"></button>
+        <div style="display:flex; align-items:stretch; margin-bottom:8px;">
+            <div id="ingredientCategoryTabs" style="display:flex; flex:1; min-width:0;"></div>
+            <button id="cookIngSortBtn" onclick="onCookIngSortCycle()" style="flex-shrink:0; width:48px; height:32px; border-radius:0 8px 8px 0; border:1px solid #b88742; border-left:none; background:#f5e9c8; color:#420000; font-size:10px; font-weight:bold; cursor:pointer; padding:0;"></button>
         </div>
         <!-- スワイプ＆タブ切り替え対応のカテゴリパネル -->
         <div id="ingredientCategoryPanelsWrap" style="overflow:hidden; border:1px solid #b88742; border-radius:6px; background:#fffdf0;">
@@ -4993,10 +4993,14 @@ function renderCookCategoryTabs() {
     const wrap = document.getElementById("ingredientCategoryTabs");
     if(!wrap) return;
     wrap.innerHTML = "";
+    const total = COOK_CATEGORY_DEFS.length;
     COOK_CATEGORY_DEFS.forEach((c, idx) => {
         const btn = document.createElement("button");
         const active = idx === cookActiveCategoryIdx;
-        btn.style.cssText = `flex:1; height:44px; border-radius:8px; border:1px solid #b88742; font-size:13px; font-weight:bold; cursor:pointer; background:${active?'#b88742':'#f5e9c8'}; color:${active?'#fff':'#420000'}; padding:0;`;
+        const isFirst = idx === 0;
+        const radius = isFirst ? '8px 0 0 8px' : '0';
+        const borderLeft = isFirst ? '1px solid #b88742' : 'none';
+        btn.style.cssText = `flex:1; height:32px; border-radius:${radius}; border:1px solid #b88742; border-left:${borderLeft}; font-size:13px; font-weight:bold; cursor:pointer; background:${active?'#b88742':'#f5e9c8'}; color:${active?'#fff':'#420000'}; padding:0; min-width:0;`;
         btn.innerText = c.label;
         btn.onclick = () => { cookActiveCategoryIdx = idx; renderCookCategoryPanels(); renderCookCategoryTabs(); };
         wrap.appendChild(btn);
