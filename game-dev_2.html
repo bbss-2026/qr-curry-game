@@ -41,8 +41,8 @@
         .intro-chara.appear { opacity:1; transform:translateY(0); }
 
         /* ===== TOP画面 キャラレイヤー ===== */
-        #topImageArea { position:relative; width:88%; max-width:360px; overflow:hidden; border-radius:8px; margin:8px 0 20px; }
-        #topImageArea .top-bg { width:100%; height:auto; display:block; border-radius:8px; }
+        #topImageArea { position:relative; width:88%; max-width:360px; padding-bottom:106%; overflow:hidden; border-radius:8px; margin:8px 0 20px; }
+        #topImageArea .top-bg { position:absolute; top:0; left:0; width:100%; height:100%; object-fit:cover; object-position:center; display:block; }
         .top-chara { position:absolute; }
         @keyframes topFloat1 { 0%,100%{transform:translateY(0) scale(1);} 50%{transform:translateY(-8px) scale(1.02);} }
         @keyframes topFloat2 { 0%,100%{transform:translateY(0) rotate(0);} 50%{transform:translateY(-6px) rotate(1deg);} }
@@ -2329,27 +2329,38 @@ var introHasPlayed = false;
 
 // bg.pngの実際の縦サイズからキャラ座標を動的に計算する
 const TOP_CHARA_COORDS = [
-    { topId:'topChara5', introId:'iChara5', x:50,  y:718, w:13.33 },
-    { topId:'topChara4', introId:'iChara4', x:212, y:744, w:10.67 },
-    { topId:'topChara1', introId:'iChara1', x:95,  y:626, w:29.33 },
-    { topId:'topChara3', introId:'iChara3', x:430, y:673, w:28.00 },
-    { topId:'topChara2', introId:'iChara2', x:272, y:654, w:37.33 },
+    { topId:'topChara5', introId:'iChara5', x:50,  y:718 },
+    { topId:'topChara4', introId:'iChara4', x:212, y:744 },
+    { topId:'topChara1', introId:'iChara1', x:95,  y:626 },
+    { topId:'topChara3', introId:'iChara3', x:430, y:673 },
+    { topId:'topChara2', introId:'iChara2', x:272, y:654 },
 ];
 
 function initTopLayout() {
     var bg = document.querySelector('#topImageArea .top-bg');
     if (!bg) return;
     function apply() {
-        var bgW = bg.naturalWidth  || 750;
-        var bgH = bg.naturalHeight || 1334;
+        var bgW   = bg.naturalWidth;
+        var bgH   = bg.naturalHeight;
+        if (!bgW || !bgH) return;
+        var area  = document.getElementById('topImageArea');
+        var cntW  = area.offsetWidth;
+        var cntH  = area.offsetHeight;
+        // object-fit:cover の縮尺とクロップ量を計算
+        var scale     = cntW / bgW;
+        var bgHdisp   = bgH * scale;
+        var cropTopPx = Math.max(0, (bgHdisp - cntH) / 2);
         TOP_CHARA_COORDS.forEach(function(c) {
-            var left = (c.x / bgW * 100).toFixed(2) + '%';
-            var top  = (c.y / bgH * 100).toFixed(2) + '%';
-            var width = c.w + '%';
-            var topEl   = document.getElementById(c.topId);
-            var introEl = document.getElementById(c.introId);
-            if (topEl)   { topEl.style.left   = left; topEl.style.top   = top; topEl.style.width   = width; }
-            if (introEl) { introEl.style.left  = left; introEl.style.top = top; introEl.style.width = width; }
+            var leftPct = (c.x / bgW * 100).toFixed(2) + '%';
+            var topPct  = ((c.y * scale - cropTopPx) / cntH * 100).toFixed(2) + '%';
+            [document.getElementById(c.topId), document.getElementById(c.introId)].forEach(function(el) {
+                if (!el) return;
+                el.style.left = leftPct;
+                el.style.top  = topPct;
+                // 幅 = キャラPNGのnaturalWidth ÷ bgW（bg.pngと同じ縮尺率）
+                function setW() { if (el.naturalWidth > 0) el.style.width = (el.naturalWidth / bgW * 100).toFixed(2) + '%'; }
+                if (el.complete && el.naturalWidth > 0) { setW(); } else { el.onload = setW; }
+            });
         });
     }
     if (bg.complete && bg.naturalHeight > 0) { apply(); }
