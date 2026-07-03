@@ -50,9 +50,9 @@
         /* ===== 調理アニメーション ===== */
         @keyframes potShake { 0%,100%{transform:translateX(0) rotate(0);} 12%{transform:translateX(-6px) rotate(-2.5deg);} 25%{transform:translateX(6px) rotate(2.5deg);} 37%{transform:translateX(-5px) rotate(-2deg);} 50%{transform:translateX(5px) rotate(2deg);} 62%{transform:translateX(-4px) rotate(-1deg);} 75%{transform:translateX(4px) rotate(1deg);} 87%{transform:translateX(-2px) rotate(-0.5deg);} }
         #cookingAnimation { position:fixed; top:0; left:0; width:100%; height:100%; z-index:8000; display:none; background:rgba(0,0,0,0.72); }
-        #cookingScene { position:absolute; bottom:0; left:50%; transform:translateX(-50%); width:100%; max-width:480px; height:75%; background:url('intro/nabebg.png') center bottom/cover no-repeat; display:flex; flex-direction:column; align-items:center; justify-content:flex-end; padding-bottom:6%; box-sizing:border-box; }
-        #cookingPotWrap { position:relative; width:55%; max-width:200px; }
-        #cookingPot { width:100%; height:auto; display:block; transform-origin:center bottom; }
+        #cookingScene { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); width:100%; max-width:480px; }
+        #cookingBg { width:100%; height:auto; display:block; }
+        #cookingPot { position:absolute; transform-origin:center bottom; }
         .cook-icon-el { position:fixed; width:52px; height:52px; border-radius:50%; background:rgba(255,255,255,0.92); display:flex; align-items:center; justify-content:center; opacity:0; box-shadow:0 2px 8px rgba(0,0,0,0.3); pointer-events:none; z-index:8001; }
         @keyframes topFloat3 { 0%,100%{transform:translateY(0);} 50%{transform:translateY(-9px) scale(1.015);} }
         @keyframes topFloat4 { 0%,100%{transform:translateY(0) rotate(0);} 50%{transform:translateY(-5px) rotate(-2deg);} }
@@ -777,9 +777,8 @@
     <!-- ===== 調理アニメーション ===== -->
     <div id="cookingAnimation">
         <div id="cookingScene">
-            <div id="cookingPotWrap">
-                <img id="cookingPot" src="intro/nabepot.png" alt="">
-            </div>
+            <img id="cookingBg" src="intro/nabebg.png" alt="">
+            <img id="cookingPot" src="intro/nabepot.png" alt="">
         </div>
     </div>
 
@@ -5501,92 +5500,108 @@ function checkCookStock() {
 }
 
 function playCookingAnimation(ingredients, spice, callback) {
-    const overlay  = document.getElementById('cookingAnimation');
-    const pot      = document.getElementById('cookingPot');
+    const overlay = document.getElementById('cookingAnimation');
+    const pot     = document.getElementById('cookingPot');
+    const bg      = document.getElementById('cookingBg');
     if(!overlay || !pot) { callback(); return; }
 
-    overlay.style.display = 'block';
+    window.cookAnimActive   = true;
+    window.pendingCookSound = null;
+    overlay.style.display   = 'block';
+    overlay.style.opacity   = '1';
+    overlay.style.transition = '';
     pot.style.animation = '';
 
-    // 食材・スパイスリスト（空除去）
+    // 鍋の座標・サイズをbg.pngの実寸から計算（X222 Y444）
+    function setupPot() {
+        const bgW = bg.naturalWidth || 750;
+        const bgH = bg.naturalHeight || 900;
+        pot.style.left  = (222 / bgW * 100).toFixed(1) + '%';
+        pot.style.top   = (444 / bgH * 100).toFixed(1) + '%';
+        if(pot.naturalWidth > 0) pot.style.width = (pot.naturalWidth / bgW * 100).toFixed(1) + '%';
+    }
+    if(bg && bg.complete && bg.naturalHeight > 0) { setupPot(); }
+    else if(bg) { bg.onload = setupPot; }
+
     const items = ingredients.filter(Boolean).concat(spice ? [spice] : []);
     const iconEls = [];
+    const iconSize = 52, gap = 12;
+    const totalW = items.length * (iconSize + gap) - gap;
 
-    // 鍋の中心座標を取得
-    const potRect = pot.getBoundingClientRect();
-    const potCX = potRect.left + potRect.width  * 0.5;
-    const potCY = potRect.top  + potRect.height * 0.35;
+    function getPotCenter() {
+        const r = pot.getBoundingClientRect();
+        return { x: r.left + r.width * 0.5, y: r.top + r.height * 0.35 };
+    }
 
-    // アイコンの初期配置（鍋の少し上に横並び）
-    const iconSize = 52;
-    const gap = 12;
-    const totalW = items.length * iconSize + (items.length - 1) * gap;
-    const startX = window.innerWidth  / 2 - totalW / 2;
-    const startY = potRect.top - iconSize - 20;
-
-    // フェーズ1：アイコンをぱぱぱっと表示
+    // フェーズ1：アイコンをぱぱっと表示（鍋の上に横並び）
     items.forEach(function(name, i) {
         const el = document.createElement('div');
         el.className = 'cook-icon-el';
         const d = masterIngredients[name] || masterSpices[name];
         if(d && d.icon) el.innerHTML = `<img src="${d.icon}" style="width:36px;height:36px;object-fit:contain;">`;
         else if(d && d.emoji) el.innerHTML = `<span style="font-size:26px;">${d.emoji}</span>`;
-        el.style.left = (startX + i * (iconSize + gap)) + 'px';
-        el.style.top  = startY + 'px';
+        el.style.opacity = '0'; el.style.transform = 'scale(0)';
         document.body.appendChild(el);
         iconEls.push(el);
-
         setTimeout(function() {
-            el.style.transition = 'opacity 0.15s, transform 0.25s cubic-bezier(0.34,1.56,0.64,1)';
-            el.style.opacity   = '1';
-            el.style.transform = 'scale(1)';
-            el.style.transform = 'scale(0)'; // reset first
-            requestAnimationFrame(function() {
-                requestAnimationFrame(function() {
-                    el.style.opacity   = '1';
-                    el.style.transform = 'scale(1)';
-                });
-            });
+            const pc = getPotCenter();
+            el.style.left = (pc.x - totalW / 2 + i * (iconSize + gap)) + 'px';
+            el.style.top  = (pc.y - iconSize * 2.6) + 'px';
+            requestAnimationFrame(function() { requestAnimationFrame(function() {
+                el.style.transition = 'opacity 0.15s, transform 0.28s cubic-bezier(0.34,1.56,0.64,1)';
+                el.style.opacity = '1'; el.style.transform = 'scale(1)';
+            }); });
             playSoundEffect('intro/papa.mp3');
         }, i * 180);
     });
 
-    // フェーズ2：アイコンを鍋へ投げ入れ
+    // フェーズ2：鍋へ投げ込み
     const flyDelay = items.length * 180 + 350;
     items.forEach(function(_, i) {
         setTimeout(function() {
             const el = iconEls[i];
-            const elRect = el.getBoundingClientRect();
-            const dx = potCX - (elRect.left + iconSize / 2);
-            const dy = potCY - (elRect.top  + iconSize / 2);
-            el.style.transition = 'transform 0.45s cubic-bezier(0.4,0,0.8,0.6), opacity 0.2s 0.28s ease-in';
-            el.style.transform  = `translate(${dx}px,${dy}px) scale(0.2)`;
+            const er = el.getBoundingClientRect();
+            const pc = getPotCenter();
+            const dx = pc.x - (er.left + iconSize / 2);
+            const dy = pc.y - (er.top  + iconSize / 2);
+            el.style.transition = 'transform 0.42s cubic-bezier(0.4,0,0.8,0.6), opacity 0.2s 0.26s';
+            el.style.transform  = `translate(${dx}px,${dy}px) scale(0.15)`;
             el.style.opacity    = '0';
             if(i === 0) playSoundEffect('intro/nageire.mp3');
         }, flyDelay + i * 110);
     });
 
-    // フェーズ3：鍋がカタカタ
-    const shakeDelay = flyDelay + items.length * 110 + 250;
+    // フェーズ3：鍋カタカタ
+    const shakeDelay = flyDelay + items.length * 110 + 220;
     setTimeout(function() {
         pot.style.animation = 'potShake 0.12s ease-in-out 7';
         playSoundEffect('cooking.mp3');
     }, shakeDelay);
 
-    // フェーズ4：フェードアウト → コールバック
-    const doneDelay = shakeDelay + 850 + 300;
+    // フェーズ4：結果表示 → スクロール → フェードアウト → 音
+    const showResultDelay = shakeDelay + 840;
     setTimeout(function() {
-        overlay.style.transition = 'opacity 0.5s ease';
-        overlay.style.opacity = '0';
+        callback(); // 調理結果を表示（音は保留）
         setTimeout(function() {
-            overlay.style.display  = 'none';
-            overlay.style.opacity  = '1';
-            overlay.style.transition = '';
-            pot.style.animation   = '';
-            iconEls.forEach(function(el) { el.remove(); });
-            callback();
-        }, 520);
-    }, doneDelay);
+            const rb = document.getElementById('resultBox');
+            if(rb) rb.scrollIntoView({ behavior: 'instant', block: 'center' });
+        }, 80);
+        // 結果が見えてからフェードアウト
+        setTimeout(function() {
+            overlay.style.transition = 'opacity 0.55s ease';
+            overlay.style.opacity = '0';
+            setTimeout(function() {
+                overlay.style.display = 'none';
+                overlay.style.opacity = '1';
+                overlay.style.transition = '';
+                pot.style.animation = '';
+                iconEls.forEach(function(el) { el.remove(); });
+                window.cookAnimActive = false;
+                // フェード完了後に特殊カレー音を再生
+                if(window.pendingCookSound) { window.pendingCookSound(); window.pendingCookSound = null; }
+            }, 580);
+        }, 550);
+    }, showResultDelay);
 }
 // カレーのステータス傾向から「型」を判定する（食材平均値で正規化してから比較）
 // 平均値は食材データ全体(33種)の平均: HP≈70.6, ATK≈30.0, DEF≈25.2, SPD≈18.5
@@ -5950,25 +5965,46 @@ function cookCurry() {
     ['gold-box','wave-box','critical-box','poison-box','poisonapple-box','margherita-box','tonton-box','illusion-box','sticky-box','seed-box','wanpaku-box','ratatouille-box','homerun-box','fluffyomelette-box','greencurry-box','tricaviar-box'].forEach(c => resultBox.classList.remove(c));
     ['goldFlashText','waveFlashText','criticalFlashText','poisonFlashText','poisonappleFlashText','margheritaFlashText','tontonFlashText','illusionFlashText','stickyFlashText','seedFlashText','wanpakuFlashText','ratatouilleFlashText','homerunFlashText','fluffyomeletteFlashText','greencurryFlashText','tricaviarFlashText'].forEach(id => { const el=document.getElementById(id); if(el) el.style.display='none'; });
 
-    if(hasGold) { playGoldSound(); document.getElementById("resultBox").classList.add("gold-box"); document.getElementById("goldFlashText").style.display="block"; }
-    if(isSeafood) { playTone(440,'sine',0.3); setTimeout(()=>playTone(550,'sine',0.3),150); document.getElementById("resultBox").classList.add("wave-box"); document.getElementById("waveFlashText").style.display="block"; }
-    if(isCritical){ playCriticalSound(); document.getElementById("resultBox").classList.add("critical-box"); document.getElementById("criticalFlashText").style.display="block"; }
+    if(hasGold) { document.getElementById("resultBox").classList.add("gold-box"); document.getElementById("goldFlashText").style.display="block"; }
+    if(isSeafood) { document.getElementById("resultBox").classList.add("wave-box"); document.getElementById("waveFlashText").style.display="block"; }
+    if(isCritical){ document.getElementById("resultBox").classList.add("critical-box"); document.getElementById("criticalFlashText").style.display="block"; }
 
     // 排他特殊演出（buildCurryFromMaterialsで選ばれた1つのみtrueになっている）
-    if(isPoison) { playPoisonSound(); document.getElementById("resultBox").classList.add("poison-box"); document.getElementById("poisonFlashText").style.display="block";
+    if(isPoison) { document.getElementById("resultBox").classList.add("poison-box"); document.getElementById("poisonFlashText").style.display="block";
         if(isPoisonApple) { const el=document.getElementById("poisonappleFlashText"); if(el) el.style.display="block"; document.getElementById("resultBox").classList.add("poisonapple-box"); }
     }
-    else if(isMargherita) { playCriticalSound(); document.getElementById("resultBox").classList.add("margherita-box"); document.getElementById("margheritaFlashText").style.display="block"; }
-    else if(isTonTonTon) { playSoundEffect('pig2.mp3'); document.getElementById("resultBox").classList.add("tonton-box"); document.getElementById("tontonFlashText").style.display="block"; }
-    else if(isIllusion) { playTone(300,'sine',0.2); setTimeout(()=>playTone(250,'sine',0.3),200); document.getElementById("resultBox").classList.add("illusion-box"); document.getElementById("illusionFlashText").style.display="block"; }
-    else if(isSticky) { playTone(350,'triangle',0.3); document.getElementById("resultBox").classList.add("sticky-box"); document.getElementById("stickyFlashText").style.display="block"; }
-    else if(isSeed) { playTone(500,'square',0.1); setTimeout(()=>playTone(600,'square',0.1),80); setTimeout(()=>playTone(700,'square',0.1),160); document.getElementById("resultBox").classList.add("seed-box"); document.getElementById("seedFlashText").style.display="block"; }
-    else if(isWanpaku) { playTone(440,'square',0.1); setTimeout(()=>playTone(550,'square',0.1),100); setTimeout(()=>playTone(660,'square',0.15),200); document.getElementById("resultBox").classList.add("wanpaku-box"); document.getElementById("wanpakuFlashText").style.display="block"; }
-    else if(isRatatouille) { playTone(600,'sine',0.3); setTimeout(()=>playTone(700,'sine',0.3),150); document.getElementById("resultBox").classList.add("ratatouille-box"); document.getElementById("ratatouilleFlashText").style.display="block"; }
-    else if(isHomerun) { playTone(300,'square',0.1); setTimeout(()=>playTone(900,'square',0.2),100); document.getElementById("resultBox").classList.add("homerun-box"); document.getElementById("homerunFlashText").style.display="block"; }
-    else if(isFluffyOmelette) { playSoundEffect('healing.mp3'); document.getElementById("resultBox").classList.add("fluffyomelette-box"); const el=document.getElementById("fluffyomeletteFlashText"); if(el) el.style.display="block"; }
-    else if(isGreenCurry) { playSoundEffect('hirihiri.mp3'); document.getElementById("resultBox").classList.add("greencurry-box"); const el=document.getElementById("greencurryFlashText"); if(el) el.style.display="block"; }
-    else if(isTriCaviar) { playSoundEffect('healing.mp3'); document.getElementById("resultBox").classList.add("tricaviar-box"); const el=document.getElementById("tricaviarFlashText"); if(el) el.style.display="block"; }
+    else if(isMargherita) { document.getElementById("resultBox").classList.add("margherita-box"); document.getElementById("margheritaFlashText").style.display="block"; }
+    else if(isTonTonTon) { document.getElementById("resultBox").classList.add("tonton-box"); document.getElementById("tontonFlashText").style.display="block"; }
+    else if(isIllusion) { document.getElementById("resultBox").classList.add("illusion-box"); document.getElementById("illusionFlashText").style.display="block"; }
+    else if(isSticky) { document.getElementById("resultBox").classList.add("sticky-box"); document.getElementById("stickyFlashText").style.display="block"; }
+    else if(isSeed) { document.getElementById("resultBox").classList.add("seed-box"); document.getElementById("seedFlashText").style.display="block"; }
+    else if(isWanpaku) { document.getElementById("resultBox").classList.add("wanpaku-box"); document.getElementById("wanpakuFlashText").style.display="block"; }
+    else if(isRatatouille) { document.getElementById("resultBox").classList.add("ratatouille-box"); document.getElementById("ratatouilleFlashText").style.display="block"; }
+    else if(isHomerun) { document.getElementById("resultBox").classList.add("homerun-box"); document.getElementById("homerunFlashText").style.display="block"; }
+    else if(isFluffyOmelette) { document.getElementById("resultBox").classList.add("fluffyomelette-box"); const el=document.getElementById("fluffyomeletteFlashText"); if(el) el.style.display="block"; }
+    else if(isGreenCurry) { document.getElementById("resultBox").classList.add("greencurry-box"); const el=document.getElementById("greencurryFlashText"); if(el) el.style.display="block"; }
+    else if(isTriCaviar) { document.getElementById("resultBox").classList.add("tricaviar-box"); const el=document.getElementById("tricaviarFlashText"); if(el) el.style.display="block"; }
+
+    // 効果音：調理アニメ中は背景フェード後に鳴らすために保留
+    const _resultSounds = function() {
+        if(hasGold) playGoldSound();
+        if(isSeafood) { playTone(440,'sine',0.3); setTimeout(()=>playTone(550,'sine',0.3),150); }
+        if(isCritical) playCriticalSound();
+        if(isPoison) playPoisonSound();
+        else if(isMargherita) playCriticalSound();
+        else if(isTonTonTon) playSoundEffect('pig2.mp3');
+        else if(isIllusion) { playTone(300,'sine',0.2); setTimeout(()=>playTone(250,'sine',0.3),200); }
+        else if(isSticky) playTone(350,'triangle',0.3);
+        else if(isSeed) { playTone(500,'square',0.1); setTimeout(()=>playTone(600,'square',0.1),80); setTimeout(()=>playTone(700,'square',0.1),160); }
+        else if(isWanpaku) { playTone(440,'square',0.1); setTimeout(()=>playTone(550,'square',0.1),100); setTimeout(()=>playTone(660,'square',0.15),200); }
+        else if(isRatatouille) { playTone(600,'sine',0.3); setTimeout(()=>playTone(700,'sine',0.3),150); }
+        else if(isHomerun) { playTone(300,'square',0.1); setTimeout(()=>playTone(900,'square',0.2),100); }
+        else if(isFluffyOmelette) playSoundEffect('healing.mp3');
+        else if(isGreenCurry) playSoundEffect('hirihiri.mp3');
+        else if(isTriCaviar) playSoundEffect('healing.mp3');
+    };
+    if(window.cookAnimActive) { window.pendingCookSound = _resultSounds; }
+    else { _resultSounds(); }
 
     if (curryStock.length >= getCurryStockLimit()) curryStock.shift();
     curryStock.push(newCurry); selectedCurryIndex = curryStock.length - 1;
