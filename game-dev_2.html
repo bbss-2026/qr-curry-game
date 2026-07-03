@@ -6016,21 +6016,21 @@ function cookCurry() {
     // 効果音：調理アニメ中は背景フェード後に鳴らすために保留
     const _resultSounds = function() {
         // 優先度順に1音だけ鳴らす（特殊カレー > 会心 > 金箔 > 通常）
-        if(isTriCaviar)      { playSoundEffect('healing.mp3'); }
-        else if(isFluffyOmelette) { playSoundEffect('healing.mp3'); }
+        if(isTriCaviar)          { playSoundEffect('healing.mp3'); }
+        else if(isFluffyOmelette){ playSoundEffect('healing.mp3'); }
         else if(isGreenCurry)    { playSoundEffect('hirihiri.mp3'); }
         else if(isPoison)        { playSoundEffect('poison.mp3'); }
-        else if(isMargherita)    { playCriticalSound(); }
+        else if(isMargherita)    { playSoundEffect('sound/syakin.mp3'); }
         else if(isTonTonTon)     { playSoundEffect('pig2.mp3'); }
-        else if(isRatatouille)   { playTone(600,'sine',0.3); setTimeout(()=>playTone(700,'sine',0.3),150); }
-        else if(isWanpaku)       { playTone(440,'square',0.1); setTimeout(()=>playTone(550,'square',0.1),100); setTimeout(()=>playTone(660,'square',0.15),200); }
-        else if(isHomerun)       { playTone(300,'square',0.1); setTimeout(()=>playTone(900,'square',0.2),100); }
-        else if(isSticky)        { playTone(350,'triangle',0.3); }
-        else if(isSeed)          { playTone(500,'square',0.1); setTimeout(()=>playTone(600,'square',0.1),80); setTimeout(()=>playTone(700,'square',0.1),160); }
-        else if(isIllusion)      { playTone(300,'sine',0.2); setTimeout(()=>playTone(250,'sine',0.3),200); }
-        else if(isSeafood)       { playTone(440,'sine',0.3); setTimeout(()=>playTone(550,'sine',0.3),150); }
-        else if(isCritical)      { playCriticalSound(); }
-        else if(hasGold)         { playGoldSound(); }
+        else if(isRatatouille)   { playSoundEffect('sound/syakin.mp3'); }
+        else if(isWanpaku)       { playSoundEffect('sound/syakin.mp3'); }
+        else if(isHomerun)       { playSoundEffect('sound/syakin.mp3'); }
+        else if(isSticky)        { playSoundEffect('sound/syakin.mp3'); }
+        else if(isSeed)          { playSoundEffect('sound/syakin.mp3'); }
+        else if(isIllusion)      { playSoundEffect('sound/syakin.mp3'); }
+        else if(isSeafood)       { playSoundEffect('sound/syakin.mp3'); }
+        else if(isCritical)      { playSoundEffect('sound/syakin.mp3'); }
+        else if(hasGold)         { playSoundEffect('sound/kinpaku.mp3'); }
         else                     { playSoundEffect('sound/pirorin.mp3'); }
     };
     if(window.cookAnimActive) { window.pendingCookSound = _resultSounds; }
