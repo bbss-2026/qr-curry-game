@@ -41,8 +41,8 @@
         .intro-chara.appear { opacity:1; transform:translateY(0); }
 
         /* ===== TOP画面 キャラレイヤー ===== */
-        #topImageArea { position:relative; width:88%; max-width:360px; padding-bottom:106%; overflow:hidden; border-radius:8px; margin:8px 0 20px; }
-        #topImageArea .top-bg { position:absolute; top:0; left:0; width:100%; height:100%; object-fit:cover; object-position:center; display:block; }
+        #topImageArea { position:relative; width:88%; max-width:360px; overflow:hidden; border-radius:8px; margin:8px 0 20px; }
+        #topImageArea .top-bg { width:100%; height:auto; display:block; border-radius:8px; }
         .top-chara { position:absolute; }
         @keyframes topFloat1 { 0%,100%{transform:translateY(0) scale(1);} 50%{transform:translateY(-8px) scale(1.02);} }
         @keyframes topFloat2 { 0%,100%{transform:translateY(0) rotate(0);} 50%{transform:translateY(-6px) rotate(1deg);} }
@@ -771,11 +771,11 @@
             <img src="intro/bg.png" style="position:absolute;top:0;left:0;width:100%;height:100%;object-fit:cover;object-position:center;">
             <div id="iWhiteOverlay"></div>
             <!-- キャラクター：bgStageが画像エリアサイズに縮んだ後に出現 -->
-            <img id="iChara5" class="intro-chara" src="intro/chara5.png" style="left:6.67%;top:55.67%;width:13.33%;">
-            <img id="iChara4" class="intro-chara" src="intro/chara4.png" style="left:28.27%;top:58.56%;width:10.67%;">
-            <img id="iChara1" class="intro-chara" src="intro/chara1.png" style="left:12.67%;top:45.44%;width:29.33%;">
-            <img id="iChara3" class="intro-chara" src="intro/chara3.png" style="left:57.33%;top:50.67%;width:28%;">
-            <img id="iChara2" class="intro-chara" src="intro/chara2.png" style="left:36.27%;top:48.56%;width:37.33%;">
+            <img id="iChara5" class="intro-chara" src="intro/chara5.png">
+            <img id="iChara4" class="intro-chara" src="intro/chara4.png">
+            <img id="iChara1" class="intro-chara" src="intro/chara1.png">
+            <img id="iChara3" class="intro-chara" src="intro/chara3.png">
+            <img id="iChara2" class="intro-chara" src="intro/chara2.png">
         </div>
         <img id="introLogo" src="battlecurry-logo.svg" alt="Battle Curry">
     </div>
@@ -784,11 +784,11 @@
     <div id="pageTop">
         <div id="topImageArea">
             <img class="top-bg" src="intro/bg.png" alt="">
-            <img class="top-chara" src="intro/chara5.png" style="left:6.67%;top:55.67%;width:13.33%;animation:topFloat5 3.3s ease-in-out infinite 0.3s;">
-            <img class="top-chara" src="intro/chara4.png" style="left:28.27%;top:58.56%;width:10.67%;animation:topFloat4 4.4s ease-in-out infinite 0.5s;">
-            <img class="top-chara" src="intro/chara1.png" style="left:12.67%;top:45.44%;width:29.33%;animation:topFloat1 3.6s ease-in-out infinite;">
-            <img class="top-chara" src="intro/chara3.png" style="left:57.33%;top:50.67%;width:28%;animation:topFloat3 3.8s ease-in-out infinite 0.2s;">
-            <img class="top-chara" src="intro/chara2.png" style="left:36.27%;top:48.56%;width:37.33%;animation:topFloat2 4.1s ease-in-out infinite 0.8s;">
+            <img id="topChara5" class="top-chara" src="intro/chara5.png" style="animation:topFloat5 3.3s ease-in-out infinite 0.3s;">
+            <img id="topChara4" class="top-chara" src="intro/chara4.png" style="animation:topFloat4 4.4s ease-in-out infinite 0.5s;">
+            <img id="topChara1" class="top-chara" src="intro/chara1.png" style="animation:topFloat1 3.6s ease-in-out infinite;">
+            <img id="topChara3" class="top-chara" src="intro/chara3.png" style="animation:topFloat3 3.8s ease-in-out infinite 0.2s;">
+            <img id="topChara2" class="top-chara" src="intro/chara2.png" style="animation:topFloat2 4.1s ease-in-out infinite 0.8s;">
         </div>
         <button class="btn-gamestart" id="btnGameStart" onclick="gameStart()" disabled><span class="btn-loading-spinner"></span>Loading...</button>
         <div class="top-notice" id="topNoticeBox"></div>
@@ -2103,7 +2103,7 @@ let discoveredItems = {};
 let lockedItems = {}; // 食材・スパイスのロック状態（ロックされた食材はランダム選択の抽選から除外される）
 let cachedOpponentName = "";
 let cachedOpponentCurry = null;
-window.onload = function() { setTimeout(enableGameStart, 5000); loadGame(); updateCookSelects(); setupCookCategorySwipe(); refreshRecipeBookUI(); updateShopButtons(); listenToRooms(); updateMatchCurrySelects(); setupLoadedIconUI(); updateLvDisplay(); loadNotice(); initQuest(); loadTopNotice(); updateMuteIcon(); initPlayerId(enableGameStart); loadEventEnabledStatus(); setupModalScrollLock(); setupGuideCharLongPress(); setupTutorialSwipe(); updateLunchtimeBanner(); setInterval(updateLunchtimeBanner, 60000); checkBingoNewCardNotification(); renderShopInfoList(); playIntroAnimation(); };
+window.onload = function() { setTimeout(enableGameStart, 5000); loadGame(); updateCookSelects(); setupCookCategorySwipe(); refreshRecipeBookUI(); updateShopButtons(); listenToRooms(); updateMatchCurrySelects(); setupLoadedIconUI(); updateLvDisplay(); loadNotice(); initQuest(); loadTopNotice(); updateMuteIcon(); initPlayerId(enableGameStart); loadEventEnabledStatus(); setupModalScrollLock(); setupGuideCharLongPress(); setupTutorialSwipe(); updateLunchtimeBanner(); setInterval(updateLunchtimeBanner, 60000); checkBingoNewCardNotification(); renderShopInfoList(); initTopLayout(); playIntroAnimation(); };
 
 function enableGameStart() {
     const btn = document.getElementById('btnGameStart');
@@ -2326,6 +2326,35 @@ function loadTopNotice() {
 
 // ===== イントロアニメーション =====
 var introHasPlayed = false;
+
+// bg.pngの実際の縦サイズからキャラ座標を動的に計算する
+const TOP_CHARA_COORDS = [
+    { topId:'topChara5', introId:'iChara5', x:50,  y:718, w:13.33 },
+    { topId:'topChara4', introId:'iChara4', x:212, y:744, w:10.67 },
+    { topId:'topChara1', introId:'iChara1', x:95,  y:626, w:29.33 },
+    { topId:'topChara3', introId:'iChara3', x:430, y:673, w:28.00 },
+    { topId:'topChara2', introId:'iChara2', x:272, y:654, w:37.33 },
+];
+
+function initTopLayout() {
+    var bg = document.querySelector('#topImageArea .top-bg');
+    if (!bg) return;
+    function apply() {
+        var bgW = bg.naturalWidth  || 750;
+        var bgH = bg.naturalHeight || 1334;
+        TOP_CHARA_COORDS.forEach(function(c) {
+            var left = (c.x / bgW * 100).toFixed(2) + '%';
+            var top  = (c.y / bgH * 100).toFixed(2) + '%';
+            var width = c.w + '%';
+            var topEl   = document.getElementById(c.topId);
+            var introEl = document.getElementById(c.introId);
+            if (topEl)   { topEl.style.left   = left; topEl.style.top   = top; topEl.style.width   = width; }
+            if (introEl) { introEl.style.left  = left; introEl.style.top = top; introEl.style.width = width; }
+        });
+    }
+    if (bg.complete && bg.naturalHeight > 0) { apply(); }
+    else { bg.onload = apply; }
+}
 
 function playIntroAnimation() {
     if (introHasPlayed) return;
