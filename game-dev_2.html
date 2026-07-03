@@ -923,6 +923,13 @@
                         </div>
                     </div>
                     <div style="margin-bottom:16px;">
+                        <div style="font-weight:bold; font-size:12px; color:#420000; margin-bottom:8px;">調理アニメーション</div>
+                        <div class="tag-speed-control">
+                            <button class="tag-speed-btn" id="cookAnimOnBtn"  onclick="setCookAnimSkip(false)">🍳 あり</button>
+                            <button class="tag-speed-btn" id="cookAnimOffBtn" onclick="setCookAnimSkip(true)">⏩ スキップ</button>
+                        </div>
+                    </div>
+                    <div style="margin-bottom:16px;">
                         <div style="font-weight:bold; font-size:12px; color:#420000; margin-bottom:8px;">パスワード設定</div>
                         <button class="btn-sm" style="width:100%;padding:10px 6px;background:#420000;color:#efdeb1;border:none;border-radius:4px;font-weight:bold;font-size:12px;cursor:pointer;" onclick="showPasswordSetup()">🔒 パスワード設定</button>
                     </div>
@@ -2120,7 +2127,7 @@ let discoveredItems = {};
 let lockedItems = {}; // 食材・スパイスのロック状態（ロックされた食材はランダム選択の抽選から除外される）
 let cachedOpponentName = "";
 let cachedOpponentCurry = null;
-window.onload = function() { setTimeout(enableGameStart, 5000); loadGame(); updateCookSelects(); setupCookCategorySwipe(); refreshRecipeBookUI(); updateShopButtons(); listenToRooms(); updateMatchCurrySelects(); setupLoadedIconUI(); updateLvDisplay(); loadNotice(); initQuest(); loadTopNotice(); updateMuteIcon(); initPlayerId(enableGameStart); loadEventEnabledStatus(); setupModalScrollLock(); setupGuideCharLongPress(); setupTutorialSwipe(); updateLunchtimeBanner(); setInterval(updateLunchtimeBanner, 60000); checkBingoNewCardNotification(); renderShopInfoList(); initTopLayout(); playIntroAnimation(); };
+window.onload = function() { setTimeout(enableGameStart, 5000); loadGame(); updateCookSelects(); setupCookCategorySwipe(); refreshRecipeBookUI(); updateShopButtons(); listenToRooms(); updateMatchCurrySelects(); setupLoadedIconUI(); updateLvDisplay(); loadNotice(); initQuest(); loadTopNotice(); updateMuteIcon(); initCookAnimSetting(); initPlayerId(enableGameStart); loadEventEnabledStatus(); setupModalScrollLock(); setupGuideCharLongPress(); setupTutorialSwipe(); updateLunchtimeBanner(); setInterval(updateLunchtimeBanner, 60000); checkBingoNewCardNotification(); renderShopInfoList(); initTopLayout(); playIntroAnimation(); };
 
 function enableGameStart() {
     const btn = document.getElementById('btnGameStart');
@@ -2523,6 +2530,20 @@ function updateMuteIcon() {
         onBtn.classList.toggle('active', !isMuted);
         offBtn.classList.toggle('active', isMuted);
     }
+}
+
+function setCookAnimSkip(skip) {
+    localStorage.setItem('qr_skip_cook_anim', skip ? '1' : '0');
+    const onBtn  = document.getElementById('cookAnimOnBtn');
+    const offBtn = document.getElementById('cookAnimOffBtn');
+    if(onBtn && offBtn) {
+        onBtn.classList.toggle('active', !skip);
+        offBtn.classList.toggle('active', skip);
+    }
+}
+function initCookAnimSetting() {
+    const skip = localStorage.getItem('qr_skip_cook_anim') === '1';
+    setCookAnimSkip(skip);
 }
 
 let helpOpenedFromTop = false; // 「？」をトップ画面から開いたかどうかを記憶
@@ -5480,6 +5501,13 @@ function checkCookStock() {
     const i1 = document.getElementById("ingredient1").value; const i2 = document.getElementById("ingredient2").value; const i3 = document.getElementById("ingredient3").value; const sp = document.getElementById("spice").value;
     if(!i1 && !i2 && !i3 && !sp) return;
 
+    // 食材＋スパイス合計2つ以上必要
+    const totalSelected = [i1,i2,i3].filter(Boolean).length + (sp ? 1 : 0);
+    if(totalSelected < 2) {
+        showCustomAlert("⚠️ 食材が足りません", "食材とスパイスを合わせて2つ以上セットしてください。");
+        return;
+    }
+
     // 同じ食材を複数箇所にセットしている場合、所持数が足りているか確認
     const ingredientCounts = {};
     [i1, i2, i3].forEach(name => { if(name) ingredientCounts[name] = (ingredientCounts[name]||0) + 1; });
@@ -5504,8 +5532,8 @@ function playCookingAnimation(ingredients, spice, callback) {
     const pot     = document.getElementById('cookingPot');
     const bg      = document.getElementById('cookingBg');
     if(!overlay || !pot) { callback(); return; }
-
-    window.cookAnimActive   = true;
+    // スキップ設定
+    if(localStorage.getItem('qr_skip_cook_anim') === '1') { callback(); return; }
     window.pendingCookSound = null;
     overlay.style.display   = 'block';
     overlay.style.opacity   = '1';
@@ -5575,7 +5603,7 @@ function playCookingAnimation(ingredients, spice, callback) {
     const shakeDelay = flyDelay + items.length * 110 + 220;
     setTimeout(function() {
         pot.style.animation = 'potShake 0.12s ease-in-out 7';
-        playSoundEffect('cooking.mp3');
+        playSoundEffect('intro/cooking.mp3');
     }, shakeDelay);
 
     // フェーズ4：結果表示 → スクロール → フェードアウト → 音
@@ -5990,7 +6018,7 @@ function cookCurry() {
         if(hasGold) playGoldSound();
         if(isSeafood) { playTone(440,'sine',0.3); setTimeout(()=>playTone(550,'sine',0.3),150); }
         if(isCritical) playCriticalSound();
-        if(isPoison) playPoisonSound();
+        if(isPoison) { playSoundEffect('poison.mp3'); }
         else if(isMargherita) playCriticalSound();
         else if(isTonTonTon) playSoundEffect('pig2.mp3');
         else if(isIllusion) { playTone(300,'sine',0.2); setTimeout(()=>playTone(250,'sine',0.3),200); }
@@ -6002,6 +6030,7 @@ function cookCurry() {
         else if(isFluffyOmelette) playSoundEffect('healing.mp3');
         else if(isGreenCurry) playSoundEffect('hirihiri.mp3');
         else if(isTriCaviar) playSoundEffect('healing.mp3');
+        else { playSoundEffect('sound/pirorin.mp3'); } // 特殊なし→通常完成音
     };
     if(window.cookAnimActive) { window.pendingCookSound = _resultSounds; }
     else { _resultSounds(); }
