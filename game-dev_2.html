@@ -25,7 +25,8 @@
     <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
-    <style>        body { font-family: 'Helvetica Neue', Arial, sans-serif; background-color: #efdeb1; color: #420000; padding: 0; text-align: center; margin: 0; }
+    <style>        body { font-family: 'Helvetica Neue', Arial, sans-serif; background-color: #420000; color: #420000; padding: 0; text-align: center; margin: 0; }
+        #gameWrapper { background-color: #efdeb1; max-width: 480px; margin: 0 auto; min-height: 100vh; }
         .container { max-width: 500px; margin: 0 auto; background: #efdeb1; padding: 0; box-sizing: border-box; position: relative; min-height: 100vh; }
         h1 { display: none; }
         .logo-area { padding: 24px 20px 16px; text-align: center; position: relative; }
@@ -603,6 +604,7 @@
     </style>
 </head>
 <body>
+<div id="gameWrapper">
 <div id="postToast" style="display:none; position:fixed; top:0; left:50%; transform:translateX(-50%); z-index:100000; background:#420000; color:#efdeb1; padding:10px 18px; border-radius:0 0 10px 10px; font-size:13px; font-weight:bold; box-shadow:0 4px 10px rgba(0,0,0,0.3); cursor:pointer; max-width:90vw; text-align:center; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" onclick="onPostToastClick()">
     <span id="postToastIcon" style="margin-right:6px;">📩</span><span id="postToastText"></span>
 </div>
@@ -9488,5 +9490,6 @@ function endBattleScene() {
 </script>
 <div style="height:80px;"></div>
 </div><!-- /gameUI -->
+</div>
 </body>
 </html>
