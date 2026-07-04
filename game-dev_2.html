@@ -4632,124 +4632,128 @@ const SHOP2_KEYWORD_URLS = {
     "midnightsun_mns": "https://x.com/midnightsun_mns"
 };
 let currentShop1LinkUrl = '';
+let pendingShopQR = null; // スキャン済みでSNSを開く待ちの店舗情報
+
 function openShop1Link() {
-    if(currentShop1LinkUrl) window.open(currentShop1LinkUrl, '_blank');
+    if(!currentShop1LinkUrl) return;
+    // SNSを開くボタン押下時に報酬付与
+    if(pendingShopQR) {
+        const pq = pendingShopQR;
+        pendingShopQR = null;
+        if(pq.shopId === 'shop1') giveShop1Reward(pq.text);
+        else if(pq.shopId === 'shop2') giveShop2Reward(pq.text);
+    }
+    window.open(currentShop1LinkUrl, '_blank');
 }
+
+function giveShop1Reward(text) {
+    const isFirstTime = localStorage.getItem('qr_shop1_scanned') !== '1';
+    const today = getJSTDateString();
+    const isFirstToday = scanHistory[text] !== today;
+    scanHistory[text] = today;
+    const rewardArea = document.getElementById("shopQrRewardArea");
+    if(isFirstTime) {
+        localStorage.setItem('qr_shop1_scanned', '1');
+        spicyCoin = (spicyCoin || 0) + 1;
+        if(rewardArea) rewardArea.innerHTML = `<div style="font-size:14px; font-weight:bold; color:#e67e22;">特別報酬 スパイシーコイン 1枚 GET！</div>`;
+        const coinEl = document.getElementById('globalSpicyCoin'); if(coinEl) coinEl.innerText = spicyCoin;
+        setTimeout(() => showCoinGetOverlay(1), 300);
+    } else if(isFirstToday) {
+        const normalItems = Object.keys(masterIngredients).filter(k => masterIngredients[k].shop === 0 && isIngredientAvailable(k));
+        let gained = [];
+        for(let i = 0; i < 3; i++) {
+            const it = normalItems[Math.floor(Math.random() * normalItems.length)];
+            inventory[it] = (inventory[it] || 0) + 1;
+            discoveredItems[it] = true;
+            gained.push(it);
+        }
+        const itemsHtml = gained.map(it => {
+            const d = masterIngredients[it];
+            const ico = d && d.icon ? `<img src="${d.icon}" style="width:1.4em;height:1.4em;vertical-align:middle;object-fit:contain;">` : '';
+            return `<span style="margin:0 4px;">${ico} ${it}</span>`;
+        }).join('');
+        if(rewardArea) rewardArea.innerHTML = `<div style="font-size:14px; font-weight:bold; color:#2ecc71;">食材GET！</div><div style="margin-top:4px;">${itemsHtml}</div>`;
+    } else {
+        if(rewardArea) rewardArea.innerHTML = '';
+    }
+    try { saveGame(); } catch(e) {}
+    try { updateCookSelects(); } catch(e) {}
+}
+
+function giveShop2Reward(text) {
+    const isFirstTime = localStorage.getItem('qr_shop2_scanned') !== '1';
+    const today = getJSTDateString();
+    const isFirstToday = scanHistory[text] !== today;
+    scanHistory[text] = today;
+    const rewardArea = document.getElementById("shopQrRewardArea");
+    if(isFirstTime) {
+        localStorage.setItem('qr_shop2_scanned', '1');
+        packTicket = (packTicket || 0) + 1;
+        if(rewardArea) rewardArea.innerHTML = `<div style="font-size:14px; font-weight:bold; color:#e67e22;">特別報酬 パック券 1枚 GET！</div>`;
+        const pkEl = document.getElementById('globalPackTicket'); if(pkEl) pkEl.innerText = packTicket;
+    } else if(isFirstToday) {
+        const normalItems = Object.keys(masterIngredients).filter(k => masterIngredients[k].shop === 0 && isIngredientAvailable(k));
+        let gained = [];
+        for(let i = 0; i < 3; i++) {
+            const it = normalItems[Math.floor(Math.random() * normalItems.length)];
+            inventory[it] = (inventory[it] || 0) + 1;
+            discoveredItems[it] = true;
+            gained.push(it);
+        }
+        const itemsHtml = gained.map(it => {
+            const d = masterIngredients[it];
+            const ico = d && d.icon ? `<img src="${d.icon}" style="width:1.4em;height:1.4em;vertical-align:middle;object-fit:contain;">` : '';
+            return `<span style="margin:0 4px;">${ico} ${it}</span>`;
+        }).join('');
+        if(rewardArea) rewardArea.innerHTML = `<div style="font-size:14px; font-weight:bold; color:#2ecc71;">食材GET！</div><div style="margin-top:4px;">${itemsHtml}</div>`;
+    } else {
+        if(rewardArea) rewardArea.innerHTML = '';
+    }
+    try { saveGame(); } catch(e) {}
+    try { updateCookSelects(); } catch(e) {}
+}
+
 function resetScanner() { document.getElementById("getBox").style.display = "none"; startCamera(); }
 
 // Midnight Sun 専用QR処理
-// 初回（永続）はパック券1枚、2回目以降はノーマル素材3つ。同日複数回は報酬なし。
 function processShop2QR(text, matchedKeyword) {
     try {
-        const isFirstTime = localStorage.getItem('qr_shop2_scanned') !== '1';
-        const today = getJSTDateString();
-        const isFirstToday = scanHistory[text] !== today;
-        scanHistory[text] = today;
-
         currentShop1LinkUrl = SHOP2_KEYWORD_URLS[matchedKeyword] || '';
-
+        pendingShopQR = { shopId: 'shop2', text };
         document.getElementById("getBoxTitle").innerText = "店舗情報";
         document.getElementById("bonusBadge").style.display = "none";
         document.getElementById("getItemEmoji").style.display = "none";
         document.getElementById("getItemName").style.display = "none";
         document.getElementById("shopQrArea").style.display = "block";
-        // shop2の内容をセット
         document.getElementById("shopQrShopName").innerText = 'Midnight Sun';
         document.getElementById("shopQrLocation").innerText = '大阪市中央区';
         document.getElementById("shopQrPhotos").innerHTML = '<img src="shop/shop-2-1.png" style="width:48%; max-width:160px; border-radius:6px; object-fit:cover;"><img src="shop/shop-2-2.png" style="width:48%; max-width:160px; border-radius:6px; object-fit:cover;">';
         document.getElementById("shopQrDesc").innerHTML = '大阪の爽やかスパイスカレーとコーヒーのお店<br>地下鉄堺筋線 堺筋本町駅 7番出口から徒歩約5分';
         document.getElementById("shopQrOpenLinkBtn").style.display = 'inline-block';
-
-        const rewardArea = document.getElementById("shopQrRewardArea");
-        if(isFirstTime) {
-            localStorage.setItem('qr_shop2_scanned', '1');
-            packTicket = (packTicket || 0) + 1;
-            rewardArea.innerHTML = `<div style="font-size:14px; font-weight:bold; color:#e67e22;">特別報酬 パック券 1枚 GET！</div>`;
-            const pkEl = document.getElementById('globalPackTicket'); if(pkEl) pkEl.innerText = packTicket;
-        } else if(isFirstToday) {
-            const normalItems = Object.keys(masterIngredients).filter(k => masterIngredients[k].shop === 0 && isIngredientAvailable(k));
-            let gained = [];
-            for(let i = 0; i < 3; i++) {
-                const it = normalItems[Math.floor(Math.random() * normalItems.length)];
-                inventory[it] = (inventory[it] || 0) + 1;
-                discoveredItems[it] = true;
-                gained.push(it);
-            }
-            const itemsHtml = gained.map(it => {
-                const d = masterIngredients[it];
-                const ico = d && d.icon ? `<img src="${d.icon}" style="width:1.4em;height:1.4em;vertical-align:middle;object-fit:contain;">` : '';
-                return `<span style="margin:0 4px;">${ico} ${it}</span>`;
-            }).join('');
-            rewardArea.innerHTML = `<div style="font-size:14px; font-weight:bold; color:#2ecc71;">食材GET！</div><div style="margin-top:4px;">${itemsHtml}</div>`;
-        } else {
-            rewardArea.innerHTML = '';
-        }
+        document.getElementById("shopQrRewardArea").innerHTML = `<div style="font-size:12px; color:#9a6e30; font-weight:bold; margin-top:4px;">📱 SNSを開くと報酬GET！</div>`;
         document.getElementById("getBox").style.display = "block";
-        try { saveGame(); } catch(e) {}
-        try { updateCookSelects(); } catch(e) {}
-    } catch(e) {
-        console.error('processShop2QR error:', e);
-    }
+    } catch(e) { console.error('processShop2QR error:', e); }
 }
 
 // 実店舗「空腹は最高のスパイスカレー」専用QR処理
 // 初回（永続）はスパイシーコイン1枚、2回目以降はノーマル素材3つ。同日複数回スキャン可（簡略表示）。
 function processShop1QR(text, matchedKeyword) {
     try {
-        const isFirstTime = localStorage.getItem('qr_shop1_scanned') !== '1';
-        const today = getJSTDateString();
-        const isFirstToday = scanHistory[text] !== today;
-        scanHistory[text] = today;
-
-        // ポップアップブロックを避けるため、ここでは自動的に別窓を開かず、
-        // 「SNSを開く」ボタンをユーザーが押した時にwindow.openする（openShop1Link関数）
         currentShop1LinkUrl = SHOP1_KEYWORD_URLS[matchedKeyword] || '';
-
+        pendingShopQR = { shopId: 'shop1', text };
         document.getElementById("getBoxTitle").innerText = "店舗情報";
         document.getElementById("bonusBadge").style.display = "none";
         document.getElementById("getItemEmoji").style.display = "none";
         document.getElementById("getItemName").style.display = "none";
         document.getElementById("shopQrArea").style.display = "block";
-        // shop1の内容をセット
         document.getElementById("shopQrShopName").innerText = '空腹は最高のスパイスカレー';
         document.getElementById("shopQrLocation").innerText = '兵庫県西宮市';
         document.getElementById("shopQrPhotos").innerHTML = '<img src="shop/shop-1-1.png" style="width:48%; max-width:160px; border-radius:6px; object-fit:cover;"><img src="shop/shop-1-2.png" style="width:48%; max-width:160px; border-radius:6px; object-fit:cover;">';
         document.getElementById("shopQrDesc").innerHTML = 'グルテンフリーで「美味しいが健康に」<br>阪急夙川駅から東へ約10分<br>阪急電車高架下≪阪急夙川サンらいふ≫';
         document.getElementById("shopQrOpenLinkBtn").style.display = 'inline-block';
-        const rewardArea = document.getElementById("shopQrRewardArea");
-
-        if(isFirstTime) {
-            localStorage.setItem('qr_shop1_scanned', '1');
-            spicyCoin = (spicyCoin || 0) + 1;
-            rewardArea.innerHTML = `<div style="font-size:14px; font-weight:bold; color:#e67e22;">特別報酬 スパイシーコイン 1枚 GET！</div>`;
-            const coinEl = document.getElementById('globalSpicyCoin'); if(coinEl) coinEl.innerText = spicyCoin;
-            setTimeout(() => showCoinGetOverlay(1), 300);
-        } else if(isFirstToday) {
-            const normalItems = Object.keys(masterIngredients).filter(k => masterIngredients[k].shop === 0 && isIngredientAvailable(k));
-            let gained = [];
-            for(let i = 0; i < 3; i++) {
-                const it = normalItems[Math.floor(Math.random() * normalItems.length)];
-                inventory[it] = (inventory[it] || 0) + 1;
-                discoveredItems[it] = true;
-                gained.push(it);
-            }
-            const itemsHtml = gained.map(it => {
-                const d = masterIngredients[it];
-                const ico = d && d.icon ? `<img src="${d.icon}" style="width:1.4em;height:1.4em;vertical-align:middle;object-fit:contain;">` : '';
-                return `<span style="margin:0 4px;">${ico} ${it}</span>`;
-            }).join('');
-            rewardArea.innerHTML = `<div style="font-size:14px; font-weight:bold; color:#2ecc71;">食材GET！</div><div style="margin-top:4px;">${itemsHtml}</div>`;
-        } else {
-            // 同日2回目以降：報酬内容は載せない
-            rewardArea.innerHTML = '';
-        }
+        document.getElementById("shopQrRewardArea").innerHTML = `<div style="font-size:12px; color:#9a6e30; font-weight:bold; margin-top:4px;">📱 SNSを開くと報酬GET！</div>`;
         document.getElementById("getBox").style.display = "block";
-
-        try { saveGame(); } catch(e) { console.error('saveGame error:', e); }
-        try { updateCookSelects(); } catch(e) { console.error('updateCookSelects error:', e); }
-    } catch(e) {
-        console.error('processShop1QR error:', e);
-    }
+    } catch(e) { console.error('processShop1QR error:', e); }
 }
 function processQRData(text, r, g, b) {
     try {
