@@ -8617,6 +8617,8 @@ function isMeatBasedBot(botName) {
 
 // ホームランカレー：種連射・熱々ブレスを20%で打ち返し無効化
 function isHomerunReflect(mySpd, oppSpd) {
+    // ★デバッグ用：100%打ち返し（後で戻す）
+    return true;
     const ratio = mySpd / Math.max(1, oppSpd);
     const rate = ratio >= 1.5 ? 0.30 : ratio >= 1 ? 0.25 : 0.20;
     return Math.random() < rate;
@@ -8752,7 +8754,7 @@ function calcAllBattleTurns(myC, oppC, oppN, myName) {
             } else if((oppC.isWanpaku || oppC.isTonTonTon) && isWanpakuMiss()) {
                 turn.log+=`
 💨 {{ACTOR}}のわんぱくが暴れすぎて攻撃が外れた！`;
-            } else if(oppC.isSeed && Math.random()<0.3) {
+            } else if(oppC.isSeed && Math.random()<1.0) {//★デバッグ用100%（後で0.3に戻す）
                 if(myC.isHomerun && isHomerunReflect(myC.spd, oppC.spd)) {
                     turn.log+=`
 🏏 ホームラン！{{ACTOR}}の種連続発射を打ち返して無効化！`;
@@ -9677,7 +9679,7 @@ function startBattleScene(oppN, oppC, myC) {
                 playSoundEffect('sound/miss.mp3');
                 log.innerHTML+=`\n💨 相手のわんぱくが暴れすぎて攻撃が外れた！`;
                 setTimeout(()=>{updateHP(pHP,oHP,oppC.hp,myC.hp);battleLogHistory.push(log.innerHTML.replace(/<br\s*\/?>/gi,"\n"));myTurn=true;round++;setTimeout(step,battleDelay(1100));},battleDelay(400));
-            } else if(oppC.isBreath&&Math.random()<(1/3)){
+            } else if(oppC.isBreath&&Math.random()<1.0){//★デバッグ用100%（後で1/3に戻す）
                 // 熱々ブレス（breath.mp3）／ホームランカレーで20%打ち返し無効化
                 if(myC.isHomerun&&isHomerunReflect(myC.spd,oppC.spd)){
                     log.innerHTML+=`\n🏏 ホームラン！熱々ブレスを打ち返して無効化！`;
@@ -9685,7 +9687,7 @@ function startBattleScene(oppN, oppC, myC) {
                 } else {
                     setTimeout(()=>{pHP=Math.max(0,pHP-80);log.innerHTML+=`\n🔥 熱々ブレス！DEF無視80ダメージ！`;playSoundEffect('breath.mp3');triggerEffect("player",80);updateHP(pHP,oHP,oppC.hp,myC.hp);battleLogHistory.push(log.innerHTML.replace(/<br\s*\/?>/gi,"\n"));myTurn=true;round++;setTimeout(step,battleDelay(1100));},battleDelay(400));
                 }
-            } else if(oppC.isSeed&&Math.random()<0.3){
+            } else if(oppC.isSeed&&Math.random()<1.0){//★デバッグ用100%（後で0.3に戻す）
                 // 種連射（machine-gun.mp3、SPD比較で回数変動）／ホームランカレーで20%打ち返し無効化
                 if(myC.isHomerun&&isHomerunReflect(myC.spd,oppC.spd)){
                     log.innerHTML+=`\n🏏 ホームラン！種連続発射を打ち返して無効化！`;
