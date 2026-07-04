@@ -7464,8 +7464,14 @@ function launchTagBattle(myCurry, deliveryCand, enemies) {
     document.getElementById('tagEnemyImg1').src = enemies[1].image;
 
     stopBattleBGM();
-    const hasTriCaviarInTag = myCurry.isTriCaviar || deliveryCand.curry.isTriCaviar;
-    setTimeout(() => playBattleBGM(hasTriCaviarInTag ? 'Specialdinner.mp3' : 'Revenger.mp3'), 200);
+    const hasTriCaviarInTag  = myCurry.isTriCaviar    || deliveryCand.curry.isTriCaviar;
+    const hasMargheritaInTag = myCurry.isMargherita   || deliveryCand.curry.isMargherita;
+    const hasSeafoodInTag    = myCurry.isSeafood      || deliveryCand.curry.isSeafood;
+    const tagBGM = hasTriCaviarInTag  ? 'Specialdinner.mp3'
+                 : hasMargheritaInTag ? 'Guardare_il_cielo.mp3'
+                 : hasSeafoodInTag    ? 'wave.mp3'
+                 : 'Revenger.mp3';
+    setTimeout(() => playBattleBGM(tagBGM), 200);
 
     tagUpdateAllHpDisplays();
     requestAnimationFrame(() => {
