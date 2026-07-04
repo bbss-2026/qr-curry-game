@@ -7564,6 +7564,17 @@ function tagExecuteAction(actor, myTeam, enemyTeam, callback) {
     }
 
     const curry = actor.curry;
+    // 海鮮カレー：HP50%以下で1回だけ回復（タッグ戦）
+    if(curry.isSeafood && !actor.seaHealUsed && actor.hp <= Math.floor(actor.maxHp * 0.5)) {
+        actor.seaHealUsed = true;
+        const aliveEnemySpd = enemyTeam.filter(f => f.hp > 0).map(f => f.spd);
+        const avgEnemySpd = aliveEnemySpd.length ? aliveEnemySpd.reduce((a,b)=>a+b,0)/aliveEnemySpd.length : 50;
+        const seaHeal = Math.round(actor.maxHp * (actor.spd >= avgEnemySpd ? 0.4 : 0.3));
+        actor.hp = Math.min(actor.maxHp, actor.hp + seaHeal);
+        tagTriggerDamagePop('player', actor.idx, -seaHeal, '#2ecc71');
+        tagLogAppend(`🌊 ${actor.name}は波の音に癒された。HP回復+${seaHeal}`);
+        playSoundEffect('healing.mp3');
+    }
     // 幻惑ミス判定
     if(actor.isIlluded) {
         const aliveEnemySpd = enemyTeam.filter(f => f.hp > 0).map(f => f.spd);
