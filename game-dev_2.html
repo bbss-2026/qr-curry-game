@@ -52,7 +52,7 @@
         #battleSkillWindow { position:absolute; top:30%; left:50%; transform:translate(-50%,-50%); width:100%; max-width:480px; }
         #battleSkillBgWrap { position:relative; overflow:hidden; }
         #battleSkillBgImg { width:100%; height:auto; display:block; }
-        #battleSkillCharaImg { position:absolute; left:50%; top:62%; transform:translate(-50%,-50%) scale(1); width:60%; height:auto; object-fit:contain; transform-origin:center center; z-index:1; }
+        #battleSkillCharaImg { position:absolute; left:50%; top:75%; transform:translate(-50%,-50%) scale(1); width:60%; height:auto; object-fit:contain; transform-origin:center center; z-index:1; }
         #battleSkillMaskTop { position:absolute; top:0; left:0; width:100%; background:#111; z-index:2; }
         #battleSkillMaskBot { position:absolute; bottom:0; left:0; width:100%; background:#111; z-index:2; }
         @keyframes potShake { 0%,100%{transform:translateX(0) rotate(0);} 12%{transform:translateX(-6px) rotate(-2.5deg);} 25%{transform:translateX(6px) rotate(2.5deg);} 37%{transform:translateX(-5px) rotate(-2deg);} 50%{transform:translateX(5px) rotate(2deg);} 62%{transform:translateX(-4px) rotate(-1deg);} 75%{transform:translateX(4px) rotate(1deg);} 87%{transform:translateX(-2px) rotate(-0.5deg);} }
@@ -2397,25 +2397,32 @@ function playBattleSkillAnimation(config, callback) {
     charaImg.src     = config.chara1Img || '';
     charaImg.style.transition = 'none';
     charaImg.style.transform  = 'translate(-50%,-50%) scale(1)';
-    // マスクで全体を隠す（上下から中央へ）
     maskTop.style.transition = 'none';
     maskBot.style.transition = 'none';
     maskTop.style.height = '50%';
     maskBot.style.height = '50%';
     overlay.style.opacity   = '1';
     overlay.style.transition = '';
-    overlay.style.display   = 'block';
-    window.battleSkillAnimBusy = true; // バトル一時停止フラグ
+    overlay.style.display   = 'none'; // 画像ロード完了まで非表示（黒が先に見えないように）
+    window.battleSkillAnimBusy = true;
+
+    const bgWrap = document.getElementById('battleSkillBgWrap');
 
     function startAnim() {
-        // 効果音①と同時にマスクが上下に広がって背景＋カレーが見えてくる
+        overlay.style.display = 'block'; // アニメーション開始と同時に表示
+
+        // 155pxをbg画像の実際の表示高さに対するパーセントで計算
+        const bgH = bgImg.offsetHeight || (bgWrap.offsetWidth * (bgImg.naturalHeight / bgImg.naturalWidth));
+        const maskPct = bgH > 0 ? Math.min(49, 155 / bgH * 100).toFixed(1) + '%' : '32%';
+
+        // 効果音①と同時にマスクが上下に開いて背景＋カレーが見えてくる
         playSoundEffect(config.soundOpen || 'sound/battlese.mp3');
 
         requestAnimationFrame(() => requestAnimationFrame(() => {
             maskTop.style.transition = 'height 0.5s ease-out';
             maskBot.style.transition = 'height 0.5s ease-out';
-            maskTop.style.height = '18%';
-            maskBot.style.height = '18%';
+            maskTop.style.height = maskPct;
+            maskBot.style.height = maskPct;
 
             // マスクが開いている間にカレーが少し揺れながら拡大（臨場感）
             setTimeout(() => {
@@ -9604,7 +9611,7 @@ function startBattleScene(oppN, oppC, myC) {
 
     function step(){
         if(battleAborted) return;
-        if(window.battleSkillAnimBusy) { setTimeout(step, 100); return; } // アニメーション中は待機
+        if(window.battleSkillAnimBusy) return; // アニメーション中は捨てる（リトライしない）
         if(pHP<=0||oHP<=0||round>20){setTimeout(()=>done(pHP,oHP,myC,oppC,false),battleDelay(800));return;}
         if(myTurn){
             log.innerHTML=`🔥 自分のターン！`;
