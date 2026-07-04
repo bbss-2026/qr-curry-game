@@ -2410,17 +2410,26 @@ function playBattleSkillAnimation(config, callback) {
 
         overlay.style.display = 'block'; // アニメーション開始と同時に表示
 
+        // bg画像の表示高さから155pxのパーセントを計算（naturalWH使用で確実）
+        var dispW = Math.min(window.innerWidth, 480);
+        var dispH = bgImg.naturalWidth > 0 ? dispW * bgImg.naturalHeight / bgImg.naturalWidth : 300;
+        var toPct  = Math.min(48, 155 / dispH * 100); // 最終clip-path %
+
         playSoundEffect(config.soundOpen || 'sound/battlese.mp3');
 
-        requestAnimationFrame(function(){ requestAnimationFrame(function(){
-            // clip-pathでマスクを開く（黒なし・透明クリップ）
-            // rAF内で計算することでoffsetHeightが正しく取得できる
-            var dispH = bgImg.offsetHeight ||
-                (bgWrap.offsetWidth * (bgImg.naturalHeight / Math.max(1, bgImg.naturalWidth)));
-            var maskPct = dispH > 0 ? Math.min(49, (155 / dispH * 100)).toFixed(1) : '32';
+        // JSアニメーションループでclip-pathを開く（CSSトランジションより確実）
+        var animStart = null;
+        var animDur   = 500;
+        (function animFrame(ts) {
+            if(!animStart) animStart = ts;
+            var prog  = Math.min((ts - animStart) / animDur, 1);
+            var ease  = 1 - Math.pow(1 - prog, 2); // ease-out quad
+            var cur   = 50 + (toPct - 50) * ease;
+            bgWrap.style.clipPath = 'inset(' + cur.toFixed(2) + '% 0 ' + cur.toFixed(2) + '% 0)';
+            if(prog < 1) { requestAnimationFrame(animFrame); }
+        })(performance.now());
 
-            bgWrap.style.transition = 'clip-path 0.5s ease-out';
-            bgWrap.style.clipPath   = 'inset(' + maskPct + '% 0 ' + maskPct + '% 0)';
+        requestAnimationFrame(function(){ requestAnimationFrame(function(){
 
             // カレーが揺れながら少し拡大
             setTimeout(function(){
