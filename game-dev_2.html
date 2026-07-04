@@ -2410,10 +2410,8 @@ function playBattleSkillAnimation(config, callback) {
 
         overlay.style.display = 'block'; // アニメーション開始と同時に表示
 
-        // bg画像の表示高さから155pxのパーセントを計算（naturalWH使用で確実）
-        var dispW = Math.min(window.innerWidth, 480);
-        var dispH = bgImg.naturalWidth > 0 ? dispW * bgImg.naturalHeight / bgImg.naturalWidth : 300;
-        var toPct  = Math.min(48, 155 / dispH * 100); // 最終clip-path %
+        // clip-pathの最終値（上下20%ずつ隠す＝中央60%を表示）
+        var toPct = 20;
 
         playSoundEffect(config.soundOpen || 'sound/battlese.mp3');
 
