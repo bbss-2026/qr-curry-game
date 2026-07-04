@@ -4636,14 +4636,18 @@ let pendingShopQR = null; // スキャン済みでSNSを開く待ちの店舗情
 
 function openShop1Link() {
     if(!currentShop1LinkUrl) return;
-    // SNSを開くボタン押下時に報酬付与
+    let rewardMsg = null;
     if(pendingShopQR) {
         const pq = pendingShopQR;
         pendingShopQR = null;
-        if(pq.shopId === 'shop1') giveShop1Reward(pq.text);
-        else if(pq.shopId === 'shop2') giveShop2Reward(pq.text);
+        if(pq.shopId === 'shop1') rewardMsg = giveShop1Reward(pq.text);
+        else if(pq.shopId === 'shop2') rewardMsg = giveShop2Reward(pq.text);
     }
     window.open(currentShop1LinkUrl, '_blank');
+    // SNSから戻ってきたときに報酬を確認できるよう通知表示
+    if(rewardMsg) {
+        setTimeout(() => showCustomAlert('🎁 報酬GET！', rewardMsg), 800);
+    }
 }
 
 function giveShop1Reward(text) {
@@ -4652,10 +4656,12 @@ function giveShop1Reward(text) {
     const isFirstToday = scanHistory[text] !== today;
     scanHistory[text] = today;
     const rewardArea = document.getElementById("shopQrRewardArea");
+    let rewardMsg = null;
     if(isFirstTime) {
         localStorage.setItem('qr_shop1_scanned', '1');
         spicyCoin = (spicyCoin || 0) + 1;
-        if(rewardArea) rewardArea.innerHTML = `<div style="font-size:14px; font-weight:bold; color:#e67e22;">特別報酬 スパイシーコイン 1枚 GET！</div>`;
+        rewardMsg = '🌶️ スパイシーコイン 1枚 GET！';
+        if(rewardArea) rewardArea.innerHTML = `<div style="font-size:14px; font-weight:bold; color:#e67e22;">${rewardMsg}</div>`;
         const coinEl = document.getElementById('globalSpicyCoin'); if(coinEl) coinEl.innerText = spicyCoin;
         setTimeout(() => showCoinGetOverlay(1), 300);
     } else if(isFirstToday) {
@@ -4672,12 +4678,14 @@ function giveShop1Reward(text) {
             const ico = d && d.icon ? `<img src="${d.icon}" style="width:1.4em;height:1.4em;vertical-align:middle;object-fit:contain;">` : '';
             return `<span style="margin:0 4px;">${ico} ${it}</span>`;
         }).join('');
+        rewardMsg = '食材 3個 GET！';
         if(rewardArea) rewardArea.innerHTML = `<div style="font-size:14px; font-weight:bold; color:#2ecc71;">食材GET！</div><div style="margin-top:4px;">${itemsHtml}</div>`;
     } else {
         if(rewardArea) rewardArea.innerHTML = '';
     }
     try { saveGame(); } catch(e) {}
     try { updateCookSelects(); } catch(e) {}
+    return rewardMsg;
 }
 
 function giveShop2Reward(text) {
@@ -4686,10 +4694,12 @@ function giveShop2Reward(text) {
     const isFirstToday = scanHistory[text] !== today;
     scanHistory[text] = today;
     const rewardArea = document.getElementById("shopQrRewardArea");
+    let rewardMsg = null;
     if(isFirstTime) {
         localStorage.setItem('qr_shop2_scanned', '1');
         packTicket = (packTicket || 0) + 1;
-        if(rewardArea) rewardArea.innerHTML = `<div style="font-size:14px; font-weight:bold; color:#e67e22;">特別報酬 パック券 1枚 GET！</div>`;
+        rewardMsg = '🎫 パック券 1枚 GET！';
+        if(rewardArea) rewardArea.innerHTML = `<div style="font-size:14px; font-weight:bold; color:#e67e22;">${rewardMsg}</div>`;
         const pkEl = document.getElementById('globalPackTicket'); if(pkEl) pkEl.innerText = packTicket;
     } else if(isFirstToday) {
         const normalItems = Object.keys(masterIngredients).filter(k => masterIngredients[k].shop === 0 && isIngredientAvailable(k));
@@ -4705,12 +4715,14 @@ function giveShop2Reward(text) {
             const ico = d && d.icon ? `<img src="${d.icon}" style="width:1.4em;height:1.4em;vertical-align:middle;object-fit:contain;">` : '';
             return `<span style="margin:0 4px;">${ico} ${it}</span>`;
         }).join('');
+        rewardMsg = '食材 3個 GET！';
         if(rewardArea) rewardArea.innerHTML = `<div style="font-size:14px; font-weight:bold; color:#2ecc71;">食材GET！</div><div style="margin-top:4px;">${itemsHtml}</div>`;
     } else {
         if(rewardArea) rewardArea.innerHTML = '';
     }
     try { saveGame(); } catch(e) {}
     try { updateCookSelects(); } catch(e) {}
+    return rewardMsg;
 }
 
 function resetScanner() { document.getElementById("getBox").style.display = "none"; startCamera(); }
