@@ -50,11 +50,9 @@
         /* ===== バトル技演出オーバーレイ ===== */
         #battleSkillOverlay { position:fixed; top:0; left:0; width:100%; height:100%; z-index:6000; display:none; pointer-events:none; }
         #battleSkillWindow { position:absolute; top:30%; left:50%; transform:translate(-50%,-50%); width:100%; max-width:480px; }
-        #battleSkillBgWrap { position:relative; overflow:hidden; }
+        #battleSkillBgWrap { position:relative; clip-path:inset(50% 0 50% 0); }
         #battleSkillBgImg { width:100%; height:auto; display:block; }
-        #battleSkillCharaImg { position:absolute; left:50%; top:75%; transform:translate(-50%,-50%) scale(1); width:60%; height:auto; object-fit:contain; transform-origin:center center; z-index:1; }
-        #battleSkillMaskTop { position:absolute; top:0; left:0; width:100%; background:#111; z-index:2; }
-        #battleSkillMaskBot { position:absolute; bottom:0; left:0; width:100%; background:#111; z-index:2; }
+        #battleSkillCharaImg { position:absolute; left:50%; top:72%; transform:translate(-50%,-50%) scale(1); width:60%; height:auto; object-fit:contain; z-index:1; }
         @keyframes potShake { 0%,100%{transform:translateX(0) rotate(0);} 12%{transform:translateX(-6px) rotate(-2.5deg);} 25%{transform:translateX(6px) rotate(2.5deg);} 37%{transform:translateX(-5px) rotate(-2deg);} 50%{transform:translateX(5px) rotate(2deg);} 62%{transform:translateX(-4px) rotate(-1deg);} 75%{transform:translateX(4px) rotate(1deg);} 87%{transform:translateX(-2px) rotate(-0.5deg);} }
         #cookingAnimation { position:fixed; top:0; left:0; width:100%; height:100%; z-index:8000; display:none; background:rgba(0,0,0,0.72); }
         #cookingScene { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); width:100%; max-width:480px; }
@@ -787,8 +785,6 @@
             <div id="battleSkillBgWrap">
                 <img id="battleSkillBgImg" src="" alt="">
                 <img id="battleSkillCharaImg" src="" alt="">
-                <div id="battleSkillMaskTop"></div>
-                <div id="battleSkillMaskBot"></div>
             </div>
         </div>
     </div>
@@ -2385,104 +2381,106 @@ function loadTopNotice() {
 // ===== バトル技演出アニメーション（共通） =====
 // config: { bgImg, chara1Img, chara2Img, soundOpen, soundHit }
 function playBattleSkillAnimation(config, callback) {
-    const overlay   = document.getElementById('battleSkillOverlay');
-    const bgImg     = document.getElementById('battleSkillBgImg');
-    const charaImg  = document.getElementById('battleSkillCharaImg');
-    const maskTop   = document.getElementById('battleSkillMaskTop');
-    const maskBot   = document.getElementById('battleSkillMaskBot');
+    var overlay  = document.getElementById('battleSkillOverlay');
+    var bgImg    = document.getElementById('battleSkillBgImg');
+    var charaImg = document.getElementById('battleSkillCharaImg');
+    var bgWrap   = document.getElementById('battleSkillBgWrap');
     if(!overlay) { if(callback) callback(); return; }
 
-    // 初期化：カレーは最初から普通サイズで存在（突然現れない）
-    bgImg.src        = config.bgImg     || '';
-    charaImg.src     = config.chara1Img || '';
+    var played = false; // 二重起動防止フラグ
+
+    bgImg.onload  = null;
+    bgImg.onerror = null;
+    bgImg.src     = config.bgImg     || '';
+    charaImg.src  = config.chara1Img || '';
     charaImg.style.transition = 'none';
     charaImg.style.transform  = 'translate(-50%,-50%) scale(1)';
-    maskTop.style.transition = 'none';
-    maskBot.style.transition = 'none';
-    maskTop.style.height = '50%';
-    maskBot.style.height = '50%';
+    bgWrap.style.transition = 'none';
+    bgWrap.style.clipPath   = 'inset(50% 0 50% 0)'; // 全体を隠す
     overlay.style.opacity   = '1';
     overlay.style.transition = '';
-    overlay.style.display   = 'none'; // 画像ロード完了まで非表示（黒が先に見えないように）
+    overlay.style.display   = 'none'; // 画像ロードまで非表示
     window.battleSkillAnimBusy = true;
 
-    const bgWrap = document.getElementById('battleSkillBgWrap');
-
     function startAnim() {
+        if(played) return;
+        played = true;
+        bgImg.onload  = null;
+        bgImg.onerror = null;
+
         overlay.style.display = 'block'; // アニメーション開始と同時に表示
 
-        // 155pxをbg画像の実際の表示高さに対するパーセントで計算
-        const bgH = bgImg.offsetHeight || (bgWrap.offsetWidth * (bgImg.naturalHeight / bgImg.naturalWidth));
-        const maskPct = bgH > 0 ? Math.min(49, 155 / bgH * 100).toFixed(1) + '%' : '32%';
+        // 155pxをbg画像表示高さのパーセントに換算
+        var dispH = bgImg.offsetHeight ||
+            (bgWrap.offsetWidth * (bgImg.naturalHeight / Math.max(1, bgImg.naturalWidth)));
+        var maskPct = dispH > 0 ? Math.min(49, (155 / dispH * 100)).toFixed(1) : '32';
 
-        // 効果音①と同時にマスクが上下に開いて背景＋カレーが見えてくる
         playSoundEffect(config.soundOpen || 'sound/battlese.mp3');
 
-        requestAnimationFrame(() => requestAnimationFrame(() => {
-            maskTop.style.transition = 'height 0.5s ease-out';
-            maskBot.style.transition = 'height 0.5s ease-out';
-            maskTop.style.height = maskPct;
-            maskBot.style.height = maskPct;
+        requestAnimationFrame(function(){ requestAnimationFrame(function(){
+            // clip-pathでマスクを開く（黒なし・透明クリップ）
+            bgWrap.style.transition = 'clip-path 0.5s ease-out';
+            bgWrap.style.clipPath   = 'inset(' + maskPct + '% 0 ' + maskPct + '% 0)';
 
-            // マスクが開いている間にカレーが少し揺れながら拡大（臨場感）
-            setTimeout(() => {
+            // カレーが揺れながら少し拡大
+            setTimeout(function(){
                 charaImg.style.transition = 'transform 0.4s cubic-bezier(0.34,1.56,0.64,1)';
                 charaImg.style.transform  = 'translate(-50%,-50%) scale(1.15) rotate(-2deg)';
             }, 200);
-            setTimeout(() => {
+            setTimeout(function(){
                 charaImg.style.transition = 'transform 0.25s ease';
                 charaImg.style.transform  = 'translate(-50%,-50%) scale(1.08) rotate(1deg)';
             }, 550);
 
-            // chara1→chara2 差し替え（揺れが落ち着いたタイミング）
-            setTimeout(() => {
+            // chara1→chara2 差し替え
+            setTimeout(function(){
                 charaImg.src = config.chara2Img || config.chara1Img;
                 charaImg.style.transition = 'none';
                 charaImg.style.transform  = 'translate(-50%,-50%) scale(1.08) rotate(1deg)';
             }, 680);
 
-            // chara2がダイナミックに拡大＋傾く
-            setTimeout(() => {
+            // chara2 がダイナミックに拡大＋傾く
+            setTimeout(function(){
                 charaImg.style.transition = 'transform 0.42s cubic-bezier(0.22,1,0.36,1)';
                 charaImg.style.transform  = 'translate(-50%,-50%) scale(1.6) rotate(-5deg)';
             }, 700);
 
-            // 効果音②（カキーン）
-            setTimeout(() => {
-                playSoundEffect(config.soundHit || 'sound/homerun.mp3');
-            }, 900);
+            // 効果音②
+            setTimeout(function(){ playSoundEffect(config.soundHit || 'sound/homerun.mp3'); }, 900);
 
-            // シェイク①
-            setTimeout(() => {
+            // シェイク
+            setTimeout(function(){
                 charaImg.style.transition = 'transform 0.1s ease';
                 charaImg.style.transform  = 'translate(-50%,-50%) scale(1.55) rotate(6deg)';
             }, 1040);
-            // シェイク②
-            setTimeout(() => {
+            setTimeout(function(){
                 charaImg.style.transition = 'transform 0.12s ease';
                 charaImg.style.transform  = 'translate(-50%,-50%) scale(1.58) rotate(-3deg)';
             }, 1160);
 
             // フェードアウト
-            setTimeout(() => {
+            setTimeout(function(){
                 overlay.style.transition = 'opacity 0.3s ease';
                 overlay.style.opacity = '0';
             }, 1380);
 
             // 完了
-            setTimeout(() => {
+            setTimeout(function(){
                 overlay.style.display    = 'none';
                 overlay.style.opacity    = '1';
                 overlay.style.transition = '';
-                window.battleSkillAnimBusy = false; // フラグ解除
+                bgWrap.style.transition  = 'none';
+                bgWrap.style.clipPath    = 'inset(50% 0 50% 0)';
+                window.battleSkillAnimBusy = false;
                 if(callback) callback();
             }, 1700);
-        }));
+        }); });
     }
 
     if(bgImg.complete && bgImg.naturalWidth > 0) { startAnim(); }
     else { bgImg.onload = startAnim; bgImg.onerror = startAnim; }
 }
+
 
 // ホームラン演出設定
 const HOMERUN_ANIM_CONFIG = {
