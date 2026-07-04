@@ -49,11 +49,12 @@
         @keyframes topFloat2 { 0%,100%{transform:translateY(0) rotate(0);} 50%{transform:translateY(-6px) rotate(1deg);} }
         /* ===== バトル技演出オーバーレイ ===== */
         #battleSkillOverlay { position:fixed; top:0; left:0; width:100%; height:100%; z-index:6000; display:none; pointer-events:none; }
-        #battleSkillWindow { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); width:100%; max-width:480px; overflow:hidden; }
+        #battleSkillWindow { position:absolute; top:30%; left:50%; transform:translate(-50%,-50%); width:100%; max-width:480px; }
+        #battleSkillBgWrap { position:relative; overflow:hidden; }
         #battleSkillBgImg { width:100%; height:auto; display:block; }
-        #battleSkillCharaImg { position:absolute; left:50%; top:35%; transform:translate(-50%,-50%) scale(1); width:55%; height:auto; object-fit:contain; transform-origin:center 40%; }
-        #battleSkillMaskTop { position:absolute; top:0; left:0; width:100%; background:#000; }
-        #battleSkillMaskBot { position:absolute; bottom:0; left:0; width:100%; background:#000; }
+        #battleSkillCharaImg { position:absolute; left:50%; top:62%; transform:translate(-50%,-50%) scale(1); width:60%; height:auto; object-fit:contain; transform-origin:center center; z-index:1; }
+        #battleSkillMaskTop { position:absolute; top:0; left:0; width:100%; background:#111; z-index:2; }
+        #battleSkillMaskBot { position:absolute; bottom:0; left:0; width:100%; background:#111; z-index:2; }
         @keyframes potShake { 0%,100%{transform:translateX(0) rotate(0);} 12%{transform:translateX(-6px) rotate(-2.5deg);} 25%{transform:translateX(6px) rotate(2.5deg);} 37%{transform:translateX(-5px) rotate(-2deg);} 50%{transform:translateX(5px) rotate(2deg);} 62%{transform:translateX(-4px) rotate(-1deg);} 75%{transform:translateX(4px) rotate(1deg);} 87%{transform:translateX(-2px) rotate(-0.5deg);} }
         #cookingAnimation { position:fixed; top:0; left:0; width:100%; height:100%; z-index:8000; display:none; background:rgba(0,0,0,0.72); }
         #cookingScene { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); width:100%; max-width:480px; }
@@ -783,10 +784,12 @@
     <!-- ===== バトル技演出オーバーレイ ===== -->
     <div id="battleSkillOverlay">
         <div id="battleSkillWindow">
-            <img id="battleSkillBgImg" src="" alt="">
-            <img id="battleSkillCharaImg" src="" alt="">
-            <div id="battleSkillMaskTop"></div>
-            <div id="battleSkillMaskBot"></div>
+            <div id="battleSkillBgWrap">
+                <img id="battleSkillBgImg" src="" alt="">
+                <img id="battleSkillCharaImg" src="" alt="">
+                <div id="battleSkillMaskTop"></div>
+                <div id="battleSkillMaskBot"></div>
+            </div>
         </div>
     </div>
 
@@ -2402,6 +2405,7 @@ function playBattleSkillAnimation(config, callback) {
     overlay.style.opacity   = '1';
     overlay.style.transition = '';
     overlay.style.display   = 'block';
+    window.battleSkillAnimBusy = true; // バトル一時停止フラグ
 
     function startAnim() {
         // 効果音①と同時にマスクが上下に広がって背景＋カレーが見えてくる
@@ -2463,6 +2467,7 @@ function playBattleSkillAnimation(config, callback) {
                 overlay.style.display    = 'none';
                 overlay.style.opacity    = '1';
                 overlay.style.transition = '';
+                window.battleSkillAnimBusy = false; // フラグ解除
                 if(callback) callback();
             }, 1700);
         }));
@@ -9598,7 +9603,8 @@ function startBattleScene(oppN, oppC, myC) {
     }
 
     function step(){
-        if(battleAborted) return; // 強制終了済みなら処理しない
+        if(battleAborted) return;
+        if(window.battleSkillAnimBusy) { setTimeout(step, 100); return; } // アニメーション中は待機
         if(pHP<=0||oHP<=0||round>20){setTimeout(()=>done(pHP,oHP,myC,oppC,false),battleDelay(800));return;}
         if(myTurn){
             log.innerHTML=`🔥 自分のターン！`;
