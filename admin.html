@@ -45,7 +45,6 @@
     <div class="btn-grid">
         <button style="background:#e67e22;" onclick="actFullcharge()">✨ アイテム全補充</button>
         <button style="background:#2c3e50;" onclick="actAnalytics()">📊 アナリティクス</button>
-        <button style="background:#1a6e3c;" onclick="actPlayerProgress()">🗺️ プレイヤー進行度</button>
         <button id="btnDebugMode" style="background:#7f8c8d;" onclick="actToggleDebugMode()">🐛 デバッグモード: OFF</button>
         <button id="btnEventToggle" style="background:#7f8c8d;" onclick="actEventToggle()">🐙 特盛りイベント: OFF</button>
         <button style="background:#8e44ad;" onclick="actEventDamage()">📊 イベント ダメージ集計</button>
@@ -113,15 +112,14 @@
         <textarea id="announceBody" rows="4" style="width:100%;padding:8px;border:1px solid #b88742;border-radius:4px;font-size:13px;margin-bottom:8px;box-sizing:border-box;"></textarea>
         <label style="font-size:12px;color:#555;display:block;margin-bottom:2px;">添付画像（上）パス</label>
         <input type="text" id="announceImage" style="width:100%;padding:8px;border:1px solid #b88742;border-radius:4px;font-size:13px;margin-bottom:8px;box-sizing:border-box;" placeholder="例: shop/shop-1-1.png">
-        <label style="font-size:12px;color:#555;display:block;margin-bottom:2px;">添付画像（下・タップ可能）パス</label>
-        <input type="text" id="announceImageBottom" style="width:100%;padding:8px;border:1px solid #b88742;border-radius:4px;font-size:13px;margin-bottom:8px;box-sizing:border-box;" placeholder="例: shop/shop-1-QR.svg">
-        <label style="font-size:12px;color:#555;display:block;margin-bottom:2px;">下部画像の注釈</label>
-        <input type="text" id="announceImageBottomNote" style="width:100%;padding:8px;border:1px solid #b88742;border-radius:4px;font-size:13px;margin-bottom:8px;box-sizing:border-box;" placeholder="例: QR画像をタップでスキャン">
-        <label style="font-size:12px;color:#555;display:block;margin-bottom:2px;">下部画像タップ時の動作</label>
-        <select id="announceShopQrAction" style="width:100%;padding:8px;border:1px solid #b88742;border-radius:4px;font-size:13px;margin-bottom:12px;">
-            <option value="">なし（画像表示のみ）</option>
-            <option value="shop1">店舗QR：空腹は最高のスパイスカレー（Instagramスキャン相当）</option>
-        </select>
+        <label style="font-size:12px;color:#555;display:block;margin-bottom:2px;">添付画像（下1）パス</label>
+        <input type="text" id="announceImageBottom" style="width:100%;padding:8px;border:1px solid #b88742;border-radius:4px;font-size:13px;margin-bottom:4px;box-sizing:border-box;" placeholder="例: shop/shop-2-1.png">
+        <label style="font-size:12px;color:#555;display:block;margin-bottom:2px;">下1画像のリンクURL（タップで開く・空欄なら画像表示のみ）</label>
+        <input type="text" id="announceImageBottomUrl" style="width:100%;padding:8px;border:1px solid #b88742;border-radius:4px;font-size:13px;margin-bottom:8px;box-sizing:border-box;" placeholder="例: https://www.instagram.com/...">
+        <label style="font-size:12px;color:#555;display:block;margin-bottom:2px;">添付画像（下2）パス ※2枚は横並び表示</label>
+        <input type="text" id="announceImageBottom2" style="width:100%;padding:8px;border:1px solid #b88742;border-radius:4px;font-size:13px;margin-bottom:4px;box-sizing:border-box;" placeholder="例: shop/shop-2-2.png">
+        <label style="font-size:12px;color:#555;display:block;margin-bottom:2px;">下2画像のリンクURL（タップで開く・空欄なら画像表示のみ）</label>
+        <input type="text" id="announceImageBottomUrl2" style="width:100%;padding:8px;border:1px solid #b88742;border-radius:4px;font-size:13px;margin-bottom:12px;box-sizing:border-box;" placeholder="例: https://x.com/...">
         <label style="font-size:12px;color:#555;display:block;margin-bottom:2px;">開封後に自動で消えるまでの時間（分・空欄なら消えない）</label>
         <input type="number" id="announceExpireMinutes" style="width:100%;padding:8px;border:1px solid #b88742;border-radius:4px;font-size:13px;margin-bottom:12px;box-sizing:border-box;" placeholder="例: 60（1時間）、1440（24時間）">
         <div style="margin-top:6px; padding-top:10px; border-top:1px solid #e0d0b0;">
@@ -440,73 +438,6 @@ function actAnalytics() {
             + '</div>';
 
         showCustomAlert('📊 アナリティクス', html);
-    });
-}
-
-function actPlayerProgress() {
-    if(!database) { showCustomAlert("❌ エラー", "通信に問題があります。"); return; }
-    showCustomAlert("🗺️ 読み込み中...", "プレイヤーデータを取得しています。");
-    database.ref('players').once('value').then(function(snap) {
-        const players = snap.val() || {};
-
-        // 集計対象のBot定義
-        const easyBots   = ["見習い料理人タカシ", "魔術師レオン", "ガンコ親父", "宮廷カレー長"];
-        const hardBots   = ["イカ星人グニョグニョ", "種まき婆ちゃん", "ドラゴン料理長", "毒舌料理人ミスズ"];
-        const tagBots    = ["カレー天使ぴゃぁ", "悪ガキサタン君", "レンチン玉子"];
-
-        // カウント初期化
-        const easyCount  = {}; easyBots.forEach(function(n){ easyCount[n] = 0; });
-        const hardCount  = {}; hardBots.forEach(function(n){ hardCount[n] = 0; });
-        const tagCount   = {}; tagBots.forEach(function(n){ tagCount[n] = 0; });
-
-        let totalPlayers = 0;
-
-        Object.keys(players).forEach(function(pid) {
-            const sd = players[pid].savedata;
-            if(!sd) return; // savedataがないプレイヤーはスキップ（デバッグ含む）
-            totalPlayers++;
-
-            // defeatedBotsはsavedata.statsのJSON文字列の中に入っている
-            let stats = {};
-            try { stats = typeof sd.stats === 'string' ? JSON.parse(sd.stats) : (sd.stats || {}); } catch(e) {}
-
-            const defeatedBots     = stats.defeatedBots          || [];
-            const defeatedHardBots = stats.defeatedHardBots       || [];
-            const defeatedTagBots  = stats.defeatedTagExtraBots   || [];
-
-            easyBots.forEach(function(n){ if(defeatedBots.indexOf(n)     >= 0) easyCount[n]++; });
-            hardBots.forEach(function(n){ if(defeatedHardBots.indexOf(n) >= 0) hardCount[n]++; });
-            tagBots.forEach(function(n){  if(defeatedTagBots.indexOf(n)  >= 0) tagCount[n]++; });
-        });
-
-        function section(title) {
-            return '<div style="font-size:13px;font-weight:bold;color:#420000;margin:14px 0 6px;border-bottom:1px solid #b88742;padding-bottom:4px;">' + title + '</div>';
-        }
-        function row(label, count) {
-            const pct = totalPlayers > 0 ? Math.round(count / totalPlayers * 100) : 0;
-            const bar = '█'.repeat(Math.min(Math.round(pct / 5), 20));
-            return '<div style="padding:5px 0;border-bottom:1px solid #f0e8d0;font-size:12px;">'
-                + '<div style="display:flex;justify-content:space-between;margin-bottom:2px;">'
-                + '<span style="color:#5a3a1a;">' + label + '</span>'
-                + '<span style="font-weight:bold;color:#420000;">' + count + '人 <span style="color:#999;font-weight:normal;">(' + pct + '%)</span></span>'
-                + '</div>'
-                + '<div style="color:#b88742;font-size:10px;letter-spacing:1px;">' + bar + '</div>'
-                + '</div>';
-        }
-
-        const html = '<div style="text-align:left;max-height:65vh;overflow-y:auto;">'
-            + '<div style="font-size:12px;color:#888;margin-bottom:4px;">集計対象: ' + totalPlayers + '人（デバッグ・未保存プレイヤーを除く）</div>'
-            + section('⚔️ PC戦（初級）')
-            + easyBots.map(function(n){ return row(n, easyCount[n]); }).join('')
-            + section('🔥 PC戦（中級）')
-            + hardBots.map(function(n){ return row(n, hardCount[n]); }).join('')
-            + section('🤝 タッグ戦')
-            + tagBots.map(function(n){ return row(n, tagCount[n]); }).join('')
-            + '</div>';
-
-        showCustomAlert('🗺️ プレイヤー進行度', html);
-    }).catch(function(e) {
-        showCustomAlert("❌ エラー", "データ取得に失敗しました: " + e.message);
     });
 }
 
@@ -844,9 +775,10 @@ const ANNOUNCE_TEMPLATES = {
         subject: 'カレー店のご紹介',
         body: '兵庫県西宮にある「空腹は最高のスパイスカレー」さんがバトルカレーのQRカードお店に置いてくださいました！\nお店の公式InstagramのQRをスキャンした方にはスパイシーコインを1枚プレゼントしますので、ぜひフォローしてください！',
         image: 'shop/shop-1-1.png',
-        imageBottom: 'shop/shop-1-QR.svg',
-        imageBottomNote: 'QR画像をタップでスキャン',
-        shopQrAction: 'shop1'
+        imageBottom: 'shop/shop-1-1.png',
+        imageBottomUrl: 'https://www.instagram.com/hunger_is_the_best_spice_curry/',
+        imageBottom2: null,
+        imageBottomUrl2: null
     }
 };
 function actLoadAnnounceTemplate() {
@@ -857,8 +789,9 @@ function actLoadAnnounceTemplate() {
     document.getElementById('announceBody').value = t.body || '';
     document.getElementById('announceImage').value = t.image || '';
     document.getElementById('announceImageBottom').value = t.imageBottom || '';
-    document.getElementById('announceImageBottomNote').value = t.imageBottomNote || '';
-    document.getElementById('announceShopQrAction').value = t.shopQrAction || '';
+    document.getElementById('announceImageBottomUrl').value = t.imageBottomUrl || '';
+    document.getElementById('announceImageBottom2').value = t.imageBottom2 || '';
+    document.getElementById('announceImageBottomUrl2').value = t.imageBottomUrl2 || '';
     document.getElementById('announceExpireMinutes').value = t.expireMinutesAfterRead || '';
 }
 // 現在入力中の内容からお知らせデータを組み立てる
@@ -869,8 +802,9 @@ function buildAnnounceDataFromForm() {
         body: document.getElementById('announceBody').value,
         image: document.getElementById('announceImage').value.trim() || null,
         imageBottom: document.getElementById('announceImageBottom').value.trim() || null,
-        imageBottomNote: document.getElementById('announceImageBottomNote').value.trim() || null,
-        shopQrAction: document.getElementById('announceShopQrAction').value || null,
+        imageBottomUrl: document.getElementById('announceImageBottomUrl').value.trim() || null,
+        imageBottom2: document.getElementById('announceImageBottom2').value.trim() || null,
+        imageBottomUrl2: document.getElementById('announceImageBottomUrl2').value.trim() || null,
         expireMinutesAfterRead: expireVal ? parseInt(expireVal, 10) : null,
         normalCount: parseInt(document.getElementById('announceNormalCount').value, 10) || 0,
         midHighCount: parseInt(document.getElementById('announceMidHighCount').value, 10) || 0,
@@ -889,9 +823,16 @@ function actPreviewAnnounce() {
     html += '<div style="font-weight:bold;font-size:16px;text-align:center;color:#420000;margin-bottom:8px;">' + a.subject + '</div>';
     if(a.image) html += '<div style="text-align:center;margin-bottom:8px;"><img src="' + a.image + '" style="max-width:160px;max-height:160px;object-fit:contain;"></div>';
     html += '<div style="font-size:13px;color:#420000;line-height:1.7;white-space:pre-wrap;margin-bottom:8px;">' + a.body + '</div>';
-    if(a.imageBottom) {
-        html += '<div style="text-align:center;margin-bottom:8px;"><img src="' + a.imageBottom + '" style="max-width:160px;max-height:160px;object-fit:contain;">';
-        if(a.imageBottomNote) html += '<div style="font-size:11px;color:#9a8060;margin-top:4px;">' + a.imageBottomNote + '</div>';
+    if(a.imageBottom || a.imageBottom2) {
+        html += '<div style="display:flex;gap:8px;justify-content:center;margin-bottom:8px;">';
+        if(a.imageBottom) {
+            const style = 'max-width:160px;max-height:160px;object-fit:contain;' + (a.imageBottomUrl ? 'cursor:pointer;' : '');
+            html += (a.imageBottomUrl ? '<a href="' + a.imageBottomUrl + '" target="_blank">' : '') + '<img src="' + a.imageBottom + '" style="' + style + '">' + (a.imageBottomUrl ? '</a>' : '');
+        }
+        if(a.imageBottom2) {
+            const style2 = 'max-width:160px;max-height:160px;object-fit:contain;' + (a.imageBottomUrl2 ? 'cursor:pointer;' : '');
+            html += (a.imageBottomUrl2 ? '<a href="' + a.imageBottomUrl2 + '" target="_blank">' : '') + '<img src="' + a.imageBottom2 + '" style="' + style2 + '">' + (a.imageBottomUrl2 ? '</a>' : '');
+        }
         html += '</div>';
     }
     const itemParts = [];
@@ -921,8 +862,9 @@ function resolveAnnounceItemRewards(a) {
         body: a.body || '',
         image: a.image || null,
         imageBottom: a.imageBottom || null,
-        imageBottomNote: a.imageBottomNote || null,
-        shopQrAction: a.shopQrAction || null,
+        imageBottomUrl: a.imageBottomUrl || null,
+        imageBottom2: a.imageBottom2 || null,
+        imageBottomUrl2: a.imageBottomUrl2 || null,
         expireMinutesAfterRead: a.expireMinutesAfterRead || null,
         rewardGold: a.gold || 0,
         rewardPack: a.ticket || 0,
