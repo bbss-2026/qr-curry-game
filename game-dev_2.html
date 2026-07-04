@@ -1690,11 +1690,26 @@ function playBattleBGM(src) {
 function stopBattleBGM() {
     if(battleBGM) { battleBGM.pause(); battleBGM.currentTime = 0; battleBGM = null; }
 }
+// Audio オブジェクトプール（大量生成によるブラウザ上限問題を防ぐ）
+const _sePool = {};
+const _SE_POOL_SIZE = 4; // 同じ音は最大4つまで同時再生
+
 function playSoundEffect(src) {
     if(isMuted) return;
-    const se = new Audio(src);
+    if(!_sePool[src]) {
+        _sePool[src] = { pool: [], idx: 0 };
+        for(let i = 0; i < _SE_POOL_SIZE; i++) {
+            const a = new Audio(src);
+            a.volume = 0.7;
+            _sePool[src].pool.push(a);
+        }
+    }
+    const entry = _sePool[src];
+    const se = entry.pool[entry.idx];
+    entry.idx = (entry.idx + 1) % _SE_POOL_SIZE;
+    se.currentTime = 0;
     se.volume = 0.7;
-    se.play().catch(e => console.log("SE play error:", e));
+    se.play().catch(() => {});
 }
 // ===== ここまで =====
 function playAttackSound() { playSoundEffect('punch.mp3'); }
@@ -5532,13 +5547,37 @@ function playCookingAnimation(ingredients, spice, callback) {
     const pot     = document.getElementById('cookingPot');
     const bg      = document.getElementById('cookingBg');
     if(!overlay || !pot) { callback(); return; }
-    // スキップ設定
     if(localStorage.getItem('qr_skip_cook_anim') === '1') { callback(); return; }
+
+    window.cookAnimActive   = true;
     window.pendingCookSound = null;
     overlay.style.display   = 'block';
     overlay.style.opacity   = '1';
     overlay.style.transition = '';
     pot.style.animation = '';
+
+    // タイマーIDを全て管理してスキップ時にキャンセル
+    const timerIds = [];
+    function addTimer(fn, delay) { const id = setTimeout(fn, delay); timerIds.push(id); return id; }
+
+    // タップでスキップ
+    function skipAnimation() {
+        timerIds.forEach(id => clearTimeout(id));
+        iconEls.forEach(function(el) { el.remove(); });
+        pot.style.animation = '';
+        overlay.style.display = 'none';
+        overlay.style.opacity = '1';
+        overlay.style.transition = '';
+        overlay.removeEventListener('click', skipAnimation);
+        window.cookAnimActive = false;
+        callback();
+        if(window.pendingCookSound) { window.pendingCookSound(); window.pendingCookSound = null; }
+        setTimeout(function() {
+            const rb = document.getElementById('resultBox');
+            if(rb) rb.scrollIntoView({ behavior: 'instant', block: 'center' });
+        }, 80);
+    }
+    overlay.addEventListener('click', skipAnimation);
 
     // 鍋の座標・サイズをbg.pngの実寸から計算（X222 Y444）
     function setupPot() {
@@ -5561,7 +5600,7 @@ function playCookingAnimation(ingredients, spice, callback) {
         return { x: r.left + r.width * 0.5, y: r.top + r.height * 0.35 };
     }
 
-    // フェーズ1：アイコンをぱぱっと表示（鍋の上に横並び）
+    // フェーズ1：アイコンをぱぱっと表示
     items.forEach(function(name, i) {
         const el = document.createElement('div');
         el.className = 'cook-icon-el';
@@ -5571,7 +5610,7 @@ function playCookingAnimation(ingredients, spice, callback) {
         el.style.opacity = '0'; el.style.transform = 'scale(0)';
         document.body.appendChild(el);
         iconEls.push(el);
-        setTimeout(function() {
+        addTimer(function() {
             const pc = getPotCenter();
             el.style.left = (pc.x - totalW / 2 + i * (iconSize + gap)) + 'px';
             el.style.top  = (pc.y - iconSize * 2.6) + 'px';
@@ -5586,7 +5625,7 @@ function playCookingAnimation(ingredients, spice, callback) {
     // フェーズ2：鍋へ投げ込み
     const flyDelay = items.length * 180 + 350;
     items.forEach(function(_, i) {
-        setTimeout(function() {
+        addTimer(function() {
             const el = iconEls[i];
             const er = el.getBoundingClientRect();
             const pc = getPotCenter();
@@ -5601,31 +5640,30 @@ function playCookingAnimation(ingredients, spice, callback) {
 
     // フェーズ3：鍋カタカタ
     const shakeDelay = flyDelay + items.length * 110 + 220;
-    setTimeout(function() {
+    addTimer(function() {
         pot.style.animation = 'potShake 0.12s ease-in-out 7';
         playSoundEffect('intro/cooking.mp3');
     }, shakeDelay);
 
     // フェーズ4：結果表示 → スクロール → フェードアウト → 音
     const showResultDelay = shakeDelay + 840;
-    setTimeout(function() {
-        callback(); // 調理結果を表示（音は保留）
-        setTimeout(function() {
+    addTimer(function() {
+        overlay.removeEventListener('click', skipAnimation);
+        callback();
+        addTimer(function() {
             const rb = document.getElementById('resultBox');
             if(rb) rb.scrollIntoView({ behavior: 'instant', block: 'center' });
         }, 80);
-        // 結果が見えてからフェードアウト
-        setTimeout(function() {
+        addTimer(function() {
             overlay.style.transition = 'opacity 0.55s ease';
             overlay.style.opacity = '0';
-            setTimeout(function() {
+            addTimer(function() {
                 overlay.style.display = 'none';
                 overlay.style.opacity = '1';
                 overlay.style.transition = '';
                 pot.style.animation = '';
                 iconEls.forEach(function(el) { el.remove(); });
                 window.cookAnimActive = false;
-                // フェード完了後に特殊カレー音を再生
                 if(window.pendingCookSound) { window.pendingCookSound(); window.pendingCookSound = null; }
             }, 580);
         }, 550);
