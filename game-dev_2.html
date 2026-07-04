@@ -1036,13 +1036,13 @@
             <div style="font-size:14px; color:#e67e22; font-weight:bold;" id="getBoxTitle">🎉 食材ゲット！</div>
             <div style="font-size:12px; color:#2ecc71; font-weight:bold; display:none; margin-top:4px;" id="bonusBadge">✨ キーワードボーナス発生！入手数3個！ ✨</div>
             <div id="shopQrArea" style="display:none; text-align:left; margin-top:8px;">
-                <div style="font-size:16px; font-weight:bold; color:#420000; text-align:center; margin-bottom:2px;">空腹は最高のスパイスカレー</div>
-                <div style="font-size:11px; color:#9a8060; text-align:center; margin-bottom:8px;">兵庫県西宮市</div>
-                <div style="display:flex; gap:6px; justify-content:center; margin-bottom:8px;">
+                <div id="shopQrShopName" style="font-size:16px; font-weight:bold; color:#420000; text-align:center; margin-bottom:2px;">空腹は最高のスパイスカレー</div>
+                <div id="shopQrLocation" style="font-size:11px; color:#9a8060; text-align:center; margin-bottom:8px;">兵庫県西宮市</div>
+                <div id="shopQrPhotos" style="display:flex; gap:6px; justify-content:center; margin-bottom:8px;">
                     <img src="shop/shop-1-1.png" style="width:48%; max-width:160px; border-radius:6px; object-fit:cover;">
                     <img src="shop/shop-1-2.png" style="width:48%; max-width:160px; border-radius:6px; object-fit:cover;">
                 </div>
-                <div style="font-size:12px; color:#5a3a1a; line-height:1.7; margin-bottom:6px;">
+                <div id="shopQrDesc" style="font-size:12px; color:#5a3a1a; line-height:1.7; margin-bottom:6px;">
                     グルテンフリーで「美味しいが健康に」<br>
                     阪急夙川駅から東へ約10分<br>
                     阪急電車高架下≪阪急夙川サンらいふ≫
@@ -4653,12 +4653,12 @@ function processShop2QR(text, matchedKeyword) {
         document.getElementById("getItemEmoji").style.display = "none";
         document.getElementById("getItemName").style.display = "none";
         document.getElementById("shopQrArea").style.display = "block";
-
-        // 店舗情報の内容を差し替え
-        const shopNameEl = document.getElementById("shopQrShopName");
-        const shopDescEl = document.getElementById("shopQrDesc");
-        if(shopNameEl) shopNameEl.innerText = 'Midnight Sun';
-        if(shopDescEl) shopDescEl.innerHTML = '大阪市中央区<br><small>大阪の爽やかスパイスカレーとコーヒーのお店<br>地下鉄堺筋線 堺筋本町駅 7番出口から徒歩約5分<br>SNSのフォローよろしくお願いします！</small>';
+        // shop2の内容をセット
+        document.getElementById("shopQrShopName").innerText = 'Midnight Sun';
+        document.getElementById("shopQrLocation").innerText = '大阪市中央区';
+        document.getElementById("shopQrPhotos").innerHTML = '<img src="shop/shop-2-1.png" style="width:48%; max-width:160px; border-radius:6px; object-fit:cover;"><img src="shop/shop-2-2.png" style="width:48%; max-width:160px; border-radius:6px; object-fit:cover;">';
+        document.getElementById("shopQrDesc").innerHTML = '大阪の爽やかスパイスカレーとコーヒーのお店<br>地下鉄堺筋線 堺筋本町駅 7番出口から徒歩約5分';
+        document.getElementById("shopQrOpenLinkBtn").style.display = 'inline-block';
 
         const rewardArea = document.getElementById("shopQrRewardArea");
         if(isFirstTime) {
@@ -4710,6 +4710,12 @@ function processShop1QR(text, matchedKeyword) {
         document.getElementById("getItemEmoji").style.display = "none";
         document.getElementById("getItemName").style.display = "none";
         document.getElementById("shopQrArea").style.display = "block";
+        // shop1の内容をセット
+        document.getElementById("shopQrShopName").innerText = '空腹は最高のスパイスカレー';
+        document.getElementById("shopQrLocation").innerText = '兵庫県西宮市';
+        document.getElementById("shopQrPhotos").innerHTML = '<img src="shop/shop-1-1.png" style="width:48%; max-width:160px; border-radius:6px; object-fit:cover;"><img src="shop/shop-1-2.png" style="width:48%; max-width:160px; border-radius:6px; object-fit:cover;">';
+        document.getElementById("shopQrDesc").innerHTML = 'グルテンフリーで「美味しいが健康に」<br>阪急夙川駅から東へ約10分<br>阪急電車高架下≪阪急夙川サンらいふ≫';
+        document.getElementById("shopQrOpenLinkBtn").style.display = 'inline-block';
         const rewardArea = document.getElementById("shopQrRewardArea");
 
         if(isFirstTime) {
