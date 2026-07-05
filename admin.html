@@ -54,7 +54,7 @@
         <button style="background:#e74c3c;" onclick="actCheckPassword()">🔒 パスワード確認</button>
         <button id="btnTimeSetting" style="background:#7f8c8d;" onclick="actSetTime()">⏰ 時間設定: OFF</button>
         <button style="background:#d35400;" onclick="actResetBingo()">QR BINGO リセット</button>
-        <button style="background:#27ae60;" onclick="actResetScanHistory()">本日のQR使用済みリセット</button>
+        <button id="btnQrIgnore" style="background:#27ae60;" onclick="actToggleQrIgnore()">🔓 QR使用済み無視: OFF</button>
     </div>
 
     <div class="section">
@@ -360,11 +360,28 @@ function actResetBingo() {
     });
 }
 
-function actResetScanHistory() {
-    showCustomConfirm("本日のQR使用済みリセット", "このブラウザの「本日スキャン済み」の記録を全て削除します。<br>同じQRコードを再度スキャンできるようになります。<br><br>本当によろしいですか？", function(){
-        localStorage.removeItem('qr_curry_history');
-        showCustomAlert("✅ リセット完了", "スキャン履歴を削除しました。<br>ゲーム画面をリロードしてください。");
-    });
+function actToggleQrIgnore() {
+    const key = 'qr_ignore_scan_history';
+    const current = localStorage.getItem(key) === '1';
+    const next = !current;
+    localStorage.setItem(key, next ? '1' : '0');
+    const btn = document.getElementById('btnQrIgnore');
+    if(next) {
+        btn.style.background = '#e74c3c';
+        btn.innerText = '🔓 QR使用済み無視: ON';
+        showCustomAlert('🔓 QR使用済み無視 ON', '同じQRコードを何度でもスキャンできます。<br>ゲーム画面をリロードしてください。');
+    } else {
+        btn.style.background = '#27ae60';
+        btn.innerText = '🔓 QR使用済み無視: OFF';
+        showCustomAlert('🔒 QR使用済み無視 OFF', '通常通り1日1回のスキャン制限に戻りました。<br>ゲーム画面をリロードしてください。');
+    }
+}
+function initQrIgnoreBtn() {
+    const on = localStorage.getItem('qr_ignore_scan_history') === '1';
+    const btn = document.getElementById('btnQrIgnore');
+    if(!btn) return;
+    btn.style.background = on ? '#e74c3c' : '#27ae60';
+    btn.innerText = on ? '🔓 QR使用済み無視: ON' : '🔓 QR使用済み無視: OFF';
 }
 
 function actAnalytics() {
@@ -407,6 +424,7 @@ function actAnalytics() {
             + section('📷 QRスキャン')
             + row('通常スキャン', scan.normal)
             + row('ボーナス(3個入手)', scan.bonus)
+            + row('✨ レア食材', scan.rare)
             + row('合計', scan.total)
 
             + section('🍛 調理')
@@ -1023,7 +1041,7 @@ function actRevokeAnnouncement(key) {
     });
 }
 
-window.onload = loadInitialData;
+window.onload = function() { loadInitialData(); initQrIgnoreBtn(); };
 </script>
 
 </body>
