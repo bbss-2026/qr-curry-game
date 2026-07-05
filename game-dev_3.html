@@ -2527,8 +2527,12 @@ function getHomerunConfig(actorName) {
 }
 
 // 種まき婆ちゃん・ドラゴン料理長などBot特殊技演出
-// charaImgSrc: キャラ画像パス / willInterrupt: ホームランが割り込む場合true
-function playTanemakiAnimation(charaImgSrc, willInterrupt, callback) {
+// config: { charaImg, charaTop（縦位置%）, charaWidth（幅%）, charaMaxScale（最大拡大率）}
+function playTanemakiAnimation(config, willInterrupt, callback) {
+    var charaImgSrc  = config.charaImg;
+    var charaTop     = config.charaTop     || '80%';
+    var charaWidth   = config.charaWidth   || '60%';
+    var charaMaxScale = config.charaMaxScale || 1.2;
     const overlay  = document.getElementById('battleSkillOverlay');
     const bgImg    = document.getElementById('battleSkillBgImg');
     const charaImg = document.getElementById('battleSkillCharaImg');
@@ -2539,6 +2543,8 @@ function playTanemakiAnimation(charaImgSrc, willInterrupt, callback) {
     bgImg.onload = null; bgImg.onerror = null;
     bgImg.src    = 'battle/homerun_bg2.png';
     charaImg.src = charaImgSrc;
+    charaImg.style.top   = charaTop;
+    charaImg.style.width = charaWidth;
     charaImg.style.transition = 'none';
     charaImg.style.transform  = 'translate(-50%,-50%) scale(1)';
     bgWrap.style.transition   = 'none';
@@ -2567,14 +2573,13 @@ function playTanemakiAnimation(charaImgSrc, willInterrupt, callback) {
             if(prog < 1) requestAnimationFrame(frame);
         })(t0);
 
-        // 婆ちゃんがにょきっと出てくる
         setTimeout(function(){
             charaImg.style.transition = 'transform 0.4s cubic-bezier(0.34,1.56,0.64,1)';
-            charaImg.style.transform  = 'translate(-50%,-50%) scale(1.2)';
+            charaImg.style.transform  = 'translate(-50%,-50%) scale(' + charaMaxScale + ')';
         }, 200);
         setTimeout(function(){
             charaImg.style.transition = 'transform 0.2s ease';
-            charaImg.style.transform  = 'translate(-50%,-50%) scale(1.1) rotate(-3deg)';
+            charaImg.style.transform  = 'translate(-50%,-50%) scale(' + (charaMaxScale * 0.92).toFixed(2) + ') rotate(-3deg)';
         }, 580);
 
         if(willInterrupt) {
@@ -9871,7 +9876,12 @@ function startBattleScene(oppN, oppC, myC) {
                 if(oppN === 'ドラゴン料理長') {
                     const willReflect = myC.isHomerun && isHomerunReflect(myC.spd, oppC.spd);
                     log.innerHTML += `\n🔥 ${oppN} の熱々ブレス！`;
-                    playTanemakiAnimation('battle/bt_dragon.png', willReflect, function(){
+                    playTanemakiAnimation({
+                        charaImg: 'battle/bt_dragon.png',
+                        charaTop: '52%',
+                        charaWidth: '70%',
+                        charaMaxScale: 1.15
+                    }, willReflect, function(){
                         if(willReflect) {
                             log.innerHTML += `\n🏏 ホームラン！熱々ブレスを打ち返して無効化！`;
                             updateHP(pHP,oHP,oppC.hp,myC.hp);
@@ -9902,7 +9912,12 @@ function startBattleScene(oppN, oppC, myC) {
                 if(oppN === '種まき婆ちゃん') {
                     const willReflect = myC.isHomerun && isHomerunReflect(myC.spd, oppC.spd);
                     log.innerHTML += `\n🌱 ${oppN} の種連続発射！`;
-                    playTanemakiAnimation('battle/bt_tanemaki1.png', willReflect, function(){
+                    playTanemakiAnimation({
+                        charaImg: 'battle/bt_tanemaki1.png',
+                        charaTop: '55%',
+                        charaWidth: '60%',
+                        charaMaxScale: 1.2
+                    }, willReflect, function(){
                         if(willReflect) {
                             // ホームランが割り込んで種連射を無効化
                             log.innerHTML += `\n🏏 ホームラン！種連続発射を打ち返して無効化！`;
