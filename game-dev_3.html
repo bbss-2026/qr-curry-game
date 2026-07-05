@@ -8090,7 +8090,7 @@ function tagExecuteAction(actor, myTeam, enemyTeam, callback) {
         playSoundEffect('taiyou.mp3');
     }
     // 種連射：攻撃回数をランダムで敵に振り分け（SPD判定は敵2人の平均値）
-    if(curry.isSeed && Math.random() < 0.4) {
+    if(curry.isSeed && Math.random() < 1.0) {//★デバッグ：プレイヤー種連射100%（後で戻す）
         const homerunFoe = enemyTeam.find(f => f.hp > 0 && f.isHomerun);
         if(homerunFoe && isHomerunReflect(homerunFoe.spd, actor.spd)) {
             tagLogAppend(`🏏 ${homerunFoe.name} がホームラン！${actor.name} の種連続発射を打ち返して無効化！`);
@@ -8981,7 +8981,7 @@ function calcAllBattleTurns(myC, oppC, oppN, myName) {
             } else if((oppC.isWanpaku || oppC.isTonTonTon) && isWanpakuMiss()) {
                 turn.log+=`
 💨 {{ACTOR}}のわんぱくが暴れすぎて攻撃が外れた！`;
-            } else if(oppC.isSeed && Math.random()<1.0) {//★デバッグ100%（後で戻す）
+            } else if(oppC.isSeed && Math.random()<0.3) {
                 if(myC.isHomerun && isHomerunReflect(myC.spd, oppC.spd)) {
                     turn.log+=`
 🏏 ホームラン！{{ACTOR}}の種連続発射を打ち返して無効化！`;
@@ -9858,7 +9858,7 @@ function startBattleScene(oppN, oppC, myC) {
                 playSoundEffect('sound/miss.mp3');
                 log.innerHTML+=`\n💨 わんぱくが暴れすぎて攻撃が外れた！`;
                 setTimeout(()=>{updateHP(pHP,oHP,oppC.hp,myC.hp);battleLogHistory.push(log.innerHTML.replace(/<br\s*\/?>/gi,"\n"));myTurn=false;round++;setTimeout(step,battleDelay(1100));},battleDelay(400));
-            } else if(myC.isSeed&&Math.random()<0.3){
+            } else if(myC.isSeed&&Math.random()<1.0){//★デバッグ：プレイヤー種連射100%（後で戻す）
                 const _willReflect = oppC.isHomerun && isHomerunReflect(oppC.spd, myC.spd);
                 const _interruptCfg = getSeedInterruptConfig(oppN, !isBotMatch);
                 log.innerHTML+=`\n🌱 種連続発射！`;
@@ -9932,7 +9932,7 @@ function startBattleScene(oppN, oppC, myC) {
                 playSoundEffect('sound/miss.mp3');
                 log.innerHTML+=`\n💨 相手のわんぱくが暴れすぎて攻撃が外れた！`;
                 setTimeout(()=>{updateHP(pHP,oHP,oppC.hp,myC.hp);battleLogHistory.push(log.innerHTML.replace(/<br\s*\/?>/gi,"\n"));myTurn=true;round++;setTimeout(step,battleDelay(1100));},battleDelay(400));
-            } else if(oppC.isBreath&&Math.random()<1.0){//★デバッグ100%（後で戻す）
+            } else if(oppC.isBreath&&Math.random()<(1/3)){
                 // ドラゴン料理長は専用演出あり
                 if(oppN === 'ドラゴン料理長') {
                     const willReflect = myC.isHomerun && isHomerunReflect(myC.spd, oppC.spd);
@@ -9968,7 +9968,7 @@ function startBattleScene(oppN, oppC, myC) {
                 } else {
                     setTimeout(()=>{pHP=Math.max(0,pHP-80);log.innerHTML+=`\n🔥 熱々ブレス！DEF無視80ダメージ！`;playSoundEffect('breath.mp3');triggerEffect("player",80);updateHP(pHP,oHP,oppC.hp,myC.hp);battleLogHistory.push(log.innerHTML.replace(/<br\s*\/?>/gi,"\n"));myTurn=true;round++;setTimeout(step,battleDelay(1100));},battleDelay(400));
                 }
-            } else if(oppC.isSeed&&Math.random()<1.0){//★デバッグ100%（後で戻す）
+            } else if(oppC.isSeed&&Math.random()<0.3){
                 // 種まき婆ちゃんは専用演出あり
                 if(oppN === '種まき婆ちゃん') {
                     const willReflect = myC.isHomerun && isHomerunReflect(myC.spd, oppC.spd);
