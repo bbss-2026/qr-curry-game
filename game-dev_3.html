@@ -2522,6 +2522,33 @@ const HOMERUN_ANIM_CONFIG_SATAN = {
     soundHit:  'sound/homerun.mp3'
 };
 
+// 敵（ルーム戦対戦相手）のホームラン演出（bg2使用）
+const HOMERUN_ANIM_CONFIG_ENEMY = {
+    bgImg:     'battle/homerun_bg2.png',
+    chara1Img: 'battle/homerun_chara1.png',
+    chara2Img: 'battle/homerun_chara2.png',
+    soundOpen: 'sound/battlese.mp3',
+    soundHit:  'sound/homerun.mp3'
+};
+// プレイヤー（味方）の種連射演出設定
+const SEED_PLAYER_ALLY_CONFIG = {
+    charaImg: 'battle/taneren_chara1.png', chara2Img: 'battle/taneren_chara2.png',
+    bgImg: 'battle/homerun_bg.png',
+    charaTop: '80%', charaWidth: '60%', charaMaxScale: 1.2
+};
+// ルーム戦で敵が使う種連射演出設定（bg2）
+const SEED_PLAYER_ENEMY_CONFIG = {
+    charaImg: 'battle/taneren_chara1.png', chara2Img: 'battle/taneren_chara2.png',
+    bgImg: 'battle/homerun_bg2.png',
+    charaTop: '80%', charaWidth: '60%', charaMaxScale: 1.2
+};
+// 種連射の割り込みホームラン設定を返す
+function getSeedInterruptConfig(reflectorName, isRoomBattle) {
+    if(reflectorName && reflectorName.includes('サタン')) return HOMERUN_ANIM_CONFIG_SATAN;
+    if(isRoomBattle) return HOMERUN_ANIM_CONFIG_ENEMY;
+    return HOMERUN_ANIM_CONFIG;
+}
+
 function getHomerunConfig(actorName) {
     return (actorName && actorName.includes('サタン')) ? HOMERUN_ANIM_CONFIG_SATAN : HOMERUN_ANIM_CONFIG;
 }
@@ -2529,10 +2556,13 @@ function getHomerunConfig(actorName) {
 // 種まき婆ちゃん・ドラゴン料理長などBot特殊技演出
 // config: { charaImg, charaTop（縦位置%）, charaWidth（幅%）, charaMaxScale（最大拡大率）}
 function playTanemakiAnimation(config, willInterrupt, callback) {
-    var charaImgSrc  = config.charaImg;
-    var charaTop     = config.charaTop     || '80%';
-    var charaWidth   = config.charaWidth   || '60%';
+    var charaImgSrc   = config.charaImg;
+    var chara2ImgSrc  = config.chara2Img   || null;
+    var bgImgSrc      = config.bgImg        || 'battle/homerun_bg2.png';
+    var charaTop      = config.charaTop     || '80%';
+    var charaWidth    = config.charaWidth   || '60%';
     var charaMaxScale = config.charaMaxScale || 1.2;
+    var interruptCfg  = config.interruptConfig || HOMERUN_ANIM_CONFIG;
     const overlay  = document.getElementById('battleSkillOverlay');
     const bgImg    = document.getElementById('battleSkillBgImg');
     const charaImg = document.getElementById('battleSkillCharaImg');
@@ -2541,7 +2571,7 @@ function playTanemakiAnimation(config, willInterrupt, callback) {
 
     var played = false;
     bgImg.onload = null; bgImg.onerror = null;
-    bgImg.src    = 'battle/homerun_bg2.png';
+    bgImg.src    = bgImgSrc;
     charaImg.src = charaImgSrc;
     charaImg.style.top   = charaTop;
     charaImg.style.width = charaWidth;
@@ -2581,6 +2611,14 @@ function playTanemakiAnimation(config, willInterrupt, callback) {
             charaImg.style.transition = 'transform 0.2s ease';
             charaImg.style.transform  = 'translate(-50%,-50%) scale(' + (charaMaxScale * 0.92).toFixed(2) + ') rotate(-3deg)';
         }, 580);
+        // chara1→chara2 差し替え（設定あれば）
+        if(chara2ImgSrc) {
+            setTimeout(function(){
+                charaImg.src = chara2ImgSrc;
+                charaImg.style.transition = 'none';
+                charaImg.style.transform  = 'translate(-50%,-50%) scale(' + (charaMaxScale * 0.92).toFixed(2) + ') rotate(-3deg)';
+            }, 690);
+        }
 
         if(willInterrupt) {
             // 800ms時点でoverlay2（ホームラン演出）がoverlay1の上に重なってくる
@@ -2590,8 +2628,8 @@ function playTanemakiAnimation(config, willInterrupt, callback) {
                 var ch2  = document.getElementById('battleSkillCharaImg2');
                 var bw2  = document.getElementById('battleSkillBgWrap2');
 
-                bg2.src  = 'battle/homerun_bg.png';
-                ch2.src  = 'battle/homerun_chara1.png';
+                bg2.src  = interruptCfg.bgImg || 'battle/homerun_bg.png';
+                ch2.src  = interruptCfg.chara1Img || 'battle/homerun_chara1.png';
                 ch2.style.transition = 'none';
                 ch2.style.transform  = 'translate(-50%,-50%) scale(1)';
                 bw2.style.clipPath   = 'inset(50% 0 50% 0)';
@@ -9078,6 +9116,12 @@ function playBattleTurns(turns, myC, oppC, oppN, role) {
 
         log.innerHTML = resolvedLog;
         if(resolvedLog.includes('💨')) playSoundEffect('sound/miss.mp3');
+        // プレイヤー（host）が種連射した場合に演出
+        if(turn.actorIsHost && resolvedLog.includes('🌱 種連続発射')) {
+            const _seedCfg = onlineRole === 'host' ? SEED_PLAYER_ALLY_CONFIG : SEED_PLAYER_ENEMY_CONFIG;
+            const _hasHomerun = turn.effects.some(function(e){ return e.type === 'homerun-reflect'; });
+            if(!_hasHomerun) playTanemakiAnimation(_seedCfg, false, function(){});
+        }
         battleLogHistory.push(resolvedLog.replace(/<br\s*\/?>/gi, '\n'));
         playTone(isMyTurnNow ? 440 : 330, 'triangle', 0.08);
         updateHP(myHP, oppHP, oppC.hp, myC.hp);
@@ -9298,19 +9342,23 @@ function launchEventBattle(myC, startHp) {
                 log.innerHTML+=`\n💨 わんぱくが暴れすぎて攻撃が外れた！`;
                 setTimeout(()=>{ updateHP(pHP,oHP,oppC.hp,myC.hp); battleLogHistory.push(log.innerHTML.replace(/<br\s*\/?>/gi,"\n")); myTurn=false; round++; setTimeout(eventStep,battleDelay(1100)); },battleDelay(400));
             } else if(myC.isSeed && Math.random()<0.3){
-                const hits=rollSeedHits(myC.spd, oppC.spd); let damages=[]; let spicyCount=0;
-                for(let i=0;i<hits;i++){ let sd=Math.max(2,Math.round(myC.atk*0.4-Math.floor(oppC.def/4))); sd=Math.round(sd*(0.9+Math.random()*0.2)); if(Math.random()<getCritRate(myC.spd,oppC.spd)){sd=Math.round(sd*2);spicyCount++;} damages.push(sd); oHP=Math.max(1,oHP-sd); eventTotalDamageThisBattle+=sd; }
-                log.innerHTML+=`\n🌱 種連続発射 ${hits}連撃！`+(spicyCount>0?` 🌶️ SpicyHit×${spicyCount}！`:'');
-                setTimeout(()=>playSoundEffect('machine-gun.mp3'),battleDelay(50));
-                damages.forEach((sd,i)=>{ setTimeout(()=>{
-                    triggerEffect("enemy",sd);
-                    if(i===damages.length-1){
-                        log.innerHTML+=` 合計: ${damages.reduce((a,b)=>a+b,0)}`;
-                        updateHP(pHP,oHP,oppC.hp,myC.hp);
-                        checkEnragedTransition();
-                        battleLogHistory.push(log.innerHTML.replace(/<br\s*\/?>/gi,"\n")); myTurn=false; round++; setTimeout(eventStep,battleDelay(1300));
-                    }
-                },150+i*250); });
+                log.innerHTML+=`\n🌱 種連続発射！`;
+                playTanemakiAnimation(SEED_PLAYER_ALLY_CONFIG, false, function(){
+                    const hits=rollSeedHits(myC.spd, oppC.spd); let damages=[]; let spicyCount=0;
+                    for(let i=0;i<hits;i++){ let sd=Math.max(2,Math.round(myC.atk*0.4-Math.floor(oppC.def/4))); sd=Math.round(sd*(0.9+Math.random()*0.2)); if(Math.random()<getCritRate(myC.spd,oppC.spd)){sd=Math.round(sd*2);spicyCount++;} damages.push(sd); oHP=Math.max(1,oHP-sd); eventTotalDamageThisBattle+=sd; }
+                    log.innerHTML+=`\n🌱 種連続発射 ${hits}連撃！`+(spicyCount>0?` 🌶️ SpicyHit×${spicyCount}！`:'');
+                    setTimeout(()=>playSoundEffect('machine-gun.mp3'),battleDelay(50));
+                    damages.forEach((sd,i)=>{ setTimeout(()=>{
+                        triggerEffect("enemy",sd);
+                        if(i===damages.length-1){
+                            log.innerHTML+=` 合計: ${damages.reduce((a,b)=>a+b,0)}`;
+                            updateHP(pHP,oHP,oppC.hp,myC.hp);
+                            checkEnragedTransition();
+                            battleLogHistory.push(log.innerHTML.replace(/<br\s*\/?>/gi,"\n")); myTurn=false; round++; setTimeout(eventStep,battleDelay(1300));
+                        }
+                    },150+i*250); });
+                });
+                return;
             } else if(myC.isGreenCurry && Math.random()<0.35){
                 // 🟢ヒリヒリクラッシュ：浪花のカレーライスベイビーはホームランを持たないため打ち返しは発生しない
                 playSoundEffect('hirihiri.mp3');
@@ -9811,11 +9859,24 @@ function startBattleScene(oppN, oppC, myC) {
                 log.innerHTML+=`\n💨 わんぱくが暴れすぎて攻撃が外れた！`;
                 setTimeout(()=>{updateHP(pHP,oHP,oppC.hp,myC.hp);battleLogHistory.push(log.innerHTML.replace(/<br\s*\/?>/gi,"\n"));myTurn=false;round++;setTimeout(step,battleDelay(1100));},battleDelay(400));
             } else if(myC.isSeed&&Math.random()<0.3){
-                const hits=rollSeedHits(myC.spd,oppC.spd);let damages=[];let spicyCount=0;
-                for(let i=0;i<hits;i++){let sd=Math.max(2,Math.round(myC.atk*0.4-Math.floor(oppC.def/4)));sd=Math.round(sd*(0.9+Math.random()*0.2));if(Math.random()<getCritRate(myC.spd,oppC.spd)){sd=Math.round(sd*2);spicyCount++;}damages.push(sd);oHP=Math.max(0,oHP-sd);}
-                log.innerHTML+=`\n🌱 種連続発射 ${hits}連撃！`+(spicyCount>0?` 🌶️ SpicyHit×${spicyCount}！`:'');
-                setTimeout(()=>playSoundEffect('machine-gun.mp3'),50);
-                damages.forEach((sd,i)=>{setTimeout(()=>{triggerEffect("enemy",sd);if(i===damages.length-1){log.innerHTML+=` 合計: ${damages.reduce((a,b)=>a+b,0)}`;updateHP(pHP,oHP,oppC.hp,myC.hp);battleLogHistory.push(log.innerHTML.replace(/<br\s*\/?>/gi,"\n"));myTurn=false;round++;setTimeout(step,battleDelay(1300));}},battleDelay(150+i*250));});
+                const _willReflect = oppC.isHomerun && isHomerunReflect(oppC.spd, myC.spd);
+                const _interruptCfg = getSeedInterruptConfig(oppN, !isBotMatch);
+                log.innerHTML+=`\n🌱 種連続発射！`;
+                playTanemakiAnimation(Object.assign({}, SEED_PLAYER_ALLY_CONFIG, { interruptConfig: _interruptCfg }), _willReflect, function(){
+                    if(_willReflect){
+                        log.innerHTML+=`\n🏏 ホームラン！種連続発射を打ち返して無効化！`;
+                        updateHP(pHP,oHP,oppC.hp,myC.hp);
+                        battleLogHistory.push(log.innerHTML.replace(/<br\s*\/?>/gi,"\n"));
+                        myTurn=false;round++;setTimeout(step,battleDelay(1100));
+                    } else {
+                        const hits=rollSeedHits(myC.spd,oppC.spd);let damages=[];let spicyCount=0;
+                        for(let i=0;i<hits;i++){let sd=Math.max(2,Math.round(myC.atk*0.4-Math.floor(oppC.def/4)));sd=Math.round(sd*(0.9+Math.random()*0.2));if(Math.random()<getCritRate(myC.spd,oppC.spd)){sd=Math.round(sd*2);spicyCount++;}damages.push(sd);oHP=Math.max(0,oHP-sd);}
+                        log.innerHTML+=`\n🌱 種連続発射 ${hits}連撃！`+(spicyCount>0?` 🌶️ SpicyHit×${spicyCount}！`:'');
+                        setTimeout(()=>playSoundEffect('machine-gun.mp3'),50);
+                        damages.forEach((sd,i)=>{setTimeout(()=>{triggerEffect("enemy",sd);if(i===damages.length-1){log.innerHTML+=` 合計: ${damages.reduce((a,b)=>a+b,0)}`;updateHP(pHP,oHP,oppC.hp,myC.hp);battleLogHistory.push(log.innerHTML.replace(/<br\s*\/?>/gi,"\n"));myTurn=false;round++;setTimeout(step,battleDelay(1300));}},battleDelay(150+i*250));});
+                    }
+                });
+                return;
             } else if(myC.isGreenCurry&&Math.random()<0.35){
                 // 🟢ヒリヒリクラッシュ：相手がホームランを持っていれば打ち返されるが、反動は必ずくらう
                 playSoundEffect('hirihiri.mp3');
