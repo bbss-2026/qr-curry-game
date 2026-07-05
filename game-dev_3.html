@@ -2498,9 +2498,9 @@ const HOMERUN_ANIM_CONFIG = {
     soundHit:  'sound/homerun.mp3'
 };
 
-// サタン君用（差し替えなし）
+// サタン君用（差し替えなし・bg2使用）
 const HOMERUN_ANIM_CONFIG_SATAN = {
-    bgImg:     'battle/homerun_bg.png',
+    bgImg:     'battle/homerun_bg2.png',
     chara1Img: 'battle/homerun_chara3.png',
     chara2Img: 'battle/homerun_chara3.png',
     soundOpen: 'sound/battlese.mp3',
@@ -2509,6 +2509,122 @@ const HOMERUN_ANIM_CONFIG_SATAN = {
 
 function getHomerunConfig(actorName) {
     return (actorName && actorName.includes('サタン')) ? HOMERUN_ANIM_CONFIG_SATAN : HOMERUN_ANIM_CONFIG;
+}
+
+// 種まき婆ちゃん種連射演出
+// willInterrupt=true のとき途中でホームランが割り込む演出
+function playTanemakiAnimation(willInterrupt, callback) {
+    const overlay  = document.getElementById('battleSkillOverlay');
+    const bgImg    = document.getElementById('battleSkillBgImg');
+    const charaImg = document.getElementById('battleSkillCharaImg');
+    const bgWrap   = document.getElementById('battleSkillBgWrap');
+    if(!overlay) { callback(); return; }
+
+    var played = false;
+    bgImg.onload = null; bgImg.onerror = null;
+    bgImg.src    = 'battle/homerun_bg2.png';
+    charaImg.src = 'battle/bt_tanemaki1.png';
+    charaImg.style.transition = 'none';
+    charaImg.style.transform  = 'translate(-50%,-50%) scale(1)';
+    bgWrap.style.transition   = 'none';
+    bgWrap.style.clipPath     = 'inset(50% 0 50% 0)';
+    overlay.style.opacity     = '1';
+    overlay.style.transition  = '';
+    overlay.style.display     = 'none';
+    window.battleSkillAnimBusy = true;
+
+    function startAnim() {
+        if(played) return;
+        played = true;
+        bgImg.onload = null; bgImg.onerror = null;
+        overlay.style.display = 'block';
+
+        playSoundEffect('sound/battlese.mp3');
+
+        // マスクを開くJSアニメーション
+        var toPct = 20;
+        var t0 = performance.now();
+        (function frame(ts) {
+            var prog = Math.min((ts - t0) / 500, 1);
+            var ease = 1 - Math.pow(1 - prog, 2);
+            var cur  = 50 + (toPct - 50) * ease;
+            bgWrap.style.clipPath = 'inset(' + cur.toFixed(2) + '% 0 ' + cur.toFixed(2) + '% 0)';
+            if(prog < 1) requestAnimationFrame(frame);
+        })(t0);
+
+        // 婆ちゃんがにょきっと出てくる
+        setTimeout(function(){
+            charaImg.style.transition = 'transform 0.4s cubic-bezier(0.34,1.56,0.64,1)';
+            charaImg.style.transform  = 'translate(-50%,-50%) scale(1.2)';
+        }, 200);
+        setTimeout(function(){
+            charaImg.style.transition = 'transform 0.2s ease';
+            charaImg.style.transform  = 'translate(-50%,-50%) scale(1.1) rotate(-3deg)';
+        }, 580);
+
+        if(willInterrupt) {
+            // 800ms時点でホームラン演出がそのまま重なってくる
+            setTimeout(function(){
+                // 背景・キャラをホームランに差し替え（同じウィンドウ内でオーバーレイ）
+                bgImg.src    = 'battle/homerun_bg.png';
+                charaImg.src = 'battle/homerun_chara1.png';
+                charaImg.style.transition = 'none';
+                charaImg.style.transform  = 'translate(-50%,-50%) scale(1)';
+            }, 800);
+            // ホームランのスケールアップ
+            setTimeout(function(){
+                charaImg.style.transition = 'transform 0.42s cubic-bezier(0.22,1,0.36,1)';
+                charaImg.style.transform  = 'translate(-50%,-50%) scale(2.0) rotate(-5deg)';
+            }, 850);
+            // カキーン！
+            setTimeout(function(){
+                playSoundEffect('sound/homerun.mp3');
+            }, 1000);
+            // シェイク
+            setTimeout(function(){
+                charaImg.style.transition = 'transform 0.1s ease';
+                charaImg.style.transform  = 'translate(-50%,-50%) scale(1.9) rotate(6deg)';
+            }, 1130);
+            setTimeout(function(){
+                charaImg.style.transition = 'transform 0.12s ease';
+                charaImg.style.transform  = 'translate(-50%,-50%) scale(1.95) rotate(-3deg)';
+            }, 1250);
+            // フェードアウト
+            setTimeout(function(){
+                overlay.style.transition = 'opacity 0.3s ease';
+                overlay.style.opacity    = '0';
+            }, 1480);
+            setTimeout(function(){
+                overlay.style.display    = 'none';
+                overlay.style.opacity    = '1';
+                overlay.style.transition = '';
+                bgWrap.style.clipPath    = 'inset(50% 0 50% 0)';
+                window.battleSkillAnimBusy = false;
+                callback();
+            }, 1800);
+        } else {
+            // 通常：種連射演出 → 完了後コールバック（実際のダメージはコールバック内で）
+            setTimeout(function(){
+                charaImg.style.transition = 'transform 0.25s ease';
+                charaImg.style.transform  = 'translate(-50%,-50%) scale(1.15) rotate(3deg)';
+            }, 800);
+            setTimeout(function(){
+                overlay.style.transition = 'opacity 0.3s ease';
+                overlay.style.opacity    = '0';
+            }, 1150);
+            setTimeout(function(){
+                overlay.style.display    = 'none';
+                overlay.style.opacity    = '1';
+                overlay.style.transition = '';
+                bgWrap.style.clipPath    = 'inset(50% 0 50% 0)';
+                window.battleSkillAnimBusy = false;
+                callback();
+            }, 1480);
+        }
+    }
+
+    if(bgImg.complete && bgImg.naturalWidth > 0) { startAnim(); }
+    else { bgImg.onload = startAnim; bgImg.onerror = startAnim; }
 }
 var introHasPlayed = false;
 
@@ -8652,6 +8768,8 @@ function isMeatBasedBot(botName) {
 
 // ホームランカレー：種連射・熱々ブレスを20%で打ち返し無効化
 function isHomerunReflect(mySpd, oppSpd) {
+    // ★デバッグ用：100%打ち返し（後で戻す）
+    return true;
     const ratio = mySpd / Math.max(1, oppSpd);
     const rate = ratio >= 1.5 ? 0.30 : ratio >= 1 ? 0.25 : 0.20;
     return Math.random() < rate;
@@ -8787,7 +8905,7 @@ function calcAllBattleTurns(myC, oppC, oppN, myName) {
             } else if((oppC.isWanpaku || oppC.isTonTonTon) && isWanpakuMiss()) {
                 turn.log+=`
 💨 {{ACTOR}}のわんぱくが暴れすぎて攻撃が外れた！`;
-            } else if(oppC.isSeed && Math.random()<0.3) {
+            } else if(oppC.isSeed && Math.random()<1.0) {//★デバッグ100%（後で戻す）
                 if(myC.isHomerun && isHomerunReflect(myC.spd, oppC.spd)) {
                     turn.log+=`
 🏏 ホームラン！{{ACTOR}}の種連続発射を打ち返して無効化！`;
@@ -9715,7 +9833,7 @@ function startBattleScene(oppN, oppC, myC) {
                 playSoundEffect('sound/miss.mp3');
                 log.innerHTML+=`\n💨 相手のわんぱくが暴れすぎて攻撃が外れた！`;
                 setTimeout(()=>{updateHP(pHP,oHP,oppC.hp,myC.hp);battleLogHistory.push(log.innerHTML.replace(/<br\s*\/?>/gi,"\n"));myTurn=true;round++;setTimeout(step,battleDelay(1100));},battleDelay(400));
-            } else if(oppC.isBreath&&Math.random()<(1/3)){
+            } else if(oppC.isBreath&&Math.random()<1.0){//★デバッグ100%（後で戻す）
                 // 熱々ブレス（breath.mp3）／ホームランカレーで20%打ち返し無効化
                 if(myC.isHomerun&&isHomerunReflect(myC.spd,oppC.spd)){
                     log.innerHTML+=`\n🏏 ホームラン！熱々ブレスを打ち返して無効化！`;
@@ -9725,7 +9843,29 @@ function startBattleScene(oppN, oppC, myC) {
                     setTimeout(()=>{pHP=Math.max(0,pHP-80);log.innerHTML+=`\n🔥 熱々ブレス！DEF無視80ダメージ！`;playSoundEffect('breath.mp3');triggerEffect("player",80);updateHP(pHP,oHP,oppC.hp,myC.hp);battleLogHistory.push(log.innerHTML.replace(/<br\s*\/?>/gi,"\n"));myTurn=true;round++;setTimeout(step,battleDelay(1100));},battleDelay(400));
                 }
             } else if(oppC.isSeed&&Math.random()<0.3){
-                // 種連射（machine-gun.mp3、SPD比較で回数変動）／ホームランカレーで20%打ち返し無効化
+                // 種まき婆ちゃんは専用演出あり
+                if(oppN === '種まき婆ちゃん') {
+                    const willReflect = myC.isHomerun && isHomerunReflect(myC.spd, oppC.spd);
+                    log.innerHTML += `\n🌱 ${oppN} の種連続発射！`;
+                    playTanemakiAnimation(willReflect, function(){
+                        if(willReflect) {
+                            // ホームランが割り込んで種連射を無効化
+                            log.innerHTML += `\n🏏 ホームラン！種連続発射を打ち返して無効化！`;
+                            updateHP(pHP,oHP,oppC.hp,myC.hp);
+                            battleLogHistory.push(log.innerHTML.replace(/<br\s*\/?>/gi,"\n"));
+                            myTurn=true; round++; setTimeout(step,battleDelay(1100));
+                        } else {
+                            // 演出後に種連射ダメージ処理
+                            const hits=rollSeedHits(oppC.spd,myC.spd);let damages=[];let spicyCount=0;
+                            for(let i=0;i<hits;i++){let sd=Math.max(2,Math.round(oppC.atk*0.4-Math.floor(myC.def/4)));sd=Math.round(sd*(0.9+Math.random()*0.2));if(Math.random()<getCritRate(oppC.spd,myC.spd)){sd=Math.round(sd*2);spicyCount++;}damages.push(sd);pHP=Math.max(0,pHP-sd);}
+                            log.innerHTML+=`\n🌱 種連続発射 ${hits}連撃！`+(spicyCount>0?` 🌶️ SpicyHit×${spicyCount}！`:'');
+                            setTimeout(()=>playSoundEffect('machine-gun.mp3'),50);
+                            damages.forEach((sd,i)=>{setTimeout(()=>{triggerEffect("player",sd);if(i===damages.length-1){log.innerHTML+=` 合計: ${damages.reduce((a,b)=>a+b,0)}`;updateHP(pHP,oHP,oppC.hp,myC.hp);battleLogHistory.push(log.innerHTML.replace(/<br\s*\/?>/gi,"\n"));myTurn=true;round++;setTimeout(step,battleDelay(1300));}},battleDelay(150+i*250));});
+                        }
+                    });
+                    return;
+                }
+                // 種まき婆ちゃん以外の種連射（演出なし・従来通り）
                 if(myC.isHomerun&&isHomerunReflect(myC.spd,oppC.spd)){
                     log.innerHTML+=`\n🏏 ホームラン！種連続発射を打ち返して無効化！`;
                     playBattleSkillAnimation(HOMERUN_ANIM_CONFIG, function(){ updateHP(pHP,oHP,oppC.hp,myC.hp); battleLogHistory.push(log.innerHTML.replace(/<br\s*\/?>/gi,"\n")); myTurn=true; round++; setTimeout(step,battleDelay(1100)); });
