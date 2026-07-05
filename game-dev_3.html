@@ -8092,45 +8092,49 @@ function tagExecuteAction(actor, myTeam, enemyTeam, callback) {
     // 種連射：攻撃回数をランダムで敵に振り分け（SPD判定は敵2人の平均値）
     if(curry.isSeed && Math.random() < 1.0) {//★デバッグ：プレイヤー種連射100%（後で戻す）
         const homerunFoe = enemyTeam.find(f => f.hp > 0 && f.isHomerun);
-        if(homerunFoe && isHomerunReflect(homerunFoe.spd, actor.spd)) {
-            tagLogAppend(`🏏 ${homerunFoe.name} がホームラン！${actor.name} の種連続発射を打ち返して無効化！`);
-            playBattleSkillAnimation(getHomerunConfig(homerunFoe.name), callback); return;
-        }
-        const avgEnemySpd = (enemyTeam[0].spd + (enemyTeam[1] ? enemyTeam[1].spd : enemyTeam[0].spd)) / 2;
-        const hits = rollSeedHits(actor.spd, avgEnemySpd);
-        let total = 0;
-        let hitRecords = [];
-        let tagSeedSpicy = 0;
-        for(let h = 0; h < hits; h++) {
-            const target = tagPickRandomAliveTarget(enemyTeam);
-            if(!target) break;
-            let d = Math.max(2, Math.round(actor.atk*0.4 - target.def/4));
-            d = Math.round(d * (0.9 + Math.random()*0.2));
-            if(Math.random() < getCritRate(actor.spd, avgEnemySpd)) { d = Math.round(d*2); tagSeedSpicy++; }
-            target.hp = Math.max(0, target.hp - d);
-            total += d;
-            hitRecords.push({ target, d });
-        }
-        tagLogAppend(`🌱 ${actor.name} の種連続発射 ${hits}連撃！`+(tagSeedSpicy>0?` 🌶️ SpicyHit×${tagSeedSpicy}！`:''));
-        playSoundEffect('machine-gun.mp3');
-        hitRecords.forEach((rec, i) => {
-            setTimeout(() => {
-                tagTriggerDamagePop('enemy', rec.target.idx, rec.d, '#f1c40f');
-                tagUpdateAllHpDisplays();
-                if(i === hitRecords.length - 1) {
-                    // 対象ごとに「何回・合計何ダメージ」を集計して表示
-                    const summary = {};
-                    hitRecords.forEach(r => {
-                        if(!summary[r.target.idx]) summary[r.target.idx] = { name: r.target.name, count: 0, dmg: 0 };
-                        summary[r.target.idx].count++;
-                        summary[r.target.idx].dmg += r.d;
-                    });
-                    const summaryText = Object.values(summary).map(s => `${s.name}に${s.count}回(${s.dmg}ダメージ)`).join(' / ');
-                    tagLogAppend(`${summaryText} 合計: ${total} ダメージ！`);
-                }
+        const _willReflect = !!(homerunFoe && isHomerunReflect(homerunFoe.spd, actor.spd));
+        const _interruptCfg = homerunFoe ? getHomerunConfig(homerunFoe.name) : HOMERUN_ANIM_CONFIG;
+        const _seedCfg = Object.assign({}, SEED_PLAYER_ALLY_CONFIG, { interruptConfig: _interruptCfg });
+        playTanemakiAnimation(_seedCfg, _willReflect, function(){
+            if(_willReflect) {
+                tagLogAppend(`🏏 ${homerunFoe.name} がホームラン！${actor.name} の種連続発射を打ち返して無効化！`);
+                callback(); return;
+            }
+            const avgEnemySpd = (enemyTeam[0].spd + (enemyTeam[1] ? enemyTeam[1].spd : enemyTeam[0].spd)) / 2;
+            const hits = rollSeedHits(actor.spd, avgEnemySpd);
+            let total = 0;
+            let hitRecords = [];
+            let tagSeedSpicy = 0;
+            for(let h = 0; h < hits; h++) {
+                const target = tagPickRandomAliveTarget(enemyTeam);
+                if(!target) break;
+                let d = Math.max(2, Math.round(actor.atk*0.4 - target.def/4));
+                d = Math.round(d * (0.9 + Math.random()*0.2));
+                if(Math.random() < getCritRate(actor.spd, avgEnemySpd)) { d = Math.round(d*2); tagSeedSpicy++; }
+                target.hp = Math.max(0, target.hp - d);
+                total += d;
+                hitRecords.push({ target, d });
+            }
+            tagLogAppend(`🌱 ${actor.name} の種連続発射 ${hits}連撃！`+(tagSeedSpicy>0?` 🌶️ SpicyHit×${tagSeedSpicy}！`:''));
+            playSoundEffect('machine-gun.mp3');
+            hitRecords.forEach((rec, i) => {
+                setTimeout(() => {
+                    tagTriggerDamagePop('enemy', rec.target.idx, rec.d, '#f1c40f');
+                    tagUpdateAllHpDisplays();
+                    if(i === hitRecords.length - 1) {
+                        const summary = {};
+                        hitRecords.forEach(r => {
+                            if(!summary[r.target.idx]) summary[r.target.idx] = { name: r.target.name, count: 0, dmg: 0 };
+                            summary[r.target.idx].count++;
+                            summary[r.target.idx].dmg += r.d;
+                        });
+                        const summaryText = Object.values(summary).map(s => `${s.name}に${s.count}回(${s.dmg}ダメージ)`).join(' / ');
+                        tagLogAppend(`${summaryText} 合計: ${total} ダメージ！`);
+                    }
             }, tagDelay(i * 220));
         });
         setTimeout(callback, tagDelay(hitRecords.length * 220 + 300));
+        }); // playTanemakiAnimation callback end
         return;
     }
     if(curry.isGreenCurry && Math.random() < 0.35) {
