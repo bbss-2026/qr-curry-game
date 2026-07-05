@@ -53,6 +53,12 @@
         #battleSkillBgWrap { position:relative; clip-path:inset(50% 0 50% 0); }
         #battleSkillBgImg { width:100%; height:auto; display:block; }
         #battleSkillCharaImg { position:absolute; left:50%; top:80%; transform:translate(-50%,-50%) scale(1); width:60%; height:auto; object-fit:contain; z-index:1; }
+        /* 種連射ホームラン割り込み用オーバーレイ（overlay1の上に重ねる） */
+        #battleSkillOverlay2 { position:fixed; top:0; left:0; width:100%; height:100%; z-index:6100; display:none; pointer-events:none; }
+        #battleSkillWindow2 { position:absolute; top:30%; left:50%; transform:translate(-50%,-50%); width:100%; max-width:480px; }
+        #battleSkillBgWrap2 { position:relative; clip-path:inset(50% 0 50% 0); }
+        #battleSkillBgImg2 { width:100%; height:auto; display:block; }
+        #battleSkillCharaImg2 { position:absolute; left:50%; top:80%; transform:translate(-50%,-50%) scale(1); width:60%; height:auto; object-fit:contain; z-index:1; }
         @keyframes potShake { 0%,100%{transform:translateX(0) rotate(0);} 12%{transform:translateX(-6px) rotate(-2.5deg);} 25%{transform:translateX(6px) rotate(2.5deg);} 37%{transform:translateX(-5px) rotate(-2deg);} 50%{transform:translateX(5px) rotate(2deg);} 62%{transform:translateX(-4px) rotate(-1deg);} 75%{transform:translateX(4px) rotate(1deg);} 87%{transform:translateX(-2px) rotate(-0.5deg);} }
         #cookingAnimation { position:fixed; top:0; left:0; width:100%; height:100%; z-index:8000; display:none; background:rgba(0,0,0,0.72); }
         #cookingScene { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); width:100%; max-width:480px; }
@@ -785,6 +791,15 @@
             <div id="battleSkillBgWrap">
                 <img id="battleSkillBgImg" src="" alt="">
                 <img id="battleSkillCharaImg" src="" alt="">
+            </div>
+        </div>
+    </div>
+    <!-- 種連射ホームラン割り込み用（overlay1の上） -->
+    <div id="battleSkillOverlay2">
+        <div id="battleSkillWindow2">
+            <div id="battleSkillBgWrap2">
+                <img id="battleSkillBgImg2" src="" alt="">
+                <img id="battleSkillCharaImg2" src="" alt="">
             </div>
         </div>
     </div>
@@ -2563,45 +2578,63 @@ function playTanemakiAnimation(willInterrupt, callback) {
         }, 580);
 
         if(willInterrupt) {
-            // 800ms時点でホームラン演出がそのまま重なってくる
+            // 800ms時点でoverlay2（ホームラン演出）がoverlay1の上に重なってくる
             setTimeout(function(){
-                // 背景・キャラをホームランに差し替え（同じウィンドウ内でオーバーレイ）
-                bgImg.src    = 'battle/homerun_bg.png';
-                charaImg.src = 'battle/homerun_chara1.png';
-                charaImg.style.transition = 'none';
-                charaImg.style.transform  = 'translate(-50%,-50%) scale(1)';
+                var o2   = document.getElementById('battleSkillOverlay2');
+                var bg2  = document.getElementById('battleSkillBgImg2');
+                var ch2  = document.getElementById('battleSkillCharaImg2');
+                var bw2  = document.getElementById('battleSkillBgWrap2');
+
+                bg2.src  = 'battle/homerun_bg.png';
+                ch2.src  = 'battle/homerun_chara1.png';
+                ch2.style.transition = 'none';
+                ch2.style.transform  = 'translate(-50%,-50%) scale(1)';
+                bw2.style.clipPath   = 'inset(50% 0 50% 0)';
+                o2.style.opacity     = '1';
+                o2.style.transition  = '';
+                o2.style.display     = 'block';
+
+                // overlay2のマスクを開くJSアニメーション
+                var t2 = performance.now();
+                (function frame2(ts){
+                    var prog = Math.min((ts - t2) / 400, 1);
+                    var ease = 1 - Math.pow(1 - prog, 2);
+                    bw2.style.clipPath = 'inset(' + (50 + (20 - 50) * ease).toFixed(2) + '% 0 ' + (50 + (20 - 50) * ease).toFixed(2) + '% 0)';
+                    if(prog < 1) requestAnimationFrame(frame2);
+                })(t2);
+
+                // ホームランキャラ拡大
+                setTimeout(function(){
+                    ch2.style.transition = 'transform 0.4s cubic-bezier(0.22,1,0.36,1)';
+                    ch2.style.transform  = 'translate(-50%,-50%) scale(2.0) rotate(-5deg)';
+                }, 100);
+                // カキーン！
+                setTimeout(function(){ playSoundEffect('sound/homerun.mp3'); }, 300);
+                // シェイク
+                setTimeout(function(){
+                    ch2.style.transition = 'transform 0.1s ease';
+                    ch2.style.transform  = 'translate(-50%,-50%) scale(1.9) rotate(6deg)';
+                }, 430);
+                setTimeout(function(){
+                    ch2.style.transition = 'transform 0.12s ease';
+                    ch2.style.transform  = 'translate(-50%,-50%) scale(1.95) rotate(-3deg)';
+                }, 550);
+                // 両方フェードアウト
+                setTimeout(function(){
+                    overlay.style.transition = 'opacity 0.3s ease';
+                    overlay.style.opacity    = '0';
+                    o2.style.transition      = 'opacity 0.3s ease';
+                    o2.style.opacity         = '0';
+                }, 750);
+                setTimeout(function(){
+                    overlay.style.display = 'none'; overlay.style.opacity = '1'; overlay.style.transition = '';
+                    bgWrap.style.clipPath  = 'inset(50% 0 50% 0)';
+                    o2.style.display = 'none'; o2.style.opacity = '1'; o2.style.transition = '';
+                    bw2.style.clipPath = 'inset(50% 0 50% 0)';
+                    window.battleSkillAnimBusy = false;
+                    callback();
+                }, 1080);
             }, 800);
-            // ホームランのスケールアップ
-            setTimeout(function(){
-                charaImg.style.transition = 'transform 0.42s cubic-bezier(0.22,1,0.36,1)';
-                charaImg.style.transform  = 'translate(-50%,-50%) scale(2.0) rotate(-5deg)';
-            }, 850);
-            // カキーン！
-            setTimeout(function(){
-                playSoundEffect('sound/homerun.mp3');
-            }, 1000);
-            // シェイク
-            setTimeout(function(){
-                charaImg.style.transition = 'transform 0.1s ease';
-                charaImg.style.transform  = 'translate(-50%,-50%) scale(1.9) rotate(6deg)';
-            }, 1130);
-            setTimeout(function(){
-                charaImg.style.transition = 'transform 0.12s ease';
-                charaImg.style.transform  = 'translate(-50%,-50%) scale(1.95) rotate(-3deg)';
-            }, 1250);
-            // フェードアウト
-            setTimeout(function(){
-                overlay.style.transition = 'opacity 0.3s ease';
-                overlay.style.opacity    = '0';
-            }, 1480);
-            setTimeout(function(){
-                overlay.style.display    = 'none';
-                overlay.style.opacity    = '1';
-                overlay.style.transition = '';
-                bgWrap.style.clipPath    = 'inset(50% 0 50% 0)';
-                window.battleSkillAnimBusy = false;
-                callback();
-            }, 1800);
         } else {
             // 通常：種連射演出 → 完了後コールバック（実際のダメージはコールバック内で）
             setTimeout(function(){
