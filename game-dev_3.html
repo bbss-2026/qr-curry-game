@@ -8090,7 +8090,7 @@ function tagExecuteAction(actor, myTeam, enemyTeam, callback) {
         playSoundEffect('taiyou.mp3');
     }
     // 種連射：攻撃回数をランダムで敵に振り分け（SPD判定は敵2人の平均値）
-    if(curry.isSeed && Math.random() < 1.0) {//★デバッグ：プレイヤー種連射100%（後で戻す）
+    if(curry.isSeed && Math.random() < 0.4) {
         const homerunFoe = enemyTeam.find(f => f.hp > 0 && f.isHomerun);
         const _willReflect = !!(homerunFoe && isHomerunReflect(homerunFoe.spd, actor.spd));
         const _interruptCfg = homerunFoe ? getHomerunConfig(homerunFoe.name) : HOMERUN_ANIM_CONFIG;
@@ -8848,8 +8848,6 @@ function isMeatBasedBot(botName) {
 
 // ホームランカレー：種連射・熱々ブレスを20%で打ち返し無効化
 function isHomerunReflect(mySpd, oppSpd) {
-    // ★デバッグ用：100%打ち返し（後で戻す）
-    return true;
     const ratio = mySpd / Math.max(1, oppSpd);
     const rate = ratio >= 1.5 ? 0.30 : ratio >= 1 ? 0.25 : 0.20;
     return Math.random() < rate;
@@ -9120,11 +9118,15 @@ function playBattleTurns(turns, myC, oppC, oppN, role) {
 
         log.innerHTML = resolvedLog;
         if(resolvedLog.includes('💨')) playSoundEffect('sound/miss.mp3');
-        // プレイヤー（host）が種連射した場合に演出
-        if(turn.actorIsHost && resolvedLog.includes('🌱 種連続発射')) {
-            const _seedCfg = onlineRole === 'host' ? SEED_PLAYER_ALLY_CONFIG : SEED_PLAYER_ENEMY_CONFIG;
-            const _hasHomerun = turn.effects.some(function(e){ return e.type === 'homerun-reflect'; });
-            if(!_hasHomerun) playTanemakiAnimation(_seedCfg, false, function(){});
+        // 種連射演出（オンライン/ルーム戦）
+        // 自分がアクター→味方bg、相手がアクター→敵bg
+        // ホームラン割り込みも：自分の種連射を相手が打ち返す→敵bgホームラン、相手の種連射を自分が打ち返す→味方bgホームラン
+        if(resolvedLog.includes('🌱 種連続発射')) {
+            const _actorIsMe = (turn.actorIsHost === (onlineRole === 'host'));
+            const _seedCfg   = _actorIsMe ? SEED_PLAYER_ALLY_CONFIG : SEED_PLAYER_ENEMY_CONFIG;
+            const _hasHR     = turn.effects.some(function(e){ return e.type === 'homerun-reflect'; });
+            const _intrCfg   = _actorIsMe ? HOMERUN_ANIM_CONFIG_ENEMY : HOMERUN_ANIM_CONFIG;
+            playTanemakiAnimation(Object.assign({}, _seedCfg, { interruptConfig: _intrCfg }), _hasHR, function(){});
         }
         battleLogHistory.push(resolvedLog.replace(/<br\s*\/?>/gi, '\n'));
         playTone(isMyTurnNow ? 440 : 330, 'triangle', 0.08);
@@ -9862,7 +9864,7 @@ function startBattleScene(oppN, oppC, myC) {
                 playSoundEffect('sound/miss.mp3');
                 log.innerHTML+=`\n💨 わんぱくが暴れすぎて攻撃が外れた！`;
                 setTimeout(()=>{updateHP(pHP,oHP,oppC.hp,myC.hp);battleLogHistory.push(log.innerHTML.replace(/<br\s*\/?>/gi,"\n"));myTurn=false;round++;setTimeout(step,battleDelay(1100));},battleDelay(400));
-            } else if(myC.isSeed&&Math.random()<1.0){//★デバッグ：プレイヤー種連射100%（後で戻す）
+            } else if(myC.isSeed&&Math.random()<0.3){
                 const _willReflect = oppC.isHomerun && isHomerunReflect(oppC.spd, myC.spd);
                 const _interruptCfg = getSeedInterruptConfig(oppN, !isBotMatch);
                 log.innerHTML+=`\n🌱 種連続発射！`;
