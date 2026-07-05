@@ -8354,8 +8354,6 @@ function tagExecuteEnemyActionImpl(actor, myTeam, enemyTeam, callback) {
     }
     if(effect === 'seed' && Math.random() < 0.35) {
         const homerunAlly2 = myTeam.find(f => f.hp > 0 && f.curry && f.curry.isHomerun);
-    if(effect === 'seed' && Math.random() < 0.35) {
-        const homerunAlly2 = myTeam.find(f => f.hp > 0 && f.curry && f.curry.isHomerun);
         const _wRSd = !!(homerunAlly2 && isHomerunReflect(homerunAlly2.spd, actor.spd));
         playTanemakiAnimation(TANEMAKI_TAG_ENEMY_CONFIG, _wRSd, function(){
             if(_wRSd) {
