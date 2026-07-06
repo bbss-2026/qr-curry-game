@@ -5173,7 +5173,10 @@ function processShop3QR(text, matchedKeyword) {
         document.getElementById("shopQrPhotos").innerHTML = '<img src="shop/shop-3-1.png" style="width:48%; max-width:160px; border-radius:6px; object-fit:cover;"><img src="shop/shop-3-2.png" style="width:48%; max-width:160px; border-radius:6px; object-fit:cover;">';
         document.getElementById("shopQrDesc").innerHTML = '谷町六丁目駅4番出口から徒歩１分<br>【究極のカレー準グランプリ(欧風カレー部門)】<br>店内にあの有名RPGのフィギュアいっぱい！';
         document.getElementById("shopQrOpenLinkBtn").style.display = 'inline-block';
-        document.getElementById("shopQrRewardArea").innerHTML = `<div style="font-size:12px; color:#9a6e30; font-weight:bold; margin-top:4px;">📱 SNSを開くと報酬GET！</div>`;
+        const _r3ft = localStorage.getItem('qr_shop3_scanned') !== '1';
+        const _r3td = scanHistory[text] !== getJSTDateString();
+        document.getElementById("shopQrRewardArea").innerHTML = (_r3ft || _r3td)
+            ? `<div style="font-size:12px; color:#9a6e30; font-weight:bold; margin-top:4px;">📱 SNSを開くと報酬GET！</div>` : '';
         document.getElementById("getBox").style.display = "block";
     } catch(e) { console.error('processShop3QR error:', e); }
 }
@@ -5189,7 +5192,10 @@ function processShop2QR(text, matchedKeyword) {
         document.getElementById("shopQrPhotos").innerHTML = '<img src="shop/shop-2-1.png" style="width:48%; max-width:160px; border-radius:6px; object-fit:cover;"><img src="shop/shop-2-2.png" style="width:48%; max-width:160px; border-radius:6px; object-fit:cover;">';
         document.getElementById("shopQrDesc").innerHTML = '大阪の爽やかスパイスカレーとコーヒーのお店<br>地下鉄堺筋線 堺筋本町駅 7番出口から徒歩約5分';
         document.getElementById("shopQrOpenLinkBtn").style.display = 'inline-block';
-        document.getElementById("shopQrRewardArea").innerHTML = `<div style="font-size:12px; color:#9a6e30; font-weight:bold; margin-top:4px;">📱 SNSを開くと報酬GET！</div>`;
+        const _r2ft = localStorage.getItem('qr_shop2_scanned') !== '1';
+        const _r2td = scanHistory[text] !== getJSTDateString();
+        document.getElementById("shopQrRewardArea").innerHTML = (_r2ft || _r2td)
+            ? `<div style="font-size:12px; color:#9a6e30; font-weight:bold; margin-top:4px;">📱 SNSを開くと報酬GET！</div>` : '';
         document.getElementById("getBox").style.display = "block";
     } catch(e) { console.error('processShop2QR error:', e); }
 }
@@ -5210,7 +5216,10 @@ function processShop1QR(text, matchedKeyword) {
         document.getElementById("shopQrPhotos").innerHTML = '<img src="shop/shop-1-1.png" style="width:48%; max-width:160px; border-radius:6px; object-fit:cover;"><img src="shop/shop-1-2.png" style="width:48%; max-width:160px; border-radius:6px; object-fit:cover;">';
         document.getElementById("shopQrDesc").innerHTML = 'グルテンフリーで「美味しいが健康に」<br>阪急夙川駅から東へ約10分<br>阪急電車高架下≪阪急夙川サンらいふ≫';
         document.getElementById("shopQrOpenLinkBtn").style.display = 'inline-block';
-        document.getElementById("shopQrRewardArea").innerHTML = `<div style="font-size:12px; color:#9a6e30; font-weight:bold; margin-top:4px;">📱 SNSを開くと報酬GET！</div>`;
+        const _r1ft = localStorage.getItem('qr_shop1_scanned') !== '1';
+        const _r1td = scanHistory[text] !== getJSTDateString();
+        document.getElementById("shopQrRewardArea").innerHTML = (_r1ft || _r1td)
+            ? `<div style="font-size:12px; color:#9a6e30; font-weight:bold; margin-top:4px;">📱 SNSを開くと報酬GET！</div>` : '';
         document.getElementById("getBox").style.display = "block";
     } catch(e) { console.error('processShop1QR error:', e); }
 }
