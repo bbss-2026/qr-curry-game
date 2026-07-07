@@ -20,51 +20,50 @@
         .tab-btn.active::after { background: #b88742; }
 
         /* ページ */
-        .page { display: none; text-align: left; padding: 16px 16px 210px; }
+        .page { display: none; text-align: left; padding: 16px 16px 220px; }
         .page.active { display: block; }
 
-        /* 案内人ウィンドウ */
-        #tutNarrator {
-            position: fixed; bottom: 0; left: 50%; transform: translateX(-50%);
-            width: 100%; max-width: 480px;
-            background: #2a1200; border-top: 3px solid #b88742;
-            z-index: 5000; padding: 12px 14px 14px;
-            display: flex; align-items: flex-start; gap: 10px;
-            min-height: 110px; cursor: pointer; user-select: none;
-        }
+        /* ステータスバー */
+        .status-bar-wrap { background: #fff8ee; border-bottom: 1px solid #b88742; }
+        .status-bar { font-size: 11px; padding: 6px 12px; display: flex; flex-wrap: wrap; gap: 4px 10px; color: #420000; justify-content: center; }
+
+        /* 案内人 */
+        #tutNarrator { position: fixed; bottom: 0; left: 50%; transform: translateX(-50%); width: 100%; max-width: 480px; background: #2a1200; border-top: 3px solid #b88742; z-index: 5000; padding: 12px 14px 14px; display: flex; align-items: flex-start; gap: 10px; min-height: 110px; cursor: pointer; user-select: none; }
         #tutNarrator .mc-img { flex-shrink: 0; width: 72px; height: 72px; object-fit: contain; }
-        #tutNarrator .speech-area { flex: 1; display: flex; flex-direction: column; justify-content: center; gap: 4px; }
-        #tutNarrator .speech-text { font-size: 14px; color: #fff8ee; line-height: 1.6; min-height: 4em; white-space: pre-wrap; text-align: left; }
-        #tutNarrator .speech-next { align-self: flex-end; font-size: 18px; color: #b88742; opacity: 0; }
-        #tutNarrator .speech-next.show { opacity: 1; animation: blinkArr 0.8s ease-in-out infinite; }
+        .speech-text { font-size: 14px; color: #fff8ee; line-height: 1.6; min-height: 4em; white-space: pre-wrap; text-align: left; flex: 1; }
+        .speech-next { font-size: 18px; color: #b88742; opacity: 0; align-self: flex-end; }
+        .speech-next.show { opacity: 1; animation: blinkArr 0.8s ease-in-out infinite; }
         @keyframes blinkArr { 0%,100%{opacity:1;} 50%{opacity:0.2;} }
 
         /* スポットライト */
-        .tut-ov { position: fixed; background: rgba(0,0,0,0.65); z-index: 4000; pointer-events: auto; }
+        .tut-ov { position: fixed; background: rgba(0,0,0,0.65); z-index: 4000; pointer-events: auto; display: none; }
         #tutSpotBorder { position: fixed; z-index: 4001; border: 2px solid #b88742; border-radius: 10px; box-shadow: 0 0 0 3px rgba(184,135,66,0.3); pointer-events: none; display: none; }
 
-        /* プレイヤー */
-        .player-icon-circle { width: 100px; height: 100px; border-radius: 50%; border: 3px solid #b88742; margin: 0 auto; overflow: hidden; background: #fff8ee; }
-        .player-icon-circle img { width: 100%; height: 100%; object-fit: cover; }
-        .btn-primary { display: block; width: 80%; margin: 12px auto; padding: 12px; background: #b88742; color: #efdeb1; border: none; border-radius: 4px; font-size: 15px; font-weight: bold; cursor: pointer; }
+        /* プレイヤータブ */
+        .profile-area { text-align: center; padding: 16px 0 10px; }
+        .profile-area img { width: 96px; height: 96px; border: 3px solid #e67e22; border-radius: 50%; margin-bottom: 6px; }
+        .input-name { width: 80%; padding: 8px 12px; border: 1px solid #b88742; border-radius: 4px; font-size: 15px; text-align: center; color: #420000; background: #fff8ee; }
+        .profile-hint { font-size: 10px; color: #9a8060; margin: 6px 0 0; }
+        .btn-sm { padding: 10px 6px; border: none; border-radius: 4px; font-weight: bold; font-size: 12px; cursor: pointer; }
 
         /* 名前入力モーダル */
         #tut-name-modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); z-index: 6000; display: none; align-items: center; justify-content: center; }
         #tut-name-modal.show { display: flex; }
         .tut-modal-box { background: #fff8ee; border-radius: 12px; padding: 24px 20px; width: 88%; max-width: 360px; text-align: center; border: 2px solid #b88742; }
         .tut-modal-box h3 { font-size: 16px; color: #420000; margin: 0 0 16px; }
-        .tut-name-input { width: 100%; padding: 12px; font-size: 16px; border: 2px solid #b88742; border-radius: 6px; text-align: center; color: #420000; background: #fff; margin-bottom: 16px; }
+        .tut-name-input-field { width: 100%; padding: 12px; font-size: 16px; border: 2px solid #b88742; border-radius: 6px; text-align: center; color: #420000; background: #fff; margin-bottom: 16px; }
         .btn-gold { background: #b88742; color: #efdeb1; border: none; border-radius: 4px; padding: 12px 24px; font-size: 15px; font-weight: bold; cursor: pointer; width: 100%; }
 
         /* 汎用 */
         .section-label { font-size: 12px; color: #9a8060; margin: 8px 0 4px; font-weight: bold; }
         .cook-slot-row { display: flex; gap: 6px; margin-bottom: 8px; }
-        .cook-slot { flex: 1; min-height: 80px; border: 1px dashed #b88742; border-radius: 6px; display: flex; flex-direction: column; align-items: center; justify-content: center; background: #fffdf0; font-size: 22px; color: #cbb088; cursor: pointer; }
+        .cook-slot { flex: 1; min-height: 80px; border: 1px dashed #b88742; border-radius: 6px; display: flex; flex-direction: column; align-items: center; justify-content: center; background: #fffdf0; font-size: 22px; color: #cbb088; }
+        .btn-primary { display: block; width: 80%; margin: 12px auto; padding: 12px; background: #b88742; color: #efdeb1; border: none; border-radius: 4px; font-size: 15px; font-weight: bold; cursor: pointer; }
+        .mute-btn { position: fixed; bottom: 118px; right: calc(50% - 228px); z-index: 5100; width: 36px; height: 36px; border-radius: 50%; background: #b88742; color: #efdeb1; border: none; font-size: 18px; cursor: pointer; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 6px rgba(0,0,0,0.3); }
     </style>
 </head>
 <body>
 
-<!-- スポットライト4枚 -->
 <div class="tut-ov" id="ov-top"></div>
 <div class="tut-ov" id="ov-bot"></div>
 <div class="tut-ov" id="ov-lft"></div>
@@ -73,6 +72,18 @@
 
 <div id="tutWrapper">
     <div class="logo-area"><img src="battlecurry-logo.svg" alt="Battle Curry"></div>
+
+    <!-- ステータスバー -->
+    <div class="status-bar-wrap">
+        <div class="status-bar">
+            <span id="sb-name">名無しの料理人</span>
+            <span>|</span><span>資金: 0 G</span>
+            <span>|</span><span>パック券: 0 枚</span>
+            <span>|</span><span>スパイシーコイン: 0 枚</span>
+        </div>
+    </div>
+
+    <!-- タブ -->
     <nav class="tab-nav">
         <button class="tab-btn active" id="tab-player" onclick="tutTabClick('player')">プレイヤー</button>
         <button class="tab-btn" id="tab-qr"     onclick="tutTabClick('qr')">QR</button>
@@ -83,14 +94,44 @@
 
     <!-- プレイヤー -->
     <div class="page active" id="page-player">
-        <div style="text-align:center;padding:20px 0 8px;">
-            <div class="player-icon-circle"><img id="tut-icon-img" src="myimageicon/mayimage01.png" alt=""></div>
+        <div class="profile-area">
+            <img id="tut-icon-img" src="myimageicon/mayimage01.png" alt="">
+            <div style="font-size:10px;color:#b88742;margin-bottom:10px;">ID: ----------</div>
+            <input type="text" class="input-name" id="tut-player-name-input" placeholder="料理人の名前を入力" readonly>
+            <p class="profile-hint">※チュートリアル中は変更できません</p>
         </div>
-        <div style="font-size:18px;font-weight:bold;color:#420000;text-align:center;margin:8px 0 4px;" id="tut-player-name">――</div>
-        <div style="font-size:11px;color:#9a8060;text-align:center;margin-bottom:20px;" id="tut-player-hint">名前を設定しましょう</div>
-        <div style="text-align:center;">
-            <button class="btn-primary" id="btn-name-input" onclick="tutOpenNameModal()">名前を入力する</button>
+
+        <!-- パスワード設定・バックアップコード -->
+        <div style="display:flex;gap:8px;border-top:1px solid #b88742;padding:14px 0 20px;border-bottom:1px solid #b88742;margin-bottom:20px;">
+            <button class="btn-sm" style="flex:1;background:#420000;color:#efdeb1;">&#128274; パスワード設定</button>
+            <button class="btn-sm" style="flex:1;background:#b88742;color:#efdeb1;">&#128273; バックアップコード発行</button>
         </div>
+
+        <!-- ログインボーナス・デイリークエスト -->
+        <div style="display:flex;gap:14px;border-bottom:1px solid #b88742;padding-bottom:20px;margin-bottom:20px;">
+            <div style="flex:1;min-width:0;">
+                <div style="font-size:12px;font-weight:bold;color:#420000;margin-bottom:10px;">ログインボーナス</div>
+                <div style="font-size:11px;color:#9a8060;">チュートリアル中は<br>受け取れません</div>
+            </div>
+            <div style="flex:1;min-width:0;">
+                <div style="font-size:12px;font-weight:bold;color:#420000;margin-bottom:10px;">デイリークエスト</div>
+                <div style="font-size:11px;color:#9a8060;">チュートリアル中は<br>受け取れません</div>
+            </div>
+        </div>
+
+        <!-- ポスト -->
+        <div style="border-bottom:1px solid #b88742;padding-bottom:20px;margin-bottom:20px;">
+            <div style="font-size:12px;font-weight:bold;color:#420000;margin-bottom:10px;">&#128231; ポスト</div>
+            <div style="font-size:11px;color:#9a8060;text-align:center;padding:12px;">チュートリアル完了後に確認できます</div>
+        </div>
+
+        <!-- 名前入力ボタン -->
+        <div style="text-align:center;padding:10px 0 20px;">
+            <button class="btn-primary" id="btn-name-input" onclick="tutOpenNameModal()" style="display:inline-block;width:auto;padding:12px 32px;">&#128394; 名前を入力する</button>
+        </div>
+
+        <!-- ? マーク（飾り） -->
+        <div style="position:absolute;top:16px;right:16px;width:32px;height:32px;background:#b88742;color:#efdeb1;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:bold;font-size:16px;cursor:default;opacity:0.5;">?</div>
     </div>
 
     <!-- QR -->
@@ -112,9 +153,9 @@
     <div class="page" id="page-cook">
         <div class="section-label">食材スロット（最大3つ）</div>
         <div class="cook-slot-row">
-            <div class="cook-slot" id="tut-slot-0">＋</div>
-            <div class="cook-slot" id="tut-slot-1">＋</div>
-            <div class="cook-slot" id="tut-slot-2">＋</div>
+            <div class="cook-slot" id="tut-slot-0">&#xFF0B;</div>
+            <div class="cook-slot" id="tut-slot-1">&#xFF0B;</div>
+            <div class="cook-slot" id="tut-slot-2">&#xFF0B;</div>
         </div>
         <button class="btn-primary" id="btn-tut-cook" style="margin-top:16px;">カレーを調理する</button>
     </div>
@@ -125,11 +166,14 @@
     </div>
 </div>
 
+<!-- ミュートボタン（飾り） -->
+<button class="mute-btn" id="tut-mute-btn" onclick="tutToggleMute()" title="ミュート切替">&#128266;</button>
+
 <!-- 名前入力モーダル -->
 <div id="tut-name-modal">
     <div class="tut-modal-box">
         <h3>料理人の名前を入力</h3>
-        <input type="text" class="tut-name-input" id="tut-name-field" placeholder="名前（最大12文字）" maxlength="12">
+        <input type="text" class="tut-name-input-field" id="tut-name-field" placeholder="名前（最大12文字）" maxlength="12">
         <button class="btn-gold" onclick="tutConfirmName()">決定</button>
     </div>
 </div>
@@ -137,174 +181,184 @@
 <!-- 案内人 -->
 <div id="tutNarrator" onclick="tutNarratorTap()">
     <img class="mc-img" src="tutorial/tutorial-mc.png" alt="">
-    <div class="speech-area">
+    <div style="flex:1;display:flex;flex-direction:column;justify-content:center;gap:4px;">
         <div class="speech-text" id="tutSpeechText"></div>
         <div class="speech-next" id="tutSpeechNext">&#9660;</div>
     </div>
 </div>
 
 <script>
-// ----- LS -----
-const LS = { step:'tut_step', done:'tut_done', name:'tut_name', inv:'tut_inv', curry:'tut_curry' };
-function lsGet(k){ return localStorage.getItem(LS[k]) || ''; }
-function lsSet(k,v){ localStorage.setItem(LS[k], v); }
-function lsGetJSON(k){ try{ return JSON.parse(localStorage.getItem(LS[k])||'null'); }catch(e){ return null; } }
-function lsSetJSON(k,v){ localStorage.setItem(LS[k], JSON.stringify(v)); }
+// ===== LS（デバッグ中は保存しない）=====
+var DEBUG_MODE = true; // TODO: 本番時は false に
+function lsGet(k){ return localStorage.getItem('tut_' + k) || ''; }
+function lsSet(k,v){ if(!DEBUG_MODE) localStorage.setItem('tut_' + k, v); }
+function lsGetJ(k){ try{ return JSON.parse(localStorage.getItem('tut_' + k)||'null'); }catch(e){ return null; } }
+function lsSetJ(k,v){ if(!DEBUG_MODE) localStorage.setItem('tut_' + k, JSON.stringify(v)); }
 
-// ----- タブ -----
+// ===== タブ =====
 var tutAllowedTabs = [];
 var tutPendingTab = null;
-
-function tutTabClick(tab) {
-    if(tutAllowedTabs.length > 0 && tutAllowedTabs.indexOf(tab) === -1) return;
+function tutTabClick(tab){
+    if(tutAllowedTabs.length > 0 && tutAllowedTabs.indexOf(tab) < 0) return;
     tutSwitchTab(tab);
-    if(tutPendingTab && tutPendingTab.tab === tab) {
-        var cb = tutPendingTab.cb;
-        tutPendingTab = null;
-        setTimeout(cb, 150);
+    if(tutPendingTab && tutPendingTab.tab === tab){
+        var cb = tutPendingTab.cb; tutPendingTab = null; setTimeout(cb, 150);
     }
 }
-function tutSwitchTab(tab) {
+function tutSwitchTab(tab){
     document.querySelectorAll('.tab-btn').forEach(function(b){ b.classList.remove('active'); });
     document.querySelectorAll('.page').forEach(function(p){ p.classList.remove('active'); });
     var btn = document.getElementById('tab-' + tab);
     var pg  = document.getElementById('page-' + tab);
     if(btn) btn.classList.add('active');
     if(pg)  pg.classList.add('active');
-    setTimeout(tutRefreshSpotlight, 50);
+    setTimeout(function(){ if(_spotTargets) tutApplySpotlight(); }, 80);
 }
-function tutWaitTab(tab, cb) { tutPendingTab = { tab: tab, cb: cb }; }
+function tutWaitTab(tab, cb){ tutPendingTab = { tab:tab, cb:cb }; }
 
-// ----- スポットライト -----
+// ===== スポットライト + 自動スクロール =====
 var _spotTargets = null;
+var NARRATOR_H = 116; // 案内人の高さ
 
-function tutShowSpotlight(targets) {
+function tutShowSpotlight(targets, skipScroll){
     _spotTargets = targets;
-    tutRefreshSpotlight();
+    if(targets && targets.length > 0 && !skipScroll){
+        // ターゲット要素が見えるようにスクロールしてから描画
+        tutScrollToTargets(targets, function(){ tutApplySpotlight(); });
+    } else {
+        tutApplySpotlight();
+    }
 }
-function tutRefreshSpotlight() {
+
+function tutScrollToTargets(targets, cb){
+    var wrapper = document.getElementById('tutWrapper');
+    var viewH   = window.innerHeight - NARRATOR_H;
+    // ターゲット群の中心Y（document基準）
+    var minDocY = Infinity, maxDocY = -Infinity;
+    targets.forEach(function(t){
+        if(!t.el) return;
+        var r = t.el.getBoundingClientRect();
+        var pad = t.padding || 8;
+        var docTop = r.top + wrapper.scrollTop - wrapper.getBoundingClientRect().top;
+        minDocY = Math.min(minDocY, docTop - pad);
+        maxDocY = Math.max(maxDocY, docTop + r.height + pad);
+    });
+    if(minDocY === Infinity){ cb(); return; }
+    var centerDocY = (minDocY + maxDocY) / 2;
+    var targetScroll = centerDocY - viewH / 2;
+    targetScroll = Math.max(0, targetScroll);
+    wrapper.scrollTo({ top: targetScroll, behavior: 'smooth' });
+    // スクロール完了後にcb
+    var prev = -1;
+    function check(){
+        if(Math.abs(wrapper.scrollTop - prev) < 1){ cb(); return; }
+        prev = wrapper.scrollTop;
+        setTimeout(check, 80);
+    }
+    setTimeout(check, 100);
+}
+
+function tutApplySpotlight(){
     var top = document.getElementById('ov-top');
     var bot = document.getElementById('ov-bot');
     var lft = document.getElementById('ov-lft');
     var rgt = document.getElementById('ov-rgt');
     var bdr = document.getElementById('tutSpotBorder');
-    var W = window.innerWidth;
-    var H = window.innerHeight;
+    var W = window.innerWidth, H = window.innerHeight;
 
-    function show(el, css) {
-        el.removeAttribute('style');
-        el.style.cssText = css;
-    }
-    function hide(el) { el.style.display = 'none'; }
+    function s(el, css){ el.style.cssText = css; }
+    function h(el){ el.style.display = 'none'; }
 
-    if(!_spotTargets || _spotTargets.length === 0) {
-        show(top, 'top:0;left:0;right:0;height:' + H + 'px;');
-        hide(bot); hide(lft); hide(rgt);
-        bdr.style.display = 'none';
+    if(!_spotTargets || _spotTargets.length === 0){
+        s(top, 'top:0;left:0;right:0;height:' + H + 'px;');
+        h(bot); h(lft); h(rgt); bdr.style.display = 'none';
         return;
     }
-
-    var minX = W, minY = H, maxX = 0, maxY = 0;
-    _spotTargets.forEach(function(t) {
-        var el = t.el; var pad = t.padding || 8;
-        if(!el) return;
-        var r = el.getBoundingClientRect();
-        minX = Math.min(minX, r.left - pad);
-        minY = Math.min(minY, r.top  - pad);
-        maxX = Math.max(maxX, r.right  + pad);
-        maxY = Math.max(maxY, r.bottom + pad);
+    var minX=W, minY=H, maxX=0, maxY=0;
+    _spotTargets.forEach(function(t){
+        if(!t.el) return;
+        var r = t.el.getBoundingClientRect();
+        var p = t.padding || 8;
+        minX = Math.min(minX, r.left - p);
+        minY = Math.min(minY, r.top  - p);
+        maxX = Math.max(maxX, r.right  + p);
+        maxY = Math.max(maxY, r.bottom + p);
     });
-    minX = Math.max(0, minX);
-    minY = Math.max(0, minY);
-    maxX = Math.min(W, maxX);
-    maxY = Math.min(H, maxY);
-
-    show(top, 'top:0;left:0;right:0;height:' + minY + 'px;');
-    show(bot, 'top:' + maxY + 'px;left:0;right:0;bottom:0;');
-    show(lft, 'top:' + minY + 'px;left:0;width:' + minX + 'px;height:' + (maxY-minY) + 'px;');
-    show(rgt, 'top:' + minY + 'px;left:' + maxX + 'px;right:0;height:' + (maxY-minY) + 'px;');
-    bdr.style.cssText = 'display:block;left:' + minX + 'px;top:' + minY + 'px;width:' + (maxX-minX) + 'px;height:' + (maxY-minY) + 'px;';
+    minX = Math.max(0, minX); minY = Math.max(0, minY);
+    maxX = Math.min(W, maxX); maxY = Math.min(H - NARRATOR_H, maxY);
+    var sw = maxX-minX, sh = maxY-minY;
+    s(top, 'top:0;left:0;right:0;height:' + minY + 'px;display:block;');
+    s(bot, 'top:' + maxY + 'px;left:0;right:0;bottom:0;display:block;');
+    s(lft, 'top:' + minY + 'px;left:0;width:' + minX + 'px;height:' + sh + 'px;display:block;');
+    s(rgt, 'top:' + minY + 'px;left:' + maxX + 'px;right:0;height:' + sh + 'px;display:block;');
+    bdr.style.cssText = 'display:block;left:' + minX + 'px;top:' + minY + 'px;width:' + sw + 'px;height:' + sh + 'px;';
 }
-function tutHideSpotlight() {
+function tutHideSpotlight(){
     _spotTargets = null;
     ['ov-top','ov-bot','ov-lft','ov-rgt'].forEach(function(id){ document.getElementById(id).style.display='none'; });
-    document.getElementById('tutSpotBorder').style.display = 'none';
+    document.getElementById('tutSpotBorder').style.display='none';
 }
-document.getElementById('tutWrapper').addEventListener('scroll', function(){ if(_spotTargets) tutRefreshSpotlight(); }, { passive: true });
+document.getElementById('tutWrapper').addEventListener('scroll', function(){ if(_spotTargets && _spotTargets.length > 0) tutApplySpotlight(); }, {passive:true});
 
-// ----- セリフエンジン -----
-var _q = [], _typing = false, _full = '', _idx = 0, _timer = null, _done = null;
-function eltxt(){ return document.getElementById('tutSpeechText'); }
-function elnxt(){ return document.getElementById('tutSpeechNext'); }
-
-function tutSpeak(speeches, onDone) {
-    _q = speeches.slice();
-    _done = onDone || null;
-    _nextLine();
-}
-function _nextLine() {
-    if(_q.length === 0) {
-        elnxt().classList.remove('show');
-        if(_done){ var cb=_done; _done=null; cb(); }
-        return;
-    }
-    var text = _q.shift();
-    _typing = true; _full = text; _idx = 0;
-    elnxt().classList.remove('show');
-    eltxt().textContent = '';
-    clearInterval(_timer);
-    _timer = setInterval(function(){
-        if(_idx < _full.length){ eltxt().textContent += _full[_idx++]; }
-        else { clearInterval(_timer); _typing=false; elnxt().classList.add('show'); }
+// ===== セリフエンジン =====
+var _q=[], _typing=false, _full='', _idx=0, _timer=null, _done=null;
+function $t(){ return document.getElementById('tutSpeechText'); }
+function $n(){ return document.getElementById('tutSpeechNext'); }
+function tutSpeak(lines, onDone){ _q=lines.slice(); _done=onDone||null; _nextLine(); }
+function _nextLine(){
+    if(_q.length===0){ $n().classList.remove('show'); if(_done){var cb=_done;_done=null;cb();} return; }
+    var text=_q.shift(); _typing=true; _full=text; _idx=0;
+    $n().classList.remove('show'); $t().textContent=''; clearInterval(_timer);
+    _timer=setInterval(function(){
+        if(_idx<_full.length){ $t().textContent+=_full[_idx++]; }
+        else { clearInterval(_timer); _typing=false; $n().classList.add('show'); }
     }, 40);
 }
-function tutNarratorTap() {
-    if(_typing){ clearInterval(_timer); _typing=false; eltxt().textContent=_full; elnxt().classList.add('show'); }
-    else if(elnxt().classList.contains('show')){ elnxt().classList.remove('show'); _nextLine(); }
+function tutNarratorTap(){
+    if(_typing){ clearInterval(_timer); _typing=false; $t().textContent=_full; $n().classList.add('show'); }
+    else if($n().classList.contains('show')){ $n().classList.remove('show'); _nextLine(); }
 }
 
-// ----- 名前入力 -----
-function tutOpenNameModal() {
+// ===== ミュート（飾り）=====
+var _muted = false;
+function tutToggleMute(){
+    _muted = !_muted;
+    document.getElementById('tut-mute-btn').textContent = _muted ? '🔇' : '🔊';
+}
+
+// ===== 名前入力 =====
+function tutOpenNameModal(){
     document.getElementById('tut-name-modal').classList.add('show');
     setTimeout(function(){ document.getElementById('tut-name-field').focus(); }, 100);
 }
-function tutConfirmName() {
+function tutConfirmName(){
     var val = document.getElementById('tut-name-field').value.trim();
     if(!val) return;
     lsSet('name', val);
-    lsSet('step', 'named');
-    document.getElementById('tut-player-name').textContent = val;
+    document.getElementById('tut-player-name-input').value = val;
+    document.getElementById('sb-name').textContent = val;
     document.getElementById('tut-name-modal').classList.remove('show');
-    tutScenario_Player_After();
+    tutScenario_Player_After(val);
 }
 
-// ----- シナリオ -----
-function tutScenario_Player() {
-    var name = lsGet('name');
-    if(name) {
-        document.getElementById('tut-player-name').textContent = name;
-        tutScenario_Player_After();
-        return;
-    }
+// ===== シナリオ: プレイヤー =====
+function tutScenario_Player(){
     tutAllowedTabs = [];
     tutShowSpotlight([]);
     tutSpeak([
-        'ようこそ、バトルカレーへ！\nQRコードで食材を集めて\nカレーを作るゲームです！',
-        'まずはあなたの名前を\n入力しましょう。',
+        'ようこそ、バトルカレーへ！\nQRコードで食材を集めてカレーを作り\n料理バトルで勝利を目指すゲームです！',
+        'まずはあなたの\n料理人の名前を入力しましょう！',
     ], function(){
-        tutAllowedTabs = [];
-        tutShowSpotlight([{ el: document.getElementById('btn-name-input'), padding: 10 }]);
+        tutShowSpotlight([{ el: document.getElementById('btn-name-input'), padding: 12 }]);
     });
 }
-
-function tutScenario_Player_After() {
+function tutScenario_Player_After(name){
     document.getElementById('btn-name-input').style.display = 'none';
-    document.getElementById('tut-player-hint').textContent = '設定完了！';
     tutAllowedTabs = [];
     tutShowSpotlight([]);
     tutSpeak([
-        lsGet('name') + 'さん、よろしく！',
-        '次は「QR」タブをタップして\nQRコードで食材を入手しましょう！',
+        name + 'さん、よろしく！',
+        '上に5つのメニュータブがあるでしょ。\nまずは「QR」タブを選んでみて！',
     ], function(){
         lsSet('step', 'qr');
         tutAllowedTabs = ['qr'];
@@ -317,23 +371,17 @@ function tutScenario_Player_After() {
     });
 }
 
-function tutScenario_QR() {
-    tutSpeak(['QRコードをスキャンして\n食材を入手しましょう！'], function(){});
-    // TODO: 次ステップで実装
+// ===== シナリオ: QR（仮）=====
+function tutScenario_QR(){
+    tutSpeak(['QRコードで食材を入手しましょう！'], function(){});
 }
 
-// ----- 初期化 -----
+// ===== 初期化 =====
 window.addEventListener('load', function(){
-    if(localStorage.getItem('tut_done') === '1'){ window.location.href = 'game.html'; return; }
-    tutShowSpotlight([]);
-    var step = lsGet('step');
-    var name = lsGet('name');
-    if(name) document.getElementById('tut-player-name').textContent = name;
-    if(step === 'qr'){
-        tutSwitchTab('qr'); tutScenario_QR();
-    } else {
-        tutSwitchTab('player'); tutScenario_Player();
-    }
+    if(!DEBUG_MODE && localStorage.getItem('tut_done')==='1'){ window.location.href='game.html'; return; }
+    tutShowSpotlight([]); // 最初から全画面暗転
+    tutSwitchTab('player');
+    tutScenario_Player();
 });
 </script>
 </body>
