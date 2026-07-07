@@ -978,21 +978,26 @@ var NAR_H=116;
 
 function tutShowSpotlight(targets){
     var wrap=document.getElementById('gameWrapper');
-    // 必ずロックを外してからスクロール可能にする
+    // overlay-lockを外す（overflow:hidden解除）
     wrap.classList.remove('overlay-lock');
-    if(!targets||targets.length===0){
-        _spotTargets=null;
+    _spotTargets=(targets&&targets.length>0)?targets:null;
+    if(!_spotTargets){
         tutApplySpotlight();
         return;
     }
-    _spotTargets=targets;
-    // 即座にスクロール（アニメーションなし→タイミング問題を排除）
-    tutInstantScrollToCenter(targets);
-    // 2フレーム後にロック＆スポット（ブラウザがレイアウト更新する時間を確保）
+    // スクロール中は全暗転
+    var top=document.getElementById('ov-top');
+    top.style.cssText='top:0;left:0;right:0;height:'+window.innerHeight+'px;display:block;';
+    ['ov-bot','ov-lft','ov-rgt'].forEach(function(id){var e=document.getElementById(id);if(e)e.style.display='none';});
+    // 1フレーム待ってoverflowの解除を確定させてからスクロール
     requestAnimationFrame(function(){
+        tutInstantScrollToCenter(_spotTargets);
+        // さらに2フレーム待ってからロック＆スポット表示
         requestAnimationFrame(function(){
-            wrap.classList.add('overlay-lock');
-            tutApplySpotlight();
+            requestAnimationFrame(function(){
+                wrap.classList.add('overlay-lock');
+                tutApplySpotlight();
+            });
         });
     });
 }
