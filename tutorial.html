@@ -978,28 +978,26 @@ var NAR_H=116;
 
 function tutShowSpotlight(targets){
     var wrap=document.getElementById('gameWrapper');
+    // 必ずロックを外してからスクロール可能にする
+    wrap.classList.remove('overlay-lock');
     if(!targets||targets.length===0){
-        // 全暗転・スクロールロック解除
         _spotTargets=null;
-        wrap.classList.remove('overlay-lock');
         tutApplySpotlight();
         return;
     }
-    // スクロールをロックしてターゲットを中央に移動してからスポット
     _spotTargets=targets;
-    // まず全暗転
-    var top=document.getElementById('ov-top');
-    top.style.cssText='top:0;left:0;right:0;height:'+window.innerHeight+'px;display:block;';
-    ['ov-bot','ov-lft','ov-rgt'].forEach(function(id){var e=document.getElementById(id);if(e)e.style.display='none';});
-    // スクロール実行
-    tutScrollToCenter(targets, function(){
-        // スクロール完了後にスクロールをロックしてスポット表示
-        wrap.classList.add('overlay-lock');
-        tutApplySpotlight();
+    // 即座にスクロール（アニメーションなし→タイミング問題を排除）
+    tutInstantScrollToCenter(targets);
+    // 2フレーム後にロック＆スポット（ブラウザがレイアウト更新する時間を確保）
+    requestAnimationFrame(function(){
+        requestAnimationFrame(function(){
+            wrap.classList.add('overlay-lock');
+            tutApplySpotlight();
+        });
     });
 }
 
-function tutScrollToCenter(targets, cb){
+function tutInstantScrollToCenter(targets){
     var wrap=document.getElementById('gameWrapper');
     var wrapRect=wrap.getBoundingClientRect();
     var viewH=window.innerHeight-NAR_H;
@@ -1008,24 +1006,16 @@ function tutScrollToCenter(targets, cb){
         if(!t.el)return;
         var r=t.el.getBoundingClientRect();
         var p=t.padding||8;
+        // viewport座標→wrapper内のドキュメント座標に変換
         var docTop=r.top-wrapRect.top+wrap.scrollTop;
         var docBot=r.bottom-wrapRect.top+wrap.scrollTop;
         minDocY=Math.min(minDocY,docTop-p);
         maxDocY=Math.max(maxDocY,docBot+p);
     });
-    if(minDocY===Infinity){cb();return;}
+    if(minDocY===Infinity)return;
     var centerDocY=(minDocY+maxDocY)/2;
     var targetScroll=Math.max(0,centerDocY-viewH/2);
-    var diff=Math.abs(wrap.scrollTop-targetScroll);
-    if(diff<4){cb();return;}
-    wrap.scrollTo({top:targetScroll,behavior:'smooth'});
-    var start=Date.now();
-    function check(){
-        if(Date.now()-start>700){wrap.scrollTop=targetScroll;cb();return;}
-        if(Math.abs(wrap.scrollTop-targetScroll)<4){setTimeout(cb,60);return;}
-        setTimeout(check,60);
-    }
-    setTimeout(check,100);
+    wrap.scrollTop=targetScroll; // 即時スクロール
 }
 
 function tutApplySpotlight(){
