@@ -978,16 +978,18 @@ var NAR_H=116;
 
 function tutShowSpotlight(targets){
     var wrap=document.getElementById('gameWrapper');
-    // overflowロックは不要（オーバーレイがタッチを吸収するため）
     if(!targets||targets.length===0){
         _spotTargets=null;
         tutApplySpotlight();
+        wrap.scrollTop=0;
         return;
     }
     _spotTargets=targets;
-    // 上部にある要素なので常にトップに戻す
     wrap.scrollTop=0;
-    requestAnimationFrame(function(){ tutApplySpotlight(); });
+    requestAnimationFrame(function(){
+        tutApplySpotlight();
+        wrap.scrollTop=0;
+    });
 }
 
 function tutApplySpotlight(){
