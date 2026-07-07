@@ -1,0 +1,593 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport\" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>バトルカレー チュートリアル</title>
+    <link rel="icon" type="image/png" sizes="192x192" href="fabi/fabi-01.png">
+    <style>
+        body { font-family: 'Helvetica Neue', Arial, sans-serif; background-color: #b88742; color: #420000; padding: 0; text-align: center; margin: 0; }
+        #gameWrapper { background-color: #efdeb1; max-width: 480px; margin: 0 auto; min-height: 100vh; position: relative; padding-bottom: 116px; box-sizing: border-box; }
+        .container { max-width: 500px; margin: 0 auto; background: #efdeb1; padding: 0; box-sizing: border-box; position: relative; min-height: 100vh; }
+        h1 { display: none; }
+        .logo-area { padding: 24px 20px 16px; text-align: center; position: relative; }
+        .logo-area img { width: 192px; max-width: 80%; }
+
+        /* ===== イントロアニメーション ===== */
+        #introOverlay { position:fixed; top:0; left:0; width:100%; height:100%; z-index:1000; background:#000; display:flex; justify-content:center; align-items:center; transition:opacity 1s ease; opacity:1; }
+        #introOverlay.fadeout { opacity:0; pointer-events:none; }
+        .intro-logo { width:150px; opacity:0; transform:scale(0.8); animation:introPop 2.5s forwards ease-in-out; }
+        @keyframes introPop {
+            0% { opacity:0; transform:scale(0.8); filter:blur(5px); }
+            30% { opacity:1; transform:scale(1.05); filter:blur(0); }
+            70% { opacity:1; transform:scale(1); }
+            100% { opacity:0; transform:scale(1.1); filter:blur(5px); }
+        }
+
+        /* ===== プロフィールカード風のまとまり ===== */
+        .profile-card { background: #fffdf9; border: 4px solid #734100; border-radius: 16px; margin: 0 16px 20px; padding: 20px 16px 16px; box-shadow: 0 6px 0 rgba(115,65,0,0.15); position: relative; }
+        .profile-card::before { content:''; position:absolute; top:2px; left:2px; right:2px; bottom:2px; border:1px dashed #b88742; border-radius:12px; pointer-events:none; }
+        .section-title { font-size: 16px; font-weight: bold; color: #734100; margin: 0 0 16px; text-align: left; display: flex; align-items: center; gap: 6px; }
+        .section-title::before { content:''; display:inline-block; width:6px; height:16px; background:#e69f00; border-radius:3px; }
+
+        /* ===== プレイヤーID & 名前設定 ===== */
+        .id-row { display: flex; justify-content: space-between; align-items: center; background: #f2e6ce; padding: 10px 14px; border-radius: 10px; font-weight: bold; margin-bottom: 16px; border: 2px solid #d9c39e; }
+        .id-val { font-family: monospace; font-size: 15px; color: #592e00; }
+        .copy-btn { background: #734100; color: #fff; border: none; padding: 6px 12px; font-size: 12px; border-radius: 6px; cursor: pointer; font-weight: bold; box-shadow: 0 3px 0 #402400; }
+        .copy-btn:active { transform: translateY(2px); box-shadow: 0 1px 0 #402400; }
+
+        .name-input-container { display: flex; gap: 8px; margin-bottom: 8px; }
+        .name-input { flex: 1; padding: 12px; border: 2px solid #734100; border-radius: 10px; font-size: 15px; font-weight: bold; box-sizing: border-box; background: #fff; color: #420000; }
+        .name-input:focus { outline: none; background: #fffdec; }
+        .save-btn { background: #e69f00; color: #420000; border: 3px solid #734100; padding: 0 16px; font-size: 14px; border-radius: 10px; cursor: pointer; font-weight: bold; box-shadow: 0 4px 0 #734100; }
+        .save-btn:active { transform: translateY(2px); box-shadow: 0 2px 0 #734100; }
+
+        /* ===== 各種設定アコーディオン ===== */
+        .accordion-item { border: 2px solid #734100; border-radius: 12px; background: #fff; margin-bottom: 12px; overflow: hidden; box-shadow: 0 4px 0 rgba(115,65,0,0.1); }
+        .accordion-header { background: #fdf6e2; padding: 14px 16px; font-weight: bold; text-align: left; cursor: pointer; display: flex; justify-content: space-between; align-items: center; font-size: 14px; color: #592e00; }
+        .accordion-header:hover { background: #f9eed0; }
+        .accordion-arrow { width: 10px; height: 10px; border-top: 3px solid #734100; border-right: 3px solid #734100; transform: rotate(135deg); transition: transform 0.2s; margin-right: 4px; margin-top: -4px; }
+        .accordion-arrow.open { transform: rotate(-45deg); margin-top: 4px; }
+        .accordion-body { max-height: 0; overflow: hidden; transition: max-height 0.2s ease-out; background: #fff; text-align: left; }
+        .accordion-body.open { max-height: 300px; padding: 16px; border-top: 2px solid #734100; }
+
+        /* アコーディオン内部のフォーム */
+        .form-group { margin-bottom: 14px; }
+        .form-group:last-child { margin-bottom: 0; }
+        .form-group label { display: block; font-size: 12px; font-weight: bold; color: #734100; margin-bottom: 6px; }
+        .form-group input[type="password"] { width: 100%; padding: 10px; border: 2px solid #b88742; border-radius: 8px; box-sizing: border-box; font-size: 14px; }
+        .form-group input[type="password"]:focus { outline: none; border-color: #734100; }
+        .form-subtext { font-size: 11px; color: #8c6239; margin-top: 4px; line-height: 1.4; }
+        .action-btn { width: 100%; background: #734100; color: #fff; border: none; padding: 10px; font-size: 13px; border-radius: 8px; cursor: pointer; font-weight: bold; box-shadow: 0 3px 0 #402400; }
+        .action-btn:active { transform: translateY(2px); box-shadow: 0 1px 0 #402400; }
+        .backup-code-box { background: #f2e6ce; padding: 12px; border-radius: 8px; font-family: monospace; font-size: 16px; text-align: center; color: #592e00; font-weight: bold; letter-spacing: 2px; border: 1px dashed #734100; margin-top: 8px; }
+
+        /* ===== トグルスイッチ ===== */
+        .toggle-row { display: flex; justify-content: space-between; align-items: center; padding: 4px 0; }
+        .toggle-label { font-size: 14px; font-weight: bold; color: #592e00; }
+        .switch { position: relative; display: inline-block; width: 50px; height: 28px; }
+        .switch input { opacity: 0; width: 0; height: 0; }
+        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #ccc; transition: .2s; border-radius: 28px; border: 2px solid #734100; box-sizing: border-box; }
+        .slider:before { position: absolute; content: ""; height: 18px; width: 18px; left: 3px; bottom: 3px; background-color: white; transition: .2s; border-radius: 50%; box-shadow: 0 2px 4px rgba(0,0,0,0.2); }
+        input:checked + .slider { background-color: #e69f00; }
+        input:checked + .slider:before { transform: translateX(22px); }
+
+        /* ===== ヘッダー風領域 ===== */
+        .game-header { display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; background: #734100; color: #fff; box-shadow: 0 4px 0 rgba(0,0,0,0.1); margin-bottom: 16px; }
+        .header-left { display: flex; align-items: center; gap: 8px; }
+        .header-avatar { width: 36px; height: 36px; background: #efdeb1; border-radius: 50%; border: 2px solid #fff; cursor: pointer; display: flex; justify-content: center; align-items: center; font-size: 20px; }
+        .header-name { font-weight: bold; font-size: 15px; max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .header-right { display: flex; gap: 8px; }
+        .icon-btn { width: 36px; height: 36px; background: rgba(255,255,255,0.2); border: 2px solid #fff; border-radius: 50%; display: none; justify-content: center; align-items: center; color: #fff; cursor: pointer; font-size: 16px; text-decoration: none; box-sizing: border-box; }
+        .icon-btn:active { background: rgba(255,255,255,0.4); }
+
+        /* ===== タブメニュー ===== */
+        .tab-container { margin: 0 16px 16px; border: 3px solid #734100; border-radius: 12px; background: #fdf6e2; overflow: hidden; display: flex; }
+        .tab-item { flex: 1; padding: 12px; font-weight: bold; font-size: 14px; color: #734100; cursor: pointer; text-align: center; border-right: 2px solid #734100; transition: background 0.2s; }
+        .tab-item:last-child { border-right: none; }
+        .tab-item.active { background: #e69f00; color: #420000; }
+        .tab-item:not(.active):hover { background: #f2e6ce; }
+
+        /* ===== 下部固定ナビゲーション（セリフ欄） ===== */
+        #narrationArea { position: fixed; bottom: 0; left: 50%; transform: translateX(-50%); width: 100%; max-width: 480px; height: 116px; background: #420000; box-shadow: 0 -6px 0 rgba(0,0,0,0.2); z-index: 10001; box-sizing: border-box; padding: 12px 16px; display: flex; gap: 12px; align-items: flex-start; pointer-events: auto; }
+        #narrationChar { width: 80px; height: 92px; background-size: contain; background-repeat: no-repeat; background-position: bottom center; flex-shrink: 0; margin-top: -10px; filter: drop-shadow(0 -2px 4px rgba(0,0,0,0.3)); }
+        #narrationBox { flex: 1; background: #fffdf9; border: 3px solid #e69f00; border-radius: 10px; height: 74px; box-sizing: border-box; padding: 8px 12px; text-align: left; position: relative; cursor: pointer; box-shadow: inset 0 2px 4px rgba(0,0,0,0.1); }
+        #narrationText { font-size: 13px; font-weight: bold; color: #420000; line-height: 1.5; margin: 0; overflow: hidden; }
+        .next-arrow { position: absolute; bottom: 6px; right: 10px; font-size: 10px; color: #e69f00; animation: blink 0.8s infinite alternate; font-weight: bold; }
+        @keyframes blink { 0% { opacity: 0.2; } 100% { opacity: 1; } }
+
+        /* ===== スポットライト用オーバーレイ ===== */
+        #tutOverlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 9999; pointer-events: auto; display: none; }
+        /* クリック抑止・透過制御用の前面レイヤー */
+        #tutBlocker { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 10000; pointer-events: none; display: none; }
+        .tut-clickable { pointer-events: auto !important; position: relative; z-index: 10002 !important; box-shadow: 0 0 0 4px #fff, 0 0 20px rgba(255,255,255,0.6) !important; border-radius: 8px; background-color: #fff !important; }
+
+        /* ===== キャラクター画像定義（仮） ===== */
+        .char-guide { background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 120"><circle cx="50" cy="40" r="30" fill="%23e69f00"/><circle cx="35" cy="35" r="5" fill="%23fff"/><circle cx="65" cy="35" r="5" fill="%23fff"/><circle cx="35" cy="35" r="2" fill="%23000"/><circle cx="65" cy="35" r="2" fill="%23000"/><path d="M 40 55 Q 50 65 60 55" stroke="%23420000" stroke-width="4" fill="none"/><path d="M 20 80 Q 50 70 80 80 L 80 120 L 20 120 Z" fill="%23734100"/></svg>'); }
+
+        /* 名前入力モーダル */
+        #nameModal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); z-index: 20000; display: none; justify-content: center; align-items: center; }
+        .modal-content { background: #efdeb1; border: 4px solid #734100; border-radius: 16px; padding: 20px; width: 85%; max-width: 360px; box-shadow: 0 8px 0 rgba(0,0,0,0.2); }
+        .modal-title { font-size: 16px; font-weight: bold; color: #734100; margin-bottom: 16px; }
+    </style>
+</head>
+<body>
+
+<div id="introOverlay">
+    <img src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><path d='M10 50 Q 50 20 90 50 Q 50 80 10 50 Z' fill='%23e69f00'/><circle cx='50' cy='50' r='20' fill='%23734100'/></svg>" class="intro-logo" alt="Logo">
+</div>
+
+<div id="gameWrapper">
+    <div class="game-header" id="tutHeader">
+        <div class="header-left">
+            <div class="header-avatar" onclick="togglePlayerIcon()">🍛</div>
+            <div class="header-name" id="headerPlayerName">プレイヤー</div>
+        </div>
+        <div class="header-right">
+            <div class="icon-btn" id="postBtn" onclick="openPostScreen()">📝</div>
+            <div class="icon-btn" id="helpBtn" onclick="toggleHelp()">?</div>
+        </div>
+    </div>
+
+    <div class="tab-container" id="tutTabs">
+        <div class="tab-item active" id="tabProfile" onclick="switchTutTab('profile')">プロフィール</div>
+        <div class="tab-item" id="tabQr" onclick="switchTutTab('qr')">QRタブ</div>
+        <div class="tab-item" id="tabShop" onclick="switchTutTab('shop')">ショップ情報</div>
+    </div>
+
+    <div id="contentArea">
+        <div id="sectProfile">
+            <div class="profile-card" id="tutCardId">
+                <div class="section-title">プレイヤー情報</div>
+                <div class="id-row">
+                    <span class="id-val" id="playerIdDisplay">ID: ----------</span>
+                    <button class="copy-btn" onclick="copyPlayerId()">コピー</button>
+                </div>
+                <div class="name-input-container" id="tutCardName">
+                    <input type="text" class="name-input" id="playerNameInput" placeholder="名前を入力してください" maxlength="10">
+                    <button class="save-btn" onclick="handleNameChange()">保存</button>
+                </div>
+            </div>
+
+            <div class="profile-card" id="tutCardSettings">
+                <div class="section-title">各種設定</div>
+                <div class="accordion-item">
+                    <div class="accordion-header" onclick="toggleAccordion(this)">
+                        <span>引き継ぎパスワード設定</span>
+                        <div class="accordion-arrow"></div>
+                    </div>
+                    <div class="accordion-body">
+                        <div class="form-group">
+                            <label>新しいパスワード</label>
+                            <input type="password" id="passInput" placeholder="半角英数字8〜16文字">
+                        </div>
+                        <button class="action-btn" onclick="showPasswordSetup()">設定する</button>
+                    </div>
+                </div>
+                <div class="accordion-item" id="tutCardBackup">
+                    <div class="accordion-header" onclick="toggleAccordion(this)">
+                        <span>バックアップコード確認</span>
+                        <div class="accordion-arrow"></div>
+                    </div>
+                    <div class="accordion-body">
+                        <p class="form-subtext">端末紛失時にアカウントを復旧するための重要なコードです。厳重に保管してください。</p>
+                        <button class="action-btn" onclick="showBackupCode()">コードを発行する</button>
+                        <div class="backup-code-box" style="display:none;" id="backupCodeDisplay">XXXX-XXXX</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="profile-card" id="tutCardSound">
+                <div class="section-title">環境設定</div>
+                <div class="toggle-row">
+                    <span class="toggle-label">サウンドをミュート</span>
+                    <label class="switch" id="tutMuteSwitch">
+                        <input type="checkbox" id="muteCheckbox">
+                        <span class="slider"></span>
+                    </label>
+                </div>
+            </div>
+        </div>
+
+        <div id="sectQr" style="display:none;">
+            <div class="profile-card" id="tutCardQr">
+                <div class="section-title">QRコード読み込み</div>
+                <p style="font-size:13px; text-align:left; color:#592e00; font-weight:bold; line-height:1.6; margin:0 0 16px;">
+                    専用のQRコードをカメラで読み取ることで、限定の食材や隠しスパイスを手に入れることができます。
+                </p>
+                <button class="action-btn" style="background:#e69f00; color:#420000; border:3px solid #734100; box-shadow:0 4px 0 #734100; font-size:15px; padding:12px;" onclick="tutScenario_QR()">カメラを起動する</button>
+            </div>
+        </div>
+
+        <div id="sectShop" style="display:none;">
+            <div class="profile-card">
+                <div class="section-title">近くのカレーショップ</div>
+                <p style="font-size:13px; text-align:left; color:#592e00; font-weight:bold; line-height:1.6; margin:0 0 16px;">
+                    連動している実店舗の情報を確認できます。チェックインすることで特別なバフアイテムがもらえます。
+                </p>
+                <button class="action-btn" onclick="openCurryShopInfoModal()">ショップ一覧を見る</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="narrationArea" style="display:none;">
+    <div id="narrationChar" class="char-guide"></div>
+    <div id="narrationBox" onclick="tutNext()">
+        <p id="narrationText"></p>
+        <span class="next-arrow">▼</span>
+    </div>
+</div>
+
+<canvas id="tutOverlay"></canvas>
+<div id="tutBlocker"></div>
+
+<div id="nameModal">
+    <div class="modal-content">
+        <div class="modal-title">アイコン・名前変更</div>
+        <div class="name-input-container">
+            <input type="text" class="name-input" id="modalNameInput" placeholder="名前を入力">
+            <button class="save-btn" onclick="handleNameChange()">確定</button>
+        </div>
+        <button class="action-btn" style="background:#ccc; color:#333; box-shadow:none; margin-top:12px;" onclick="tutCloseNameModal()">閉じる</button>
+    </div>
+</div>
+
+<script>
+// ローカルストレージ簡易ラッパー
+function lsGet(k){try{return localStorage.getItem(k);}catch(e){return null;}}
+function lsSet(k,v){try{localStorage.setItem(k,v);}catch(e){}}
+
+var DEBUG = true; 
+
+// ===== チュートリアルエンジンコア =====
+var tutStep = 0;
+var tutScenario = [];
+var tutCurrentClickableEl = null; 
+var NAR_H = 116; // ナレーションエリアの高さ
+
+// ページ読み込み時のイントロ演出
+window.addEventListener('load', function() {
+    setTimeout(function() {
+        var intro = document.getElementById('introOverlay');
+        if(intro) {
+            intro.classList.add('fadeout');
+            intro.addEventListener('transitionend', function() {
+                intro.remove();
+                // 演出終了後にチュートリアル開始
+                if(DEBUG || localStorage.getItem('tut_done') !== '1') {
+                    startTutorial();
+                }
+            });
+        }
+    }, 1200);
+});
+
+function startTutorial() {
+    tutStep = 0;
+    tutScenario = [
+        { text: 'ゲームを始めていただきありがとうございます！私は案内役のココです。', action: function(){ tutHideSpotlight(); } },
+        { text: 'まずはあなたのゲーム内での表示名を設定しましょう。こちらのフォームに入力できます。', el: 'tutCardName' },
+        { text: '音が出せない環境のときは、こちらのスイッチでミュートに設定することも可能です。', el: 'tutMuteSwitch' },
+        { text: '続いて、別のタブメニューを見てみましょう。「QRタブ」をタップしてください。', el: 'tabQr', trigger: 'click' },
+        { text: 'ここからはQRコードを読み取って新しい食材をゲットできます！', el: 'tutCardQr' },
+        { text: 'これで基本操作の説明は終了です！お疲れ様でした！', action: function(){ tutHideSpotlight(); } }
+    ];
+    
+    var nar = document.getElementById('narrationArea');
+    if(nar) nar.style.display = 'flex';
+    document.getElementById('tutOverlay').style.display = 'block';
+    document.getElementById('tutBlocker').style.display = 'block';
+    
+    window.addEventListener('resize', tutResizeHandler);
+    window.addEventListener('scroll', tutScrollUpdateHandler, { passive: true });
+    
+    tutExecuteStep();
+}
+
+function tutExecuteStep() {
+    if(tutStep >= tutScenario.length) {
+        endTutorial();
+        return;
+    }
+    var s = tutScenario[tutStep];
+    tutSpeak([s.text], function() {
+        if(s.el) {
+            var target = document.getElementById(s.el);
+            if(target) {
+                tutShowSpotlight([{ el: target, trigger: s.trigger || null }]);
+            }
+        } else if(s.action) {
+            s.action();
+        }
+    });
+}
+
+function tutNext() {
+    // ユーザー任意クリック型のアクションを要求している場合は次へ進ませない
+    if(tutStep < tutScenario.length && tutScenario[tutStep].trigger === 'click') {
+        return; 
+    }
+    tutStep++;
+    tutExecuteStep();
+}
+
+function endTutorial() {
+    localStorage.setItem('tut_done', '1');
+    window.removeEventListener('resize', tutResizeHandler);
+    window.removeEventListener('scroll', tutScrollUpdateHandler);
+    
+    var nar = document.getElementById('narrationArea');
+    if(nar) nar.style.display = 'none';
+    
+    tutHideSpotlight();
+    document.getElementById('tutOverlay').style.display = 'none';
+    document.getElementById('tutBlocker').style.display = 'none';
+    
+    if(!DEBUG) {
+        window.location.href = 'game.html';
+    } else {
+        alert('チュートリアルが終了しました。(DEBUGモードのため遷移はスキップされます)');
+    }
+}
+
+// テキストタイピング表示
+var tutTypeTimer = null;
+function tutSpeak(lines, callback) {
+    var text = lines.join('\n');
+    var el = document.getElementById('narrationText');
+    if(!el) return;
+    el.textContent = '';
+    clearInterval(tutTypeTimer);
+    var idx = 0;
+    tutTypeTimer = setInterval(function() {
+        if(idx < text.length) {
+            el.textContent += text.charAt(idx);
+            idx++;
+        } else {
+            clearInterval(tutTypeTimer);
+            if(callback) callback();
+        }
+    }, 20);
+}
+
+// タブ切り替え処理
+function switchTutTab(tabName) {
+    var sectProfile = document.getElementById('sectProfile');
+    var sectQr = document.getElementById('sectQr');
+    var sectShop = document.getElementById('sectShop');
+    
+    var tabProfile = document.getElementById('tabProfile');
+    var tabQr = document.getElementById('tabQr');
+    var tabShop = document.getElementById('tabShop');
+
+    if(sectProfile) sectProfile.style.display = 'none';
+    if(sectQr) sectQr.style.display = 'none';
+    if(sectShop) sectShop.style.display = 'none';
+    
+    if(tabProfile) tabProfile.classList.remove('active');
+    if(tabQr) tabQr.classList.remove('active');
+    if(tabShop) tabShop.classList.remove('active');
+
+    if(tabName === 'profile' && sectProfile && tabProfile) { sectProfile.style.display = 'block'; tabProfile.classList.add('active'); }
+    if(tabName === 'qr' && sectQr && tabQr) { sectQr.style.display = 'block'; tabQr.classList.add('active'); }
+    if(tabName === 'shop' && sectShop && tabShop) { sectShop.style.display = 'block'; tabShop.classList.add('active'); }
+    
+    // スポットライト位置を最新状態に即時同期
+    if(tutCurrentClickableEl) {
+        tutApplySpotlight(tutCurrentClickableEl);
+    }
+}
+
+// ===== 改善されたスクロール＆スポットライト制御ロジック =====
+var activeSpotlightTargets = [];
+
+function tutShowSpotlight(targets) {
+    if(!targets || targets.length === 0) {
+        tutHideSpotlight();
+        return;
+    }
+    activeSpotlightTargets = targets;
+    var primary = targets[0];
+    var targetEl = primary.el;
+    
+    if(!targetEl) return;
+
+    // 前回のハイライト指定を綺麗にリセット
+    if(tutCurrentClickableEl) {
+        tutCurrentClickableEl.classList.remove('tut-clickable');
+        tutCurrentClickableEl.removeEventListener('click', tutTargetClickHandler);
+    }
+
+    // ナレーションエリア(116px)を除いた、画面内の有効な高さを算出
+    var validHeight = window.innerHeight - NAR_H;
+    var rect = targetEl.getBoundingClientRect();
+    
+    // 現在のウインドウの絶対スクロール位置を取得
+    var currentScrollTop = window.pageYOffset || document.documentElement.scrollTop;
+    
+    // 対象要素が現在画面内（有効表示領域内）に十分（上下に10px以上の余白を持って）収まっているか判定
+    var isFullyVisible = (rect.top >= 10 && rect.bottom <= (validHeight - 10));
+
+    if (!isFullyVisible) {
+        // 要素のドキュメント全体におけるY位置
+        var elementAbsoluteTop = rect.top + currentScrollTop;
+        var elementHeight = rect.height;
+        
+        // 有効画面内の中央に要素を持ってくるためのターゲットスクロール位置を計算
+        var targetScrollTop = elementAbsoluteTop - (validHeight / 2) + (elementHeight / 2);
+        
+        // 最大・最小スクロール範囲の安全制限
+        var maxScroll = document.documentElement.scrollHeight - window.innerHeight;
+        if(targetScrollTop < 0) targetScrollTop = 0;
+        if(targetScrollTop > maxScroll) targetScrollTop = maxScroll;
+
+        // スムーズスクロールを実行
+        window.scrollTo({
+            top: targetScrollTop,
+            behavior: 'smooth'
+        });
+
+        // スクロールアニメーション中の描画の追従に加え、停止時（約300ms後）に最終位置で再描画を確定
+        var scrollTimeout;
+        var checkScrollEnd = function() {
+            tutApplySpotlight(targetEl);
+            clearTimeout(scrollTimeout);
+            scrollTimeout = setTimeout(function() {
+                tutApplySpotlight(targetEl);
+                window.removeEventListener('scroll', checkScrollEnd);
+            }, 150);
+        };
+        window.addEventListener('scroll', checkScrollEnd);
+    }
+
+    // 即時適用して位置を反映
+    tutApplySpotlight(targetEl);
+
+    if(primary.trigger === 'click') {
+        tutCurrentClickableEl = targetEl;
+        tutCurrentClickableEl.classList.add('tut-clickable');
+        tutCurrentClickableEl.addEventListener('click', tutTargetClickHandler);
+    } else {
+        tutCurrentClickableEl = null;
+    }
+}
+
+function tutApplySpotlight(element) {
+    var canvas = document.getElementById('tutOverlay');
+    if(!canvas) return;
+    var ctx = canvas.getContext('2d');
+    if(!ctx) return;
+
+    var w = window.innerWidth;
+    var h = window.innerHeight;
+    canvas.width = w;
+    canvas.height = h;
+
+    // 全体を暗転（案内役セリフエリアの上部は完全に覆う）
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.75)';
+    ctx.fillRect(0, 0, w, h);
+
+    if(!element) return;
+
+    var rect = element.getBoundingClientRect();
+    var padding = 6;
+    
+    var x = rect.left - padding;
+    var y = rect.top - padding;
+    var sw = rect.width + (padding * 2);
+    var sh = rect.height + (padding * 2);
+    var r = 10; // 角丸半径
+
+    // 有効表示領域外（ナレーションエリア裏など）に潜り込んでいる場合は穴を描画しない
+    if (rect.top > (window.innerHeight - NAR_H)) {
+        return;
+    }
+
+    // スポットライトの「穴」をブレンドモードでくり抜く
+    ctx.globalCompositeOperation = 'destination-out';
+    ctx.fillStyle = '#000';
+    
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.lineTo(x + sw - r, y);
+    ctx.quadraticCurveTo(x + sw, y, x + sw, y + r);
+    ctx.lineTo(x + sw, y + sh - r);
+    ctx.quadraticCurveTo(x + sw, y + sh, x + sw - r, y + sh);
+    ctx.lineTo(x + r, y + sh);
+    ctx.quadraticCurveTo(x, y + sh, x, y + sh - r);
+    ctx.lineTo(x, y + r);
+    ctx.quadraticCurveTo(x, y, x + r, y);
+    ctx.closePath();
+    ctx.fill();
+
+    // モードを元に戻す
+    ctx.globalCompositeOperation = 'source-over';
+}
+
+function tutHideSpotlight() {
+    if(tutCurrentClickableEl) {
+        tutCurrentClickableEl.classList.remove('tut-clickable');
+        tutCurrentClickableEl.removeEventListener('click', tutTargetClickHandler);
+        tutCurrentClickableEl = null;
+    }
+    activeSpotlightTargets = [];
+    var canvas = document.getElementById('tutOverlay');
+    if(canvas) {
+        var ctx = canvas.getContext('2d');
+        if(ctx) ctx.clearRect(0, 0, canvas.width, canvas.height);
+    }
+}
+
+function tutTargetClickHandler() {
+    if(tutCurrentClickableEl) {
+        tutCurrentClickableEl.classList.remove('tut-clickable');
+        tutCurrentClickableEl.removeEventListener('click', tutTargetClickHandler);
+    }
+    // タップイベントが必要なステップだった場合、条件クリアとして自動的に次ステップへ進行
+    if(tutStep < tutScenario.length && tutScenario[tutStep].trigger === 'click') {
+        tutCurrentClickableEl = null;
+        tutStep++;
+        setTimeout(function(){
+            tutExecuteStep();
+        }, 300);
+    }
+}
+
+function tutResizeHandler() {
+    if(activeSpotlightTargets.length > 0 && activeSpotlightTargets[0].el) {
+        tutApplySpotlight(activeSpotlightTargets[0].el);
+    }
+}
+
+function tutScrollUpdateHandler() {
+    if(activeSpotlightTargets.length > 0 && activeSpotlightTargets[0].el) {
+        tutApplySpotlight(activeSpotlightTargets[0].el);
+    }
+}
+
+// ===== ダミー及び各種UI操作用関数群 =====
+function togglePlayerIcon(){ tutOpenNameModal(); }
+function showPasswordSetup(){ alert('パスワードを設定しました（デモ）'); }
+function showBackupCode(){
+    var box = document.getElementById('backupCodeDisplay');
+    if(box) box.style.display = 'block';
+}
+function toggleAccordion(el){
+    var arrow = el.querySelector('.accordion-arrow');
+    var body = el.nextElementSibling;
+    if(!body) return;
+    body.classList.toggle('open');
+    if(arrow) arrow.classList.toggle('open');
+}
+function copyPlayerId(){ alert('IDをコピーしました'); }
+function handleNameChange(){
+    var nameVal = document.getElementById('playerNameInput').value || document.getElementById('modalNameInput').value || 'プレイヤー';
+    document.getElementById('playerNameInput').value = nameVal;
+    document.getElementById('headerPlayerName').textContent = nameVal;
+    lsSet('name', nameVal);
+    tutCloseNameModal();
+}
+function openCurryShopInfoModal(){ alert('ショップ一覧を開きます'); }
+function openPostScreen(){ alert('投稿画面を開きます'); }
+function toggleHelp(){ alert('ヘルプ画面を開きます'); }
+
+function tutOpenNameModal() {
+    var modal = document.getElementById('nameModal');
+    if(modal) {
+        modal.style.display = 'flex';
+        var currentName = document.getElementById('headerPlayerName').textContent;
+        document.getElementById('modalNameInput').value = currentName;
+    }
+}
+function tutCloseNameModal() {
+    var modal = document.getElementById('nameModal');
+    if(modal) modal.style.display = 'none';
+}
+
+function tutScenario_QR(){
+    tutSpeak(['QRコードで食材を入手しましょう！'], function(){});
+}
+</script>
+</body>
+</html>
