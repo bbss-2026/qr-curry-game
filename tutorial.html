@@ -978,21 +978,15 @@ var NAR_H=116;
 
 function tutShowSpotlight(targets){
     var wrap=document.getElementById('gameWrapper');
-    wrap.style.overflowY='auto';
+    // overflowロックは不要（オーバーレイがタッチを吸収するため）
     if(!targets||targets.length===0){
         _spotTargets=null;
-        wrap.style.overflowY='hidden';
         tutApplySpotlight();
         return;
     }
     _spotTargets=targets;
-    // 要素が画面外（上）にある場合だけトップにスクロール
-    var anyAbove=targets.some(function(t){
-        if(!t.el)return false;
-        return t.el.getBoundingClientRect().top<0;
-    });
-    if(anyAbove) wrap.scrollTop=0;
-    wrap.style.overflowY='hidden';
+    // 上部にある要素なので常にトップに戻す
+    wrap.scrollTop=0;
     requestAnimationFrame(function(){ tutApplySpotlight(); });
 }
 
@@ -1022,7 +1016,6 @@ function tutApplySpotlight(){
 }
 function tutHideSpotlight(){
     _spotTargets=null;
-    document.getElementById('gameWrapper').style.overflowY='auto';
     ['ov-top','ov-bot','ov-lft','ov-rgt'].forEach(function(id){document.getElementById(id).style.display='none';});
 }
 
