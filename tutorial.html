@@ -45,9 +45,7 @@
         #tutNarrator .mc-img {
             flex-shrink: 0;
             width: 72px; height: 72px;
-            border-radius: 8px;
-            object-fit: cover;
-            border: 2px solid #b88742;
+            object-fit: contain;
         }
         #tutNarrator .speech-area {
             flex: 1;
@@ -93,12 +91,42 @@
             top: 0; left: 0; width: 100%; height: 100%;
         }
 
-        /* ===== プレイヤータブ：基本UI ===== */
-        .player-icon-area { text-align: center; padding: 16px 0 8px; }
-        .player-icon-circle { width: 100px; height: 100px; border-radius: 50%; background: #fff8ee; border: 3px solid #b88742; margin: 0 auto; display: flex; align-items: center; justify-content: center; font-size: 48px; }
-        .player-name-display { font-size: 18px; font-weight: bold; color: #420000; margin: 8px 0 4px; text-align: center; }
-        .player-id-display { font-size: 11px; color: #9a8060; text-align: center; margin-bottom: 16px; }
-        .btn-primary { display: block; width: 80%; margin: 12px auto; padding: 12px; background: #b88742; color: #efdeb1; border: none; border-radius: 4px; font-size: 15px; font-weight: bold; cursor: pointer; }
+        /* ===== 名前入力モーダル ===== */
+        #tut-name-modal {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.6); z-index: 6000;
+            display: none; align-items: center; justify-content: center;
+        }
+        #tut-name-modal.show { display: flex; }
+        .tut-modal-box {
+            background: #fff8ee; border-radius: 12px; padding: 24px 20px;
+            width: 88%; max-width: 360px; text-align: center;
+            border: 2px solid #b88742;
+        }
+        .tut-modal-box h3 { font-size: 16px; color: #420000; margin: 0 0 16px; }
+        .tut-name-input {
+            width: 100%; padding: 12px; font-size: 16px;
+            border: 2px solid #b88742; border-radius: 6px;
+            text-align: center; color: #420000; background: #fff;
+            box-sizing: border-box; margin-bottom: 12px;
+        }
+
+        /* ===== アイコン選択 ===== */
+        .icon-grid { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; margin: 12px 0; }
+        .icon-choice {
+            width: 64px; height: 64px; border-radius: 50%;
+            border: 3px solid #ccc; cursor: pointer; object-fit: cover;
+            transition: border-color 0.2s, transform 0.15s;
+        }
+        .icon-choice.selected { border-color: #b88742; transform: scale(1.1); }
+
+        /* ===== プレイヤー表示 ===== */
+        .player-icon-circle {
+            width: 100px; height: 100px; border-radius: 50%;
+            border: 3px solid #b88742; margin: 0 auto;
+            overflow: hidden; background: #fff8ee;
+        }
+        .player-icon-circle img { width: 100%; height: 100%; object-fit: cover; }
 
         /* ===== QRタブ：基本UI ===== */
         #qr-camera-area { background: #111; border-radius: 8px; aspect-ratio: 1; width: 100%; max-width: 280px; margin: 0 auto; display: flex; align-items: center; justify-content: center; color: #666; font-size: 13px; }
@@ -151,13 +179,27 @@
 
     <!-- ===== プレイヤータブ ===== -->
     <div class="page active" id="page-player">
-        <div class="player-icon-area">
-            <div class="player-icon-circle" id="tut-player-icon">🍛</div>
+        <div style="text-align:center; padding:20px 0 8px;">
+            <div class="player-icon-circle" id="tut-player-icon-wrap">
+                <img id="tut-player-icon-img" src="myimageicon/mayimage01.png" alt="">
+            </div>
         </div>
         <div class="player-name-display" id="tut-player-name">――</div>
-        <div class="player-id-display" id="tut-player-id">ID: ――</div>
+        <div style="font-size:11px; color:#9a8060; text-align:center; margin-bottom:20px;" id="tut-player-hint">名前とアイコンを設定しましょう</div>
         <div style="text-align:center;">
-            <button class="btn-primary" id="btn-name-input">名前を入力する</button>
+            <button class="btn-primary" id="btn-name-input" onclick="tutOpenNameModal()" style="display:block; width:80%; margin:12px auto; padding:12px; background:#b88742; color:#efdeb1; border:none; border-radius:4px; font-size:15px; font-weight:bold; cursor:pointer;">名前を入力する</button>
+        </div>
+    </div>
+
+    <!-- 名前入力モーダル -->
+    <div id="tut-name-modal">
+        <div class="tut-modal-box">
+            <h3>料理人の名前を入力</h3>
+            <input type="text" class="tut-name-input" id="tut-name-input-field"
+                   placeholder="名前を入力（最大12文字）" maxlength="12">
+            <div style="font-size:13px; color:#9a8060; margin-bottom:14px;">アイコンを選んでください</div>
+            <div class="icon-grid" id="tut-icon-grid"></div>
+            <button class="btn-gold" id="btn-name-confirm" onclick="tutConfirmName()" style="width:100%; padding:12px; margin-top:4px;">決定</button>
         </div>
     </div>
 
@@ -234,7 +276,6 @@
 <div id="tutNarrator" onclick="tutNarratorTap()">
     <img class="mc-img" src="tutorial/tutorial-mc.png" alt="案内人">
     <div class="speech-area">
-        <div class="speech-name">案内人</div>
         <div class="speech-text" id="tutSpeechText"></div>
         <div class="speech-next" id="tutSpeechNext">▼</div>
     </div>
@@ -512,14 +553,109 @@ function tutInit() {
 }
 
 // ===================================================
-// シナリオ関数（次のステップで中身を実装）
+// プレイヤーアイコン管理
+// ===================================================
+const TUT_ICONS = [
+    'myimageicon/mayimage01.png',
+    'myimageicon/mayimage02.png',
+    'myimageicon/mayimage03.png',
+];
+let tutSelectedIcon = TUT_ICONS[0];
+
+function tutBuildIconGrid() {
+    const grid = document.getElementById('tut-icon-grid');
+    if(!grid) return;
+    grid.innerHTML = '';
+    TUT_ICONS.forEach(src => {
+        const img = document.createElement('img');
+        img.className = 'icon-choice' + (src === tutSelectedIcon ? ' selected' : '');
+        img.src = src;
+        img.onclick = () => {
+            tutSelectedIcon = src;
+            grid.querySelectorAll('.icon-choice').forEach(i => i.classList.remove('selected'));
+            img.classList.add('selected');
+        };
+        grid.appendChild(img);
+    });
+}
+
+function tutOpenNameModal() {
+    tutBuildIconGrid();
+    const modal = document.getElementById('tut-name-modal');
+    modal.classList.add('show');
+    const field = document.getElementById('tut-name-input-field');
+    field.value = tutGetName();
+    setTimeout(() => field.focus(), 100);
+}
+
+function tutConfirmName() {
+    const val = document.getElementById('tut-name-input-field').value.trim();
+    if(!val) { alert('名前を入力してください'); return; }
+    tutSaveName(val);
+    localStorage.setItem('tut_icon', tutSelectedIcon);
+    document.getElementById('tut-player-name').textContent = val;
+    document.getElementById('tut-player-icon-img').src = tutSelectedIcon;
+    document.getElementById('tut-name-modal').classList.remove('show');
+    tutSaveStep('named');
+    // 続きのセリフへ
+    tutScenario_Player_AfterName();
+}
+
+// ===================================================
+// シナリオ関数
 // ===================================================
 function tutScenario_Player() {
-    // TODO: 次ステップで実装
-    tutSpeak(['こんにちは！これはチュートリアルです。']);
+    const name = tutGetName();
+    if(name) {
+        // 再開時：名前入力済み
+        document.getElementById('tut-player-name').textContent = name;
+        const icon = localStorage.getItem('tut_icon') || TUT_ICONS[0];
+        document.getElementById('tut-player-icon-img').src = icon;
+        tutScenario_Player_AfterName();
+        return;
+    }
+    // 初回：名前入力を促す
+    tutHideSpotlight();
+    tutSpeak([
+        'ようこそ！バトルカレーへ！\nまずはあなたのプレイヤー情報を設定しましょう。',
+        '「名前を入力する」ボタンをタップして\n料理人の名前とアイコンを決めてください！',
+    ], () => {
+        // セリフ終わったらボタンをスポットライト
+        tutShowSpotlight([{ el: document.getElementById('btn-name-input'), padding: 8 }]);
+    });
 }
+
+function tutScenario_Player_AfterName() {
+    tutHideSpotlight();
+    document.getElementById('btn-name-input').style.display = 'none';
+    document.getElementById('tut-player-hint').textContent = '設定完了！';
+    tutSpeak([
+        `${tutGetName()}さん、よろしくお願いします！\nかっこいい名前ですね！`,
+        '次はQRコードをスキャンして\n食材を集めましょう！\n「QR」タブをタップしてください。',
+    ], () => {
+        tutSaveStep('qr');
+        tutShowSpotlight([{ el: document.getElementById('tab-qr'), padding: 6 }]);
+        // タブタップを待つ（tutSwitchTabをフック）
+        tutWaitTabTap('qr', () => {
+            tutHideSpotlight();
+            tutScenario_QR();
+        });
+    });
+}
+
+function tutWaitTabTap(targetTab, cb) {
+    const origSwitch = window.tutSwitchTab;
+    window.tutSwitchTab = function(tab) {
+        origSwitch(tab);
+        if(tab === targetTab) {
+            window.tutSwitchTab = origSwitch;
+            cb();
+        }
+    };
+}
+
 function tutScenario_QR() {
-    // TODO
+    // TODO: 次ステップで実装
     tutSpeak(['QRコードをスキャンして食材を入手しましょう！']);
 }
 function tutScenario_Fridge() {
