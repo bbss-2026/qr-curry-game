@@ -978,6 +978,11 @@ var NAR_H=116;
 
 function tutShowSpotlight(targets){
     var wrap=document.getElementById('gameWrapper');
+    // ★修正: #gameWrapperはCSS上min-height:100vhしか無く高さがコンテンツに追従するため、
+    // 既存のoverflow-y:auto(CSS側)が実際にはスクロールとして機能しない。
+    // CSSは変更せず、実行時に高さを画面いっぱいへ固定してスクロール可能にする。
+    wrap.style.minHeight='0';
+    wrap.style.height=window.innerHeight+'px';
     if(!targets||targets.length===0){
         _spotTargets=null;
         tutApplySpotlight();
@@ -985,11 +990,28 @@ function tutShowSpotlight(targets){
         return;
     }
     _spotTargets=targets;
-    wrap.scrollTop=0;
-    requestAnimationFrame(function(){
-        tutApplySpotlight();
-        wrap.scrollTop=0;
+    // ★修正: 対象がナレーション欄(高さNAR_H)を除いた表示領域の外にある場合だけスクロールする
+    var visibleBottom=window.innerHeight-NAR_H;
+    var minTop=Infinity,maxBottom=-Infinity;
+    targets.forEach(function(t){
+        if(!t.el)return;
+        var r=t.el.getBoundingClientRect(),p=t.padding||8;
+        minTop=Math.min(minTop,r.top-p);
+        maxBottom=Math.max(maxBottom,r.bottom+p);
     });
+    var delta=0;
+    if(minTop!==Infinity){
+        if(maxBottom>visibleBottom) delta=maxBottom-visibleBottom; // 下にはみ出し→下へスクロール
+        else if(minTop<0) delta=minTop; // 上にはみ出し→上へスクロール
+    }
+    if(delta!==0){
+        wrap.scrollTop+=delta;
+        // ★修正: スクロールによるレイアウト確定後にgetBoundingClientRect()で穴位置を計算する
+        requestAnimationFrame(function(){requestAnimationFrame(tutApplySpotlight);});
+    }else{
+        // ★修正: 既に表示領域内にある場合は不要なスクロールをしない
+        tutApplySpotlight();
+    }
 }
 
 function tutApplySpotlight(){
