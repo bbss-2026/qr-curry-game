@@ -8,22 +8,22 @@
     <style>
         * { box-sizing: border-box; }
         body { font-family: 'Helvetica Neue', Arial, sans-serif; background: #b88742; color: #420000; padding: 0; margin: 0; text-align: center; overflow: hidden; }
-        #tutWrapper { background: #efdeb1; max-width: 480px; margin: 0 auto; min-height: 100vh; position: relative; overflow-y: auto; overflow-x: hidden; -webkit-overflow-scrolling: touch; }
+        #tutWrapper { background: #efdeb1; max-width: 480px; margin: 0 auto; min-height: 100vh; overflow-y: auto; overflow-x: hidden; -webkit-overflow-scrolling: touch; }
         .logo-area { padding: 20px 20px 12px; text-align: center; }
         .logo-area img { width: 192px; max-width: 80%; }
 
-        /* ===== タブ ===== */
-        .tab-nav { display: flex; border-bottom: 2px solid #b88742; background: #efdeb1; position: sticky; top: 0; z-index: 100; }
+        /* タブ */
+        .tab-nav { display: flex; border-bottom: 2px solid #b88742; background: #efdeb1; position: sticky; top: 0; z-index: 200; }
         .tab-btn { flex: 1; padding: 10px 4px 0 4px; border: none; background: none; font-size: 11pt; font-weight: bold; cursor: pointer; color: #420000; display: flex; flex-direction: column; align-items: center; gap: 6px; white-space: nowrap; }
         .tab-btn::after { content: ''; display: block; width: 90%; height: 2px; background: #420000; }
         .tab-btn.active { color: #b88742; }
         .tab-btn.active::after { background: #b88742; }
 
-        /* ===== ページ ===== */
-        .page { display: none; text-align: left; padding: 16px 16px 210px 16px; }
+        /* ページ */
+        .page { display: none; text-align: left; padding: 16px 16px 210px; }
         .page.active { display: block; }
 
-        /* ===== 案内人ウィンドウ（下部固定）===== */
+        /* 案内人ウィンドウ */
         #tutNarrator {
             position: fixed; bottom: 0; left: 50%; transform: translateX(-50%);
             width: 100%; max-width: 480px;
@@ -35,33 +35,20 @@
         #tutNarrator .mc-img { flex-shrink: 0; width: 72px; height: 72px; object-fit: contain; }
         #tutNarrator .speech-area { flex: 1; display: flex; flex-direction: column; justify-content: center; gap: 4px; }
         #tutNarrator .speech-text { font-size: 14px; color: #fff8ee; line-height: 1.6; min-height: 4em; white-space: pre-wrap; text-align: left; }
-        #tutNarrator .speech-next { align-self: flex-end; font-size: 18px; color: #b88742; opacity: 0; animation: blinkArrow 0.8s ease-in-out infinite; }
-        #tutNarrator .speech-next.show { opacity: 1; }
-        @keyframes blinkArrow { 0%,100%{opacity:1;} 50%{opacity:0.2;} }
+        #tutNarrator .speech-next { align-self: flex-end; font-size: 18px; color: #b88742; opacity: 0; }
+        #tutNarrator .speech-next.show { opacity: 1; animation: blinkArr 0.8s ease-in-out infinite; }
+        @keyframes blinkArr { 0%,100%{opacity:1;} 50%{opacity:0.2;} }
 
-        /* ===== スポットライト（4枚div方式）===== */
-        .tut-overlay-panel {
-            position: fixed; background: rgba(0,0,0,0.65);
-            z-index: 4000; transition: all 0.2s ease;
-            pointer-events: auto;
-        }
-        /* スポットライト枠の光る縁 */
-        #tutSpotBorder {
-            position: fixed; z-index: 4001;
-            border: 2px solid #b88742; border-radius: 10px;
-            box-shadow: 0 0 0 3px rgba(184,135,66,0.3);
-            pointer-events: none;
-            transition: all 0.2s ease;
-            display: none;
-        }
+        /* スポットライト */
+        .tut-ov { position: fixed; background: rgba(0,0,0,0.65); z-index: 4000; pointer-events: auto; }
+        #tutSpotBorder { position: fixed; z-index: 4001; border: 2px solid #b88742; border-radius: 10px; box-shadow: 0 0 0 3px rgba(184,135,66,0.3); pointer-events: none; display: none; }
 
-        /* ===== プレイヤータブ ===== */
+        /* プレイヤー */
         .player-icon-circle { width: 100px; height: 100px; border-radius: 50%; border: 3px solid #b88742; margin: 0 auto; overflow: hidden; background: #fff8ee; }
         .player-icon-circle img { width: 100%; height: 100%; object-fit: cover; }
-        .player-name-display { font-size: 18px; font-weight: bold; color: #420000; margin: 8px 0 4px; text-align: center; }
-        .btn-primary { display: block; width: 80%; margin: 12px auto; padding: 12px; background: #b88742; color: #efdeb1; border: none; border-radius: 4px; font-size: 15px; font-weight: bold; cursor: pointer; letter-spacing: 0.05em; }
+        .btn-primary { display: block; width: 80%; margin: 12px auto; padding: 12px; background: #b88742; color: #efdeb1; border: none; border-radius: 4px; font-size: 15px; font-weight: bold; cursor: pointer; }
 
-        /* ===== 名前入力モーダル ===== */
+        /* 名前入力モーダル */
         #tut-name-modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); z-index: 6000; display: none; align-items: center; justify-content: center; }
         #tut-name-modal.show { display: flex; }
         .tut-modal-box { background: #fff8ee; border-radius: 12px; padding: 24px 20px; width: 88%; max-width: 360px; text-align: center; border: 2px solid #b88742; }
@@ -69,32 +56,24 @@
         .tut-name-input { width: 100%; padding: 12px; font-size: 16px; border: 2px solid #b88742; border-radius: 6px; text-align: center; color: #420000; background: #fff; margin-bottom: 16px; }
         .btn-gold { background: #b88742; color: #efdeb1; border: none; border-radius: 4px; padding: 12px 24px; font-size: 15px; font-weight: bold; cursor: pointer; width: 100%; }
 
-        /* ===== 汎用 ===== */
-        .get-box { background: #fff8ee; border: 2px solid #b88742; border-radius: 8px; padding: 16px; margin: 12px 0; text-align: center; display: none; }
-        .fridge-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
-        .fridge-item { background: #fff8ee; border: 1px solid #b88742; border-radius: 6px; padding: 6px 4px; text-align: center; font-size: 10px; }
-        .fridge-item img { width: 36px; height: 36px; object-fit: contain; display: block; margin: 0 auto 2px; }
+        /* 汎用 */
+        .section-label { font-size: 12px; color: #9a8060; margin: 8px 0 4px; font-weight: bold; }
         .cook-slot-row { display: flex; gap: 6px; margin-bottom: 8px; }
         .cook-slot { flex: 1; min-height: 80px; border: 1px dashed #b88742; border-radius: 6px; display: flex; flex-direction: column; align-items: center; justify-content: center; background: #fffdf0; font-size: 22px; color: #cbb088; cursor: pointer; }
-        .cook-slot.filled { color: #420000; font-size: 11px; }
-        .section-label { font-size: 12px; color: #9a8060; margin: 8px 0 4px; font-weight: bold; }
-        .hp-bar-outer { flex: 1; height: 10px; background: #444; border-radius: 5px; margin: 0 8px; }
-        .hp-bar-inner { height: 100%; border-radius: 5px; background: #2ecc71; transition: width 0.6s ease; }
     </style>
 </head>
 <body>
 
 <!-- スポットライト4枚 -->
-<div class="tut-overlay-panel" id="ov-top"    style="top:0;left:0;right:0;height:0;"></div>
-<div class="tut-overlay-panel" id="ov-bottom" style="bottom:0;left:0;right:0;height:0;"></div>
-<div class="tut-overlay-panel" id="ov-left"   style="top:0;left:0;width:0;height:0;"></div>
-<div class="tut-overlay-panel" id="ov-right"  style="top:0;right:0;width:0;height:0;"></div>
+<div class="tut-ov" id="ov-top"></div>
+<div class="tut-ov" id="ov-bot"></div>
+<div class="tut-ov" id="ov-lft"></div>
+<div class="tut-ov" id="ov-rgt"></div>
 <div id="tutSpotBorder"></div>
 
 <div id="tutWrapper">
     <div class="logo-area"><img src="battlecurry-logo.svg" alt="Battle Curry"></div>
-
-    <nav class="tab-nav" id="tutTabNav">
+    <nav class="tab-nav">
         <button class="tab-btn active" id="tab-player" onclick="tutTabClick('player')">プレイヤー</button>
         <button class="tab-btn" id="tab-qr"     onclick="tutTabClick('qr')">QR</button>
         <button class="tab-btn" id="tab-fridge" onclick="tutTabClick('fridge')">冷蔵庫</button>
@@ -107,7 +86,7 @@
         <div style="text-align:center;padding:20px 0 8px;">
             <div class="player-icon-circle"><img id="tut-icon-img" src="myimageicon/mayimage01.png" alt=""></div>
         </div>
-        <div class="player-name-display" id="tut-player-name">――</div>
+        <div style="font-size:18px;font-weight:bold;color:#420000;text-align:center;margin:8px 0 4px;" id="tut-player-name">――</div>
         <div style="font-size:11px;color:#9a8060;text-align:center;margin-bottom:20px;" id="tut-player-hint">名前を設定しましょう</div>
         <div style="text-align:center;">
             <button class="btn-primary" id="btn-name-input" onclick="tutOpenNameModal()">名前を入力する</button>
@@ -117,14 +96,7 @@
     <!-- QR -->
     <div class="page" id="page-qr">
         <div style="text-align:center;padding:8px 0 12px;">
-            <div id="qr-placeholder" style="background:#222;border-radius:8px;aspect-ratio:1;width:100%;max-width:280px;margin:0 auto;display:flex;align-items:center;justify-content:center;color:#888;font-size:13px;">カメラを起動中...</div>
-            <canvas id="qr-canvas" style="display:none;"></canvas>
-        </div>
-        <div class="get-box" id="tut-get-box">
-            <div style="font-size:16px;font-weight:bold;color:#420000;margin-bottom:8px;" id="tut-get-title">🎉 食材ゲット！</div>
-            <div style="font-size:40px;margin:8px 0;" id="tut-get-emoji"></div>
-            <div style="font-size:14px;font-weight:bold;color:#420000;" id="tut-get-name"></div>
-            <button class="btn-gold" style="margin-top:12px;width:60%;" onclick="tutCloseGetBox()">OK</button>
+            <div id="qr-placeholder" style="background:#222;border-radius:8px;aspect-ratio:1;width:100%;max-width:280px;margin:0 auto;display:flex;align-items:center;justify-content:center;color:#888;font-size:13px;">準備中</div>
         </div>
     </div>
 
@@ -132,11 +104,7 @@
     <div class="page" id="page-fridge">
         <div style="margin-bottom:16px;">
             <h3 style="font-size:13px;font-weight:bold;color:#420000;border-bottom:1px solid #b88742;padding-bottom:4px;margin-bottom:8px;">所持食材</h3>
-            <div class="fridge-grid" id="tut-fridge-grid"></div>
-        </div>
-        <div>
-            <h3 style="font-size:13px;font-weight:bold;color:#420000;border-bottom:1px solid #b88742;padding-bottom:4px;margin-bottom:8px;">所持スパイス</h3>
-            <div class="fridge-grid" id="tut-spice-grid"></div>
+            <div id="tut-fridge-grid" style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;"></div>
         </div>
     </div>
 
@@ -144,16 +112,11 @@
     <div class="page" id="page-cook">
         <div class="section-label">食材スロット（最大3つ）</div>
         <div class="cook-slot-row">
-            <div class="cook-slot" id="tut-slot-0" onclick="tutSlotTap(0)">＋</div>
-            <div class="cook-slot" id="tut-slot-1" onclick="tutSlotTap(1)">＋</div>
-            <div class="cook-slot" id="tut-slot-2" onclick="tutSlotTap(2)">＋</div>
+            <div class="cook-slot" id="tut-slot-0">＋</div>
+            <div class="cook-slot" id="tut-slot-1">＋</div>
+            <div class="cook-slot" id="tut-slot-2">＋</div>
         </div>
-        <div class="section-label">スパイス（任意）</div>
-        <div class="cook-slot-row">
-            <div class="cook-slot" id="tut-slot-spice" onclick="tutSpiceSlotTap()" style="flex:0 0 100px;">＋</div>
-            <div style="flex:1;"></div>
-        </div>
-        <button class="btn-primary" id="btn-tut-cook" onclick="tutCook()" style="margin-top:16px;opacity:0.4;pointer-events:none;">カレーを調理する</button>
+        <button class="btn-primary" id="btn-tut-cook" style="margin-top:16px;">カレーを調理する</button>
     </div>
 
     <!-- 対戦 -->
@@ -166,7 +129,7 @@
 <div id="tut-name-modal">
     <div class="tut-modal-box">
         <h3>料理人の名前を入力</h3>
-        <input type="text" class="tut-name-input" id="tut-name-input-field" placeholder="名前（最大12文字）" maxlength="12">
+        <input type="text" class="tut-name-input" id="tut-name-field" placeholder="名前（最大12文字）" maxlength="12">
         <button class="btn-gold" onclick="tutConfirmName()">決定</button>
     </div>
 </div>
@@ -176,227 +139,159 @@
     <img class="mc-img" src="tutorial/tutorial-mc.png" alt="">
     <div class="speech-area">
         <div class="speech-text" id="tutSpeechText"></div>
-        <div class="speech-next" id="tutSpeechNext">▼</div>
+        <div class="speech-next" id="tutSpeechNext">&#9660;</div>
     </div>
 </div>
 
 <script>
-// ===== 定数 =====
-const TUT_SPICES = ['ターメリック','クミン','コリアンダー','ブラックペッパー','チリパウダー','シナモン','クローブ','カルダモン','サフラン','マンゴーチャツネ'];
+// ----- LS -----
+const LS = { step:'tut_step', done:'tut_done', name:'tut_name', inv:'tut_inv', curry:'tut_curry' };
+function lsGet(k){ return localStorage.getItem(LS[k]) || ''; }
+function lsSet(k,v){ localStorage.setItem(LS[k], v); }
+function lsGetJSON(k){ try{ return JSON.parse(localStorage.getItem(LS[k])||'null'); }catch(e){ return null; } }
+function lsSetJSON(k,v){ localStorage.setItem(LS[k], JSON.stringify(v)); }
 
-// ===== 進行保存 =====
-const LS = { step:'tut_step', done:'tut_done', name:'tut_name', inv:'tut_inv', curry:'tut_curry', icon:'tut_icon' };
-const tutLS = {
-    setStep: s => localStorage.setItem(LS.step, s),
-    getStep: ()=> localStorage.getItem(LS.step) || 'start',
-    setName: n => localStorage.setItem(LS.name, n),
-    getName: ()=> localStorage.getItem(LS.name) || '',
-    setInv:  v => localStorage.setItem(LS.inv, JSON.stringify(v)),
-    getInv:  ()=> { try{return JSON.parse(localStorage.getItem(LS.inv)||'{}')}catch{return{}} },
-    setCurry:v => localStorage.setItem(LS.curry, JSON.stringify(v)),
-    getCurry:()=> { try{return JSON.parse(localStorage.getItem(LS.curry)||'null')}catch{return null} },
-};
-
-// ===== タブ切り替え =====
-let tutCurrentTab = 'player';
-let tutAllowedTabs = ['player']; // 操作許可タブ（スポットライト時に制御）
+// ----- タブ -----
+var tutAllowedTabs = [];
+var tutPendingTab = null;
 
 function tutTabClick(tab) {
-    if(!tutAllowedTabs.includes(tab) && tutAllowedTabs.length > 0) return;
+    if(tutAllowedTabs.length > 0 && tutAllowedTabs.indexOf(tab) === -1) return;
     tutSwitchTab(tab);
-    if(tutPendingTabCb && tutPendingTabCb.tab === tab) {
-        const cb = tutPendingTabCb.cb;
-        tutPendingTabCb = null;
-        setTimeout(cb, 100);
+    if(tutPendingTab && tutPendingTab.tab === tab) {
+        var cb = tutPendingTab.cb;
+        tutPendingTab = null;
+        setTimeout(cb, 150);
     }
 }
 function tutSwitchTab(tab) {
-    tutCurrentTab = tab;
-    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-    const btn = document.getElementById('tab-' + tab);
-    const page = document.getElementById('page-' + tab);
+    document.querySelectorAll('.tab-btn').forEach(function(b){ b.classList.remove('active'); });
+    document.querySelectorAll('.page').forEach(function(p){ p.classList.remove('active'); });
+    var btn = document.getElementById('tab-' + tab);
+    var pg  = document.getElementById('page-' + tab);
     if(btn) btn.classList.add('active');
-    if(page) page.classList.add('active');
-    tutRefreshSpotlight(); // スクロール後に再計算
+    if(pg)  pg.classList.add('active');
+    setTimeout(tutRefreshSpotlight, 50);
 }
-let tutPendingTabCb = null;
-function tutWaitTab(tab, cb) {
-    tutPendingTabCb = { tab, cb };
-}
+function tutWaitTab(tab, cb) { tutPendingTab = { tab: tab, cb: cb }; }
 
-// ===== スポットライト（4枚div方式）=====
-let tutSpotTargets = null;
+// ----- スポットライト -----
+var _spotTargets = null;
 
 function tutShowSpotlight(targets) {
-    tutSpotTargets = targets;
-    tutApplySpotlight();
+    _spotTargets = targets;
+    tutRefreshSpotlight();
 }
+function tutRefreshSpotlight() {
+    var top = document.getElementById('ov-top');
+    var bot = document.getElementById('ov-bot');
+    var lft = document.getElementById('ov-lft');
+    var rgt = document.getElementById('ov-rgt');
+    var bdr = document.getElementById('tutSpotBorder');
+    var W = window.innerWidth;
+    var H = window.innerHeight;
 
-function tutApplySpotlight() {
-    const top    = document.getElementById('ov-top');
-    const bottom = document.getElementById('ov-bottom');
-    const left   = document.getElementById('ov-left');
-    const right  = document.getElementById('ov-right');
-    const border = document.getElementById('tutSpotBorder');
+    function show(el, css) {
+        el.removeAttribute('style');
+        el.style.cssText = css;
+    }
+    function hide(el) { el.style.display = 'none'; }
 
-    const W = window.innerWidth;
-    const H = window.innerHeight;
-
-    if(!tutSpotTargets || tutSpotTargets.length === 0) {
-        // 全画面暗転
-        top.style.cssText    = `top:0;left:0;right:0;height:${H}px;`;
-        bottom.style.cssText = `display:none`;
-        left.style.cssText   = `display:none`;
-        right.style.cssText  = `display:none`;
-        border.style.display = 'none';
+    if(!_spotTargets || _spotTargets.length === 0) {
+        show(top, 'top:0;left:0;right:0;height:' + H + 'px;');
+        hide(bot); hide(lft); hide(rgt);
+        bdr.style.display = 'none';
         return;
     }
-    // ターゲット全体のbounding rect
-    let minX=W, minY=H, maxX=0, maxY=0;
-    tutSpotTargets.forEach(({el, padding=6}) => {
+
+    var minX = W, minY = H, maxX = 0, maxY = 0;
+    _spotTargets.forEach(function(t) {
+        var el = t.el; var pad = t.padding || 8;
         if(!el) return;
-        const r = el.getBoundingClientRect();
-        minX = Math.min(minX, r.left   - padding);
-        minY = Math.min(minY, r.top    - padding);
-        maxX = Math.max(maxX, r.right  + padding);
-        maxY = Math.max(maxY, r.bottom + padding);
+        var r = el.getBoundingClientRect();
+        minX = Math.min(minX, r.left - pad);
+        minY = Math.min(minY, r.top  - pad);
+        maxX = Math.max(maxX, r.right  + pad);
+        maxY = Math.max(maxY, r.bottom + pad);
     });
     minX = Math.max(0, minX);
     minY = Math.max(0, minY);
     maxX = Math.min(W, maxX);
     maxY = Math.min(H, maxY);
-    const sw = maxX - minX;
-    const sh = maxY - minY;
 
-    top.style.cssText    = `top:0;left:0;right:0;height:${minY}px;`;
-    bottom.style.cssText = `top:${maxY}px;left:0;right:0;bottom:0;`;
-    left.style.cssText   = `top:${minY}px;left:0;width:${minX}px;height:${sh}px;`;
-    right.style.cssText  = `top:${minY}px;left:${maxX}px;right:0;height:${sh}px;`;
-
-    border.style.cssText = `display:block;left:${minX}px;top:${minY}px;width:${sw}px;height:${sh}px;border-radius:10px;`;
+    show(top, 'top:0;left:0;right:0;height:' + minY + 'px;');
+    show(bot, 'top:' + maxY + 'px;left:0;right:0;bottom:0;');
+    show(lft, 'top:' + minY + 'px;left:0;width:' + minX + 'px;height:' + (maxY-minY) + 'px;');
+    show(rgt, 'top:' + minY + 'px;left:' + maxX + 'px;right:0;height:' + (maxY-minY) + 'px;');
+    bdr.style.cssText = 'display:block;left:' + minX + 'px;top:' + minY + 'px;width:' + (maxX-minX) + 'px;height:' + (maxY-minY) + 'px;';
 }
-
 function tutHideSpotlight() {
-    tutSpotTargets = null;
-    ['ov-top','ov-bottom','ov-left','ov-right'].forEach(id => document.getElementById(id).style.cssText='display:none');
+    _spotTargets = null;
+    ['ov-top','ov-bot','ov-lft','ov-rgt'].forEach(function(id){ document.getElementById(id).style.display='none'; });
     document.getElementById('tutSpotBorder').style.display = 'none';
 }
+document.getElementById('tutWrapper').addEventListener('scroll', function(){ if(_spotTargets) tutRefreshSpotlight(); }, { passive: true });
 
-// スクロールで再計算
-document.getElementById('tutWrapper').addEventListener('scroll', () => {
-    if(tutSpotTargets) tutApplySpotlight();
-}, { passive: true });
-
-// ===== セリフエンジン =====
-let _queue=[], _typing=false, _full='', _idx=0, _timer=null, _onDone=null;
-const $txt = () => document.getElementById('tutSpeechText');
-const $nxt = () => document.getElementById('tutSpeechNext');
+// ----- セリフエンジン -----
+var _q = [], _typing = false, _full = '', _idx = 0, _timer = null, _done = null;
+function eltxt(){ return document.getElementById('tutSpeechText'); }
+function elnxt(){ return document.getElementById('tutSpeechNext'); }
 
 function tutSpeak(speeches, onDone) {
-    _queue = [...speeches];
-    _onDone = onDone || null;
+    _q = speeches.slice();
+    _done = onDone || null;
     _nextLine();
 }
 function _nextLine() {
-    if(_queue.length === 0) {
-        $nxt().classList.remove('show');
-        if(_onDone) { const cb=_onDone; _onDone=null; cb(); }
+    if(_q.length === 0) {
+        elnxt().classList.remove('show');
+        if(_done){ var cb=_done; _done=null; cb(); }
         return;
     }
-    const text = _queue.shift();
+    var text = _q.shift();
     _typing = true; _full = text; _idx = 0;
-    $nxt().classList.remove('show');
-    $txt().textContent = '';
+    elnxt().classList.remove('show');
+    eltxt().textContent = '';
     clearInterval(_timer);
-    _timer = setInterval(() => {
-        if(_idx < _full.length) { $txt().textContent += _full[_idx++]; }
-        else { clearInterval(_timer); _typing=false; $nxt().classList.add('show'); }
-    }, 38);
+    _timer = setInterval(function(){
+        if(_idx < _full.length){ eltxt().textContent += _full[_idx++]; }
+        else { clearInterval(_timer); _typing=false; elnxt().classList.add('show'); }
+    }, 40);
 }
 function tutNarratorTap() {
-    if(_typing) { clearInterval(_timer); _typing=false; $txt().textContent=_full; $nxt().classList.add('show'); }
-    else if($nxt().classList.contains('show')) { $nxt().classList.remove('show'); _nextLine(); }
+    if(_typing){ clearInterval(_timer); _typing=false; eltxt().textContent=_full; elnxt().classList.add('show'); }
+    else if(elnxt().classList.contains('show')){ elnxt().classList.remove('show'); _nextLine(); }
 }
 
-// ===== 名前入力 =====
+// ----- 名前入力 -----
 function tutOpenNameModal() {
     document.getElementById('tut-name-modal').classList.add('show');
-    setTimeout(() => document.getElementById('tut-name-input-field').focus(), 100);
+    setTimeout(function(){ document.getElementById('tut-name-field').focus(); }, 100);
 }
 function tutConfirmName() {
-    const val = document.getElementById('tut-name-input-field').value.trim();
-    if(!val) { document.getElementById('tut-name-input-field').style.borderColor='#e74c3c'; return; }
-    tutLS.setName(val);
-    tutLS.setStep('named');
+    var val = document.getElementById('tut-name-field').value.trim();
+    if(!val) return;
+    lsSet('name', val);
+    lsSet('step', 'named');
     document.getElementById('tut-player-name').textContent = val;
     document.getElementById('tut-name-modal').classList.remove('show');
     tutScenario_Player_After();
 }
 
-// ===== 冷蔵庫表示 =====
-function tutRenderFridge() {
-    const inv = tutLS.getInv();
-    ['tut-fridge-grid','tut-spice-grid'].forEach(id => document.getElementById(id).innerHTML = '');
-    Object.entries(inv).forEach(([name, cnt]) => {
-        if(cnt <= 0) return;
-        // アイコンはgame.htmlのmasterIngredients/masterSpicesのiconを使う想定
-        // チュートリアルでは簡易表示
-        const gridId = TUT_SPICES.includes(name) ? 'tut-spice-grid' : 'tut-fridge-grid';
-        const div = document.createElement('div');
-        div.className = 'fridge-item';
-        div.innerHTML = `<div style="font-size:20px;margin:2px 0;">${TUT_ITEM_EMOJI[name]||'🍴'}</div><div style="font-size:10px;font-weight:bold;">${name}</div><div style="font-size:10px;color:#9a8060;">×${cnt}</div>`;
-        document.getElementById(gridId).appendChild(div);
-    });
-}
-
-// ===== ゲームへのデータ引き継ぎ =====
-function tutTransferData() {
-    const name = tutLS.getName();
-    const inv  = tutLS.getInv();
-    const curry = tutLS.getCurry();
-    try {
-        let save = JSON.parse(localStorage.getItem('battleCurrySave') || '{}');
-        if(name) save.playerName = name;
-        if(!save.discoveredItems) save.discoveredItems = {};
-        Object.keys(inv).forEach(k => { save.discoveredItems[k] = true; });
-        if(curry) { if(!save.recipeHistory) save.recipeHistory=[]; save.recipeHistory.push(curry); }
-        save.packTicket = (save.packTicket||0) + 2; // チュートリアル報酬
-        localStorage.setItem('battleCurrySave', JSON.stringify(save));
-    } catch(e) {}
-    localStorage.setItem(LS.done, '1');
-}
-function tutComplete() {
-    tutTransferData();
-    window.location.href = 'game.html';
-}
-
-// ===== 調理スロット（仮）=====
-let tutCookSlots = [null,null,null];
-let tutCookSpice = null;
-function tutSlotTap(i) { /* TODO: 次ステップ */ }
-function tutSpiceSlotTap() { /* TODO */ }
-function tutCook() { /* TODO */ }
-
-// ===== チュートリアル食材絵文字（簡易）=====
-const TUT_ITEM_EMOJI = {
-    'トマト':'🍅','にんじん':'🥕','玉ねぎ':'🧅','ジャガイモ':'🥔','牛肉':'🥩',
-    'チキン':'🍗','ターメリック':'💛','クミン':'🤎','コリアンダー':'💚','カルダモン':'🌱',
-};
-
-// ===== シナリオ =====
+// ----- シナリオ -----
 function tutScenario_Player() {
-    const name = tutLS.getName();
+    var name = lsGet('name');
     if(name) {
         document.getElementById('tut-player-name').textContent = name;
-        tutScenario_Player_After(); return;
+        tutScenario_Player_After();
+        return;
     }
     tutAllowedTabs = [];
     tutShowSpotlight([]);
     tutSpeak([
-        'ようこそ、バトルカレーへ！\nQRコードで食材を集めてカレーを作り\n料理バトルで勝利を目指すゲームです！',
-        'まずはあなたの名前を\n入力してください！',
-    ], () => {
+        'ようこそ、バトルカレーへ！\nQRコードで食材を集めて\nカレーを作るゲームです！',
+        'まずはあなたの名前を\n入力しましょう。',
+    ], function(){
         tutAllowedTabs = [];
         tutShowSpotlight([{ el: document.getElementById('btn-name-input'), padding: 10 }]);
     });
@@ -405,46 +300,39 @@ function tutScenario_Player() {
 function tutScenario_Player_After() {
     document.getElementById('btn-name-input').style.display = 'none';
     document.getElementById('tut-player-hint').textContent = '設定完了！';
-    tutShowSpotlight([]);
     tutAllowedTabs = [];
+    tutShowSpotlight([]);
     tutSpeak([
-        `${tutLS.getName()}さん、よろしく！\nとても素敵な名前ですね！`,
-        '次は「QR」タブをタップして\nQRコードで食材を集めましょう！',
-    ], () => {
-        tutLS.setStep('qr');
+        lsGet('name') + 'さん、よろしく！',
+        '次は「QR」タブをタップして\nQRコードで食材を入手しましょう！',
+    ], function(){
+        lsSet('step', 'qr');
         tutAllowedTabs = ['qr'];
         tutShowSpotlight([{ el: document.getElementById('tab-qr'), padding: 6 }]);
-        tutWaitTab('qr', () => {
-            tutHideSpotlight();
+        tutWaitTab('qr', function(){
             tutAllowedTabs = [];
+            tutHideSpotlight();
             tutScenario_QR();
         });
     });
 }
 
 function tutScenario_QR() {
-    tutSpeak(['QRコードをスキャンして食材を入手しましょう！'], () => {});
+    tutSpeak(['QRコードをスキャンして\n食材を入手しましょう！'], function(){});
     // TODO: 次ステップで実装
 }
-function tutScenario_Fridge() {
-    tutRenderFridge();
-    tutSpeak(['冷蔵庫を確認してください。']);
-}
-function tutScenario_Cook() {}
-function tutScenario_Battle() {}
 
-// ===== 初期化 =====
-window.addEventListener('load', () => {
-    if(localStorage.getItem(LS.done) === '1') { window.location.href='game.html'; return; }
-    tutShowSpotlight([]); // 最初から全画面暗転
-    const step = tutLS.getStep();
-    const name = tutLS.getName();
+// ----- 初期化 -----
+window.addEventListener('load', function(){
+    if(localStorage.getItem('tut_done') === '1'){ window.location.href = 'game.html'; return; }
+    tutShowSpotlight([]);
+    var step = lsGet('step');
+    var name = lsGet('name');
     if(name) document.getElementById('tut-player-name').textContent = name;
-    switch(step) {
-        case 'start': case 'named': tutSwitchTab('player'); tutScenario_Player(); break;
-        case 'qr':    tutSwitchTab('qr');     tutScenario_QR(); break;
-        case 'fridge':tutSwitchTab('fridge'); tutScenario_Fridge(); break;
-        default:      tutSwitchTab('player'); tutScenario_Player();
+    if(step === 'qr'){
+        tutSwitchTab('qr'); tutScenario_QR();
+    } else {
+        tutSwitchTab('player'); tutScenario_Player();
     }
 });
 </script>
