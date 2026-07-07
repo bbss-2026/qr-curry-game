@@ -978,10 +978,7 @@ var NAR_H=116;
 
 function tutShowSpotlight(targets){
     var wrap=document.getElementById('gameWrapper');
-    // overflowを直接制御（クラスより確実に即時反映）
     wrap.style.overflowY='auto';
-    void wrap.scrollTop; // 強制リフロー（overflow変更を確定）
-
     if(!targets||targets.length===0){
         _spotTargets=null;
         wrap.style.overflowY='hidden';
@@ -989,38 +986,14 @@ function tutShowSpotlight(targets){
         return;
     }
     _spotTargets=targets;
-    // 全暗転
-    var top=document.getElementById('ov-top');
-    top.style.cssText='top:0;left:0;right:0;height:'+window.innerHeight+'px;display:block;';
-    ['ov-bot','ov-lft','ov-rgt'].forEach(function(id){var e=document.getElementById(id);if(e)e.style.display='none';});
-    // スクロール実行（overflow:autoが確定済みなので動く）
-    tutInstantScrollToCenter(_spotTargets);
-    // スクロール後すぐロックしてスポット表示
+    // 要素が画面外（上）にある場合だけトップにスクロール
+    var anyAbove=targets.some(function(t){
+        if(!t.el)return false;
+        return t.el.getBoundingClientRect().top<0;
+    });
+    if(anyAbove) wrap.scrollTop=0;
     wrap.style.overflowY='hidden';
-    requestAnimationFrame(function(){
-        tutApplySpotlight();
-    });
-}
-
-function tutInstantScrollToCenter(targets){
-    var wrap=document.getElementById('gameWrapper');
-    var wrapRect=wrap.getBoundingClientRect();
-    var viewH=window.innerHeight-NAR_H;
-    var minDocY=Infinity, maxDocY=-Infinity;
-    targets.forEach(function(t){
-        if(!t.el)return;
-        var r=t.el.getBoundingClientRect();
-        var p=t.padding||8;
-        // viewport座標→wrapper内のドキュメント座標に変換
-        var docTop=r.top-wrapRect.top+wrap.scrollTop;
-        var docBot=r.bottom-wrapRect.top+wrap.scrollTop;
-        minDocY=Math.min(minDocY,docTop-p);
-        maxDocY=Math.max(maxDocY,docBot+p);
-    });
-    if(minDocY===Infinity)return;
-    var centerDocY=(minDocY+maxDocY)/2;
-    var targetScroll=Math.max(0,centerDocY-viewH/2);
-    wrap.scrollTop=targetScroll; // 即時スクロール
+    requestAnimationFrame(function(){ tutApplySpotlight(); });
 }
 
 function tutApplySpotlight(){
