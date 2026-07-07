@@ -1,0 +1,539 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>バトルカレー チュートリアル</title>
+    <link rel="icon" type="image/png" sizes="192x192" href="fabi/fabi-01.png">
+    <style>
+        /* ===== ベース ===== */
+        * { box-sizing: border-box; }
+        body { font-family: 'Helvetica Neue', Arial, sans-serif; background-color: #b88742; color: #420000; padding: 0; margin: 0; text-align: center; }
+        #tutWrapper { background-color: #efdeb1; max-width: 480px; margin: 0 auto; min-height: 100vh; position: relative; overflow: hidden; }
+
+        /* ===== ロゴ ===== */
+        .logo-area { padding: 20px 20px 12px; text-align: center; }
+        .logo-area img { width: 192px; max-width: 80%; }
+
+        /* ===== タブ ===== */
+        .tab-nav { display: flex; border-bottom: 2px solid #b88742; background: #efdeb1; position: sticky; top: 0; z-index: 100; }
+        .tab-btn { flex: 1; padding: 10px 4px 0 4px; border: none; background: none; font-size: 11pt; font-weight: bold; cursor: pointer; color: #420000; display: flex; flex-direction: column; align-items: center; gap: 6px; white-space: nowrap; }
+        .tab-btn::after { content: ''; display: block; width: 90%; height: 2px; background: #420000; }
+        .tab-btn.active { color: #b88742; }
+        .tab-btn.active::after { background: #b88742; }
+
+        /* ===== ページコンテンツ ===== */
+        .page { display: none; text-align: left; padding: 16px 16px 200px 16px; }
+        .page.active { display: block; }
+
+        /* ===== 案内人セリフウィンドウ（画面下部固定）===== */
+        #tutNarrator {
+            position: fixed;
+            bottom: 0; left: 50%; transform: translateX(-50%);
+            width: 100%; max-width: 480px;
+            background: #2a1200;
+            border-top: 3px solid #b88742;
+            z-index: 5000;
+            padding: 12px 14px 14px;
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+            min-height: 110px;
+            cursor: pointer;
+            user-select: none;
+        }
+        #tutNarrator .mc-img {
+            flex-shrink: 0;
+            width: 72px; height: 72px;
+            border-radius: 8px;
+            object-fit: cover;
+            border: 2px solid #b88742;
+        }
+        #tutNarrator .speech-area {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            gap: 4px;
+        }
+        #tutNarrator .speech-name {
+            font-size: 11px;
+            color: #b88742;
+            font-weight: bold;
+            letter-spacing: 0.05em;
+        }
+        #tutNarrator .speech-text {
+            font-size: 14px;
+            color: #fff8ee;
+            line-height: 1.6;
+            min-height: 4em;
+            white-space: pre-wrap;
+        }
+        #tutNarrator .speech-next {
+            align-self: flex-end;
+            font-size: 18px;
+            color: #b88742;
+            animation: blinkArrow 0.8s ease-in-out infinite;
+            opacity: 0;
+        }
+        #tutNarrator .speech-next.show { opacity: 1; }
+        @keyframes blinkArrow { 0%,100%{opacity:1;} 50%{opacity:0.2;} }
+
+        /* ===== スポットライトオーバーレイ ===== */
+        #tutOverlay {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            z-index: 4000;
+            pointer-events: auto;
+            display: none;
+        }
+        /* SVGで穴を開ける */
+        #tutOverlaySvg {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+        }
+
+        /* ===== プレイヤータブ：基本UI ===== */
+        .player-icon-area { text-align: center; padding: 16px 0 8px; }
+        .player-icon-circle { width: 100px; height: 100px; border-radius: 50%; background: #fff8ee; border: 3px solid #b88742; margin: 0 auto; display: flex; align-items: center; justify-content: center; font-size: 48px; }
+        .player-name-display { font-size: 18px; font-weight: bold; color: #420000; margin: 8px 0 4px; text-align: center; }
+        .player-id-display { font-size: 11px; color: #9a8060; text-align: center; margin-bottom: 16px; }
+        .btn-primary { display: block; width: 80%; margin: 12px auto; padding: 12px; background: #b88742; color: #efdeb1; border: none; border-radius: 4px; font-size: 15px; font-weight: bold; cursor: pointer; }
+
+        /* ===== QRタブ：基本UI ===== */
+        #qr-camera-area { background: #111; border-radius: 8px; aspect-ratio: 1; width: 100%; max-width: 280px; margin: 0 auto; display: flex; align-items: center; justify-content: center; color: #666; font-size: 13px; }
+        .get-box { background: #fff8ee; border: 2px solid #b88742; border-radius: 8px; padding: 16px; margin: 12px 0; text-align: center; display: none; }
+        .get-box-title { font-size: 16px; font-weight: bold; color: #420000; margin-bottom: 8px; }
+        .get-item-emoji { font-size: 48px; margin: 8px 0; }
+        .get-item-name { font-size: 14px; color: #420000; font-weight: bold; }
+
+        /* ===== 冷蔵庫タブ：基本UI ===== */
+        .fridge-section { margin-bottom: 16px; }
+        .fridge-section h3 { font-size: 13px; font-weight: bold; color: #420000; border-bottom: 1px solid #b88742; padding-bottom: 4px; margin-bottom: 8px; }
+        .fridge-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+        .fridge-item { background: #fff8ee; border: 1px solid #b88742; border-radius: 6px; padding: 6px 4px; text-align: center; font-size: 10px; }
+        .fridge-item img { width: 36px; height: 36px; object-fit: contain; }
+
+        /* ===== 調理タブ：基本UI ===== */
+        .cook-slot-row { display: flex; gap: 6px; margin-bottom: 8px; }
+        .cook-slot { flex: 1; min-height: 80px; border: 1px dashed #b88742; border-radius: 6px; display: flex; flex-direction: column; align-items: center; justify-content: center; background: #fffdf0; font-size: 10px; color: #b88742; }
+
+        /* ===== 対戦タブ：基本UI ===== */
+        .battle-area { border-radius: 8px; overflow: hidden; margin-bottom: 12px; }
+        .battle-status-bar { background: rgba(0,0,0,0.6); color: #fff; font-size: 12px; padding: 6px 10px; display: flex; justify-content: space-between; align-items: center; }
+        .hp-bar-outer { flex: 1; height: 10px; background: #444; border-radius: 5px; margin: 0 8px; }
+        .hp-bar-inner { height: 100%; border-radius: 5px; background: #2ecc71; transition: width 0.5s ease; }
+        .battle-log { background: #1a0800; color: #fff8ee; border-radius: 6px; padding: 10px 12px; min-height: 80px; font-size: 13px; line-height: 1.7; text-align: left; }
+
+        /* ===== 汎用 ===== */
+        .btn-gold { background: #b88742; color: #efdeb1; border: none; border-radius: 4px; padding: 10px 20px; font-size: 14px; font-weight: bold; cursor: pointer; }
+        .section-label { font-size: 12px; color: #9a8060; margin: 8px 0 4px; }
+        .stat-row { display: flex; gap: 8px; flex-wrap: wrap; font-size: 12px; color: #420000; }
+        .stat-badge { background: #fff8ee; border: 1px solid #b88742; border-radius: 4px; padding: 2px 8px; font-weight: bold; }
+    </style>
+</head>
+<body>
+<div id="tutWrapper">
+
+    <!-- ロゴ -->
+    <div class="logo-area">
+        <img src="battlecurry-logo.svg" alt="Battle Curry">
+    </div>
+
+    <!-- タブナビゲーション -->
+    <nav class="tab-nav" id="tutTabNav">
+        <button class="tab-btn active" id="tab-player" onclick="tutSwitchTab('player')">プレイヤー</button>
+        <button class="tab-btn" id="tab-qr"     onclick="tutSwitchTab('qr')">QR</button>
+        <button class="tab-btn" id="tab-fridge" onclick="tutSwitchTab('fridge')">冷蔵庫</button>
+        <button class="tab-btn" id="tab-cook"   onclick="tutSwitchTab('cook')">調理</button>
+        <button class="tab-btn" id="tab-battle" onclick="tutSwitchTab('battle')">対戦</button>
+    </nav>
+
+    <!-- ===== プレイヤータブ ===== -->
+    <div class="page active" id="page-player">
+        <div class="player-icon-area">
+            <div class="player-icon-circle" id="tut-player-icon">🍛</div>
+        </div>
+        <div class="player-name-display" id="tut-player-name">――</div>
+        <div class="player-id-display" id="tut-player-id">ID: ――</div>
+        <div style="text-align:center;">
+            <button class="btn-primary" id="btn-name-input">名前を入力する</button>
+        </div>
+    </div>
+
+    <!-- ===== QRタブ ===== -->
+    <div class="page" id="page-qr">
+        <div style="text-align:center; padding: 8px 0 12px;">
+            <div id="qr-camera-area">
+                <span>カメラを起動してQRをスキャン</span>
+            </div>
+        </div>
+        <div class="get-box" id="tut-get-box">
+            <div class="get-box-title" id="tut-get-title">🎉 食材ゲット！</div>
+            <div class="get-item-emoji" id="tut-get-emoji"></div>
+            <div class="get-item-name" id="tut-get-name"></div>
+            <button class="btn-gold" style="margin-top:12px;" onclick="tutCloseGetBox()">OK</button>
+        </div>
+    </div>
+
+    <!-- ===== 冷蔵庫タブ ===== -->
+    <div class="page" id="page-fridge">
+        <div class="fridge-section">
+            <h3>所持食材</h3>
+            <div class="fridge-grid" id="tut-fridge-grid">
+                <!-- JSで生成 -->
+            </div>
+        </div>
+        <div class="fridge-section">
+            <h3>所持スパイス</h3>
+            <div class="fridge-grid" id="tut-spice-grid">
+                <!-- JSで生成 -->
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== 調理タブ ===== -->
+    <div class="page" id="page-cook">
+        <div class="section-label">食材スロット（最大3つ）</div>
+        <div class="cook-slot-row" id="tut-cook-slots">
+            <div class="cook-slot" id="tut-slot-0">＋</div>
+            <div class="cook-slot" id="tut-slot-1">＋</div>
+            <div class="cook-slot" id="tut-slot-2">＋</div>
+        </div>
+        <div class="section-label">スパイス（任意）</div>
+        <div class="cook-slot-row">
+            <div class="cook-slot" id="tut-slot-spice" style="flex:0 0 100px;">＋</div>
+        </div>
+        <button class="btn-primary" id="btn-tut-cook" style="margin-top:16px;">カレーを調理する</button>
+    </div>
+
+    <!-- ===== 対戦タブ ===== -->
+    <div class="page" id="page-battle">
+        <div id="tut-battle-area">
+            <!-- 対戦UIはJSで構築 -->
+            <div style="text-align:center; color:#9a8060; padding:20px;">対戦の準備をしています...</div>
+        </div>
+    </div>
+
+</div><!-- /#tutWrapper -->
+
+<!-- ===== スポットライトオーバーレイ ===== -->
+<div id="tutOverlay">
+    <svg id="tutOverlaySvg" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+            <mask id="spotMask">
+                <rect width="100%" height="100%" fill="white"/>
+                <!-- 穴はJSで動的に追加 -->
+            </mask>
+        </defs>
+        <rect width="100%" height="100%" fill="rgba(0,0,0,0.65)" mask="url(#spotMask)"/>
+    </svg>
+</div>
+
+<!-- ===== 案内人セリフウィンドウ ===== -->
+<div id="tutNarrator" onclick="tutNarratorTap()">
+    <img class="mc-img" src="tutorial/tutorial-mc.png" alt="案内人">
+    <div class="speech-area">
+        <div class="speech-name">案内人</div>
+        <div class="speech-text" id="tutSpeechText"></div>
+        <div class="speech-next" id="tutSpeechNext">▼</div>
+    </div>
+</div>
+
+<script>
+// ===================================================
+// チュートリアル骨格 JS
+// ===================================================
+
+// ----- 進行管理 -----
+const TUT_KEY_STEP = 'tut_step';
+const TUT_KEY_DONE = 'tut_done';
+const TUT_KEY_NAME = 'tut_player_name';
+const TUT_KEY_INV  = 'tut_inventory';    // 入手食材
+const TUT_KEY_CURRY= 'tut_curry_result'; // 調理したカレー
+
+function tutSaveStep(step) {
+    localStorage.setItem(TUT_KEY_STEP, step);
+}
+function tutGetStep() {
+    return localStorage.getItem(TUT_KEY_STEP) || 'start';
+}
+function tutSaveName(name) {
+    localStorage.setItem(TUT_KEY_NAME, name);
+}
+function tutGetName() {
+    return localStorage.getItem(TUT_KEY_NAME) || '';
+}
+function tutSaveInventory(inv) {
+    localStorage.setItem(TUT_KEY_INV, JSON.stringify(inv));
+}
+function tutGetInventory() {
+    try { return JSON.parse(localStorage.getItem(TUT_KEY_INV) || '{}'); } catch(e) { return {}; }
+}
+function tutSaveCurry(curry) {
+    localStorage.setItem(TUT_KEY_CURRY, JSON.stringify(curry));
+}
+function tutGetCurry() {
+    try { return JSON.parse(localStorage.getItem(TUT_KEY_CURRY) || 'null'); } catch(e) { return null; }
+}
+function tutComplete() {
+    localStorage.setItem(TUT_KEY_DONE, '1');
+    // ゲーム本体にデータを引き継いでからリダイレクト
+    tutTransferDataToGame();
+    window.location.href = 'game.html';
+}
+
+// ----- ゲームへのデータ引き継ぎ -----
+function tutTransferDataToGame() {
+    // 名前
+    const name = tutGetName();
+    if(name) {
+        try {
+            let stats = JSON.parse(localStorage.getItem('battleCurryStats') || '{}');
+            stats.playerName = name;
+            localStorage.setItem('battleCurryStats', JSON.stringify(stats));
+        } catch(e) {}
+    }
+    // 食材・スパイスはバトルで消費済みなので在庫0、ただし discoveredItems に記録
+    const inv = tutGetInventory();
+    try {
+        let saveData = JSON.parse(localStorage.getItem('battleCurrySave') || '{}');
+        if(!saveData.discoveredItems) saveData.discoveredItems = {};
+        Object.keys(inv).forEach(k => { saveData.discoveredItems[k] = true; });
+        // レシピ履歴
+        const curry = tutGetCurry();
+        if(curry) {
+            if(!saveData.recipeHistory) saveData.recipeHistory = [];
+            saveData.recipeHistory.push(curry);
+        }
+        if(name) saveData.playerName = name;
+        localStorage.setItem('battleCurrySave', JSON.stringify(saveData));
+    } catch(e) {}
+}
+
+// ----- タブ切り替え -----
+let tutCurrentTab = 'player';
+function tutSwitchTab(tab) {
+    tutCurrentTab = tab;
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+    const tabBtn = document.getElementById('tab-' + tab);
+    const page   = document.getElementById('page-' + tab);
+    if(tabBtn) tabBtn.classList.add('active');
+    if(page)   page.classList.add('active');
+}
+
+// ----- セリフエンジン -----
+let tutSpeechQueue  = [];  // 未表示のセリフキュー
+let tutTypingTimer  = null;
+let tutIsTyping     = false;
+let tutCurrentFull  = '';
+let tutCurrentIndex = 0;
+let tutOnComplete    = null; // セリフ全完了時のコールバック
+
+const SPEECH_EL  = () => document.getElementById('tutSpeechText');
+const NEXT_EL    = () => document.getElementById('tutSpeechNext');
+const TYPING_SPD = 40; // ms/文字
+
+// セリフを配列で受け取って順番に表示
+// speeches = ['セリフ1', 'セリフ2', ...], onAllDone = 全完了後callback
+function tutSpeak(speeches, onAllDone) {
+    tutSpeechQueue = [...speeches];
+    tutOnComplete  = onAllDone || null;
+    tutNextSpeech();
+}
+
+function tutNextSpeech() {
+    if(tutSpeechQueue.length === 0) {
+        // 全セリフ終了
+        NEXT_EL().classList.remove('show');
+        if(tutOnComplete) {
+            const cb = tutOnComplete;
+            tutOnComplete = null;
+            cb();
+        }
+        return;
+    }
+    const text = tutSpeechQueue.shift();
+    tutStartTyping(text);
+}
+
+function tutStartTyping(text) {
+    tutIsTyping    = true;
+    tutCurrentFull = text;
+    tutCurrentIndex= 0;
+    NEXT_EL().classList.remove('show');
+    SPEECH_EL().textContent = '';
+    clearInterval(tutTypingTimer);
+    tutTypingTimer = setInterval(() => {
+        if(tutCurrentIndex < tutCurrentFull.length) {
+            SPEECH_EL().textContent += tutCurrentFull[tutCurrentIndex];
+            tutCurrentIndex++;
+        } else {
+            clearInterval(tutTypingTimer);
+            tutIsTyping = false;
+            NEXT_EL().classList.add('show');
+        }
+    }, TYPING_SPD);
+}
+
+// セリフウィンドウをタップしたとき
+function tutNarratorTap() {
+    if(tutIsTyping) {
+        // タイピング中→即全表示
+        clearInterval(tutTypingTimer);
+        tutIsTyping = false;
+        SPEECH_EL().textContent = tutCurrentFull;
+        NEXT_EL().classList.add('show');
+    } else if(NEXT_EL().classList.contains('show')) {
+        // 次のセリフへ
+        NEXT_EL().classList.remove('show');
+        tutNextSpeech();
+    }
+}
+
+// ----- スポットライトオーバーレイ -----
+let tutOverlayActive = false;
+
+// targets = [{el: HTMLElement, padding:4}, ...] または null（全ロック）
+function tutShowSpotlight(targets) {
+    const overlay = document.getElementById('tutOverlay');
+    const mask    = document.getElementById('spotMask');
+    overlay.style.display = 'block';
+    tutOverlayActive = true;
+
+    // 既存の穴を削除
+    const existing = mask.querySelectorAll('rect.hole, circle.hole');
+    existing.forEach(e => e.remove());
+
+    if(!targets || targets.length === 0) return;
+
+    targets.forEach(({ el, padding = 6, radius = 8 }) => {
+        if(!el) return;
+        const rect = el.getBoundingClientRect();
+        const pad  = padding;
+        const hole = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+        hole.classList.add('hole');
+        hole.setAttribute('x',      rect.left   - pad);
+        hole.setAttribute('y',      rect.top    - pad);
+        hole.setAttribute('width',  rect.width  + pad * 2);
+        hole.setAttribute('height', rect.height + pad * 2);
+        hole.setAttribute('rx',     radius);
+        hole.setAttribute('ry',     radius);
+        hole.setAttribute('fill',   'black');
+        mask.appendChild(hole);
+    });
+}
+
+function tutHideSpotlight() {
+    document.getElementById('tutOverlay').style.display = 'none';
+    tutOverlayActive = false;
+}
+
+// オーバーレイクリック時（穴の外を触ったとき）
+document.getElementById('tutOverlay').addEventListener('click', (e) => {
+    // 穴の上はSVGマスクで黒になっているので pointer-events が効かない
+    // 将来的にヒントアニメーションなど追加可能
+});
+
+// ----- QRゲットボックス -----
+function tutShowGetBox(title, emoji, name) {
+    document.getElementById('tut-get-title').innerHTML = title;
+    document.getElementById('tut-get-emoji').innerHTML = emoji;
+    document.getElementById('tut-get-name').textContent = name;
+    document.getElementById('tut-get-box').style.display = 'block';
+}
+function tutCloseGetBox() {
+    document.getElementById('tut-get-box').style.display = 'none';
+}
+
+// ----- 冷蔵庫表示 -----
+function tutRenderFridge() {
+    const inv = tutGetInventory();
+    const grid = document.getElementById('tut-fridge-grid');
+    const spiceGrid = document.getElementById('tut-spice-grid');
+    grid.innerHTML = '';
+    spiceGrid.innerHTML = '';
+    Object.entries(inv).forEach(([name, count]) => {
+        if(count <= 0) return;
+        const div = document.createElement('div');
+        div.className = 'fridge-item';
+        div.innerHTML = `<div style="font-size:11px;font-weight:bold;">${name}</div><div style="font-size:10px;color:#9a8060;">×${count}</div>`;
+        if(TUT_SPICES.includes(name)) spiceGrid.appendChild(div);
+        else grid.appendChild(div);
+    });
+}
+const TUT_SPICES = ['ターメリック','クミン','コリアンダー','ブラックペッパー','チリパウダー','シナモン','クローブ','カルダモン','サフラン','マンゴーチャツネ'];
+
+// ----- 初期化 -----
+window.addEventListener('load', () => {
+    // チュートリアル完了済みならgame.htmlへ
+    if(localStorage.getItem(TUT_KEY_DONE) === '1') {
+        window.location.href = 'game.html';
+        return;
+    }
+    tutInit();
+});
+
+function tutInit() {
+    const step = tutGetStep();
+    const name = tutGetName();
+
+    // 名前があれば表示
+    if(name) {
+        document.getElementById('tut-player-name').textContent = name;
+    }
+
+    // ステップに応じて再開
+    switch(step) {
+        case 'start':
+        case 'named':
+            tutSwitchTab('player');
+            tutScenario_Player();
+            break;
+        case 'qr':
+            tutSwitchTab('qr');
+            tutScenario_QR();
+            break;
+        case 'cooked':
+        case 'fridge':
+            tutRenderFridge();
+            tutSwitchTab('fridge');
+            tutScenario_Fridge();
+            break;
+        case 'battle':
+            tutSwitchTab('battle');
+            tutScenario_Battle();
+            break;
+        default:
+            tutSwitchTab('player');
+            tutScenario_Player();
+    }
+}
+
+// ===================================================
+// シナリオ関数（次のステップで中身を実装）
+// ===================================================
+function tutScenario_Player() {
+    // TODO: 次ステップで実装
+    tutSpeak(['こんにちは！これはチュートリアルです。']);
+}
+function tutScenario_QR() {
+    // TODO
+    tutSpeak(['QRコードをスキャンして食材を入手しましょう！']);
+}
+function tutScenario_Fridge() {
+    // TODO
+    tutSpeak(['冷蔵庫に食材が入っています。']);
+}
+function tutScenario_Cook() {
+    // TODO
+    tutSpeak(['食材を選んでカレーを調理しましょう！']);
+}
+function tutScenario_Battle() {
+    // TODO
+    tutSpeak(['いざバトル！']);
+}
+</script>
+</body>
+</html>
