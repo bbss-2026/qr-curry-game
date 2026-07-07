@@ -5,180 +5,797 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <title>バトルカレー チュートリアル</title>
     <link rel="icon" type="image/png" sizes="192x192" href="fabi/fabi-01.png">
-    <style>
-        * { box-sizing: border-box; }
-        body { font-family: 'Helvetica Neue', Arial, sans-serif; background: #b88742; color: #420000; padding: 0; margin: 0; text-align: center; overflow: hidden; }
-        #tutWrapper { background: #efdeb1; max-width: 480px; margin: 0 auto; min-height: 100vh; overflow-y: auto; overflow-x: hidden; -webkit-overflow-scrolling: touch; }
-        .logo-area { padding: 20px 20px 12px; text-align: center; }
+    <style>        body { font-family: 'Helvetica Neue', Arial, sans-serif; background-color: #b88742; color: #420000; padding: 0; text-align: center; margin: 0; }
+        #gameWrapper { background-color: #efdeb1; max-width: 480px; margin: 0 auto; min-height: 100vh; }
+        .container { max-width: 500px; margin: 0 auto; background: #efdeb1; padding: 0; box-sizing: border-box; position: relative; min-height: 100vh; }
+        h1 { display: none; }
+        .logo-area { padding: 24px 20px 16px; text-align: center; position: relative; }
         .logo-area img { width: 192px; max-width: 80%; }
 
-        /* タブ */
-        .tab-nav { display: flex; border-bottom: 2px solid #b88742; background: #efdeb1; position: sticky; top: 0; z-index: 200; }
-        .tab-btn { flex: 1; padding: 10px 4px 0 4px; border: none; background: none; font-size: 11pt; font-weight: bold; cursor: pointer; color: #420000; display: flex; flex-direction: column; align-items: center; gap: 6px; white-space: nowrap; }
+        /* ===== イントロアニメーション ===== */
+        #introOverlay { position:fixed; top:0; left:0; width:100%; height:100%; z-index:10000; background:#efdeb1; transition:opacity 0.65s ease; }
+        #introOverlay.fade-out { opacity:0; pointer-events:none; }
+        #introBgStage { position:fixed; top:0; left:0; width:100%; height:100%; overflow:hidden; border-radius:0; filter:blur(10px) brightness(1.5); }
+        #iWhiteOverlay { position:absolute; top:0; left:0; width:100%; height:100%; background:rgba(255,255,255,0.3); pointer-events:none; transition:opacity 1.1s ease; }
+        #introLogo { position:fixed; top:50%; left:50%; transform:translate(-50%,-50%); width:240px; z-index:10001; transition:top 1.1s ease, transform 1.1s ease, width 1.1s ease; }
+        .intro-chara { position:absolute; opacity:0; transform:translateY(20px); transition:opacity 0.7s ease, transform 0.7s ease; }
+        .intro-chara.appear { opacity:1; transform:translateY(0); }
+
+        /* ===== TOP画面 キャラレイヤー ===== */
+        #topImageArea { position:relative; width:88%; max-width:360px; padding-bottom:95%; overflow:hidden; border-radius:8px; margin:8px 0 20px; }
+        #topImageArea .top-bg { position:absolute; top:0; left:0; width:100%; height:100%; object-fit:cover; object-position:center; display:block; }
+        .top-chara { position:absolute; }
+        @keyframes topFloat1 { 0%,100%{transform:translateY(0) scale(1);} 50%{transform:translateY(-8px) scale(1.02);} }
+        @keyframes topFloat2 { 0%,100%{transform:translateY(0) rotate(0);} 50%{transform:translateY(-6px) rotate(1deg);} }
+        /* ===== バトル技演出オーバーレイ ===== */
+        #battleSkillOverlay { position:fixed; top:0; left:0; width:100%; height:100%; z-index:6000; display:none; pointer-events:none; }
+        #battleSkillWindow { position:absolute; top:30%; left:50%; transform:translate(-50%,-50%); width:100%; max-width:480px; }
+        #battleSkillBgWrap { position:relative; clip-path:inset(50% 0 50% 0); }
+        #battleSkillBgImg { width:100%; height:auto; display:block; }
+        #battleSkillCharaImg { position:absolute; left:50%; top:80%; transform:translate(-50%,-50%) scale(1); width:60%; height:auto; object-fit:contain; z-index:1; }
+        /* 種連射ホームラン割り込み用オーバーレイ（overlay1の上に重ねる） */
+        #battleSkillOverlay2 { position:fixed; top:0; left:0; width:100%; height:100%; z-index:6100; display:none; pointer-events:none; }
+        #battleSkillWindow2 { position:absolute; top:30%; left:50%; transform:translate(-50%,-50%); width:100%; max-width:480px; }
+        #battleSkillBgWrap2 { position:relative; clip-path:inset(50% 0 50% 0); }
+        #battleSkillBgImg2 { width:100%; height:auto; display:block; }
+        #battleSkillCharaImg2 { position:absolute; left:50%; top:80%; transform:translate(-50%,-50%) scale(1); width:60%; height:auto; object-fit:contain; z-index:1; }
+        @keyframes potShake { 0%,100%{transform:translateX(0) rotate(0);} 12%{transform:translateX(-6px) rotate(-2.5deg);} 25%{transform:translateX(6px) rotate(2.5deg);} 37%{transform:translateX(-5px) rotate(-2deg);} 50%{transform:translateX(5px) rotate(2deg);} 62%{transform:translateX(-4px) rotate(-1deg);} 75%{transform:translateX(4px) rotate(1deg);} 87%{transform:translateX(-2px) rotate(-0.5deg);} }
+        #cookingAnimation { position:fixed; top:0; left:0; width:100%; height:100%; z-index:8000; display:none; background:rgba(0,0,0,0.72); }
+        #cookingScene { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); width:100%; max-width:480px; }
+        #cookingBg { width:100%; height:auto; display:block; }
+        #cookingPot { position:absolute; transform-origin:center bottom; }
+        .cook-icon-el { position:fixed; width:52px; height:52px; border-radius:50%; background:rgba(255,255,255,0.92); display:flex; align-items:center; justify-content:center; opacity:0; box-shadow:0 2px 8px rgba(0,0,0,0.3); pointer-events:none; z-index:8001; }
+        @keyframes topFloat3 { 0%,100%{transform:translateY(0);} 50%{transform:translateY(-9px) scale(1.015);} }
+        @keyframes topFloat4 { 0%,100%{transform:translateY(0) rotate(0);} 50%{transform:translateY(-5px) rotate(-2deg);} }
+        @keyframes topFloat5 { 0%,100%{transform:translateY(0) rotate(0);} 50%{transform:translateY(-7px) rotate(1.5deg);} }
+        .lunchtime-banner {
+            display: none; text-align: center; font-size: 12px; font-weight: bold;
+            color: #ffffff; background: #e67e22; padding: 8px 12px; margin: 0 16px 8px;
+            border-radius: 4px; animation: lunchtimeBlink 2.2s ease-in-out infinite;
+        }
+        @keyframes lunchtimeBlink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.4; }
+        }
+        #questGuideChar {
+            position: fixed; right: 12px; bottom: 12px; width: 144.5px; z-index: 500;
+            display: none; transform: translateY(210px); transition: transform 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+            pointer-events: auto; cursor: pointer;
+        }
+        #questGuideChar.show { transform: translateY(0); }
+        #questGuideChar img { width: 100%; display: block; filter: drop-shadow(0 4px 8px rgba(0,0,0,0.25)); -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; -webkit-user-drag: none; pointer-events: none; }
+        .cook-guide-speech {
+            display: none; position: absolute; bottom: 100%; right: 10%; margin-bottom: 10px;
+            background: #fffdf0; color: #420000; border: 2px solid #b88742; border-radius: 14px;
+            padding: 10px 14px; font-size: 12px; font-weight: bold; line-height: 1.5;
+            width: 200px; text-align: left; box-shadow: 0 4px 10px rgba(0,0,0,0.25);
+            white-space: pre-line;
+        }
+        .cook-guide-speech.show { display: block; animation: cookSpeechPop 0.25s ease-out; }
+        .cook-guide-speech::after {
+            content: ""; position: absolute; bottom: -10px; right: 24px;
+            border-width: 10px 8px 0 8px; border-style: solid;
+            border-color: #b88742 transparent transparent transparent;
+        }
+        .cook-guide-speech::before {
+            content: ""; position: absolute; bottom: -7px; right: 25px;
+            border-width: 8px 7px 0 7px; border-style: solid;
+            border-color: #fffdf0 transparent transparent transparent; z-index: 1;
+        }
+        @keyframes cookSpeechPop { 0% { transform: scale(0.7); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
+        .tab-menu { display: flex; justify-content: space-around; margin: 0; background: #efdeb1; padding: 0; gap: 0; flex-wrap: nowrap; }
+        .tab-btn { flex: 1; padding: 12px 4px 0 4px; border: none; background: none; font-size: 11pt; font-weight: bold; cursor: pointer; color: #420000; display: flex; flex-direction: column; align-items: center; text-align: center; gap: 8px; transition: color 0.2s; white-space: nowrap; }
         .tab-btn::after { content: ''; display: block; width: 90%; height: 2px; background: #420000; }
         .tab-btn.active { color: #b88742; }
         .tab-btn.active::after { background: #b88742; }
-
-        /* ページ */
-        .page { display: none; text-align: left; padding: 16px 16px 220px; }
+        .tab-btn:hover { color: #b88742; }
+        .status-bar-wrap { padding: 12px 20px 16px; background: #efdeb1; }
+        .status-bar { background: white; color: #420000; font-size: 12px; font-weight: bold; padding: 8px 14px; text-align: center; letter-spacing: 0.02em; border-radius: 2px; display: flex; flex-wrap: wrap; justify-content: center; gap: 0 8px; }
+        .status-bar .sep { color: #b88742; margin: 0 2px; }
+        .page { display: none; text-align: left; padding: 20px 20px; box-sizing: border-box; width: 100%; }
+        .copyright-footer { text-align: center; font-size: 9px; color: #b0a080; margin-top: 24px; padding-top: 10px; line-height: 1.6; }
         .page.active { display: block; }
 
-        /* ステータスバー */
-        .status-bar-wrap { background: #fff8ee; border-bottom: 1px solid #b88742; }
-        .status-bar { font-size: 11px; padding: 6px 12px; display: flex; flex-wrap: wrap; gap: 4px 10px; color: #420000; justify-content: center; }
+        /* チュートリアルフルスクリーンビューアー */
+        .tutorial-fullscreen {
+            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: #1a1a1a; z-index: 9000; flex-direction: column;
+        }
+        .tutorial-fullscreen.active { display: flex; }
+        .tutorial-header {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 12px 16px; background: #420000; flex-shrink: 0;
+        }
+        .tutorial-close {
+            background: transparent; border: none; color: #efdeb1; font-size: 22px;
+            cursor: pointer; padding: 4px 8px; line-height: 1;
+        }
+        .tutorial-page-indicator { color: #efdeb1; font-size: 13px; font-weight: bold; }
+        .tutorial-image-wrap {
+            flex: 1; overflow-y: auto; display: flex; align-items: flex-start;
+            justify-content: center; background: #1a1a1a; -webkit-overflow-scrolling: touch;
+        }
+        .tutorial-image-wrap img {
+            width: 100%; max-width: 521px; height: auto; display: block;
+        }
+        .tutorial-nav {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 10px 12px; background: #420000; flex-shrink: 0; gap: 8px;
+        }
+        .tutorial-nav-btn {
+            background: #b88742; color: #efdeb1; border: none; border-radius: 4px;
+            padding: 10px 16px; font-size: 13px; font-weight: bold; cursor: pointer;
+            flex-shrink: 0;
+        }
+        .tutorial-nav-btn:disabled { background: #6b5a3f; color: #a39a8a; cursor: not-allowed; }
+        .tutorial-dots { display: flex; gap: 6px; }
+        .tutorial-dot {
+            width: 8px; height: 8px; border-radius: 50%; background: #6b5a3f;
+            cursor: pointer; transition: background 0.2s;
+        }
+        .tutorial-dot.active { background: #efdeb1; }
 
-        /* 案内人 */
-        #tutNarrator { position: fixed; bottom: 0; left: 50%; transform: translateX(-50%); width: 100%; max-width: 480px; background: #2a1200; border-top: 3px solid #b88742; z-index: 5000; padding: 12px 14px 14px; display: flex; align-items: flex-start; gap: 10px; min-height: 110px; cursor: pointer; user-select: none; }
-        #tutNarrator .mc-img { flex-shrink: 0; width: 72px; height: 72px; object-fit: contain; }
-        .speech-text { font-size: 14px; color: #fff8ee; line-height: 1.6; min-height: 4em; white-space: pre-wrap; text-align: left; flex: 1; }
-        .speech-next { font-size: 18px; color: #b88742; opacity: 0; align-self: flex-end; }
-        .speech-next.show { opacity: 1; animation: blinkArr 0.8s ease-in-out infinite; }
+        /* QR BINGO */
+        .bingo-body { flex:1; overflow-y:auto; display:flex; flex-direction:column; align-items:center; padding:16px; -webkit-overflow-scrolling:touch; }
+        .bingo-body.movie-centered { justify-content:center; }
+        .bingo-title { color:#efdeb1; font-size:22px; font-weight:bold; text-align:center; margin-bottom:4px; letter-spacing:0.05em; }
+        .bingo-subtitle { color:#d8c9a3; font-size:12px; text-align:center; margin-bottom:16px; }
+        .bingo-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:6px; width:100%; max-width:380px; margin-bottom:16px; }
+        .bingo-cell {
+            position:relative; aspect-ratio:1/1; background:#3a3a3a; border:2px solid #b88742; border-radius:8px;
+            display:flex; align-items:center; justify-content:center;
+        }
+        .bingo-cell-inner { position:absolute; top:0; left:0; width:100%; height:100%; display:flex; align-items:center; justify-content:center; overflow:hidden; border-radius:6px; }
+        .bingo-cell img { width:62%; height:62%; object-fit:contain; }
+        .bingo-cell .bingo-unknown { font-size:24px; color:#8a7a5a; font-weight:bold; }
+        .bingo-cell.fall-in { animation: bingoFallIn 0.6s cubic-bezier(0.34,1.56,0.64,1) both; }
+        @keyframes bingoFallIn {
+            0% { transform: translateY(-400px) rotate(-15deg); opacity:0; }
+            100% { transform: translateY(0) rotate(0deg); opacity:1; }
+        }
+        .bingo-mark {
+            position:absolute; top:0; left:0; width:100%; height:100%;
+            display:flex; align-items:center; justify-content:center; pointer-events:none; z-index:5;
+        }
+        .bingo-mark-circle {
+            width:78%; height:78%; border:5px solid #e74c3c; border-radius:50%;
+            box-shadow:0 0 8px rgba(231,76,60,0.8); animation: bingoMarkPop 0.4s ease-out;
+        }
+        @keyframes bingoMarkPop { 0%{ transform:scale(0); opacity:0;} 60%{ transform:scale(1.2); opacity:1;} 100%{ transform:scale(1); } }
+        .bingo-mark-circle.bingo-mark-drop {
+            animation: bingoMarkDrop 1.0s cubic-bezier(0.34,1.56,0.64,1) both, bingoMarkShine 0.6s ease-out 1.0s both;
+        }
+        @keyframes bingoMarkDrop {
+            0% { transform: translateY(-1400%) scale(4); opacity:0; }
+            70% { transform: translateY(0) scale(1); opacity:1; }
+            85% { transform: scale(1.25); }
+            100% { transform: scale(1); }
+        }
+        @keyframes bingoMarkShine {
+            0% { box-shadow:0 0 8px rgba(231,76,60,0.8); filter:brightness(1); }
+            40% { box-shadow:0 0 30px #fff, 0 0 45px #f1c40f; filter:brightness(2.2); }
+            100% { box-shadow:0 0 8px rgba(231,76,60,0.8); filter:brightness(1); }
+        }
+        .bingo-cell.line-complete { animation: bingoLineGlow 1.2s ease-in-out infinite; border-color:#f1c40f; }
+        @keyframes bingoLineGlow { 0%,100%{ box-shadow:0 0 6px #f1c40f; } 50%{ box-shadow:0 0 22px #f1c40f, 0 0 30px #ff9800; } }
+        .bingo-cell.line-new { animation: bingoLineNewFlash 0.5s ease-in-out 4, bingoLineGlow 1.2s ease-in-out infinite 2s; border-color:#f1c40f; z-index:3; }
+        @keyframes bingoLineNewFlash {
+            0%,100% { box-shadow:0 0 6px #f1c40f; transform:scale(1); background:#3a3a3a; }
+            50% { box-shadow:0 0 35px #fff, 0 0 50px #f1c40f, 0 0 65px #ff9800; transform:scale(1.08); background:#5a4a20; }
+        }
+        .bingo-reward-info { color:#efdeb1; font-size:13px; text-align:center; line-height:1.8; margin-bottom:16px; }
+        .bingo-footer-row { display:flex; gap:8px; width:100%; max-width:380px; }
+        .bingo-next-card-hint { color:#bba; font-size:11px; text-align:center; margin-top:8px; }
+        .bingo-toast {
+            position:fixed; top:18%; left:50%; transform:translate(-50%,-20px) scale(0.9); z-index:9800;
+            background:linear-gradient(135deg, #d35400, #e67e22); color:#fff; padding:18px 32px; border-radius:12px;
+            font-size:19px; font-weight:bold; text-align:center; opacity:0; transition:opacity 0.3s, transform 0.3s;
+            box-shadow:0 8px 28px rgba(0,0,0,0.5), 0 0 0 3px #f1c40f; pointer-events:none; white-space:nowrap;
+        }
+        .bingo-toast.show { opacity:1; transform:translate(-50%,0) scale(1); }
+
+        /* タッグ戦マッチング画面 */
+        .tag-match-body { flex:1; overflow-y:auto; padding:16px 16px 50px 16px; -webkit-overflow-scrolling:touch; }
+        .tag-match-enemy-wrap, .tag-match-player-wrap { transition: transform 0.5s cubic-bezier(0.22, 0.9, 0.34, 1), opacity 0.5s; }
+        .tag-match-enemy-wrap { transform: translateX(120%); opacity: 0; }
+        .tag-match-player-wrap { transform: translateX(-120%); opacity: 0; }
+        .tag-match-enemy-wrap.slide-in, .tag-match-player-wrap.slide-in { transform: translateX(0); opacity: 1; }
+        .tag-my-curry-status {
+            display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin: 8px 0 4px;
+            background: #2b2b2b; border: 1px solid #6b5a3f; border-radius: 6px; padding: 8px 10px;
+            font-size: 12px; color: #efdeb1; font-weight: bold;
+        }
+        .tag-match-section-label { color:#efdeb1; font-size:13px; font-weight:bold; margin-bottom:8px; border-bottom:1px solid #6b5a3f; padding-bottom:4px; }
+        .tag-enemy-list { display:flex; flex-direction:column; gap:8px; margin-bottom:8px; }
+        .tag-match-enemy-card { display:flex; align-items:center; gap:10px; background:#2b2b2b; border:1px solid #6b5a3f; border-radius:8px; padding:8px 10px; }
+        .tag-match-enemy-card img.tag-enemy-icon { width:48px; height:48px; border-radius:50%; object-fit:cover; border:2px solid #b88742; flex-shrink:0; }
+        .tag-enemy-info { flex:1; min-width:0; }
+        .tag-enemy-name { color:#efdeb1; font-size:13px; font-weight:bold; }
+        .tag-enemy-curry { color:#f1c40f; font-size:11px; margin-top:2px; }
+        .tag-delivery-list { display:flex; flex-direction:column; gap:8px; }
+        .tag-delivery-card {
+            display:flex; align-items:center; gap:10px; background:#2b2b2b; border:2px solid #6b5a3f; border-radius:8px;
+            padding:8px 10px; cursor:pointer; transition: border-color 0.15s, background 0.15s;
+        }
+        .tag-delivery-card.selected { border-color:#d35400; background:#3a2a1a; }
+        .tag-delivery-card img.tag-delivery-icon { width:40px; height:40px; border-radius:50%; object-fit:cover; border:2px solid #b88742; flex-shrink:0; }
+        .tag-delivery-card img.tag-delivery-curry-img { width:36px; height:36px; object-fit:contain; flex-shrink:0; }
+        .tag-delivery-info { flex:1; min-width:0; }
+        .tag-delivery-player { color:#efdeb1; font-size:12px; font-weight:bold; }
+        .tag-delivery-curryname { color:#f1c40f; font-size:11px; margin-top:2px; }
+        .tag-delivery-detail-btn { flex-shrink:0; padding:5px 10px; background:#555; color:#efdeb1; border:none; border-radius:4px; font-size:10px; cursor:pointer; }
+
+        .qr-focus-pulse { animation: qrFocusPulse 0.5s ease-out; }
+        @keyframes qrFocusPulse { 0% { transform: scale(1.3); opacity: 1; } 100% { transform: scale(1); opacity: 0.7; } }
+        .bingo-preview-overlay {
+            position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.6);
+            z-index:9700; display:none; align-items:center; justify-content:center;
+        }
+        .bingo-preview-overlay.show { display:flex; }
+        .bingo-preview-box {
+            background:#2b2b2b; border:2px solid #b88742; border-radius:12px; padding:18px;
+            width:80%; max-width:300px; text-align:center;
+        }
+        .bingo-preview-title { color:#efdeb1; font-size:14px; font-weight:bold; margin-bottom:12px; }
+        .bingo-preview-grid { max-width:100%; margin-bottom:0; }
+        h1 { color: #d35400; font-size: 24px; margin-bottom: 5px; }
+        
+        /* タブ */
+        #canvas { width: 100%; max-width: 300px; background: #333; border-radius: 10px; margin-bottom: 15px; display: none; margin-left: auto; margin-right: auto; }
+        
+        /* 遊び方ページ用 */
+        .guide-box { background: #fffdf0; border: 2px solid #e67e22; border-radius: 10px; padding: 15px; margin-bottom: 20px; font-size: 14px; line-height: 1.6; }
+        /* アコーディオン */
+        .accordion-item { border: none; margin-bottom: 0; overflow: hidden; }
+        .accordion-header { background: transparent; padding: 14px 0; cursor: pointer; display: flex; justify-content: space-between; align-items: center; font-weight: bold; color: #420000; font-size: 14px; user-select: none; border-top: 1px solid #b88742; }
+        .accordion-header:hover { color: #b88742; }
+        .accordion-arrow { transition: transform 0.3s; font-size: 12px; color: #b88742; }
+        .accordion-arrow.open { transform: rotate(180deg); }
+        .accordion-body { display: none; padding: 12px 0 16px 12px; font-size: 13px; line-height: 1.7; color: #5a3a1a; background: transparent; border-top: none; }
+        .accordion-body.open { display: block; }
+        .accordion-item:last-child .accordion-header { border-bottom: none; }
+
+        /* お知らせ */
+        .notice-box { background: #f5e9c8; border-left: 3px solid #b88742; padding: 12px 15px; margin-bottom: 20px; font-size: 13px; line-height: 1.6; color: #420000; display: none; }
+        /* ボタン・フォーム */
+        .btn { width: 80%; padding: 12px; font-size: 15px; font-weight: bold; border: none; border-radius: 4px; cursor: pointer; margin: 8px auto; transition: 0.15s; display: block; letter-spacing: 0.05em; }
+        .btn-start { background: #b88742; color: #efdeb1; }
+        .btn-cancel { background: #420000; color: #efdeb1; }
+        .btn-cook { background: #b88742; color: #efdeb1; width: 100%; }
+        .btn-rand { background: #420000; color: #efdeb1; width: 100%; margin-bottom: 15px; }
+        .btn-cook-sub { height:44px; background:#9a6e30; color:#efdeb1; border:none; border-radius:4px; font-weight:bold; font-size:13px; cursor:pointer; letter-spacing:0.04em; }
+        .btn-battle { background: #420000; color: #efdeb1; width: 100%; }
+        .btn-bot { background: #b88742; color: #efdeb1; width: 100%; }
+        .btn-bot-img { flex: 1; background: transparent; border: none; padding: 0; cursor: pointer; line-height: 0; }
+        .btn-bot-img.battle-mode-locked img { filter: grayscale(100%) brightness(0.6); }
+        .btn-bot-img img { width: 100%; height: auto; display: block; border-radius: 6px; box-shadow: 0 2px 6px rgba(0,0,0,0.25); }
+        .btn-bot-img:disabled img { opacity: 0.5; filter: grayscale(60%); }
+        .btn:active { opacity: 0.8; transform: translateY(1px); }
+        
+        /* 管理系小ボタン */
+        .btn-admin-group { display: flex; justify-content: space-between; width: 100%; margin: 10px auto; gap: 10px; }
+        .btn-sm { flex: 1; font-size: 11px; padding: 6px; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; }
+        .btn-danger-sm { background: #420000; color: #efdeb1; }
+        .btn-staff-sm { background: #b88742; color: #efdeb1; }
+        /* くじ用デザイン */
+        .shop-box { background: transparent; border: none; padding: 20px 0 15px; margin: 0; text-align: left; }
+        .shop-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 10px; }
+        .btn-shop { padding: 12px 8px; font-size: 11px; font-weight: bold; color: #efdeb1; background: #b88742; border: none; border-radius: 4px; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; height: 60px; transition: opacity 0.15s; }
+        .btn-shop-30 { background: #b88742; }
+        .btn-shop-30s { background: #9a6e30; }
+        .btn-shop-100 { background: #7a5520; }
+        .btn-shop-300 { background: #420000; }
+        .btn-shop-pack { background: #420000; grid-column: span 2; height: 65px; font-size: 13px; }
+        .btn-shop:hover { opacity: 0.85; }
+        .btn-shop:disabled { background: #c9b98a !important; color: #a89060 !important; cursor: not-allowed; opacity: 0.6; }
+        
+        .input-name { width: 60%; padding: 8px 12px; font-size: 15px; border-radius: 4px; border: 1px solid #b88742; background: #f5e9c8; color: #420000; text-align: center; font-weight: bold; margin: 0 auto 6px auto; display: block; outline: none; }
+        
+        /* 冷蔵庫＆図鑑 */
+        .category-title { font-size: 13px; font-weight: bold; color: #420000; letter-spacing: 0.08em; text-transform: uppercase; margin: 0; }
+        .fridge-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 15px; }
+        .fridge-item { background: #f5e9c8; padding: 12px 8px; border-radius: 4px; font-size: 12px; border: none; color: #c9b090; cursor: not-allowed; transition: 0.2s; text-align: center; }
+        .fridge-item.discovered { background: #fff8ee; color: #420000; font-weight: bold; cursor: pointer; border: 1px solid #b88742; }
+        .fridge-item.discovered.zero-count { background: #ede0c4; color: #9a7a50; border: 1px solid #c9b090; }
+        .fridge-item.delivering { background: #d4e8e0 !important; border: 1px solid #2e8b6f !important; }
+        .delivering-label { font-size: 9px; color: #2e8b6f; font-weight: bold; margin-top: 2px; }
+        .fridge-emoji { font-size: 28px; filter: grayscale(100%); }
+        .fridge-item.discovered .fridge-emoji { filter: grayscale(0%); }
+        .fridge-item.discovered.zero-count .fridge-emoji { filter: grayscale(50%); opacity: 0.6; }
+        select { width: 100%; padding: 9px 12px; margin-bottom: 10px; border-radius: 4px; border: 1px solid #b88742; background: #f5e9c8; color: #420000; font-size: 13px; outline: none; }
+        .status-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; text-align: left; max-width: 320px; margin: 0 auto; font-size: 14px; }
+        .status-item { background: #ffebef; color: #c0392b; padding: 6px 10px; border-radius: 5px; font-weight: bold; }
+        .recipe-book { text-align: left; background: #f5e9c8; border: 1px solid #b88742; border-radius: 4px; padding: 12px; margin-top: 15px; max-height: 200px; overflow-y: auto; }
+        .recipe-row { padding: 8px 4px; border-bottom: 1px solid #d4c09a; font-size: 12px; display: flex; justify-content: space-between; align-items: center; }
+        /* バトル関連レイアウト */
+        .battle-monitor { background: #111; color: #00ff00; padding: 15px; border-radius: 10px; height: 90px; overflow-y: auto; text-align: left; font-family: monospace; font-size: 13px; margin-top: 15px; line-height: 1.5; border: 2px solid #333; }
+        .battle-stage { position: relative; background: #2c3e50; border: 4px solid #34495e; border-radius: 12px; height: 350px; margin-bottom: 15px; overflow: hidden; display: flex; flex-direction: column; justify-content: space-between; padding: 15px; box-sizing: border-box; }
+        .battle-stage.battle-bg-easy { background-image: url('battlebg_easy.jpg'); background-size: cover; background-position: center; }
+        .battle-stage.battle-bg-hard { background-image: url('battlebg_hard.jpg'); background-size: cover; background-position: center; }
+        
+        .enemy-zone { display: flex; flex-direction: column; gap: 8px; width: 100%; transition: transform 0.1s; }
+        .enemy-upper-row { display: grid; grid-template-columns: 120px 1fr; align-items: center; gap: 12px; }
+        .enemy-lower-row { display: flex; flex-direction: column; align-items: flex-start; padding-left: 132px; margin-top: -20px; gap: 2px; }
+        
+        .player-zone { display: flex; justify-content: space-between; align-items: center; background: rgba(0,0,0,0.7); padding: 10px; border-radius: 8px; color: white; font-size: 12px; margin-top: auto; }
+        
+        .char-visual { font-size: 40px; display: inline-block; text-shadow: 0 4px 0 rgba(0,0,0,0.3); }
+        .char-visual img { width: 100%; height: 100%; object-fit: cover; border-radius: 50%; display: block; }
+        
+        #oVisual { font-size: 60px; text-align: center; width: 120px; line-height: 120px; height: 120px; border-radius: 50%; border: 3px solid #f1c40f; box-shadow: 0 0 15px rgba(241,196,15,0.5); background: #34495e; overflow: hidden; display: flex; align-items: center; justify-content: center; }
+        #vsEnemyVisual, #vsPlayerVisual { font-size: 60px; text-align: center; width: 100px; line-height: 100px; height: 100px; border-radius: 50%; border: 3px solid #f1c40f; box-shadow: 0 0 15px rgba(241,196,15,0.5); background: #222; overflow: hidden; display: flex; align-items: center; justify-content: center; }
+        
+        .enemy-curry-emoji { font-size: 26px; text-shadow: 0 2px 4px rgba(0,0,0,0.5); line-height: 1; }
+        
+        .hp-container enemy-hp { background: rgba(0,0,0,0.7); width: 100%; padding: 8px; border-radius: 6px; color: white; box-sizing: border-box; }
+        .hp-bar-bg { background: #555; width: 100%; height: 10px; border-radius: 5px; overflow: hidden; margin-top: 5px; border: 1px solid #000; }
+        .hp-bar { background: #2ecc71; height: 100%; width: 100%; transition: width 0.4s ease-out; }
+        .hp-bar.danger { background: #e74c3c; }
+        .hp-bar.event-enraged { background: #f1c40f; }
+        .hp-bar.poisoned-bar { background: #9b59b6 !important; }
+        
+        .damage-pop { position: absolute; font-family: 'Impact', Arial, sans-serif; font-size: 42px; color: #f1c40f; -webkit-text-stroke: 1.5px #000; font-weight: bold; display: none; pointer-events: none; z-index: 10; }
+
+        /* タッグ戦バトル画面 */
+        .tag-battle-stage {
+            position: relative; background: #2c3e50 url('battlebg_tag.jpg') center/cover no-repeat; border: 4px solid #34495e; border-radius: 12px;
+            margin-bottom: 15px; overflow: hidden; padding: 12px; box-sizing: border-box;
+        }
+        .tag-damage-pop {
+            position: absolute; font-family: 'Impact', Arial, sans-serif; font-size: 36px; color: #f1c40f;
+            -webkit-text-stroke: 1.5px #000; font-weight: bold; display: none; pointer-events: none; z-index: 25;
+        }
+        .tag-enemy-zone { display: flex; flex-direction: column; gap: 10px; margin-bottom: 12px; }
+        .tag-enemy-card { background: rgba(0,0,0,0.7); border-radius: 8px; padding: 8px 10px; transition: transform 0.1s; }
+        .tag-enemy-card-top { display: flex; align-items: center; gap: 8px; }
+        .tag-enemy-card-visual { width: 64px; height: 64px; border-radius: 50%; overflow: hidden; flex-shrink: 0; border: 2px solid #b88742; background: #1a1a1a; }
+        .tag-enemy-card-visual img { width: 100%; height: 100%; object-fit: cover; }
+        .tag-enemy-card-name { font-size: 13px; font-weight: bold; color: #fff; flex-shrink: 0; max-width: 38%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .tag-enemy-hp-block { flex: 1; min-width: 0; margin-left: auto; }
+        .tag-enemy-hpbar-bg { width: 100%; margin-top: 0; }
+        .tag-enemy-card-bottom { display: flex; align-items: center; gap: 6px; margin-top: 6px; padding-left: 4px; color: #ddd; font-size: 11px; }
+        .tag-enemy-curry-emoji { font-size: 16px; flex-shrink: 0; }
+        .tag-enemy-curry-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #f1c40f; font-weight: bold; }
+        .tag-enemy-card-hp { font-weight: bold; flex-shrink: 0; display: block; text-align: right; font-size: 10px; color: #ddd; margin-top: 2px; }
+        .tag-enemy-card.ko { opacity: 0.4; filter: grayscale(80%); }
+        .tag-player-zone { display: flex; gap: 8px; }
+        .tag-player-card { flex: 1; min-width: 0; background: rgba(0,0,0,0.7); border-radius: 8px; padding: 8px; color: #fff; }
+        .tag-player-card-name { font-size: 12px; font-weight: bold; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-bottom: 3px; }
+        .tag-player-card-curryname { font-size: 11px; color: #f1c40f; font-weight: bold; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-bottom: 5px; }
+        .tag-player-card-hp { font-size: 10px; text-align: right; font-weight: bold; margin-top: 2px; }
+        .tag-player-card.ko { opacity: 0.4; filter: grayscale(80%); }
+        .tag-speed-control { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; }
+        .tag-speed-label { font-size: 11px; color: #888; }
+        .tag-speed-btn { padding: 4px 10px; font-size: 11px; font-weight: bold; border: 1px solid #b88742; border-radius: 12px; background: transparent; color: #b88742; cursor: pointer; }
+        .tag-speed-btn.active { background: #b88742; color: #fff; }
+        .sub-name-label { color: #ffffff; font-size: 13px; font-weight: bold; background: rgba(0,0,0,0.5); padding: 4px 8px; border-radius: 4px; display: inline-block; word-break: break-all; }
+        
+        /* VSカットイン画面 */
+        .vs-cutin { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #111; z-index: 1000; display: none; flex-direction: column; justify-content: flex-start; align-items: center; color: white; overflow-y: auto; box-sizing: border-box; padding: 20px; }
+        .vs-grid-layout { display: flex; width: 100%; justify-content: space-around; align-items: center; margin-top: 20px; }
+        .vs-side { flex: 1; text-align: center; transition: 0.5s ease-out; display: flex; flex-direction: column; align-items: center; }
+        .vs-center-badge { font-size: 44px; font-weight: 900; color: #f1c40f; text-shadow: 0 0 15px #f1c40f; opacity: 0; scale: 3; transition: 0.3s; font-style: italic; margin: 0 10px; }
+        .vs-interactive-area { width: 100%; max-width: 420px; background: rgba(255,255,255,0.1); padding: 15px; border-radius: 12px; border: 2px solid #e67e22; margin-top: 25px; box-sizing: border-box; text-align: left; }
+        
+        .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(66,0,0,0.5); z-index: 9999; display: none; justify-content: center; align-items: center; overscroll-behavior: contain; }
+        body.modal-open { overflow: hidden; }
+        .modal-box { background: #efdeb1; width: 85%; max-width: 380px; max-height: 85vh; overflow-y: auto; padding: 24px; border-radius: 4px; border: 1px solid #b88742; box-shadow: 0 8px 32px rgba(66,0,0,0.2); text-align: center; box-sizing: border-box; -webkit-overflow-scrolling: touch; position: relative; }
+        .item-lock-btn { position: absolute; top: 10px; right: 10px; width: 28px; height: 28px; padding: 4px; background: transparent; border: none; cursor: pointer; z-index: 5; }
+        .item-lock-btn img { width: 100%; height: 100%; display: block; }
+        .modal-title { font-size: 16px; font-weight: bold; color: #420000; margin-bottom: 12px; letter-spacing: 0.05em; }
+        .modal-message { font-size: 13px; color: #420000; margin-bottom: 20px; line-height: 1.6; }
+        .modal-btn-group { display: flex; justify-content: center; gap: 10px; flex-wrap: wrap; }
+        .modal-btn { flex: 1; min-width: 100px; padding: 10px; font-size: 13px; font-weight: bold; border: none; border-radius: 4px; cursor: pointer; letter-spacing: 0.04em; }
+        .modal-btn-ok { background: #b88742; color: #efdeb1; }
+        .modal-btn-cancel { background: #420000; color: #efdeb1; }
+        .modal-btn-sell { background: #9a6e30; color: #efdeb1; }
+        @keyframes popUp {
+            0% { opacity: 0; transform: translateY(0) scale(0.5); display: block; }
+            15% { opacity: 1; transform: translateY(-20px) scale(1.2); }
+            80% { opacity: 1; transform: translateY(-30px) scale(1.0); }
+            100% { opacity: 0; transform: translateY(-45px) scale(0.8); display: none; }
+        }
+        .animate-shake { animation: shake 0.2s ease-in-out; }
+        .fluffy-barrier-ring {
+            position: absolute; top: 50%; left: 50%; width: 20px; height: 20px;
+            border: 4px solid #fff3cd; border-radius: 50%; box-shadow: 0 0 15px #f1c40f, inset 0 0 15px #fff3cd;
+            transform: translate(-50%, -50%) scale(0.5); opacity: 0.9; pointer-events: none; z-index: 15;
+            animation: fluffyBarrierExpand 0.9s ease-out forwards;
+        }
+        @keyframes fluffyBarrierExpand {
+            0% { transform: translate(-50%, -50%) scale(0.3); opacity: 0.9; }
+            60% { transform: translate(-50%, -50%) scale(2.2); opacity: 0.6; }
+            100% { transform: translate(-50%, -50%) scale(3); opacity: 0; }
+        }
+        .post-blink { animation: postBlink 1.8s ease-in-out infinite; }
+        @keyframes postBlink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.3; }
+        }
+        .post-toast-show { animation: postToastSlide 4s ease-in-out forwards; }
+        @keyframes postToastSlide {
+            0% { transform: translate(-50%, -100%); opacity: 0; }
+            8% { transform: translate(-50%, 0); opacity: 1; }
+            85% { transform: translate(-50%, 0); opacity: 1; }
+            100% { transform: translate(-50%, -100%); opacity: 0; }
+        }
+        .hirihiri-shake { animation: hirihiriShake 0.5s ease-in-out; }
+        @keyframes hirihiriShake {
+            0%, 100% { transform: translate(0, 0); filter: none; }
+            10% { transform: translate(-3px, 2px); filter: hue-rotate(20deg); }
+            20% { transform: translate(3px, -2px); filter: hue-rotate(-20deg); }
+            30% { transform: translate(-3px, -2px); filter: hue-rotate(20deg); }
+            40% { transform: translate(3px, 2px); filter: hue-rotate(-20deg); }
+            50% { transform: translate(-2px, 1px); filter: none; }
+            60% { transform: translate(2px, -1px); filter: hue-rotate(15deg); }
+            70% { transform: translate(-2px, -1px); filter: none; }
+            80% { transform: translate(1px, 1px); }
+            90% { transform: translate(-1px, 0); }
+        }
+        .flash-hirihiri { animation: flashHirihiri 0.4s; }
+        @keyframes flashHirihiri {
+            0% { box-shadow: inset 0 0 0px #fff; }
+            20% { box-shadow: inset 0 0 30px 10px #e74c3c; }
+            40% { box-shadow: inset 0 0 30px 10px #f1c40f; }
+            60% { box-shadow: inset 0 0 30px 10px #27ae60; }
+            100% { box-shadow: inset 0 0 0px #fff; }
+        }
+        @keyframes shake {
+            0% { transform: translate(0, 0); }
+            20% { transform: translate(-10px, 5px); }
+            40% { transform: translate(10px, -5px); }
+            100% { transform: translate(0, 0); }
+        }
+        .flash-red { background-color: #c0392b !important; }
+        .flash-purple { background-color: #8e44ad !important; }
+        .flash-gold { background-color: #ffd700 !important; }
+        .flash-crit { background-color: #ff4500 !important; animation: critFlashShake 0.35s; }
+        @keyframes critFlashShake {
+            0%,100% { transform: translate(0,0); }
+            20% { transform: translate(-6px,4px) rotate(-1deg); }
+            40% { transform: translate(6px,-4px) rotate(1deg); }
+            60% { transform: translate(-4px,3px); }
+            80% { transform: translate(4px,-3px); }
+        }
+        @keyframes critPopUp {
+            0% { opacity: 0; transform: translateY(0) scale(0.3) rotate(-8deg); display: block; }
+            12% { opacity: 1; transform: translateY(-15px) scale(1.6) rotate(4deg); }
+            25% { transform: translateY(-25px) scale(1.3) rotate(-3deg); }
+            40% { transform: translateY(-30px) scale(1.45) rotate(2deg); }
+            85% { opacity: 1; transform: translateY(-40px) scale(1.2) rotate(0deg); }
+            100% { opacity: 0; transform: translateY(-55px) scale(0.9); display: none; }
+        }
+        .crit-label {
+            font-family: 'Impact', Arial, sans-serif;
+            font-size: 15px;
+            font-weight: 900;
+            color: #fff200;
+            -webkit-text-stroke: 1.5px #c0392b;
+            text-shadow: 0 0 8px #ff4500, 0 0 16px #ff8c00, 2px 2px 0 #8b0000;
+            letter-spacing: 0.02em;
+            white-space: nowrap;
+            margin-bottom: 2px;
+            text-align: center;
+        }
+        .crit-dmg {
+            font-family: 'Impact', Arial, sans-serif;
+            font-size: 30px;
+            font-weight: 900;
+            -webkit-text-stroke: 1.5px #8b0000;
+            text-shadow: 0 0 10px #ff4500, 0 0 20px #ffae00;
+            text-align: center;
+        }
+        /* 毒・幻惑の全画面フラッシュ */
+        .status-flash-overlay { position: fixed; top:0; left:0; width:100%; height:100%; pointer-events:none; z-index:999; opacity:0; transition: opacity 0.15s; }
+        .status-flash-overlay.poison-flash { background: rgba(128,0,128,0.45); }
+        .status-flash-overlay.illusion-flash { background: rgba(0,0,0,0.55); }
+        /* 状態異常による名前カラー */
+        .name-poisoned { color: #9b59b6 !important; }
+        .name-illuded { color: #888 !important; }
+        .gold-box { animation: goldGlow 1.5s infinite; border: 3px solid #f1c40f !important; }
+        @keyframes goldGlow { 0% { box-shadow: 0 0 5px #f1c40f; } 50% { box-shadow: 0 0 20px #ffd700; } 100% { box-shadow: 0 0 5px #f1c40f; } }
+        .poison-box { animation: poisonGlow 1.5s infinite; border: 3px dashed #9b59b6 !important; }
+        @keyframes poisonGlow { 0% { box-shadow: 0 0 5px #9b59b6; } 50% { box-shadow: 0 0 20px #9b59b6; } 100% { box-shadow: 0 0 5px #9b59b6; } }
+        .critical-box { animation: criticalGlow 1.5s infinite; border: 3px double #f1c40f !important; }
+        @keyframes criticalGlow { 0% { box-shadow: 0 0 5px #f1c40f; } 50% { box-shadow: 0 0 20px #f1c40f; } 100% { box-shadow: 0 0 5px #f1c40f; } }
+        
+        /* オンラインロビー用 */
+        .room-section { border: none; border-top: 1px solid #b88742; padding: 16px 0; margin-top: 16px; text-align: left; background: transparent; }
+        .room-input { width: 100%; padding: 8px 12px; margin-bottom: 10px; border-radius: 4px; border: 1px solid #b88742; background: #f5e9c8; color: #420000; box-sizing: border-box; }
+        .room-card { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid #d4c09a; background: transparent; margin-bottom: 0; }
+        .recipe-star { cursor: pointer; font-size: 18px; padding: 2px 6px; border: none; background: none; }
+        .recipe-star.active { color: #f1c40f; }
+        .recipe-star.inactive { color: #c9b090; }
+        .fav-recipe-select { width: 100%; padding: 8px 12px; margin-bottom: 8px; border-radius: 4px; border: 1px solid #b88742; font-size: 13px; background: #f5e9c8; color: #420000; }
+        /* 特殊カレー演出 */
+        .illusion-box { animation: illusionGlow 1.5s infinite; border: 3px solid #1abc9c !important; }
+        @keyframes illusionGlow { 0%,100% { box-shadow: 0 0 5px #1abc9c; } 50% { box-shadow: 0 0 20px #1abc9c, 0 0 30px #3498db; } }
+        .sticky-box { animation: stickyGlow 1.5s infinite; border: 3px solid #2ecc71 !important; }
+        @keyframes stickyGlow { 0%,100% { box-shadow: 0 0 5px #2ecc71; } 50% { box-shadow: 0 0 20px #2ecc71; } }
+        .seed-box { animation: seedGlow 1.5s infinite; border: 3px solid #27ae60 !important; }
+        @keyframes seedGlow { 0%,100% { box-shadow: 0 0 5px #27ae60; } 50% { box-shadow: 0 0 20px #f39c12, 0 0 30px #27ae60; } }
+        .wanpaku-box { animation: wanpakuGlow 1.5s infinite; border: 3px solid #e67e22 !important; }
+        @keyframes wanpakuGlow { 0%,100% { box-shadow: 0 0 5px #e67e22; } 50% { box-shadow: 0 0 20px #e67e22, 0 0 30px #f39c12; } }
+        .ratatouille-box { animation: ratatouilleGlow 1.5s infinite; border: 3px solid #f1c40f !important; }
+        @keyframes ratatouilleGlow { 0%,100% { box-shadow: 0 0 5px #f1c40f; } 50% { box-shadow: 0 0 20px #f1c40f, 0 0 30px #e67e22; } }
+        .homerun-box { animation: homerunGlow 1.5s infinite; border: 3px solid #2980b9 !important; }
+        @keyframes homerunGlow { 0%,100% { box-shadow: 0 0 5px #2980b9; } 50% { box-shadow: 0 0 20px #2980b9, 0 0 30px #3498db; } }
+        .poisonapple-box { animation: poisonappleGlow 1.5s infinite; border: 3px dashed #c0392b !important; }
+        @keyframes poisonappleGlow { 0%,100% { box-shadow: 0 0 5px #c0392b; } 50% { box-shadow: 0 0 20px #c0392b, 0 0 30px #e74c3c; } }
+        .fluffyomelette-box { animation: fluffyomeletteGlow 1.5s infinite; border: 3px solid #f1c40f !important; }
+        @keyframes fluffyomeletteGlow { 0%,100% { box-shadow: 0 0 5px #f1c40f; } 50% { box-shadow: 0 0 20px #fff3cd, 0 0 30px #f1c40f; } }
+        .greencurry-box { animation: greencurryGlow 1.5s infinite; border: 3px solid #27ae60 !important; }
+        @keyframes greencurryGlow { 0%,100% { box-shadow: 0 0 5px #27ae60; } 50% { box-shadow: 0 0 20px #e74c3c, 0 0 30px #27ae60; } }
+        .tricaviar-box { animation: tricaviarGlow 1.5s infinite; border: 3px solid #d4af37 !important; }
+        @keyframes tricaviarGlow { 0%,100% { box-shadow: 0 0 5px #d4af37; } 50% { box-shadow: 0 0 25px #fff3cd, 0 0 35px #d4af37; } }
+        .margherita-box { animation: margheritaGlow 1.5s infinite; border: 3px solid #e74c3c !important; }
+        @keyframes margheritaGlow { 0% { box-shadow: 0 0 5px #e74c3c; } 50% { box-shadow: 0 0 20px #27ae60, 0 0 30px #e74c3c; } 100% { box-shadow: 0 0 5px #e74c3c; } }
+        .tonton-box { animation: tontonGlow 1.5s infinite; border: 3px solid #f39c12 !important; }
+        @keyframes tontonGlow { 0% { box-shadow: 0 0 5px #f39c12; } 50% { box-shadow: 0 0 20px #f39c12; } 100% { box-shadow: 0 0 5px #f39c12; } }
+        .wave-box { animation: waveGlow 1.5s infinite; border: 3px solid #3498db !important; }
+        @keyframes waveGlow { 0% { box-shadow: 0 0 5px #3498db; } 50% { box-shadow: 0 0 20px #1abc9c, 0 0 30px #3498db; } 100% { box-shadow: 0 0 5px #3498db; } }
+        @keyframes resultPop {
+            0% { transform: scale(0.3); opacity: 0; }
+            60% { transform: scale(1.2); opacity: 1; }
+            100% { transform: scale(1.0); opacity: 1; }
+        }
+
+        /* ★追加：冷蔵庫タブ内プレイヤーアイコンエリア */
+        .profile-area { text-align: center; margin-bottom: 15px; padding-bottom: 15px; border-bottom: 1px solid #b88742; }
+        .profile-hint { font-size: 11px; color: #999; margin-top: 4px; margin-bottom: 0; }
+        /* 初期画面 */
+        #pageTop { display: flex; flex-direction: column; align-items: center; padding: 8px 20px 40px; }
+        .top-image { width: 88%; max-width: 360px; border-radius: 8px; margin: 8px 0 20px; display: block; }
+        .btn-gamestart { width: 88%; max-width: 360px; padding: 14px; background: #b88742; color: #efdeb1; font-size: 16px; font-weight: bold; letter-spacing: 0.12em; border: none; border-radius: 4px; cursor: pointer; transition: opacity 0.15s; display: block; text-align: center; }
+        .btn-gamestart:hover { opacity: 0.85; }
+        .btn-gamestart:active { opacity: 0.7; transform: translateY(1px); }
+        .btn-gamestart:disabled { background: #8a7050; cursor: not-allowed; opacity: 0.75; transform: none; }
+        .btn-gamestart:disabled:hover { opacity: 0.75; }
+        @keyframes btnSpin { to { transform: rotate(360deg); } }
+        .btn-loading-spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid rgba(239,222,177,0.35); border-top-color: #efdeb1; border-radius: 50%; animation: btnSpin 0.8s linear infinite; vertical-align: middle; margin-right: 8px; position: relative; top: -1px; }
+        .top-notice { width: 88%; max-width: 360px; margin-top: 20px; font-size: 11px; color: #420000; line-height: 1.7; display: none; border-left: 3px solid #b88742; padding-left: 12px; }
+
+        /* イベントバナー */
+        .event-banner { width: 100%; cursor: pointer; border-radius: 6px; margin-bottom: 12px; display: block; transition: opacity 0.15s; }
+        .event-banner:hover { opacity: 0.9; }
+
+        /* イベント戦闘画面（event-modeクラスでbattleArenaの見た目を上書き） */
+        .battle-stage.event-mode { padding: 0; overflow: visible; height: auto; min-height: 350px; }
+        .battle-stage.event-mode .enemy-zone { gap: 0; }
+        .battle-stage.event-mode .enemy-upper-row { display: block; position: relative; }
+        .battle-stage.event-mode .enemy-visual-box { display: none; }
+        #eventBgWrap { display: none; }
+        .battle-stage.event-mode .hp-container.enemy-hp {
+            position: relative; width: 100%; box-sizing: border-box;
+            background: rgba(0,0,0,0.7) !important; border-radius: 6px; padding: 10px 12px 8px;
+            display: flex; flex-direction: column;
+        }
+        .battle-stage.event-mode #oppOwnerText {
+            order: 1; font-size: 15px; color: #fff !important;
+            margin-bottom: 4px !important;
+        }
+        .battle-stage.event-mode .hp-bar-bg { order: 2; }
+        .battle-stage.event-mode #oHpText { display: none; }
+        .battle-stage.event-mode .enemy-lower-row { display: none; }
+        .battle-stage.event-mode .event-bg-wrap { width: 100%; padding-top: 6px; }
+        .battle-stage.event-mode .event-bg-wrap img { width: 100%; display: block; border-radius: 6px; }
+        .battle-stage.event-mode .player-zone { margin-top: 8px; align-items: center; }
+        .battle-stage.event-mode .player-zone > div:nth-child(2) { max-width: 56% !important; }
+        .battle-stage.event-mode .player-zone .hp-container:not(.enemy-hp) { width: 26% !important; }
+
+        /* アイコン獲得演出 */
+        #iconGetOverlay { position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.75); z-index:99999; display:none; justify-content:center; align-items:center; flex-direction:column; }
+        #iconGetOverlay .icon-get-img { width:160px; height:160px; border-radius:50%; border:6px solid #f1c40f; box-shadow:0 0 40px #f1c40f, 0 0 80px #f39c12; animation:iconPop 0.6s cubic-bezier(0.175,0.885,0.32,1.275) forwards; }
+        #iconGetOverlay .icon-get-text { color:#f1c40f; font-size:22px; font-weight:bold; margin-top:20px; text-align:center; text-shadow:0 0 10px #f39c12; animation:iconFadeIn 0.5s 0.4s both; }
+        #iconGetOverlay .icon-get-sub { color:#efdeb1; font-size:14px; margin-top:8px; animation:iconFadeIn 0.5s 0.7s both; }
+        #iconGetOverlay .icon-get-btn { margin-top:28px; padding:12px 32px; background:#b88742; color:#efdeb1; border:none; border-radius:4px; font-size:15px; font-weight:bold; cursor:pointer; animation:iconFadeIn 0.5s 1s both; }
+        @keyframes iconPop { 0%{transform:scale(0) rotate(-10deg);opacity:0;} 70%{transform:scale(1.15) rotate(3deg);} 100%{transform:scale(1) rotate(0deg);opacity:1;} }
+        @keyframes iconFadeIn { from{opacity:0;transform:translateY(10px);} to{opacity:1;transform:translateY(0);} }
+        @keyframes iconShine { 0%,100%{box-shadow:0 0 40px #f1c40f,0 0 80px #f39c12;} 50%{box-shadow:0 0 60px #f1c40f,0 0 120px #f39c12,0 0 160px #fff;} }
+        /* スパイシーコイン獲得演出 */
+        #coinGetOverlay { position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.75); z-index:99999; display:none; justify-content:center; align-items:center; flex-direction:column; }
+        #coinGetOverlay .coin-get-img { width:200px; height:200px; border-radius:16px; border:6px solid #e67e22; box-shadow:0 0 40px #e67e22, 0 0 80px #d35400; animation:iconPop 0.6s cubic-bezier(0.175,0.885,0.32,1.275) forwards; object-fit:cover; }
+        #coinGetOverlay .coin-get-text { color:#e67e22; font-size:22px; font-weight:bold; margin-top:20px; text-align:center; text-shadow:0 0 10px #d35400; animation:iconFadeIn 0.5s 0.4s both; }
+        #coinGetOverlay .coin-get-amount { color:#efdeb1; font-size:18px; font-weight:bold; margin-top:6px; animation:iconFadeIn 0.5s 0.6s both; }
+        #coinGetOverlay .coin-get-btn { margin-top:28px; padding:12px 32px; background:#b88742; color:#efdeb1; border:none; border-radius:4px; font-size:15px; font-weight:bold; cursor:pointer; animation:iconFadeIn 0.5s 1s both; }
+        @keyframes coinShine { 0%,100%{box-shadow:0 0 40px #e67e22,0 0 80px #d35400;} 50%{box-shadow:0 0 60px #e67e22,0 0 120px #d35400,0 0 160px #fff;} }
+    
+        /* ===== チュートリアル専用 ===== */
+        body { overflow: hidden; }
+        #gameWrapper { overflow-y: auto; overflow-x: hidden; -webkit-overflow-scrolling: touch; }
+        #tutNarrator { position:fixed; bottom:0; left:50%; transform:translateX(-50%); width:100%; max-width:480px; background:#2a1200; border-top:3px solid #b88742; z-index:5000; padding:12px 14px 14px; display:flex; align-items:flex-start; gap:10px; min-height:110px; cursor:pointer; user-select:none; }
+        #tutNarrator .mc-img { flex-shrink:0; width:72px; height:72px; object-fit:contain; }
+        .speech-text { font-size:14px; color:#fff8ee; line-height:1.6; min-height:4em; white-space:pre-wrap; text-align:left; flex:1; }
+        .speech-next { font-size:18px; color:#b88742; opacity:0; align-self:flex-end; }
+        .speech-next.show { opacity:1; animation:blinkArr 0.8s ease-in-out infinite; }
         @keyframes blinkArr { 0%,100%{opacity:1;} 50%{opacity:0.2;} }
-
-        /* スポットライト */
-        .tut-ov { position: fixed; background: rgba(0,0,0,0.65); z-index: 4000; pointer-events: auto; display: none; }
-        #tutSpotBorder { position: fixed; z-index: 4001; border: 2px solid #b88742; border-radius: 10px; box-shadow: 0 0 0 3px rgba(184,135,66,0.3); pointer-events: none; display: none; }
-
-        /* プレイヤータブ */
-        .profile-area { text-align: center; padding: 16px 0 10px; }
-        .profile-area img { width: 96px; height: 96px; border: 3px solid #e67e22; border-radius: 50%; margin-bottom: 6px; }
-        .input-name { width: 80%; padding: 8px 12px; border: 1px solid #b88742; border-radius: 4px; font-size: 15px; text-align: center; color: #420000; background: #fff8ee; }
-        .profile-hint { font-size: 10px; color: #9a8060; margin: 6px 0 0; }
-        .btn-sm { padding: 10px 6px; border: none; border-radius: 4px; font-weight: bold; font-size: 12px; cursor: pointer; }
-
-        /* 名前入力モーダル */
-        #tut-name-modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); z-index: 6000; display: none; align-items: center; justify-content: center; }
-        #tut-name-modal.show { display: flex; }
-        .tut-modal-box { background: #fff8ee; border-radius: 12px; padding: 24px 20px; width: 88%; max-width: 360px; text-align: center; border: 2px solid #b88742; }
-        .tut-modal-box h3 { font-size: 16px; color: #420000; margin: 0 0 16px; }
-        .tut-name-input-field { width: 100%; padding: 12px; font-size: 16px; border: 2px solid #b88742; border-radius: 6px; text-align: center; color: #420000; background: #fff; margin-bottom: 16px; }
-        .btn-gold { background: #b88742; color: #efdeb1; border: none; border-radius: 4px; padding: 12px 24px; font-size: 15px; font-weight: bold; cursor: pointer; width: 100%; }
-
-        /* 汎用 */
-        .section-label { font-size: 12px; color: #9a8060; margin: 8px 0 4px; font-weight: bold; }
-        .cook-slot-row { display: flex; gap: 6px; margin-bottom: 8px; }
-        .cook-slot { flex: 1; min-height: 80px; border: 1px dashed #b88742; border-radius: 6px; display: flex; flex-direction: column; align-items: center; justify-content: center; background: #fffdf0; font-size: 22px; color: #cbb088; }
-        .btn-primary { display: block; width: 80%; margin: 12px auto; padding: 12px; background: #b88742; color: #efdeb1; border: none; border-radius: 4px; font-size: 15px; font-weight: bold; cursor: pointer; }
-        .mute-btn { position: fixed; bottom: 118px; right: calc(50% - 228px); z-index: 5100; width: 36px; height: 36px; border-radius: 50%; background: #b88742; color: #efdeb1; border: none; font-size: 18px; cursor: pointer; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 6px rgba(0,0,0,0.3); }
-    </style>
+        .tut-ov { position:fixed; background:rgba(0,0,0,0.65); z-index:4000; pointer-events:auto; display:none; }
+        #tutSpotBorder { position:fixed; z-index:4001; border:2px solid #b88742; border-radius:10px; box-shadow:0 0 0 3px rgba(184,135,66,0.3); pointer-events:none; display:none; }
+        #tut-name-modal { position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.6); z-index:6000; display:none; align-items:center; justify-content:center; }
+        #tut-name-modal.show { display:flex; }
+        .tut-modal-box { background:#fff8ee; border-radius:12px; padding:24px 20px; width:88%; max-width:360px; text-align:center; border:2px solid #b88742; }
+        .tut-modal-box h3 { font-size:16px; color:#420000; margin:0 0 16px; }
+        .tut-name-field { width:100%; padding:12px; font-size:16px; border:2px solid #b88742; border-radius:6px; text-align:center; color:#420000; background:#fff; margin-bottom:16px; box-sizing:border-box; }
+        .tut-btn-gold { background:#b88742; color:#efdeb1; border:none; border-radius:4px; padding:12px 24px; font-size:15px; font-weight:bold; cursor:pointer; width:100%; }
+        .page { padding-bottom: 130px !important; }
+        .tut-placeholder { text-align:center; color:#9a8060; padding:40px 20px; font-size:13px; }
+</style>
 </head>
 <body>
-
 <div class="tut-ov" id="ov-top"></div>
 <div class="tut-ov" id="ov-bot"></div>
 <div class="tut-ov" id="ov-lft"></div>
 <div class="tut-ov" id="ov-rgt"></div>
 <div id="tutSpotBorder"></div>
+<div id="gameWrapper">
+    <div class="logo-area" id="logoAreaWrap" title="タイトルへ">
+        <img src="battlecurry-logo.svg" alt="Battle Curry" >
+        <button id="postBtn" onclick="return false;" style="position:absolute;top:6px;left:8px;width:73px;height:34px;border:none;background:transparent;cursor:pointer;z-index:10;display:none;align-items:center;justify-content:center;padding:0;">
+            <img id="postIcon" src="letter01.svg" style="width:73px;height:34px;" alt="post">
+        </button>
+        <button id="helpBtn" onclick="return false;" style="position:absolute;top:8px;right:46px;width:32px;height:32px;border:none;background:transparent;cursor:pointer;z-index:10;display:flex;align-items:center;justify-content:center;padding:0;">
+            <img src="help.svg" style="width:28px;height:28px;" alt="?">
+        </button>
+        <button id="muteBtn" onclick="tutToggleMute()" style="position:absolute;top:8px;right:8px;width:32px;height:32px;border:none;background:transparent;cursor:pointer;z-index:10;display:flex;align-items:center;justify-content:center;padding:0;">
+            <img id="muteIcon" src="sound-on.svg" style="width:28px;height:28px;" alt="sound">
+        </button>
+    </div>
 
-<div id="tutWrapper">
-    <div class="logo-area"><img src="battlecurry-logo.svg" alt="Battle Curry"></div>
+    <div class="lunchtime-banner" id="lunchtimeBanner">🍛 ランチタイムボーナス発生中 QR入手アイテム2倍 🍛</div>
 
-    <!-- ステータスバー -->
+    <div class="tab-menu">
+        <button class="tab-btn active" onclick="tutTabClick('player')" id="tab-player">プレイヤー</button>
+        <button class="tab-btn" onclick="tutTabClick('qr')" id="tab-qr">QR</button>
+        <button class="tab-btn" onclick="tutTabClick('fridge')" id="tab-fridge">冷蔵庫</button>
+        <button class="tab-btn" onclick="tutTabClick('cook')" id="tab-cook">調理</button>
+        <button class="tab-btn" onclick="tutTabClick('battle')" id="tab-battle">対戦</button>
+    </div>
+
+    <!-- 遊び方タブ -->
     <div class="status-bar-wrap">
         <div class="status-bar">
-            <span id="sb-name">名無しの料理人</span>
-            <span>|</span><span>資金: 0 G</span>
-            <span>|</span><span>パック券: 0 枚</span>
-            <span>|</span><span>スパイシーコイン: 0 枚</span>
+            <span><span id="headerPlayerName">名無しの料理人</span> [<span id="headerLv">Lv.1</span>(<span id="headerEXPBar">EXP:0/100</span>)]</span>
+            <span class="sep">|</span>
+            <span>資金: <span id="globalG">0</span> G</span>
+            <span class="sep">|</span>
+            <span>パック券: <span id="globalTicket">0</span> 枚</span>
+            <span class="sep">|</span>
+            <span>スパイシーコイン: <span id="globalSpicyCoin">0</span> 枚</span>
         </div>
     </div>
 
-    <!-- タブ -->
-    <nav class="tab-nav">
-        <button class="tab-btn active" id="tab-player" onclick="tutTabClick('player')">プレイヤー</button>
-        <button class="tab-btn" id="tab-qr"     onclick="tutTabClick('qr')">QR</button>
-        <button class="tab-btn" id="tab-fridge" onclick="tutTabClick('fridge')">冷蔵庫</button>
-        <button class="tab-btn" id="tab-cook"   onclick="tutTabClick('cook')">調理</button>
-        <button class="tab-btn" id="tab-battle" onclick="tutTabClick('battle')">対戦</button>
-    </nav>
-
-    <!-- プレイヤー -->
-    <div class="page active" id="page-player">
+    <!-- クエストタブ -->
+    <div id="page-player" class="page active">
+        <!-- ★プレイヤーアイコン＋ID（120%大きく） -->
         <div class="profile-area">
-            <img id="tut-icon-img" src="myimageicon/mayimage01.png" alt="">
-            <div style="font-size:10px;color:#b88742;margin-bottom:10px;">ID: ----------</div>
-            <input type="text" class="input-name" id="tut-player-name-input" placeholder="料理人の名前を入力" readonly>
-            <p class="profile-hint">※チュートリアル中は変更できません</p>
+            <img id="playerIconImg" src="myimageicon/mayimage01.png" data-index="1" onclick="togglePlayerIcon()" style="width: 96px; height: 96px; border: 3px solid #e67e22; border-radius: 50%; cursor: pointer; margin-bottom: 6px; transition: transform 0.2s;">
+            <div id="playerIdDisplay" onclick="copyPlayerId()" style="font-size:10px; color:#b88742; margin-bottom:10px; cursor:pointer; text-decoration:underline dotted;" title="タップでコピー">ID: ----------</div>
+            <br>
+            <input type="text" id="playerNameInput" class="input-name" placeholder="料理人の名前を入力" onchange="handleNameChange(this.value)">
+            <p class="profile-hint">※プレイヤーアイコン、名前はタップで変更できます。</p>
         </div>
 
-        <!-- パスワード設定・バックアップコード -->
-        <div style="display:flex;gap:8px;border-top:1px solid #b88742;padding:14px 0 20px;border-bottom:1px solid #b88742;margin-bottom:20px;">
-            <button class="btn-sm" style="flex:1;background:#420000;color:#efdeb1;">&#128274; パスワード設定</button>
-            <button class="btn-sm" style="flex:1;background:#b88742;color:#efdeb1;">&#128273; バックアップコード発行</button>
+        <!-- パスワード設定・バックアップコード発行（横並び） -->
+        <div style="display:flex; gap:8px; border-top:1px solid #b88742; padding:14px 0 20px; border-bottom:1px solid #b88742; margin-bottom:20px;">
+            <button class="btn-sm" style="flex:1;padding:10px 6px;background:#420000;color:#efdeb1;border:none;border-radius:4px;font-weight:bold;font-size:12px;cursor:pointer;" onclick="showPasswordSetup()">🔒 パスワード設定</button>
+            <button class="btn-sm" style="flex:1;padding:10px 6px;background:#b88742;color:#efdeb1;border:none;border-radius:4px;font-weight:bold;font-size:12px;cursor:pointer;" onclick="showBackupCode()">🔑 バックアップコード発行</button>
         </div>
 
-        <!-- ログインボーナス・デイリークエスト -->
-        <div style="display:flex;gap:14px;border-bottom:1px solid #b88742;padding-bottom:20px;margin-bottom:20px;">
-            <div style="flex:1;min-width:0;">
-                <div style="font-size:12px;font-weight:bold;color:#420000;margin-bottom:10px;">ログインボーナス</div>
-                <div style="font-size:11px;color:#9a8060;">チュートリアル中は<br>受け取れません</div>
+        <!-- ログインボーナス・デイリークエスト（横並び） -->
+        <div style="display:flex; gap:14px; border-bottom:1px solid #b88742; padding-bottom:20px; margin-bottom:20px;">
+            <div style="flex:1; min-width:0;">
+                <div style="font-size:12px; font-weight:bold; color:#420000; letter-spacing:0.05em; margin-bottom:10px;">ログインボーナス</div>
+                <div id="loginBonusArea"></div>
             </div>
-            <div style="flex:1;min-width:0;">
-                <div style="font-size:12px;font-weight:bold;color:#420000;margin-bottom:10px;">デイリークエスト</div>
-                <div style="font-size:11px;color:#9a8060;">チュートリアル中は<br>受け取れません</div>
+            <div style="flex:1; min-width:0;">
+                <div style="font-size:12px; font-weight:bold; color:#420000; letter-spacing:0.05em; margin-bottom:10px;">デイリークエスト</div>
+                <div id="dailyQuestArea"></div>
             </div>
         </div>
 
-        <!-- ポスト -->
-        <div style="border-bottom:1px solid #b88742;padding-bottom:20px;margin-bottom:20px;">
-            <div style="font-size:12px;font-weight:bold;color:#420000;margin-bottom:10px;">&#128231; ポスト</div>
-            <div style="font-size:11px;color:#9a8060;text-align:center;padding:12px;">チュートリアル完了後に確認できます</div>
+        
+
+        <!-- 実績（アコーディオン） -->
+        <div style="padding-bottom:20px; border-bottom:1px solid #b88742; margin-bottom:20px;">
+            <div class="accordion-item" style="border:1px solid #b88742; border-radius:4px;">
+                <div class="accordion-header" onclick="toggleAccordion(this)" style="font-size:13px; font-weight:bold; color:#420000; letter-spacing:0.08em; padding:14px 12px; border-top:none;">
+                    カレー店情報
+                    <span class="accordion-arrow">▼</span>
+                </div>
+                <div class="accordion-body" style="padding:12px 12px 16px 12px;">
+                    <p style="font-size:10px; color:#9a8060; line-height:1.6; margin:0 0 10px;">※紹介の許可を得たカレー店様の情報です。カレー店様はバトルカレーの運営には関係ございませんのでゲームに関するお問い合わせなどはお控えください。</p>
+                    <div id="shopInfoList"></div>
+                </div>
+            </div>
         </div>
 
-        <!-- 名前入力ボタン -->
-        <div style="text-align:center;padding:10px 0 20px;">
-            <button class="btn-primary" id="btn-name-input" onclick="tutOpenNameModal()" style="display:inline-block;width:auto;padding:12px 32px;">&#128394; 名前を入力する</button>
+        <!-- 実績（アコーディオン） -->
+        <div style="padding-bottom:20px; border-bottom:1px solid #b88742; margin-bottom:20px;">
+            <div class="accordion-item" style="border:1px solid #b88742; border-radius:4px;">
+                <div class="accordion-header" onclick="toggleAccordion(this)" style="font-size:13px; font-weight:bold; color:#420000; letter-spacing:0.08em; padding:14px 12px; border-top:none;">
+                    実績
+                    <span class="accordion-arrow">▼</span>
+                </div>
+                <div class="accordion-body" style="padding:12px 12px 16px 12px;">
+                    <div id="achievementsArea"></div>
+                </div>
+            </div>
         </div>
 
-        <!-- ? マーク（飾り） -->
-        <div style="position:absolute;top:16px;right:16px;width:32px;height:32px;background:#b88742;color:#efdeb1;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:bold;font-size:16px;cursor:default;opacity:0.5;">?</div>
+        <!-- システム・設定（アコーディオン） -->
+        <div style="padding-bottom:20px; border-bottom:1px solid #b88742; margin-bottom:20px;">
+            <div class="accordion-item" style="border:1px solid #b88742; border-radius:4px;">
+                <div class="accordion-header" onclick="toggleAccordion(this)" style="font-size:13px; font-weight:bold; color:#420000; letter-spacing:0.08em; padding:14px 12px; border-top:none;">
+                    システム・設定
+                    <span class="accordion-arrow">▼</span>
+                </div>
+                <div class="accordion-body" style="padding:12px 12px 16px 12px;">
+                    <div style="margin-bottom:16px;">
+                        <div style="font-weight:bold; font-size:12px; color:#420000; margin-bottom:8px;">バトル速度</div>
+                        <div class="tag-speed-control">
+                            <button class="tag-speed-btn active" id="settingsSpeedBtn1" onclick="setBattleSpeed(1)">通常</button>
+                            <button class="tag-speed-btn" id="settingsSpeedBtn2" onclick="setBattleSpeed(0.5)">2倍速</button>
+                            <button class="tag-speed-btn" id="settingsSpeedBtn4" onclick="setBattleSpeed(0.25)">4倍速</button>
+                        </div>
+                    </div>
+                    <div style="margin-bottom:16px;">
+                        <div style="font-weight:bold; font-size:12px; color:#420000; margin-bottom:8px;">音量オンオフ</div>
+                        <div class="tag-speed-control">
+                            <button class="tag-speed-btn" id="settingsSoundOnBtn" onclick="setMuteState(false)">🔊 オン</button>
+                            <button class="tag-speed-btn" id="settingsSoundOffBtn" onclick="setMuteState(true)">🔇 オフ</button>
+                        </div>
+                    </div>
+                    <div style="margin-bottom:16px;">
+                        <div style="font-weight:bold; font-size:12px; color:#420000; margin-bottom:8px;">調理アニメーション</div>
+                        <div class="tag-speed-control">
+                            <button class="tag-speed-btn" id="cookAnimOnBtn"  onclick="setCookAnimSkip(false)">🍳 あり</button>
+                            <button class="tag-speed-btn" id="cookAnimOffBtn" onclick="setCookAnimSkip(true)">⏩ スキップ</button>
+                        </div>
+                    </div>
+                    <div style="margin-bottom:16px;">
+                        <div style="font-weight:bold; font-size:12px; color:#420000; margin-bottom:8px;">パスワード設定</div>
+                        <button class="btn-sm" style="width:100%;padding:10px 6px;background:#420000;color:#efdeb1;border:none;border-radius:4px;font-weight:bold;font-size:12px;cursor:pointer;" onclick="showPasswordSetup()">🔒 パスワード設定</button>
+                    </div>
+                    <div class="btn-admin-group" style="margin-top:0; padding-top:0;">
+                        <button class="btn-sm btn-danger-sm" id="clearSaveDataBtn" onclick="clearSaveData()">全初期化</button>
+                        <button class="btn-sm" style="background:#420000;color:#efdeb1;flex:1.5;" onclick="showDataRestoreOptions()">データ復元</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="copyright-footer">©2026 Battle Curry All Rights Reserved.<br>QRコードは株式会社デンソーウェーブの登録商標です</div>
     </div>
 
-    <!-- QR -->
-    <div class="page" id="page-qr">
-        <div style="text-align:center;padding:8px 0 12px;">
-            <div id="qr-placeholder" style="background:#222;border-radius:8px;aspect-ratio:1;width:100%;max-width:280px;margin:0 auto;display:flex;align-items:center;justify-content:center;color:#888;font-size:13px;">準備中</div>
+    <div id="pageGuide" class="tutorial-fullscreen">
+        <div class="tutorial-header">
+            <button class="tutorial-close" onclick="toggleHelp()">✕</button>
+            <div class="tutorial-page-indicator" id="tutorialPageIndicator">1 / 5</div>
+        </div>
+        <div class="tutorial-image-wrap" id="tutorialImageWrap">
+            <img id="tutorialImage" src="tutorial/tutorial-01.png" alt="チュートリアル">
+        </div>
+        <div class="tutorial-nav">
+            <button class="tutorial-nav-btn" id="tutorialPrevBtn" onclick="tutorialGoPrev()">◀ 前へ</button>
+            <div class="tutorial-dots" id="tutorialDots"></div>
+            <button class="tutorial-nav-btn" id="tutorialNextBtn" onclick="tutorialGoNext()">次へ ▶</button>
         </div>
     </div>
 
-    <!-- 冷蔵庫 -->
-    <div class="page" id="page-fridge">
-        <div style="margin-bottom:16px;">
-            <h3 style="font-size:13px;font-weight:bold;color:#420000;border-bottom:1px solid #b88742;padding-bottom:4px;margin-bottom:8px;">所持食材</h3>
-            <div id="tut-fridge-grid" style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;"></div>
-        </div>
-    </div>
 
-    <!-- 調理 -->
-    <div class="page" id="page-cook">
-        <div class="section-label">食材スロット（最大3つ）</div>
-        <div class="cook-slot-row">
-            <div class="cook-slot" id="tut-slot-0">&#xFF0B;</div>
-            <div class="cook-slot" id="tut-slot-1">&#xFF0B;</div>
-            <div class="cook-slot" id="tut-slot-2">&#xFF0B;</div>
-        </div>
-        <button class="btn-primary" id="btn-tut-cook" style="margin-top:16px;">カレーを調理する</button>
-    </div>
-
-    <!-- 対戦 -->
-    <div class="page" id="page-battle">
-        <div id="tut-battle-area" style="text-align:center;color:#9a8060;padding:20px;">準備中...</div>
+    <div id="page-qr" class="page"><div class="tut-placeholder">準備中...</div></div>
+    <div id="page-fridge" class="page"><div class="tut-placeholder">準備中...</div></div>
+    <div id="page-cook" class="page"><div class="tut-placeholder">準備中...</div></div>
+    <div id="page-battle" class="page"><div class="tut-placeholder">準備中...</div></div>
     </div>
 </div>
-
-<!-- ミュートボタン（飾り） -->
-<button class="mute-btn" id="tut-mute-btn" onclick="tutToggleMute()" title="ミュート切替">&#128266;</button>
-
-<!-- 名前入力モーダル -->
 <div id="tut-name-modal">
     <div class="tut-modal-box">
         <h3>料理人の名前を入力</h3>
-        <input type="text" class="tut-name-input-field" id="tut-name-field" placeholder="名前（最大12文字）" maxlength="12">
-        <button class="btn-gold" onclick="tutConfirmName()">決定</button>
+        <input type="text" class="tut-name-field" id="tut-name-field" placeholder="名前（最大12文字）" maxlength="12">
+        <button class="tut-btn-gold" onclick="tutConfirmName()">決定</button>
     </div>
 </div>
-
-<!-- 案内人 -->
 <div id="tutNarrator" onclick="tutNarratorTap()">
     <img class="mc-img" src="tutorial/tutorial-mc.png" alt="">
     <div style="flex:1;display:flex;flex-direction:column;justify-content:center;gap:4px;">
@@ -186,200 +803,165 @@
         <div class="speech-next" id="tutSpeechNext">&#9660;</div>
     </div>
 </div>
-
 <script>
-// ===== LS（デバッグ中は保存しない）=====
-var DEBUG_MODE = true; // TODO: 本番時は false に
-function lsGet(k){ return localStorage.getItem('tut_' + k) || ''; }
-function lsSet(k,v){ if(!DEBUG_MODE) localStorage.setItem('tut_' + k, v); }
-function lsGetJ(k){ try{ return JSON.parse(localStorage.getItem('tut_' + k)||'null'); }catch(e){ return null; } }
-function lsSetJ(k,v){ if(!DEBUG_MODE) localStorage.setItem('tut_' + k, JSON.stringify(v)); }
-
-// ===== タブ =====
-var tutAllowedTabs = [];
-var tutPendingTab = null;
+var DEBUG=true;
+function lsSet(k,v){if(!DEBUG)localStorage.setItem('tut_'+k,v);}
+function lsGet(k){return localStorage.getItem('tut_'+k)||'';}
+var tutAllowedTabs=[];
+var tutPendingTab=null;
 function tutTabClick(tab){
-    if(tutAllowedTabs.length > 0 && tutAllowedTabs.indexOf(tab) < 0) return;
+    if(tutAllowedTabs.length>0&&tutAllowedTabs.indexOf(tab)<0)return;
     tutSwitchTab(tab);
-    if(tutPendingTab && tutPendingTab.tab === tab){
-        var cb = tutPendingTab.cb; tutPendingTab = null; setTimeout(cb, 150);
-    }
+    if(tutPendingTab&&tutPendingTab.tab===tab){var cb=tutPendingTab.cb;tutPendingTab=null;setTimeout(cb,150);}
 }
 function tutSwitchTab(tab){
-    document.querySelectorAll('.tab-btn').forEach(function(b){ b.classList.remove('active'); });
-    document.querySelectorAll('.page').forEach(function(p){ p.classList.remove('active'); });
-    var btn = document.getElementById('tab-' + tab);
-    var pg  = document.getElementById('page-' + tab);
-    if(btn) btn.classList.add('active');
-    if(pg)  pg.classList.add('active');
-    setTimeout(function(){ if(_spotTargets) tutApplySpotlight(); }, 80);
+    document.querySelectorAll('.tab-btn').forEach(function(b){b.classList.remove('active');});
+    document.querySelectorAll('.page').forEach(function(p){p.classList.remove('active');});
+    var btn=document.getElementById('tab-'+tab);
+    var pg=document.getElementById('page-'+tab);
+    if(btn)btn.classList.add('active');
+    if(pg)pg.classList.add('active');
+    setTimeout(function(){if(_spotTargets)tutApplySpotlight();},80);
 }
-function tutWaitTab(tab, cb){ tutPendingTab = { tab:tab, cb:cb }; }
-
-// ===== スポットライト + 自動スクロール =====
-var _spotTargets = null;
-var NARRATOR_H = 116; // 案内人の高さ
-
-function tutShowSpotlight(targets, skipScroll){
-    _spotTargets = targets;
-    if(targets && targets.length > 0 && !skipScroll){
-        // ターゲット要素が見えるようにスクロールしてから描画
-        tutScrollToTargets(targets, function(){ tutApplySpotlight(); });
-    } else {
-        tutApplySpotlight();
-    }
+function tutWaitTab(tab,cb){tutPendingTab={tab:tab,cb:cb};}
+var _spotTargets=null;
+var NAR_H=116;
+function tutShowSpotlight(targets){
+    _spotTargets=targets;
+    if(targets&&targets.length>0){tutScrollToTargets(targets,function(){tutApplySpotlight();});}
+    else{tutApplySpotlight();}
 }
-
-function tutScrollToTargets(targets, cb){
-    var wrapper = document.getElementById('tutWrapper');
-    var viewH   = window.innerHeight - NARRATOR_H;
-    // ターゲット群の中心Y（document基準）
-    var minDocY = Infinity, maxDocY = -Infinity;
+function tutScrollToTargets(targets,cb){
+    var wrap=document.getElementById('gameWrapper');
+    var viewH=window.innerHeight-NAR_H;
+    var wrapRect=wrap.getBoundingClientRect();
+    var minDocY=Infinity,maxDocY=-Infinity;
     targets.forEach(function(t){
-        if(!t.el) return;
-        var r = t.el.getBoundingClientRect();
-        var pad = t.padding || 8;
-        var docTop = r.top + wrapper.scrollTop - wrapper.getBoundingClientRect().top;
-        minDocY = Math.min(minDocY, docTop - pad);
-        maxDocY = Math.max(maxDocY, docTop + r.height + pad);
+        if(!t.el)return;
+        var r=t.el.getBoundingClientRect(),p=t.padding||8;
+        var docTop=r.top+wrap.scrollTop-wrapRect.top;
+        minDocY=Math.min(minDocY,docTop-p);
+        maxDocY=Math.max(maxDocY,docTop+r.height+p);
     });
-    if(minDocY === Infinity){ cb(); return; }
-    var centerDocY = (minDocY + maxDocY) / 2;
-    var targetScroll = centerDocY - viewH / 2;
-    targetScroll = Math.max(0, targetScroll);
-    wrapper.scrollTo({ top: targetScroll, behavior: 'smooth' });
-    // スクロール完了後にcb
-    var prev = -1;
-    function check(){
-        if(Math.abs(wrapper.scrollTop - prev) < 1){ cb(); return; }
-        prev = wrapper.scrollTop;
-        setTimeout(check, 80);
-    }
-    setTimeout(check, 100);
+    if(minDocY===Infinity){cb();return;}
+    var center=(minDocY+maxDocY)/2;
+    var target=Math.max(0,center-viewH/2);
+    wrap.scrollTo({top:target,behavior:'smooth'});
+    var prev=-1;
+    function check(){if(Math.abs(wrap.scrollTop-prev)<1){cb();return;}prev=wrap.scrollTop;setTimeout(check,80);}
+    setTimeout(check,120);
 }
-
 function tutApplySpotlight(){
-    var top = document.getElementById('ov-top');
-    var bot = document.getElementById('ov-bot');
-    var lft = document.getElementById('ov-lft');
-    var rgt = document.getElementById('ov-rgt');
-    var bdr = document.getElementById('tutSpotBorder');
-    var W = window.innerWidth, H = window.innerHeight;
-
-    function s(el, css){ el.style.cssText = css; }
-    function h(el){ el.style.display = 'none'; }
-
-    if(!_spotTargets || _spotTargets.length === 0){
-        s(top, 'top:0;left:0;right:0;height:' + H + 'px;');
-        h(bot); h(lft); h(rgt); bdr.style.display = 'none';
-        return;
+    var top=document.getElementById('ov-top'),bot=document.getElementById('ov-bot');
+    var lft=document.getElementById('ov-lft'),rgt=document.getElementById('ov-rgt');
+    var bdr=document.getElementById('tutSpotBorder');
+    var W=window.innerWidth,H=window.innerHeight;
+    function s(el,css){el.style.cssText=css;}
+    function h(el){el.style.display='none';}
+    if(!_spotTargets||_spotTargets.length===0){
+        s(top,'top:0;left:0;right:0;height:'+H+'px;display:block;');
+        h(bot);h(lft);h(rgt);bdr.style.display='none';return;
     }
-    var minX=W, minY=H, maxX=0, maxY=0;
+    var minX=W,minY=H,maxX=0,maxY=0;
     _spotTargets.forEach(function(t){
-        if(!t.el) return;
-        var r = t.el.getBoundingClientRect();
-        var p = t.padding || 8;
-        minX = Math.min(minX, r.left - p);
-        minY = Math.min(minY, r.top  - p);
-        maxX = Math.max(maxX, r.right  + p);
-        maxY = Math.max(maxY, r.bottom + p);
+        if(!t.el)return;
+        var r=t.el.getBoundingClientRect(),p=t.padding||8;
+        minX=Math.min(minX,r.left-p);minY=Math.min(minY,r.top-p);
+        maxX=Math.max(maxX,r.right+p);maxY=Math.max(maxY,r.bottom+p);
     });
-    minX = Math.max(0, minX); minY = Math.max(0, minY);
-    maxX = Math.min(W, maxX); maxY = Math.min(H - NARRATOR_H, maxY);
-    var sw = maxX-minX, sh = maxY-minY;
-    s(top, 'top:0;left:0;right:0;height:' + minY + 'px;display:block;');
-    s(bot, 'top:' + maxY + 'px;left:0;right:0;bottom:0;display:block;');
-    s(lft, 'top:' + minY + 'px;left:0;width:' + minX + 'px;height:' + sh + 'px;display:block;');
-    s(rgt, 'top:' + minY + 'px;left:' + maxX + 'px;right:0;height:' + sh + 'px;display:block;');
-    bdr.style.cssText = 'display:block;left:' + minX + 'px;top:' + minY + 'px;width:' + sw + 'px;height:' + sh + 'px;';
+    minX=Math.max(0,minX);minY=Math.max(0,minY);
+    maxX=Math.min(W,maxX);maxY=Math.min(H-NAR_H,maxY);
+    s(top,'top:0;left:0;right:0;height:'+minY+'px;display:block;');
+    s(bot,'top:'+maxY+'px;left:0;right:0;bottom:0;display:block;');
+    s(lft,'top:'+minY+'px;left:0;width:'+minX+'px;height:'+(maxY-minY)+'px;display:block;');
+    s(rgt,'top:'+minY+'px;left:'+maxX+'px;right:0;height:'+(maxY-minY)+'px;display:block;');
+    bdr.style.cssText='display:block;left:'+minX+'px;top:'+minY+'px;width:'+(maxX-minX)+'px;height:'+(maxY-minY)+'px;';
 }
 function tutHideSpotlight(){
-    _spotTargets = null;
-    ['ov-top','ov-bot','ov-lft','ov-rgt'].forEach(function(id){ document.getElementById(id).style.display='none'; });
+    _spotTargets=null;
+    ['ov-top','ov-bot','ov-lft','ov-rgt'].forEach(function(id){document.getElementById(id).style.display='none';});
     document.getElementById('tutSpotBorder').style.display='none';
 }
-document.getElementById('tutWrapper').addEventListener('scroll', function(){ if(_spotTargets && _spotTargets.length > 0) tutApplySpotlight(); }, {passive:true});
-
-// ===== セリフエンジン =====
-var _q=[], _typing=false, _full='', _idx=0, _timer=null, _done=null;
-function $t(){ return document.getElementById('tutSpeechText'); }
-function $n(){ return document.getElementById('tutSpeechNext'); }
-function tutSpeak(lines, onDone){ _q=lines.slice(); _done=onDone||null; _nextLine(); }
+document.addEventListener('DOMContentLoaded',function(){
+    var gw=document.getElementById('gameWrapper');
+    if(gw)gw.addEventListener('scroll',function(){if(_spotTargets&&_spotTargets.length>0)tutApplySpotlight();},{passive:true});
+});
+var _q=[],_typing=false,_full='',_idx=0,_timer=null,_done=null;
+function $t(){return document.getElementById('tutSpeechText');}
+function $n(){return document.getElementById('tutSpeechNext');}
+function tutSpeak(lines,onDone){_q=lines.slice();_done=onDone||null;_nextLine();}
 function _nextLine(){
-    if(_q.length===0){ $n().classList.remove('show'); if(_done){var cb=_done;_done=null;cb();} return; }
-    var text=_q.shift(); _typing=true; _full=text; _idx=0;
-    $n().classList.remove('show'); $t().textContent=''; clearInterval(_timer);
+    if(_q.length===0){$n().classList.remove('show');if(_done){var cb=_done;_done=null;cb();}return;}
+    var text=_q.shift();_typing=true;_full=text;_idx=0;
+    $n().classList.remove('show');$t().textContent='';clearInterval(_timer);
     _timer=setInterval(function(){
-        if(_idx<_full.length){ $t().textContent+=_full[_idx++]; }
-        else { clearInterval(_timer); _typing=false; $n().classList.add('show'); }
-    }, 40);
+        if(_idx<_full.length){$t().textContent+=_full[_idx++];}
+        else{clearInterval(_timer);_typing=false;$n().classList.add('show');}
+    },40);
 }
 function tutNarratorTap(){
-    if(_typing){ clearInterval(_timer); _typing=false; $t().textContent=_full; $n().classList.add('show'); }
-    else if($n().classList.contains('show')){ $n().classList.remove('show'); _nextLine(); }
+    if(_typing){clearInterval(_timer);_typing=false;$t().textContent=_full;$n().classList.add('show');}
+    else if($n().classList.contains('show')){$n().classList.remove('show');_nextLine();}
 }
-
-// ===== ミュート（飾り）=====
-var _muted = false;
 function tutToggleMute(){
-    _muted = !_muted;
-    document.getElementById('tut-mute-btn').textContent = _muted ? '🔇' : '🔊';
+    var img=document.getElementById('muteIcon');
+    if(img)img.src=img.src.includes('sound-on')?'sound-off.svg':'sound-on.svg';
 }
-
-// ===== 名前入力 =====
 function tutOpenNameModal(){
     document.getElementById('tut-name-modal').classList.add('show');
-    setTimeout(function(){ document.getElementById('tut-name-field').focus(); }, 100);
+    setTimeout(function(){document.getElementById('tut-name-field').focus();},100);
 }
 function tutConfirmName(){
-    var val = document.getElementById('tut-name-field').value.trim();
-    if(!val) return;
-    lsSet('name', val);
-    document.getElementById('tut-player-name-input').value = val;
-    document.getElementById('sb-name').textContent = val;
+    var val=document.getElementById('tut-name-field').value.trim();
+    if(!val)return;
+    lsSet('name',val);
+    var ni=document.getElementById('playerNameInput');if(ni)ni.value=val;
+    var hn=document.getElementById('headerPlayerName');if(hn)hn.textContent=val;
     document.getElementById('tut-name-modal').classList.remove('show');
     tutScenario_Player_After(val);
 }
-
-// ===== シナリオ: プレイヤー =====
 function tutScenario_Player(){
-    tutAllowedTabs = [];
-    tutShowSpotlight([]);
+    tutAllowedTabs=[];tutShowSpotlight([]);
     tutSpeak([
         'ようこそ、バトルカレーへ！\nQRコードで食材を集めてカレーを作り\n料理バトルで勝利を目指すゲームです！',
-        'まずはあなたの\n料理人の名前を入力しましょう！',
-    ], function(){
-        tutShowSpotlight([{ el: document.getElementById('btn-name-input'), padding: 12 }]);
+        'まずはあなたの料理人の名前を\n入力しましょう！\n名前の入力欄をタップしてください！',
+    ],function(){
+        var niEl=document.getElementById('playerNameInput');
+        tutShowSpotlight([{el:niEl,padding:12}]);
+        if(niEl){niEl.readOnly=false;niEl.addEventListener('focus',function(){tutOpenNameModal();niEl.blur();},{once:true});}
     });
 }
 function tutScenario_Player_After(name){
-    document.getElementById('btn-name-input').style.display = 'none';
-    tutAllowedTabs = [];
-    tutShowSpotlight([]);
-    tutSpeak([
-        name + 'さん、よろしく！',
-        '上に5つのメニュータブがあるでしょ。\nまずは「QR」タブを選んでみて！',
-    ], function(){
-        lsSet('step', 'qr');
-        tutAllowedTabs = ['qr'];
-        tutShowSpotlight([{ el: document.getElementById('tab-qr'), padding: 6 }]);
-        tutWaitTab('qr', function(){
-            tutAllowedTabs = [];
-            tutHideSpotlight();
-            tutScenario_QR();
-        });
+    tutAllowedTabs=[];tutShowSpotlight([]);
+    tutSpeak([name+'さん、よろしく！','上のメニュータブから\n「QR」タブを選んでみて！'],function(){
+        lsSet('step','qr');
+        tutAllowedTabs=['qr'];
+        tutShowSpotlight([{el:document.getElementById('tab-qr'),padding:6}]);
+        tutWaitTab('qr',function(){tutAllowedTabs=[];tutHideSpotlight();tutScenario_QR();});
     });
 }
-
-// ===== シナリオ: QR（仮）=====
-function tutScenario_QR(){
-    tutSpeak(['QRコードで食材を入手しましょう！'], function(){});
+function tutScenario_QR(){tutSpeak(['QRコードで食材を入手しましょう！'],function(){});}
+function togglePlayerIcon(){tutOpenNameModal();}
+function showPasswordSetup(){}
+function showBackupCode(){}
+function toggleAccordion(el){
+    var arrow=el.querySelector('.accordion-arrow');
+    var body=el.nextElementSibling;
+    if(!body)return;
+    body.classList.toggle('open');
+    if(arrow)arrow.classList.toggle('open');
 }
-
-// ===== 初期化 =====
-window.addEventListener('load', function(){
-    if(!DEBUG_MODE && localStorage.getItem('tut_done')==='1'){ window.location.href='game.html'; return; }
-    tutShowSpotlight([]); // 最初から全画面暗転
+function copyPlayerId(){}
+function handleNameChange(){}
+function openCurryShopInfoModal(){}
+function openPostScreen(){}
+function toggleHelp(){}
+window.addEventListener('load',function(){
+    if(!DEBUG&&localStorage.getItem('tut_done')==='1'){window.location.href='game.html';return;}
+    var pb=document.getElementById('postBtn');if(pb)pb.style.display='flex';
+    var hb=document.getElementById('helpBtn');if(hb)hb.style.display='flex';
+    var mb=document.getElementById('muteBtn');if(mb)mb.style.display='flex';
+    tutShowSpotlight([]);
     tutSwitchTab('player');
     tutScenario_Player();
 });
