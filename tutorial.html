@@ -978,27 +978,27 @@ var NAR_H=116;
 
 function tutShowSpotlight(targets){
     var wrap=document.getElementById('gameWrapper');
-    // overlay-lockを外す（overflow:hidden解除）
-    wrap.classList.remove('overlay-lock');
-    _spotTargets=(targets&&targets.length>0)?targets:null;
-    if(!_spotTargets){
+    // overflowを直接制御（クラスより確実に即時反映）
+    wrap.style.overflowY='auto';
+    void wrap.scrollTop; // 強制リフロー（overflow変更を確定）
+
+    if(!targets||targets.length===0){
+        _spotTargets=null;
+        wrap.style.overflowY='hidden';
         tutApplySpotlight();
         return;
     }
-    // スクロール中は全暗転
+    _spotTargets=targets;
+    // 全暗転
     var top=document.getElementById('ov-top');
     top.style.cssText='top:0;left:0;right:0;height:'+window.innerHeight+'px;display:block;';
     ['ov-bot','ov-lft','ov-rgt'].forEach(function(id){var e=document.getElementById(id);if(e)e.style.display='none';});
-    // 1フレーム待ってoverflowの解除を確定させてからスクロール
+    // スクロール実行（overflow:autoが確定済みなので動く）
+    tutInstantScrollToCenter(_spotTargets);
+    // スクロール後すぐロックしてスポット表示
+    wrap.style.overflowY='hidden';
     requestAnimationFrame(function(){
-        tutInstantScrollToCenter(_spotTargets);
-        // さらに2フレーム待ってからロック＆スポット表示
-        requestAnimationFrame(function(){
-            requestAnimationFrame(function(){
-                wrap.classList.add('overlay-lock');
-                tutApplySpotlight();
-            });
-        });
+        tutApplySpotlight();
     });
 }
 
@@ -1049,7 +1049,7 @@ function tutApplySpotlight(){
 }
 function tutHideSpotlight(){
     _spotTargets=null;
-    document.getElementById('gameWrapper').classList.remove('overlay-lock');
+    document.getElementById('gameWrapper').style.overflowY='auto';
     ['ov-top','ov-bot','ov-lft','ov-rgt'].forEach(function(id){document.getElementById(id).style.display='none';});
 }
 
