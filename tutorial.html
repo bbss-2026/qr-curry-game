@@ -610,7 +610,7 @@
         .speech-next.show { opacity:1; animation:blinkArr 0.8s ease-in-out infinite; }
         @keyframes blinkArr { 0%,100%{opacity:1;} 50%{opacity:0.2;} }
         .tut-ov { position:fixed; background:rgba(0,0,0,0.65); z-index:4000; pointer-events:auto; display:none; }
-        #tutSpotBorder { position:fixed; z-index:4001; border:2px solid #b88742; border-radius:10px; box-shadow:0 0 0 3px rgba(184,135,66,0.3); pointer-events:none; display:none; }
+        #tutSpotBorder { display:none; }
         #tut-name-modal { position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.6); z-index:6000; display:none; align-items:center; justify-content:center; }
         #tut-name-modal.show { display:flex; }
         .tut-modal-box { background:#fff8ee; border-radius:12px; padding:24px 20px; width:88%; max-width:360px; text-align:center; border:2px solid #b88742; }
@@ -685,11 +685,24 @@
         <div style="display:flex; gap:14px; border-bottom:1px solid #b88742; padding-bottom:20px; margin-bottom:20px;">
             <div style="flex:1; min-width:0;">
                 <div style="font-size:12px; font-weight:bold; color:#420000; letter-spacing:0.05em; margin-bottom:10px;">ログインボーナス</div>
-                <div id="loginBonusArea"></div>
+                <div id="loginBonusArea">
+                    <div style="background:#fff8ee;border:1px solid #b88742;border-radius:6px;padding:8px 10px;font-size:12px;color:#420000;text-align:center;">
+                        <div style="font-size:20px;margin-bottom:4px;">🎁</div>
+                        <div style="font-weight:bold;">本日のボーナス</div>
+                        <div style="color:#9a8060;font-size:11px;margin-top:4px;">資金 +100 G</div>
+                    </div>
+                </div>
             </div>
             <div style="flex:1; min-width:0;">
                 <div style="font-size:12px; font-weight:bold; color:#420000; letter-spacing:0.05em; margin-bottom:10px;">デイリークエスト</div>
-                <div id="dailyQuestArea"></div>
+                <div id="dailyQuestArea">
+                    <div style="background:#fff8ee;border:1px solid #b88742;border-radius:6px;padding:8px 10px;font-size:11px;color:#420000;">
+                        <div style="font-weight:bold;margin-bottom:6px;">📋 本日のクエスト</div>
+                        <div style="color:#9a8060;margin-bottom:4px;">・QRをスキャンする 0/1</div>
+                        <div style="color:#9a8060;margin-bottom:4px;">・カレーを作る 0/1</div>
+                        <div style="color:#9a8060;">・バトルで勝利する 0/1</div>
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -839,17 +852,27 @@ function tutScrollToTargets(targets,cb){
     targets.forEach(function(t){
         if(!t.el)return;
         var r=t.el.getBoundingClientRect(),p=t.padding||8;
-        var docTop=r.top+wrap.scrollTop-wrapRect.top;
+        // viewportのYをwrapper内のdocY(scrollTop基準)に変換
+        var docTop=r.top-wrapRect.top+wrap.scrollTop;
+        var docBot=r.bottom-wrapRect.top+wrap.scrollTop;
         minDocY=Math.min(minDocY,docTop-p);
-        maxDocY=Math.max(maxDocY,docTop+r.height+p);
+        maxDocY=Math.max(maxDocY,docBot+p);
     });
     if(minDocY===Infinity){cb();return;}
-    var center=(minDocY+maxDocY)/2;
-    var target=Math.max(0,center-viewH/2);
-    wrap.scrollTo({top:target,behavior:'smooth'});
-    var prev=-1;
-    function check(){if(Math.abs(wrap.scrollTop-prev)<1){cb();return;}prev=wrap.scrollTop;setTimeout(check,80);}
-    setTimeout(check,120);
+    var centerDocY=(minDocY+maxDocY)/2;
+    // 上下センター（ナレーター分を引いた表示エリアの中心）
+    var targetScroll=Math.max(0, centerDocY - viewH/2);
+    var diff=Math.abs(wrap.scrollTop-targetScroll);
+    if(diff<10){cb();return;}
+    wrap.scrollTo({top:targetScroll,behavior:'smooth'});
+    // スクロール完了を検知
+    var startTime=Date.now();
+    function check(){
+        if(Date.now()-startTime>600){cb();return;}
+        if(Math.abs(wrap.scrollTop-targetScroll)<8){setTimeout(cb,80);return;}
+        setTimeout(check,60);
+    }
+    setTimeout(check,100);
 }
 function tutApplySpotlight(){
     var top=document.getElementById('ov-top'),bot=document.getElementById('ov-bot');
@@ -933,11 +956,21 @@ function tutScenario_Player(){
 }
 function tutScenario_Player_After(name){
     tutAllowedTabs=[];tutShowSpotlight([]);
-    tutSpeak([name+'さん、よろしく！','上のメニュータブから\n「QR」タブを選んでみて！'],function(){
-        lsSet('step','qr');
-        tutAllowedTabs=['qr'];
-        tutShowSpotlight([{el:document.getElementById('tab-qr'),padding:6}]);
-        tutWaitTab('qr',function(){tutAllowedTabs=[];tutHideSpotlight();tutScenario_QR();});
+    tutSpeak([name+'さん、よろしく！'],function(){
+        var muteEl=document.getElementById('muteBtn');
+        tutShowSpotlight([{el:muteEl,padding:10}]);
+        tutSpeak([
+            'マナーモードでも音が出ることがあります。\n音を消したい場合はここを押してね。\nいつでも切り替えできますよ！',
+        ],function(){
+            tutAllowedTabs=[];
+            tutShowSpotlight([]);
+            tutSpeak(['上のメニュータブから\n「QR」タブを選んでみて！'],function(){
+                lsSet('step','qr');
+                tutAllowedTabs=['qr'];
+                tutShowSpotlight([{el:document.getElementById('tab-qr'),padding:6}]);
+                tutWaitTab('qr',function(){tutAllowedTabs=[];tutHideSpotlight();tutScenario_QR();});
+            });
+        });
     });
 }
 function tutScenario_QR(){tutSpeak(['QRコードで食材を入手しましょう！'],function(){});}
@@ -963,6 +996,18 @@ window.addEventListener('load',function(){
     var mb=document.getElementById('muteBtn');if(mb)mb.style.display='flex';
     tutShowSpotlight([]);
     tutSwitchTab('player');
+    // IDをlocalStorageから取得して表示
+    try {
+        var saveData = JSON.parse(localStorage.getItem('battleCurrySave') || '{}');
+        var pid = saveData.playerId || saveData.uid || '----------';
+        var idEl = document.getElementById('playerIdDisplay');
+        if(idEl) idEl.textContent = 'ID: ' + pid;
+        var nameVal = saveData.playerName || lsGet('name');
+        if(nameVal) {
+            var ni=document.getElementById('playerNameInput'); if(ni) ni.value=nameVal;
+            var hn=document.getElementById('headerPlayerName'); if(hn) hn.textContent=nameVal;
+        }
+    } catch(e) {}
     tutScenario_Player();
 });
 </script>
