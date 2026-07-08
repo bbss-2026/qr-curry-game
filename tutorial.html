@@ -614,10 +614,13 @@
         #gameWrapper.overlay-lock { overflow: hidden; }
         /* z-indexは.modal-overlay(9999)より高くしてある。冷蔵庫の詳細モーダルのように
            「モーダルを開いたまま、閉じるボタンを押すよう案内する」場面があるため、
-           ナレーターは常にモーダルより手前に見える必要がある */
-        #tutNarrator { position:fixed; bottom:0; left:50%; transform:translateX(-50%); width:100%; max-width:480px; background:#2a1200; border-top:3px solid #b88742; z-index:10500; padding:12px 14px 14px; display:flex; align-items:flex-start; gap:10px; min-height:110px; cursor:pointer; user-select:none; }
+           ナレーターは常にモーダルより手前に見える必要がある。
+           その代わり、ナレーター欄は高さを固定し（縦幅が伸び縮みしない）、
+           ゲーム画面・モーダルの両方をあらかじめこの高さ分狭く確保しておくことで、
+           ナレーターが他の要素に重なってタップを奪ってしまう事故を防ぐ。 */
+        #tutNarrator { position:fixed; bottom:0; left:50%; transform:translateX(-50%); width:100%; max-width:480px; height:130px; box-sizing:border-box; background:#2a1200; border-top:3px solid #b88742; z-index:10500; padding:12px 14px 14px; display:flex; align-items:flex-start; gap:10px; cursor:pointer; user-select:none; }
         #tutNarrator .mc-img { flex-shrink:0; width:72px; height:72px; object-fit:contain; }
-        .speech-text { font-size:14px; color:#fff8ee; line-height:1.6; min-height:4em; white-space:pre-wrap; text-align:left; flex:1; }
+        .speech-text { font-size:14px; color:#fff8ee; line-height:1.6; max-height:80px; overflow-y:auto; white-space:pre-wrap; text-align:left; flex:1; }
         .speech-next { font-size:18px; color:#b88742; opacity:0; align-self:flex-end; }
         .speech-next.show { opacity:1; animation:blinkArr 0.8s ease-in-out infinite; }
         @keyframes blinkArr { 0%,100%{opacity:1;} 50%{opacity:0.2;} }
@@ -632,6 +635,10 @@
         .tut-placeholder { text-align:center; color:#9a8060; padding:40px 20px; font-size:13px; }
         .tut-pointer { position:fixed; font-size:34px; z-index:4500; pointer-events:none; display:none; text-shadow:0 2px 4px rgba(0,0,0,0.5); animation:tutPointerBlink 0.9s ease-in-out infinite; }
         @keyframes tutPointerBlink { 0%,100%{opacity:1;transform:translateY(0);} 50%{opacity:0.35;transform:translateY(6px);} }
+        /* ナレーター欄(下固定・高さ130px)の上に他要素が重なってタップを奪わないよう、
+           モーダル類はあらかじめその高さ分だけ表示領域を狭くしておく（height:100%を上書き）。
+           このstyleブロックの末尾に置くことで確実に上のheight:100%指定より優先させる。 */
+        .modal-overlay, #tut-name-modal { bottom: 130px; height: auto; }
 </style>
 </head>
 <body>
@@ -929,23 +936,20 @@ function tutWaitTab(tab,cb){tutPendingTab={tab:tab,cb:cb};}
 
 // ===== スポットライト（スクロール中はラッパーをロック）=====
 var _spotTargets=null;
-var NAR_H_FALLBACK=116;
-var NAR_GAP=16; // ナレーション欄と対象の間に余白を持たせ、際どくカットされて見えるのを防ぐ
-// ナレーション欄はテキストの長さで実際の高さが変わる(min-heightのみでCSS固定していない)ため、
-// 都度実測して隠れる領域を正しく計算する
-function getNarH(){
-    var nar=document.getElementById('tutNarrator');
-    var h=nar?nar.getBoundingClientRect().height:0;
-    return (h>0?h:NAR_H_FALLBACK)+NAR_GAP;
-}
+// ナレーター欄はCSS側で高さを130pxに固定してある（#tutNarrator）。
+// ゲーム画面・モーダルもこの値だけあらかじめ狭く確保し、ナレーターが
+// 他の要素に重なってタップを奪ってしまう事故を防ぐ（値はCSSの130pxと一致させること）。
+var NAR_H=130;
+var NAR_GAP=10; // スポット対象とナレーター欄の間の見た目上の余白
+function getNarH(){return NAR_H+NAR_GAP;}
 
 function tutShowSpotlight(targets){
     var wrap=document.getElementById('gameWrapper');
     // #gameWrapperはCSS上min-height:100vhしか無く高さがコンテンツに追従するため、
     // overflow-y:auto(CSS側)が実際にはスクロールとして機能しない。
-    // CSSは変更せず、実行時に高さを画面いっぱいへ固定してスクロール可能にする。
+    // CSSは変更せず、実行時に高さを「画面の高さ－ナレーター欄の高さ」へ固定してスクロール可能にする。
     wrap.style.minHeight='0';
-    wrap.style.height=window.innerHeight+'px';
+    wrap.style.height=(window.innerHeight-NAR_H)+'px';
     // スポット表示中はユーザーの手動スクロールを禁止する（許可すると穴の位置と
     // 実際のコンテンツ位置がズレてしまうため）。対象を画面内に収める処理は
     // 以下でプログラム的にscrollTopを操作するので、overflow:hiddenでも機能する。
