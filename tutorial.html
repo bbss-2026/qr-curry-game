@@ -810,7 +810,32 @@
         <div class="copyright-footer">©2026 Battle Curry All Rights Reserved.<br>QRコードは株式会社デンソーウェーブの登録商標です</div>
     </div>
     <div id="page-fridge" class="page"><div class="tut-placeholder">準備中...</div></div>
-    <div id="page-cook" class="page"><div class="tut-placeholder">準備中...</div></div>
+    <div id="page-cook" class="page">
+        <div style="display:flex; gap:8px; margin-bottom:8px;">
+            <button class="btn-cook-sub" onclick="return false;" style="flex:1;">おすすめセット</button>
+            <button class="btn-cook-sub" onclick="return false;" style="flex:0 0 70px;">条件選択</button>
+        </div>
+        <div style="display:flex; gap:8px; margin-bottom:12px; align-items:stretch;">
+            <button id="tutCookBtn" class="btn btn-cook" onclick="tutDoCook()" style="margin-bottom:0; flex:1; padding:12px;">カレーを調理する</button>
+            <button onclick="return false;" style="flex:0 0 70px; background:#9a6e30; color:#efdeb1; border:none; border-radius:4px; font-weight:bold; font-size:13px; cursor:pointer;">クリア</button>
+        </div>
+        <div class="result-box" id="tutCookResultBox" style="display:none; margin-top:6px; margin-bottom:24px; padding:15px; background:#fffdf0; border:2px dashed #e67e22; border-radius:10px; text-align:center;"></div>
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+            <h3 style="font-size:16px; margin:0;">食材を選ぶ（3つまで）</h3>
+        </div>
+        <div id="tutCookSelectedSlots" style="display:flex; gap:6px; margin-bottom:8px;"></div>
+        <div id="tutCookIngredientPanel" style="display:flex; gap:8px; flex-wrap:wrap; padding:10px; border:1px solid #b88742; border-radius:6px; background:#fffdf0; margin-bottom:8px;"></div>
+        <div style="display:flex; justify-content:space-between; align-items:center; margin:14px 0 6px;">
+            <h3 style="font-size:16px; margin:0;">スパイスを選ぶ（任意・1つまで）</h3>
+        </div>
+        <div id="tutCookSelectedSpiceSlot" style="display:flex; gap:6px; margin-bottom:8px;"></div>
+        <div id="tutCookSpicePanel" style="display:flex; gap:8px; padding:8px; border:1px solid #b88742; border-radius:6px; background:#fffdf0;"></div>
+        <div style="margin-top:25px; border-top:1px solid #b88742; padding-top:16px;">
+            <h3 style="color:#420000; font-size:13px; letter-spacing:0.08em; font-weight:bold; margin:0 0 8px;">発見したレシピ履歴</h3>
+            <div class="recipe-book">履歴がありません。</div>
+        </div>
+        <div class="copyright-footer">©2026 Battle Curry All Rights Reserved.<br>QRコードは株式会社デンソーウェーブの登録商標です</div>
+    </div>
     <div id="page-battle" class="page"><div class="tut-placeholder">準備中...</div></div>
     </div><!-- /gameUI -->
 </div><!-- /gameWrapper -->
@@ -1074,7 +1099,134 @@ function tutCloseGetItemsModal(){
         tutWaitTab('cook',function(){tutAllowedTabs=[];tutHideSpotlight();tutScenario_Cook();});
     });
 }
-function tutScenario_Cook(){tutSpeak(['ここでカレーを調理しよう！'],function(){});}
+// ===== シナリオ: 調理 =====
+var tutCookSelected=[];      // 選択中の食材インデックス(0-2)
+var tutCookSpiceSelected=false;
+function tutScenario_Cook(){
+    tutCookSelected=[];
+    tutCookSpiceSelected=false;
+    tutRenderCookPanels();
+    tutSpeak([
+        'カレーの調理では食材は3つまで、\nスパイスは1つ選ぶことができるよ。',
+        'さっき手に入れた食材があるはずだから\n全部選んでセットしてみて'
+    ],function(){
+        tutAllowedTabs=[];
+        tutShowSpotlight([
+            {el:document.getElementById('tutIng0'),padding:6},
+            {el:document.getElementById('tutIng1'),padding:6},
+            {el:document.getElementById('tutIng2'),padding:6}
+        ]);
+    });
+}
+function tutRenderCookPanels(){
+    var cat=tutChosenCategory||'meat';
+    var items=TUT_INGREDIENTS[cat];
+    var ingHtml=items.slice(0,3).map(function(it,i){
+        return '<button id="tutIng'+i+'" onclick="tutSelectIngredient('+i+')" style="width:64px;height:76px;background:#fff;border:2px solid #b88742;border-radius:8px;padding:4px;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;">'
+            +'<img src="'+it[1]+'" style="width:32px;height:32px;object-fit:contain;" alt="'+it[0]+'">'
+            +'<div style="font-size:9px;color:#420000;font-weight:bold;margin-top:2px;">'+it[0]+'</div></button>';
+    }).join('');
+    document.getElementById('tutCookIngredientPanel').innerHTML=ingHtml;
+    var sp=items[3];
+    document.getElementById('tutCookSpicePanel').innerHTML=
+        '<button id="tutSpiceBtn" onclick="tutSelectSpice()" style="width:64px;height:76px;background:#fff;border:2px solid #b88742;border-radius:8px;padding:4px;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;">'
+        +'<img src="'+sp[1]+'" style="width:32px;height:32px;object-fit:contain;" alt="'+sp[0]+'">'
+        +'<div style="font-size:9px;color:#420000;font-weight:bold;margin-top:2px;">'+sp[0]+'</div></button>';
+    tutRenderCookSlots();
+}
+function tutRenderCookSlots(){
+    var cat=tutChosenCategory||'meat';
+    var items=TUT_INGREDIENTS[cat];
+    var slotsHtml='';
+    for(var i=0;i<3;i++){
+        slotsHtml+=(tutCookSelected.indexOf(i)>-1)
+            ? '<div style="width:48px;height:48px;border:2px solid #d35400;border-radius:6px;background:#fff3e0;display:flex;align-items:center;justify-content:center;"><img src="'+items[i][1]+'" style="width:32px;height:32px;object-fit:contain;"></div>'
+            : '<div style="width:48px;height:48px;border:2px dashed #c9b090;border-radius:6px;"></div>';
+    }
+    document.getElementById('tutCookSelectedSlots').innerHTML=slotsHtml;
+    document.getElementById('tutCookSelectedSpiceSlot').innerHTML=tutCookSpiceSelected
+        ? '<div style="width:48px;height:48px;border:2px solid #d35400;border-radius:6px;background:#fff3e0;display:flex;align-items:center;justify-content:center;"><img src="'+items[3][1]+'" style="width:32px;height:32px;object-fit:contain;"></div>'
+        : '<div style="width:48px;height:48px;border:2px dashed #c9b090;border-radius:6px;"></div>';
+}
+function tutSelectIngredient(i){
+    if(tutCookSelected.indexOf(i)===-1&&tutCookSelected.length<3){
+        tutCookSelected.push(i);
+        var btn=document.getElementById('tutIng'+i);
+        btn.style.borderColor='#d35400';
+        btn.style.background='#fff3e0';
+    }
+    tutRenderCookSlots();
+    if(tutCookSelected.length===3){
+        // 3つ揃ったのでスパイス選択をスポット対象にする
+        tutAllowedTabs=[];
+        tutShowSpotlight([{el:document.getElementById('tutSpiceBtn'),padding:6}]);
+    }
+}
+function tutSelectSpice(){
+    if(tutCookSelected.length<3)return;
+    tutCookSpiceSelected=true;
+    var btn=document.getElementById('tutSpiceBtn');
+    btn.style.borderColor='#d35400';
+    btn.style.background='#fff3e0';
+    tutRenderCookSlots();
+    tutHidePointer();
+    tutShowSpotlight([]);
+    tutSpeak(['選んだだけではまだ調理はされてないよ\n「カレーを料理する」をタップして調理しよう'],function(){
+        tutAllowedTabs=[];
+        var cookBtn=document.getElementById('tutCookBtn');
+        tutShowSpotlight([{el:cookBtn,padding:8}]);
+        tutShowPointer(cookBtn);
+    });
+}
+function tutDoCook(){
+    tutHidePointer();
+    var box=document.getElementById('tutCookResultBox');
+    box.innerHTML='<div style="padding:20px;"><span class="btn-loading-spinner" style="border-color:rgba(184,135,66,0.3);border-top-color:#b88742;"></span><span style="color:#420000;font-weight:bold;">調理中…</span></div>';
+    box.style.display='block';
+    // 調理演出・結果がオーバーレイで隠れないよう結果ボックスをスポット対象にする
+    tutShowSpotlight([{el:box,padding:10}]);
+    setTimeout(tutRevealCookResult,900);
+}
+// 会心なし・確定で特殊カレー(わんぱく/種連射/海鮮)ができる想定のダミー結果
+var TUT_CURRY_RESULT={
+    meat:{title:'わんぱく牛肉チキンウインナー',flash:'暴れ放題！わんぱくカレー誕生！',flashColor:'#e67e22',effect:'わんぱく：通常攻撃の振り幅が大きくなり、ミスをすることもある。',hp:255,atk:125,def:75,spd:65},
+    vegetable:{title:'種連発トマトナス玉ねぎ',flash:'種の力が炸裂！連続発射カレー爆誕！',flashColor:'#27ae60',effect:'種連続発射：40%の確率で攻撃を複数回連続で行う。',hp:175,atk:55,def:65,spd:55},
+    seafood:{title:'海鮮小エビサバイカ',flash:'波の音が聞こえる…海鮮スペシャルカレー！',flashColor:'#3498db',effect:'海鮮：戦闘中1回だけHPが回復する。',hp:150,atk:105,def:35,spd:170}
+};
+function tutRevealCookResult(){
+    var cat=tutChosenCategory||'meat';
+    var items=TUT_INGREDIENTS[cat];
+    var r=TUT_CURRY_RESULT[cat];
+    lsSet('cookedCurry',cat);
+    var iconsHtml=[0,1,2].map(function(i){return '<img src="'+items[i][1]+'" style="width:28px;height:28px;object-fit:contain;">';}).join('')
+        +'<img src="'+items[3][1]+'" style="width:22px;height:22px;object-fit:contain;opacity:0.8;">';
+    var box=document.getElementById('tutCookResultBox');
+    box.innerHTML=
+        '<div style="font-weight:bold;font-size:15px;margin-bottom:8px;color:'+r.flashColor+';">'+r.flash+'</div>'
+        +'<div style="display:flex;justify-content:center;gap:4px;margin-bottom:8px;">'+iconsHtml+'</div>'
+        +'<div style="font-size:18px;font-weight:bold;color:#c0392b;margin-bottom:6px;">'+r.title+' of カレー</div>'
+        +'<div style="font-size:12px;color:#5a3a1a;margin-bottom:10px;">'+r.effect+'</div>'
+        +'<div class="status-grid">'
+        +'<div class="status-item">HP: '+r.hp+'</div>'
+        +'<div class="status-item">ATK: '+r.atk+'</div>'
+        +'<div class="status-item">DEF: '+r.def+'</div>'
+        +'<div class="status-item">SPD: '+r.spd+'</div>'
+        +'</div>';
+    tutShowSpotlight([{el:box,padding:10}]);
+    tutSpeak([
+        'ええ！すごい！特技を持った特殊カレーができたね！',
+        '特殊カレーは材料の条件が揃わないと\nできないんだよ！',
+        'どんなカレーか確認するために\n冷蔵庫に移動しよう'
+    ],function(){
+        lsSet('step','fridge');
+        tutAllowedTabs=['fridge'];
+        var fridgeTabEl=document.getElementById('tab-fridge');
+        tutShowSpotlight([{el:fridgeTabEl,padding:6}]);
+        tutShowPointer(fridgeTabEl);
+        tutWaitTab('fridge',function(){tutAllowedTabs=[];tutHideSpotlight();tutScenario_Fridge();});
+    });
+}
+function tutScenario_Fridge(){tutSpeak(['冷蔵庫でカレーを確認しよう！'],function(){});}
 
 // ===== ダミー関数 =====
 function togglePlayerIcon(){tutOpenNameModal();}
