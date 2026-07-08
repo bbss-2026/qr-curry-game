@@ -2257,10 +2257,13 @@ function setupModalScrollLock() {
     observer.observe(modal, { attributes: true, attributeFilter: ['style'] });
 }
 function gameStart() {
-    // 初回のみオンボーディング（名前入力→音声確認→チュートリアル確認）を行う
-    if(localStorage.getItem('qr_onboarding_done') !== '1') {
+    // 初回のみオンボーディング（名前入力→音声確認→チュートリアル自動遷移）を行う。
+    // admin.htmlの「初期プレイヤー化」デバッグフラグがONの場合は、
+    // 既にオンボーディング済みのブラウザでも強制的にオンボーディングをやり直させる（テスト用）。
+    const forceNewPlayer = localStorage.getItem('qr_debug_new_player') === '1';
+    if(forceNewPlayer || localStorage.getItem('qr_onboarding_done') !== '1') {
         showOnboardingNameModal();
-        return; // モーダルの流れの最後でproceedGameStartを呼ぶ
+        return; // モーダルの流れの最後でproceedGameStartまたはtutorial.htmlへの遷移を行う
     }
     proceedGameStart();
 }
@@ -2320,7 +2323,10 @@ function confirmSoundOff() {
 // 既存プレイヤー（このアップデート以前から遊んでいた人）を誤ってチュートリアルに
 // 送らないよう、①qr_onboarding_doneフラグを主判定、②実際のプレイ履歴が
 // 1つでも残っていれば既存プレイヤー扱いにする安全策、の二重チェックで判定する。
+// admin.htmlの「初期プレイヤー化」デバッグフラグ(qr_debug_new_player)がONの場合は、
+// このブラウザの実際の進行状況に関わらず常に新規プレイヤーとして扱う（テスト用）。
 function isExistingPlayerForTutorial() {
+    if (localStorage.getItem('qr_debug_new_player') === '1') return false;
     if (localStorage.getItem('qr_onboarding_done') === '1') return true;
     if (localStorage.getItem('qr_curry_pname')) return true;
     try {
@@ -2346,11 +2352,14 @@ function isExistingPlayerForTutorial() {
 }
 
 function finishOnboardingAndMaybeTutorial() {
+    const forceNewPlayer = localStorage.getItem('qr_debug_new_player') === '1';
     const alreadyExisting = isExistingPlayerForTutorial();
+    const tutorialAlreadyDone = localStorage.getItem('tut_done') === '1';
     localStorage.setItem('qr_onboarding_done', '1');
     document.getElementById("customModal").style.display = "none";
     // 既存プレイヤー、またはチュートリアルを既に完了済みの場合は通常通りゲームへ
-    if (alreadyExisting || localStorage.getItem('tut_done') === '1') {
+    // （「初期プレイヤー化」デバッグフラグがONの間はこの判定を無視して必ずチュートリアルへ）
+    if (!forceNewPlayer && (alreadyExisting || tutorialAlreadyDone)) {
         proceedGameStart();
         return;
     }

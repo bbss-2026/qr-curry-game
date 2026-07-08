@@ -2051,7 +2051,9 @@ function toggleHelp(){}
 // 遷移してくる想定のため、本体が使っているlocalStorageキー（qr_curry_pname / qr_muted /
 // qr_player_id）から状態を引き継ぐ。
 window.addEventListener('load',function(){
-    if(!DEBUG&&localStorage.getItem('tut_done')==='1'){window.location.href='game.html';return;}
+    // admin.htmlの「初期プレイヤー化」デバッグフラグがONの間は、tut_done済みでも
+    // このページに留まれるようにする（本番でDEBUGをfalseにした後もテスト継続できるように）。
+    if(!DEBUG&&localStorage.getItem('qr_debug_new_player')!=='1'&&localStorage.getItem('tut_done')==='1'){window.location.href='game.html';return;}
     // IDを本体と同じキーから取得
     var pid=localStorage.getItem('qr_player_id')||'----------';
     var idEl=document.getElementById('playerIdDisplay');

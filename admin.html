@@ -55,6 +55,7 @@
         <button id="btnTimeSetting" style="background:#7f8c8d;" onclick="actSetTime()">⏰ 時間設定: OFF</button>
         <button style="background:#d35400;" onclick="actResetBingo()">QR BINGO リセット</button>
         <button id="btnQrIgnore" style="background:#27ae60;" onclick="actToggleQrIgnore()">🔓 QR使用済み無視: OFF</button>
+        <button id="btnNewPlayerMode" style="background:#7f8c8d;" onclick="actToggleNewPlayerMode()">🆕 初期プレイヤー化: OFF</button>
     </div>
 
     <div class="section">
@@ -382,6 +383,33 @@ function initQrIgnoreBtn() {
     if(!btn) return;
     btn.style.background = on ? '#e74c3c' : '#27ae60';
     btn.innerText = on ? '🔓 QR使用済み無視: ON' : '🔓 QR使用済み無視: OFF';
+}
+
+// このブラウザのキャラクターを「初回プレイヤー」として扱うデバッグ用フラグ。
+// ON中はgame-dev.html側で既存プレイヤー判定・チュートリアル完了済み判定を無視し、
+// GAME START後に必ずチュートリアル(tutorial.html)へ進む。実データ（所持品・進行度等）は変更しない。
+function actToggleNewPlayerMode() {
+    const key = 'qr_debug_new_player';
+    const current = localStorage.getItem(key) === '1';
+    const next = !current;
+    localStorage.setItem(key, next ? '1' : '0');
+    const btn = document.getElementById('btnNewPlayerMode');
+    if(next) {
+        btn.style.background = '#e74c3c';
+        btn.innerText = '🆕 初期プレイヤー化: ON';
+        showCustomAlert('🆕 初期プレイヤー化 ON', 'このブラウザは次回「GAME START」を押すと、既存の進行状況に関わらず初回プレイヤーとして扱われ、確認なしでチュートリアルに進みます。<br>※所持品や進行度は変更されません。<br>ゲーム画面をリロードしてください。');
+    } else {
+        btn.style.background = '#7f8c8d';
+        btn.innerText = '🆕 初期プレイヤー化: OFF';
+        showCustomAlert('🆕 初期プレイヤー化 OFF', '通常通りの挙動（既存プレイヤー判定・チュートリアル完了済み判定が有効）に戻りました。<br>ゲーム画面をリロードしてください。');
+    }
+}
+function initNewPlayerModeBtn() {
+    const on = localStorage.getItem('qr_debug_new_player') === '1';
+    const btn = document.getElementById('btnNewPlayerMode');
+    if(!btn) return;
+    btn.style.background = on ? '#e74c3c' : '#7f8c8d';
+    btn.innerText = on ? '🆕 初期プレイヤー化: ON' : '🆕 初期プレイヤー化: OFF';
 }
 
 function actAnalytics() {
@@ -1041,7 +1069,7 @@ function actRevokeAnnouncement(key) {
     });
 }
 
-window.onload = function() { loadInitialData(); initQrIgnoreBtn(); };
+window.onload = function() { loadInitialData(); initQrIgnoreBtn(); initNewPlayerModeBtn(); };
 </script>
 
 </body>
