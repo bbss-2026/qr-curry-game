@@ -662,7 +662,7 @@
 <!-- ミュートはチュートリアル中も常に操作可能にする必要があるため、
      オーバーレイ(.tut-ov / z-index:4000)の影響を受けないよう#gameWrapperの外に
      body直下・position:fixedで独立して配置している -->
-<button id="muteBtn" onclick="tutToggleMute()" style="position:fixed;top:8px;right:8px;width:32px;height:32px;border:none;background:transparent;cursor:pointer;z-index:8000;display:flex;align-items:center;justify-content:center;padding:0;">
+<button id="muteBtn" onclick="tutToggleMute()" style="position:fixed;top:8px;right:8px;width:32px;height:32px;border:none;background:transparent;cursor:pointer;z-index:999999;display:flex;align-items:center;justify-content:center;padding:0;transform:translateZ(0);-webkit-transform:translateZ(0);">
     <img id="muteIcon" src="sound-on2.svg" style="width:28px;height:28px;" alt="sound">
 </button>
 <!-- ===== 調理アニメーション（本編game-dev.htmlと同じ鍋演出：nabebg.png/nabepot.png） ===== -->
@@ -673,7 +673,7 @@
     </div>
 </div>
 <!-- ===== 対戦マッチング（本編#vsCutIn相当。id/クラスは本編と同一のものを流用） ===== -->
-<div id="tutVsCutIn" style="position:fixed;top:0;left:0;width:100%;height:100%;background:#111;z-index:7000;display:none;flex-direction:column;justify-content:flex-start;align-items:center;color:white;overflow-y:auto;box-sizing:border-box;padding:20px;">
+<div id="tutVsCutIn" style="position:fixed;top:0;left:50%;transform:translateX(-50%);width:100%;max-width:480px;height:100%;background:#111;z-index:7000;display:none;flex-direction:column;justify-content:flex-start;align-items:center;color:white;overflow-y:auto;box-sizing:border-box;padding:20px;">
     <h2 style="color:#e67e22;margin-top:10px;text-shadow:0 2px 4px rgba(0,0,0,0.8);font-style:italic;">⚔️ 練習対戦</h2>
     <div class="vs-grid-layout">
         <div class="vs-side">
@@ -706,7 +706,7 @@
         </div>
     </div>
 </div>
-<div id="tutBattleArena" style="position:fixed;top:0;left:0;width:100%;height:100%;background:#efdeb1;z-index:7000;display:none;overflow-y:auto;box-sizing:border-box;padding:16px;">
+<div id="tutBattleArena" style="position:fixed;top:0;left:50%;transform:translateX(-50%);width:100%;max-width:480px;height:100%;background:#efdeb1;z-index:7000;display:none;overflow-y:auto;box-sizing:border-box;padding:16px;">
     <div class="battle-stage battle-bg-easy" id="battleStage">
         <div class="damage-pop" id="damagePop" style="display:none;">0</div>
         <div id="battleResultOverlay" style="display:none;position:absolute;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.6);z-index:20;flex-direction:column;justify-content:center;align-items:center;border-radius:8px;">
@@ -1648,11 +1648,11 @@ var TUT_BATTLE_DATA={
     ]},
     seafood:{enemyHp:150,turns:[
         {actor:'enemy',type:'hit',dmg:80},
-        {actor:'enemy',type:'hit',dmg:60},
+        {actor:'player',type:'hit',dmg:35},
+        {actor:'enemy',type:'hit',dmg:55},
         {actor:'player',type:'heal',heal:60},
-        {actor:'player',type:'hit',dmg:50},
         {actor:'enemy',type:'hit',dmg:20},
-        {actor:'player',type:'hit',dmg:100}
+        {actor:'player',type:'hit',dmg:120}
     ]}
 };
 var tutBattle={pHp:0,pMax:0,oHp:0,oMax:0};
@@ -2026,6 +2026,10 @@ window.addEventListener('load',function(){
     // 紹介モーダルの背後に何も無い状態を避けるため、先にgameUIを表示しておく
     // （実際の操作ロックはtutScenario_PlayerIntro内のtutShowSpotlight([])が担う）
     document.getElementById('gameUI').style.display='block';
+    // ミュートボタンは常にどの画面(バトル中含む)でも操作可能でなければならないため、
+    // DOM上も最後尾に再配置して他のオーバーレイの描画順に埋もれないようにする
+    var mb=document.getElementById('muteBtn');
+    if(mb)document.body.appendChild(mb);
     tutScenario_PlayerIntro();
 });
 </script>
