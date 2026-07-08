@@ -955,10 +955,6 @@
                 <button id="tutBtnSeafood" class="btn btn-start" onclick="tutQrChoose('seafood')" style="flex:1; margin:0;">魚介</button>
             </div>
         </div>
-        <div class="get-box" id="tutGetBox" style="display:none; margin-top:20px; padding:15px; background:#fffdf0; border:2px dashed #e67e22; border-radius:10px; text-align:center;">
-            <div style="font-size:14px; color:#e67e22; font-weight:bold;">食材ゲット！</div>
-            <div id="tutGetBoxItems" style="display:flex; justify-content:center; gap:12px; margin-top:10px; flex-wrap:wrap;"></div>
-        </div>
         <div style="margin: 16px auto 10px auto; max-width: 420px; background: #fffdf0; border: 1px solid #e0c080; border-radius: 8px; padding: 10px 14px; text-align: left; font-size: 12px; color: #7a6040; line-height: 1.7;">
             <div style="font-weight: bold; margin-bottom: 4px; color: #b8860b;">QRスキャンに関するご注意</div>
             ルールとマナーを守って楽しくお遊びください。<br>
@@ -1064,6 +1060,9 @@ function tutShowSpotlight(targets){
     }else{
         tutApplySpotlight();
     }
+    // 対象内の画像(アイコン等)の読み込みが遅れて穴の位置がずれることがあるため、
+    // 少し後にもう一度だけ再計算して補正する
+    setTimeout(function(){if(_spotTargets===targets)tutApplySpotlight();},250);
 }
 
 function tutApplySpotlight(){
@@ -1202,21 +1201,32 @@ function tutQrChoose(cat){
     tutChosenCategory=cat;
     document.getElementById('tutQrChoiceArea').style.display='none';
     tutShowSpotlight([]);
+    tutSpeak(['いいね！じゃあこれを受け取って！'],function(){
+        tutShowGetItemsModal(cat);
+    });
+}
+// QRスキャンでの入手ではなくプレゼントのため、結果は#customModalのモーダルで表示する
+function tutShowGetItemsModal(cat){
     var items=TUT_INGREDIENTS[cat];
-    var wrap=document.getElementById('tutGetBoxItems');
-    wrap.innerHTML=items.map(function(it){
+    var itemsHtml=items.map(function(it){
         return '<div style="text-align:center;"><img src="'+it[1]+'" alt="'+it[0]+'" style="width:44px;height:44px;object-fit:contain;display:block;margin:0 auto;"><div style="font-size:11px;color:#420000;font-weight:bold;margin-top:4px;">'+it[0]+'</div></div>';
     }).join('');
-    document.getElementById('tutGetBox').style.display='block';
-    tutSpeak(['いいね！じゃあこれを受け取って！'],function(){
-        tutSpeak(['さぁ、早速調理してみよう！\n調理タブを押してね'],function(){
-            lsSet('step','cook');
-            tutAllowedTabs=['cook'];
-            var cookTabEl=document.getElementById('tab-cook');
-            tutShowSpotlight([{el:cookTabEl,padding:6}]);
-            tutShowPointer(cookTabEl);
-            tutWaitTab('cook',function(){tutAllowedTabs=[];tutHideSpotlight();tutScenario_Cook();});
-        });
+    var msg='<div style="display:flex;justify-content:center;gap:12px;flex-wrap:wrap;margin-bottom:16px;">'+itemsHtml+'</div>'
+        +'<button onclick="tutCloseGetItemsModal()" style="width:100%;padding:12px;background:#b88742;color:#efdeb1;border:none;border-radius:4px;font-weight:bold;font-size:14px;cursor:pointer;">OK</button>';
+    document.getElementById('modalTitle').innerHTML='食材ゲット！';
+    document.getElementById('modalMessage').innerHTML=msg;
+    document.getElementById('modalBtnGroup').innerHTML='';
+    document.getElementById('customModal').style.display='flex';
+}
+function tutCloseGetItemsModal(){
+    document.getElementById('customModal').style.display='none';
+    tutSpeak(['さぁ、早速調理してみよう！\n調理タブを押してね'],function(){
+        lsSet('step','cook');
+        tutAllowedTabs=['cook'];
+        var cookTabEl=document.getElementById('tab-cook');
+        tutShowSpotlight([{el:cookTabEl,padding:6}]);
+        tutShowPointer(cookTabEl);
+        tutWaitTab('cook',function(){tutAllowedTabs=[];tutHideSpotlight();tutScenario_Cook();});
     });
 }
 function tutScenario_Cook(){tutSpeak(['ここでカレーを調理しよう！'],function(){});}
