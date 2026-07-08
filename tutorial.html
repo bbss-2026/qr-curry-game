@@ -45,6 +45,13 @@
         #cookingBg { width:100%; height:auto; display:block; }
         #cookingPot { position:absolute; transform-origin:center bottom; }
         .cook-icon-el { position:fixed; width:52px; height:52px; border-radius:50%; background:rgba(255,255,255,0.92); display:flex; align-items:center; justify-content:center; opacity:0; box-shadow:0 2px 8px rgba(0,0,0,0.3); pointer-events:none; z-index:8001; }
+        /* 調理結果ボックスの特殊カレー枠（本編game-dev.htmlと同一） */
+        .seed-box { animation: seedGlow 1.5s infinite; border: 3px solid #27ae60 !important; }
+        @keyframes seedGlow { 0%,100% { box-shadow: 0 0 5px #27ae60; } 50% { box-shadow: 0 0 20px #f39c12, 0 0 30px #27ae60; } }
+        .wanpaku-box { animation: wanpakuGlow 1.5s infinite; border: 3px solid #e67e22 !important; }
+        @keyframes wanpakuGlow { 0%,100% { box-shadow: 0 0 5px #e67e22; } 50% { box-shadow: 0 0 20px #e67e22, 0 0 30px #f39c12; } }
+        .wave-box { animation: waveGlow 1.5s infinite; border: 3px solid #3498db !important; }
+        @keyframes waveGlow { 0% { box-shadow: 0 0 5px #3498db; } 50% { box-shadow: 0 0 20px #1abc9c, 0 0 30px #3498db; } 100% { box-shadow: 0 0 5px #3498db; } }
         @keyframes topFloat3 { 0%,100%{transform:translateY(0);} 50%{transform:translateY(-9px) scale(1.015);} }
         @keyframes topFloat4 { 0%,100%{transform:translateY(0) rotate(0);} 50%{transform:translateY(-5px) rotate(-2deg);} }
         @keyframes topFloat5 { 0%,100%{transform:translateY(0) rotate(0);} 50%{transform:translateY(-7px) rotate(1.5deg);} }
@@ -901,7 +908,15 @@ function tutWaitTab(tab,cb){tutPendingTab={tab:tab,cb:cb};}
 
 // ===== スポットライト（スクロール中はラッパーをロック）=====
 var _spotTargets=null;
-var NAR_H=116;
+var NAR_H_FALLBACK=116;
+var NAR_GAP=16; // ナレーション欄と対象の間に余白を持たせ、際どくカットされて見えるのを防ぐ
+// ナレーション欄はテキストの長さで実際の高さが変わる(min-heightのみでCSS固定していない)ため、
+// 都度実測して隠れる領域を正しく計算する
+function getNarH(){
+    var nar=document.getElementById('tutNarrator');
+    var h=nar?nar.getBoundingClientRect().height:0;
+    return (h>0?h:NAR_H_FALLBACK)+NAR_GAP;
+}
 
 function tutShowSpotlight(targets){
     var wrap=document.getElementById('gameWrapper');
@@ -922,8 +937,8 @@ function tutShowSpotlight(targets){
     }
     _spotTargets=targets;
     function scrollTargetsIntoView(){
-        // 対象がナレーション欄(高さNAR_H)を除いた表示領域の外にある場合だけスクロールする
-        var visibleBottom=window.innerHeight-NAR_H;
+        // 対象がナレーション欄を除いた表示領域の外にある場合だけスクロールする（欄の高さは実測）
+        var visibleBottom=window.innerHeight-getNarH();
         var minTop=Infinity,maxBottom=-Infinity;
         targets.forEach(function(t){
             if(!t.el)return;
@@ -967,7 +982,7 @@ function tutApplySpotlight(){
         maxX=Math.max(maxX,r.right+p);maxY=Math.max(maxY,r.bottom+p);
     });
     minX=Math.max(0,minX);minY=Math.max(0,minY);
-    maxX=Math.min(W,maxX);maxY=Math.min(H-NAR_H,maxY);
+    maxX=Math.min(W,maxX);maxY=Math.min(H-getNarH(),maxY);
     s(top,'top:0;left:0;right:0;height:'+minY+'px;display:block;');
     s(bot,'top:'+maxY+'px;left:0;right:0;bottom:0;display:block;');
     s(lft,'top:'+minY+'px;left:0;width:'+minX+'px;height:'+(maxY-minY)+'px;display:block;');
@@ -998,9 +1013,31 @@ function tutNarratorTap(){
 }
 
 // ===== ミュート =====
+var isMuted=(localStorage.getItem('qr_muted')==='1');
 function tutToggleMute(){
+    isMuted=!isMuted;
+    localStorage.setItem('qr_muted',isMuted?'1':'0');
     var img=document.getElementById('muteIcon');
-    if(img)img.src=img.src.includes('sound-on')?'sound-off.svg':'sound-on.svg';
+    if(img)img.src=isMuted?'sound-off.svg':'sound-on.svg';
+}
+
+// ===== 効果音（本編game-dev.htmlのplaySoundEffect()と同じプール方式） =====
+var _sePool={};
+var _SE_POOL_SIZE=4;
+function playSoundEffect(src){
+    if(isMuted)return;
+    if(!_sePool[src]){
+        _sePool[src]={pool:[],idx:0};
+        for(var i=0;i<_SE_POOL_SIZE;i++){
+            var a=new Audio(src);a.volume=0.7;
+            _sePool[src].pool.push(a);
+        }
+    }
+    var entry=_sePool[src];
+    var se=entry.pool[entry.idx];
+    entry.idx=(entry.idx+1)%_SE_POOL_SIZE;
+    se.currentTime=0;se.volume=0.7;
+    se.play().catch(function(){});
 }
 
 // ===== 名前入力（プレイヤータブでの名前タップ変更用。オンボーディングとは別） =====
@@ -1240,6 +1277,7 @@ function tutDoCook(){
         overlay.style.transition='';
         overlay.removeEventListener('click',skipAnimation);
         tutRevealCookResult();
+        playSoundEffect('sound/syakin.mp3');
     }
     overlay.addEventListener('click',skipAnimation);
 
@@ -1259,6 +1297,7 @@ function tutDoCook(){
                 el.style.transition='opacity 0.15s, transform 0.28s cubic-bezier(0.34,1.56,0.64,1)';
                 el.style.opacity='1';el.style.transform='scale(1)';
             });});
+            playSoundEffect('intro/papa.mp3');
         },i*180);
     });
 
@@ -1274,6 +1313,7 @@ function tutDoCook(){
             el.style.transition='transform 0.42s cubic-bezier(0.4,0,0.8,0.6), opacity 0.2s 0.26s';
             el.style.transform='translate('+dx+'px,'+dy+'px) scale(0.15)';
             el.style.opacity='0';
+            if(i===0) playSoundEffect('intro/nageire.mp3');
         },flyDelay+i*110);
     });
 
@@ -1281,6 +1321,7 @@ function tutDoCook(){
     var shakeDelay=flyDelay+items.length*110+220;
     addTimer(function(){
         pot.style.animation='potShake 0.12s ease-in-out 7';
+        playSoundEffect('intro/cooking.mp3');
     },shakeDelay);
 
     // フェーズ4：結果表示 → フェードアウト
@@ -1288,6 +1329,7 @@ function tutDoCook(){
     addTimer(function(){
         overlay.removeEventListener('click',skipAnimation);
         tutRevealCookResult();
+        playSoundEffect('sound/syakin.mp3');
         addTimer(function(){
             overlay.style.transition='opacity 0.55s ease';
             overlay.style.opacity='0';
@@ -1303,10 +1345,11 @@ function tutDoCook(){
 }
 // 会心なし・確定で特殊カレー(わんぱく/種連射/海鮮)ができる想定のダミー結果
 // イラストは本編game-dev.htmlのCURRY_SPECIAL_IMAGESと同一パスを使用
+// イラスト・枠色は本編game-dev.htmlのCURRY_SPECIAL_IMAGES／wanpaku-box等と同一
 var TUT_CURRY_RESULT={
-    meat:{title:'わんぱく牛肉チキンウインナー',image:'currymonster/curry_wanpaku.png',flash:'🍛 暴れ放題！わんぱくカレー誕生！ 🍛',flashColor:'#e67e22',effectName:'🍛 わんぱく',effect:'通常攻撃の上下の振り幅が大きくなり、ミスをすることも。',hp:255,atk:125,def:75,spd:65},
-    vegetable:{title:'種連発トマトナス玉ねぎ',image:'currymonster/curry_tane.png',flash:'🌱 種の力が炸裂！連続発射カレー爆誕！ 🌱',flashColor:'#27ae60',effectName:'🌱 種連続発射',effect:'40％の攻撃を複数回連続で行う。',hp:175,atk:55,def:65,spd:55},
-    seafood:{title:'海鮮小エビサバイカ',image:'currymonster/curry_umi.png',flash:'🌊 海の幸が集結！海鮮スペシャルカレー！ 🌊',flashColor:'#3498db',effectName:'🌊 海鮮',effect:'波の音が聞こえる。そして癒される。',hp:150,atk:105,def:35,spd:170}
+    meat:{title:'わんぱく牛肉チキンウインナー',image:'currymonster/curry_wanpaku.png',flash:'🍛 暴れ放題！わんぱくカレー誕生！ 🍛',flashColor:'#e67e22',boxClass:'wanpaku-box',hp:255,atk:125,def:75,spd:65},
+    vegetable:{title:'種連発トマトナス玉ねぎ',image:'currymonster/curry_tane.png',flash:'🌱 種の力が炸裂！連続発射カレー爆誕！ 🌱',flashColor:'#27ae60',boxClass:'seed-box',hp:175,atk:55,def:65,spd:55},
+    seafood:{title:'海鮮小エビサバイカ',image:'currymonster/curry_umi.png',flash:'🌊 海の幸が集結！海鮮スペシャルカレー！ 🌊',flashColor:'#3498db',boxClass:'wave-box',hp:150,atk:105,def:35,spd:170}
 };
 function tutRevealCookResult(){
     var cat=tutChosenCategory||'meat';
@@ -1317,12 +1360,13 @@ function tutRevealCookResult(){
         return '<img src="'+it[1]+'" style="width:28px;height:28px;object-fit:contain;">';
     }).join('');
     var box=document.getElementById('tutCookResultBox');
+    box.classList.remove('wanpaku-box','seed-box','wave-box');
+    box.classList.add(r.boxClass);
     box.innerHTML=
         '<div style="font-weight:bold;font-size:15px;margin-bottom:8px;color:'+r.flashColor+';">'+r.flash+'</div>'
         +'<img src="'+r.image+'" alt="" style="display:block;width:140px;height:140px;object-fit:contain;margin:0 auto 6px;">'
         +'<div style="display:flex;justify-content:center;flex-wrap:wrap;gap:4px;margin-bottom:8px;">'+iconsHtml+'</div>'
-        +'<div style="font-size:18px;font-weight:bold;color:#c0392b;margin-bottom:6px;">'+r.title+' of カレー</div>'
-        +'<div style="font-size:12px;color:#5a3a1a;margin-bottom:10px;">'+r.effectName+'：'+r.effect+'</div>'
+        +'<div style="font-size:18px;font-weight:bold;color:#c0392b;margin-bottom:10px;">'+r.title+' of カレー</div>'
         +'<div class="status-grid">'
         +'<div class="status-item">HP: '+r.hp+'</div>'
         +'<div class="status-item">ATK: '+r.atk+'</div>'
