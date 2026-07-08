@@ -620,6 +620,8 @@
         .tut-btn-gold { background:#b88742; color:#efdeb1; border:none; border-radius:4px; padding:12px 24px; font-size:15px; font-weight:bold; cursor:pointer; width:100%; }
         .page { padding-bottom: 130px !important; }
         .tut-placeholder { text-align:center; color:#9a8060; padding:40px 20px; font-size:13px; }
+        .tut-pointer { position:fixed; font-size:34px; z-index:4500; pointer-events:none; display:none; text-shadow:0 2px 4px rgba(0,0,0,0.5); animation:tutPointerBlink 0.9s ease-in-out infinite; }
+        @keyframes tutPointerBlink { 0%,100%{opacity:1;transform:translateY(0);} 50%{opacity:0.35;transform:translateY(6px);} }
 </style>
 </head>
 <body>
@@ -627,6 +629,14 @@
 <div class="tut-ov" id="ov-bot"></div>
 <div class="tut-ov" id="ov-lft"></div>
 <div class="tut-ov" id="ov-rgt"></div>
+<div class="tut-pointer" id="tutPointer">👆</div>
+<div class="modal-overlay" id="customModal">
+    <div class="modal-box">
+        <div class="modal-title" id="modalTitle">📢 お知らせ</div>
+        <div class="modal-message" id="modalMessage">メッセージ内容</div>
+        <div class="modal-btn-group" id="modalBtnGroup"></div>
+    </div>
+</div>
 <div id="gameWrapper">
     <div class="logo-area" id="logoAreaWrap" title="タイトルへ">
         <img src="battlecurry-logo.svg" alt="Battle Curry" >
@@ -642,6 +652,10 @@
     </div>
 
     <div class="lunchtime-banner" id="lunchtimeBanner">🍛 ランチタイムボーナス発生中 QR入手アイテム2倍 🍛</div>
+
+    <!-- タブUI（本体game-dev.htmlでGAME START〜名前入力〜音声確認を済ませた後、このページに遷移してくる想定。
+         ざっくり紹介モーダルを閉じるまでは非表示） -->
+    <div id="gameUI" style="display:none;">
 
     <div class="tab-menu">
         <button class="tab-btn active" onclick="tutTabClick('player')" id="tab-player">プレイヤー</button>
@@ -931,8 +945,8 @@
     <div id="page-fridge" class="page"><div class="tut-placeholder">準備中...</div></div>
     <div id="page-cook" class="page"><div class="tut-placeholder">準備中...</div></div>
     <div id="page-battle" class="page"><div class="tut-placeholder">準備中...</div></div>
-    </div>
-</div>
+    </div><!-- /gameUI -->
+</div><!-- /gameWrapper -->
 <div id="tut-name-modal">
     <div class="tut-modal-box">
         <h3>料理人の名前を入力</h3>
@@ -957,9 +971,21 @@ var tutAllowedTabs=[];
 var tutPendingTab=null;
 function tutTabClick(tab){
     if(tutAllowedTabs.length>0&&tutAllowedTabs.indexOf(tab)<0)return;
+    tutHidePointer();
     tutSwitchTab(tab);
     if(tutPendingTab&&tutPendingTab.tab===tab){var cb=tutPendingTab.cb;tutPendingTab=null;setTimeout(cb,150);}
 }
+
+// ===== 指差しポインター =====
+function tutShowPointer(el){
+    var p=document.getElementById('tutPointer');
+    if(!el){p.style.display='none';return;}
+    var r=el.getBoundingClientRect();
+    p.style.left=(r.left+r.width/2-17)+'px';
+    p.style.top=(r.bottom+4)+'px';
+    p.style.display='block';
+}
+function tutHidePointer(){document.getElementById('tutPointer').style.display='none';}
 function tutSwitchTab(tab){
     document.querySelectorAll('.tab-btn').forEach(function(b){b.classList.remove('active');});
     document.querySelectorAll('.page').forEach(function(p){p.classList.remove('active');});
@@ -978,8 +1004,8 @@ var NAR_H=116;
 
 function tutShowSpotlight(targets){
     var wrap=document.getElementById('gameWrapper');
-    // ★修正: #gameWrapperはCSS上min-height:100vhしか無く高さがコンテンツに追従するため、
-    // 既存のoverflow-y:auto(CSS側)が実際にはスクロールとして機能しない。
+    // #gameWrapperはCSS上min-height:100vhしか無く高さがコンテンツに追従するため、
+    // overflow-y:auto(CSS側)が実際にはスクロールとして機能しない。
     // CSSは変更せず、実行時に高さを画面いっぱいへ固定してスクロール可能にする。
     wrap.style.minHeight='0';
     wrap.style.height=window.innerHeight+'px';
@@ -990,7 +1016,7 @@ function tutShowSpotlight(targets){
         return;
     }
     _spotTargets=targets;
-    // ★修正: 対象がナレーション欄(高さNAR_H)を除いた表示領域の外にある場合だけスクロールする
+    // 対象がナレーション欄(高さNAR_H)を除いた表示領域の外にある場合だけスクロールする
     var visibleBottom=window.innerHeight-NAR_H;
     var minTop=Infinity,maxBottom=-Infinity;
     targets.forEach(function(t){
@@ -1001,15 +1027,13 @@ function tutShowSpotlight(targets){
     });
     var delta=0;
     if(minTop!==Infinity){
-        if(maxBottom>visibleBottom) delta=maxBottom-visibleBottom; // 下にはみ出し→下へスクロール
-        else if(minTop<0) delta=minTop; // 上にはみ出し→上へスクロール
+        if(maxBottom>visibleBottom) delta=maxBottom-visibleBottom;
+        else if(minTop<0) delta=minTop;
     }
     if(delta!==0){
         wrap.scrollTop+=delta;
-        // ★修正: スクロールによるレイアウト確定後にgetBoundingClientRect()で穴位置を計算する
         requestAnimationFrame(function(){requestAnimationFrame(tutApplySpotlight);});
     }else{
-        // ★修正: 既に表示領域内にある場合は不要なスクロールをしない
         tutApplySpotlight();
     }
 }
@@ -1068,7 +1092,7 @@ function tutToggleMute(){
     if(img)img.src=img.src.includes('sound-on')?'sound-off.svg':'sound-on.svg';
 }
 
-// ===== 名前入力 =====
+// ===== 名前入力（プレイヤータブでの名前タップ変更用。オンボーディングとは別） =====
 function tutOpenNameModal(){
     document.getElementById('tut-name-modal').classList.add('show');
     setTimeout(function(){document.getElementById('tut-name-field').focus();},100);
@@ -1080,39 +1104,43 @@ function tutConfirmName(){
     var ni=document.getElementById('playerNameInput');if(ni)ni.value=val;
     var hn=document.getElementById('headerPlayerName');if(hn)hn.textContent=val;
     document.getElementById('tut-name-modal').classList.remove('show');
-    tutScenario_Player_After(val);
 }
 
-// ===== シナリオ: プレイヤー =====
-function tutScenario_Player(){
+// ===== 導入（本体game-dev.htmlでGAME START〜名前入力〜音声確認は完了済みの前提。
+//        ここでは本体が保存した名前・ミュート状態を読み込んで引き継ぎ、
+//        「ざっくり紹介＋チュートリアルを始める」から開始する） =====
+function tutShowIntroModal(){
+    document.getElementById('customModal').style.display='flex';
+    var msg='<img src="tutorial/zakkuritutorial.png" style="width:100%;max-width:100%;height:auto;display:block;margin:0 auto 16px auto;border-radius:8px;">'
+        +'<div style="font-size:14px;color:#420000;margin-bottom:16px;line-height:1.6;text-align:center;">QRで食材を集めて、カレーを作って、バトルで勝とう！<br>ここからは実際に操作しながら詳しく説明するね。</div>'
+        +'<button onclick="tutConfirmIntroStart()" style="width:100%;padding:12px;background:#b88742;color:#efdeb1;border:none;border-radius:4px;font-weight:bold;font-size:14px;cursor:pointer;">チュートリアルを始める</button>';
+    document.getElementById('modalTitle').innerHTML='📖 チュートリアル';
+    document.getElementById('modalMessage').innerHTML=msg;
+    document.getElementById('modalBtnGroup').innerHTML='';
+}
+function tutConfirmIntroStart(){
+    document.getElementById('customModal').style.display='none';
+    document.getElementById('gameUI').style.display='block';
+    tutScenario_PlayerIntro();
+}
+
+// ===== シナリオ: プレイヤー（GAME START後の案内人トーク） =====
+function tutScenario_PlayerIntro(){
     tutAllowedTabs=[];tutShowSpotlight([]);
     tutSpeak([
-        'ようこそ、バトルカレーへ！\nQRコードで食材を集めてカレーを作り\n料理バトルで勝利を目指すゲームです！',
-        'まずはあなたの料理人の名前を\n入力しましょう！\n名前の入力欄をタップしてください！',
+        'ようこそ、バトルカレーへ。\n簡単にゲームのことを説明させてね。',
+        'このゲームはQRで食材を集めて\nその食材でカレーを作って\nそのカレーでバトルするゲームなんだ',
     ],function(){
-        var niEl=document.getElementById('playerNameInput');
-        tutShowSpotlight([{el:niEl,padding:12}]);
-        if(niEl){
-            niEl.readOnly=false;
-            niEl.addEventListener('focus',function(){tutOpenNameModal();niEl.blur();},{once:true});
-        }
-    });
-}
-function tutScenario_Player_After(name){
-    tutAllowedTabs=[];tutShowSpotlight([]);
-    tutSpeak([name+'さん、よろしく！'],function(){
-        var muteEl=document.getElementById('muteBtn');
-        tutShowSpotlight([{el:muteEl,padding:10}]);
-        tutSpeak([
-            'マナーモードでも音が出ることがあります。\n音を消したい場合はここを押してね。\nいつでも切り替えできますよ！',
-        ],function(){
-            tutAllowedTabs=[];tutShowSpotlight([]);
-            tutSpeak(['上のメニュータブから\n「QR」タブを選んでみて！'],function(){
-                lsSet('step','qr');
-                tutAllowedTabs=['qr'];
-                tutShowSpotlight([{el:document.getElementById('tab-qr'),padding:6}]);
-                tutWaitTab('qr',function(){tutAllowedTabs=[];tutHideSpotlight();tutScenario_QR();});
-            });
+        // 5つのタブのみオーバーレイを解除（操作はまだできないまま）
+        tutAllowedTabs=[];
+        tutHideSpotlight();
+        tutSpeak(['上に5つのメニュータブがあるでしょ\nまずはQRタブを選んでみて'],function(){
+            lsSet('step','qr');
+            tutAllowedTabs=['qr'];
+            var qrTabEl=document.getElementById('tab-qr');
+            tutShowSpotlight([{el:qrTabEl,padding:6}]);
+            tutShowPointer(qrTabEl);
+            tutWaitTab('qr',function(){tutAllowedTabs=[];tutHideSpotlight();tutScenario_QR();});
         });
     });
 }
@@ -1136,24 +1164,30 @@ function openPostScreen(){}
 function toggleHelp(){}
 
 // ===== 初期化 =====
+// このページは本体game-dev.htmlでGAME START→名前入力→音声確認まで済ませた後に
+// 遷移してくる想定のため、本体が使っているlocalStorageキー（qr_curry_pname / qr_muted /
+// qr_player_id）から状態を引き継ぐ。
 window.addEventListener('load',function(){
     if(!DEBUG&&localStorage.getItem('tut_done')==='1'){window.location.href='game.html';return;}
-    // IDをgame.htmlと同じキーから取得
+    // IDを本体と同じキーから取得
     var pid=localStorage.getItem('qr_player_id')||'----------';
     var idEl=document.getElementById('playerIdDisplay');
     if(idEl)idEl.textContent='ID: '+pid;
-    // 保存済み名前
-    var savedName=lsGet('name');
+    // 本体で入力済みの名前を引き継ぐ（無ければチュートリアル側の保存値、それも無ければデフォルト）
+    var savedName=localStorage.getItem('qr_curry_pname')||lsGet('name');
     if(savedName){
         var ni=document.getElementById('playerNameInput');if(ni)ni.value=savedName;
         var hn=document.getElementById('headerPlayerName');if(hn)hn.textContent=savedName;
     }
+    // 本体で選択済みのミュート状態を引き継ぐ
+    var mi=document.getElementById('muteIcon');
+    if(mi)mi.src=(localStorage.getItem('qr_muted')==='1')?'sound-off.svg':'sound-on.svg';
     var pb=document.getElementById('postBtn');if(pb)pb.style.display='flex';
     var hb=document.getElementById('helpBtn');if(hb)hb.style.display='flex';
     var mb=document.getElementById('muteBtn');if(mb)mb.style.display='flex';
-    tutShowSpotlight([]);
     tutSwitchTab('player');
-    tutScenario_Player();
+    // gameUIは「チュートリアルを始める」を押すまで非表示。まずは紹介モーダルを表示する。
+    tutShowIntroModal();
 });
 </script>
 </body>
