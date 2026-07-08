@@ -663,7 +663,7 @@
      オーバーレイ(.tut-ov / z-index:4000)の影響を受けないよう#gameWrapperの外に
      body直下・position:fixedで独立して配置している -->
 <button id="muteBtn" onclick="tutToggleMute()" style="position:fixed;top:8px;right:8px;width:32px;height:32px;border:none;background:transparent;cursor:pointer;z-index:8000;display:flex;align-items:center;justify-content:center;padding:0;">
-    <img id="muteIcon" src="sound-on.svg" style="width:28px;height:28px;" alt="sound">
+    <img id="muteIcon" src="sound-on2.svg" style="width:28px;height:28px;" alt="sound">
 </button>
 <!-- ===== 調理アニメーション（本編game-dev.htmlと同じ鍋演出：nabebg.png/nabepot.png） ===== -->
 <div id="cookingAnimation">
@@ -1145,7 +1145,7 @@ function tutToggleMute(){
     isMuted=!isMuted;
     localStorage.setItem('qr_muted',isMuted?'1':'0');
     var img=document.getElementById('muteIcon');
-    if(img)img.src=isMuted?'sound-off.svg':'sound-on.svg';
+    if(img)img.src=isMuted?'sound-off2.svg':'sound-on2.svg';
 }
 
 // ===== 効果音（本編game-dev.htmlのplaySoundEffect()と同じプール方式） =====
@@ -1238,7 +1238,7 @@ function tutScenario_QR(){
         'QRは身の周りにあるどんな\nQRでも大丈夫だよ！',
         '基本的には同じQRからは1日1回だけ\n食材を1つ入手できるよ',
         '時間帯や特定の条件によっては\n特別なことが起こるかも！？',
-        '今はチュートリアルなのでQRスキャンはせず\n僕から食材をプレゼントするよ',
+        '今はチュートリアルなのでスキャンはせず\n僕から食材をプレゼントするよ',
         '君は「肉」「野菜」「魚介」どれが好き？'
     ],function(){
         tutHidePointer();
@@ -1268,6 +1268,7 @@ function tutQrChoose(cat){
 }
 // QRスキャンでの入手ではなくプレゼントのため、結果は#customModalのモーダルで表示する
 function tutShowGetItemsModal(cat){
+    playSoundEffect('sound/get.mp3');
     var items=TUT_INGREDIENTS[cat];
     var itemsHtml=items.map(function(it){
         return '<div style="text-align:center;"><img src="'+it[1]+'" alt="'+it[0]+'" style="width:44px;height:44px;object-fit:contain;display:block;margin:0 auto;"><div style="font-size:11px;color:#420000;font-weight:bold;margin-top:4px;">'+it[0]+'</div></div>';
@@ -1555,7 +1556,7 @@ function tutScenario_Fridge(){
     tutAllowedTabs=[];
     tutShowSpotlight([]);
     tutRenderFridgeStock();
-    tutSpeak(['ストックカレーにさっき作ったカレーがあるので\nタップして詳細を見てみよう'],function(){
+    tutSpeak(['さっき作ったカレーがあるので\nタップして詳細を見てみよう'],function(){
         tutAllowedTabs=[];
         var card=document.getElementById('tutFridgeCurryCard');
         tutShowSpotlight([{el:card,padding:6}]);
@@ -1823,7 +1824,7 @@ function tutPlaySeedCutIn(callback){
         played=true;
         bgImg.onload=null;bgImg.onerror=null;
         overlay.style.display='block';
-        playSoundEffect('sound/battlese.mp3');
+        playSoundEffect('sound/syakin.mp3');
         // マスクを開くJSアニメーション（本編と同一ロジック）
         var toPct=20;
         var t0=performance.now();
@@ -1967,6 +1968,7 @@ function tutScenario_TutorialEnd(){
     });
 }
 function tutShowPackTicketModal(){
+    playSoundEffect('sound/get.mp3');
     document.getElementById('modalTitle').innerHTML='🎫 通知';
     document.getElementById('modalMessage').innerHTML='<div style="font-size:16px;font-weight:bold;color:#c0392b;">パック券2枚GET!</div>';
     document.getElementById('modalBtnGroup').innerHTML='<button class="modal-btn modal-btn-ok" onclick="tutClosePackTicketModal()">OK</button>';
@@ -2017,7 +2019,7 @@ window.addEventListener('load',function(){
     }
     // 本体で選択済みのミュート状態を引き継ぐ
     var mi=document.getElementById('muteIcon');
-    if(mi)mi.src=(localStorage.getItem('qr_muted')==='1')?'sound-off.svg':'sound-on.svg';
+    if(mi)mi.src=(localStorage.getItem('qr_muted')==='1')?'sound-off2.svg':'sound-on2.svg';
     var pb=document.getElementById('postBtn');if(pb)pb.style.display='flex';
     var hb=document.getElementById('helpBtn');if(hb)hb.style.display='flex';
     tutSwitchTab('player');
