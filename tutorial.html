@@ -646,7 +646,9 @@
         <button id="helpBtn" onclick="return false;" style="position:absolute;top:8px;right:46px;width:32px;height:32px;border:none;background:transparent;cursor:pointer;z-index:10;display:flex;align-items:center;justify-content:center;padding:0;">
             <img src="help.svg" style="width:28px;height:28px;" alt="?">
         </button>
-        <button id="muteBtn" onclick="tutToggleMute()" style="position:absolute;top:8px;right:8px;width:32px;height:32px;border:none;background:transparent;cursor:pointer;z-index:10;display:flex;align-items:center;justify-content:center;padding:0;">
+        <!-- ミュートはチュートリアル中でも常に操作可能にするため、スポットライトオーバーレイ(z-index:4000)より
+             手前に出るようz-indexを高くしている -->
+        <button id="muteBtn" onclick="tutToggleMute()" style="position:absolute;top:8px;right:8px;width:32px;height:32px;border:none;background:transparent;cursor:pointer;z-index:5000;display:flex;align-items:center;justify-content:center;padding:0;">
             <img id="muteIcon" src="sound-on.svg" style="width:28px;height:28px;" alt="sound">
         </button>
     </div>
@@ -941,7 +943,30 @@
     </div>
 
 
-    <div id="page-qr" class="page"><div class="tut-placeholder">準備中...</div></div>
+    <div id="page-qr" class="page" style="text-align:center;">
+        <button id="btnQrBingo" class="btn btn-start" onclick="return false;" style="display:flex;align-items:center;justify-content:center;gap:8px;width:80%;color:#efdeb1;font-size:16px;background:#d35400;margin-bottom:10px;">QR BINGO</button>
+        <button id="btnStartCamera" class="btn btn-start" onclick="tutQrCameraClick()" style="display:flex;align-items:center;justify-content:center;gap:8px;width:80%;color:#efdeb1;font-size:16px;"><img src="camera.svg" style="height:1em;width:auto;filter:brightness(10);position:relative;top:2px;" alt="">カメラを起動する</button>
+        <div id="tutQrChoiceArea" style="display:none; margin-top:20px;">
+            <div style="font-size:13px; color:#420000; font-weight:bold; margin-bottom:10px;">好きな食材ジャンルを選んでね</div>
+            <div style="display:flex; gap:8px; justify-content:center;">
+                <button id="tutBtnMeat" class="btn btn-start" onclick="tutQrChoose('meat')" style="flex:1; margin:0;">🥩 肉</button>
+                <button id="tutBtnVeg" class="btn btn-start" onclick="tutQrChoose('vegetable')" style="flex:1; margin:0;">🥬 野菜</button>
+                <button id="tutBtnSeafood" class="btn btn-start" onclick="tutQrChoose('seafood')" style="flex:1; margin:0;">🐟 魚介</button>
+            </div>
+        </div>
+        <div class="get-box" id="tutGetBox" style="display:none; margin-top:20px; padding:15px; background:#fffdf0; border:2px dashed #e67e22; border-radius:10px; text-align:center;">
+            <div style="font-size:14px; color:#e67e22; font-weight:bold;">🎉 食材ゲット！</div>
+            <div id="tutGetBoxItems" style="display:flex; justify-content:center; gap:12px; margin-top:10px; flex-wrap:wrap;"></div>
+        </div>
+        <div style="margin: 16px auto 10px auto; max-width: 420px; background: #fffdf0; border: 1px solid #e0c080; border-radius: 8px; padding: 10px 14px; text-align: left; font-size: 12px; color: #7a6040; line-height: 1.7;">
+            <div style="font-weight: bold; margin-bottom: 4px; color: #b8860b;">⚠️ QRスキャンに関するご注意</div>
+            ルールとマナーを守って楽しくお遊びください。<br>
+            ・歩きスマホや、公共の場などで交通の邪魔になるスキャンはやめましょう。<br>
+            ・お店のレジにある「QR決済コード」へのスキャンは、店員さんの誤解を招くためご遠慮ください。<br>
+            ・購入前の商品のQRスキャンは、特典の不当な取得に当たる可能性もあります。必ず商品を購入した後にスキャンをお楽しみください。
+        </div>
+        <div class="copyright-footer">©2026 Battle Curry All Rights Reserved.<br>QRコードは株式会社デンソーウェーブの登録商標です</div>
+    </div>
     <div id="page-fridge" class="page"><div class="tut-placeholder">準備中...</div></div>
     <div id="page-cook" class="page"><div class="tut-placeholder">準備中...</div></div>
     <div id="page-battle" class="page"><div class="tut-placeholder">準備中...</div></div>
@@ -1124,16 +1149,24 @@ function tutConfirmIntroStart(){
     tutScenario_PlayerIntro();
 }
 
-// ===== シナリオ: プレイヤー（GAME START後の案内人トーク） =====
+// ===== シナリオ: プレイヤー（チュートリアル開始後の案内人トーク） =====
 function tutScenario_PlayerIntro(){
     tutAllowedTabs=[];tutShowSpotlight([]);
     tutSpeak([
         'ようこそ、バトルカレーへ。\n簡単にゲームのことを説明させてね。',
         'このゲームはQRで食材を集めて\nその食材でカレーを作って\nそのカレーでバトルするゲームなんだ',
     ],function(){
-        // 5つのタブのみオーバーレイを解除（操作はまだできないまま）
+        // 5つのタブだけをオーバーレイの穴にして可視化する（操作はまだできないまま）。
+        // tutHideSpotlight()で全面解除すると、タブ以外のページ内容（ボタン等）まで
+        // 操作できてしまうため、5タブをまとめてスポットライト対象にする。
         tutAllowedTabs=[];
-        tutHideSpotlight();
+        tutShowSpotlight([
+            {el:document.getElementById('tab-player'),padding:2},
+            {el:document.getElementById('tab-qr'),padding:2},
+            {el:document.getElementById('tab-fridge'),padding:2},
+            {el:document.getElementById('tab-cook'),padding:2},
+            {el:document.getElementById('tab-battle'),padding:2}
+        ]);
         tutSpeak(['上に5つのメニュータブがあるでしょ\nまずはQRタブを選んでみて'],function(){
             lsSet('step','qr');
             tutAllowedTabs=['qr'];
@@ -1144,7 +1177,59 @@ function tutScenario_PlayerIntro(){
         });
     });
 }
-function tutScenario_QR(){tutSpeak(['QRコードで食材を入手しましょう！'],function(){});}
+// ===== シナリオ: QR =====
+function tutScenario_QR(){
+    tutSpeak(['このカメラを起動するを押すと\nQRをスキャンできるんだ'],function(){
+        tutAllowedTabs=[];
+        tutShowSpotlight([{el:document.getElementById('btnStartCamera'),padding:10}]);
+    });
+}
+function tutQrCameraClick(){
+    tutHidePointer();
+    tutShowSpotlight([]);
+    tutSpeak([
+        '基本的には同じQRからは1日1回だけ\n食材を1つ入手できるよ',
+        '時間帯や特定の条件によっては\n特別なことが起こるかも！？',
+        '今はチュートリアルなのでQRスキャンはせず\n僕から食材をプレゼントするよ',
+        '君は「肉」「野菜」「魚介」どれが好き？'
+    ],function(){
+        var area=document.getElementById('tutQrChoiceArea');
+        area.style.display='block';
+        tutShowSpotlight([
+            {el:document.getElementById('tutBtnMeat'),padding:6},
+            {el:document.getElementById('tutBtnVeg'),padding:6},
+            {el:document.getElementById('tutBtnSeafood'),padding:6}
+        ]);
+    });
+}
+var TUT_INGREDIENTS={
+    meat:[['牛肉','🥩'],['チキン','🍗'],['ウインナー','🌭'],['シナモン','🪵']],
+    vegetable:[['トマト','🍅'],['ナス','🍆'],['玉ねぎ','🧅'],['ブラックペッパー','🖤']],
+    seafood:[['小エビ','🦐'],['サバ','🐟'],['イカ','🦑'],['コリアンダー','💚']]
+};
+var tutChosenCategory=null;
+function tutQrChoose(cat){
+    tutChosenCategory=cat;
+    document.getElementById('tutQrChoiceArea').style.display='none';
+    tutShowSpotlight([]);
+    var items=TUT_INGREDIENTS[cat];
+    var wrap=document.getElementById('tutGetBoxItems');
+    wrap.innerHTML=items.map(function(it){
+        return '<div style="text-align:center;"><div style="font-size:36px;">'+it[1]+'</div><div style="font-size:11px;color:#420000;font-weight:bold;">'+it[0]+'</div></div>';
+    }).join('');
+    document.getElementById('tutGetBox').style.display='block';
+    tutSpeak(['いいね！じゃあこれを受け取って！'],function(){
+        tutSpeak(['さぁ、早速調理してみよう！\n調理タブを押してね'],function(){
+            lsSet('step','cook');
+            tutAllowedTabs=['cook'];
+            var cookTabEl=document.getElementById('tab-cook');
+            tutShowSpotlight([{el:cookTabEl,padding:6}]);
+            tutShowPointer(cookTabEl);
+            tutWaitTab('cook',function(){tutAllowedTabs=[];tutHideSpotlight();tutScenario_Cook();});
+        });
+    });
+}
+function tutScenario_Cook(){tutSpeak(['ここでカレーを調理しよう！'],function(){});}
 
 // ===== ダミー関数 =====
 function togglePlayerIcon(){tutOpenNameModal();}
