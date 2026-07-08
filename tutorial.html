@@ -1144,6 +1144,8 @@ var isMuted=(localStorage.getItem('qr_muted')==='1');
 function tutToggleMute(){
     isMuted=!isMuted;
     localStorage.setItem('qr_muted',isMuted?'1':'0');
+    // 本編toggleMute()と同じく、ミュートON時は再生中のバトルBGMを即座に一時停止する
+    if(isMuted&&_tutBattleBGM){_tutBattleBGM.pause();}
     var img=document.getElementById('muteIcon');
     if(img)img.src=isMuted?'sound-off2.svg':'sound-on2.svg';
 }
@@ -1980,8 +1982,51 @@ function tutClosePackTicketModal(){
         '冷蔵庫のくじで使えるパック券だよ。\nこの後忘れずに使ってね！',
         'じゃあね〜'
     ],function(){
+        // チュートリアル終了時にまとめて本編へ反映（食材/スパイスの発見フラグ、
+        // 発見レシピ履歴、パック券2枚）。途中リロード等での重複付与を防ぐため
+        // 逐次保存ではなくここで一括保存する。
+        tutSaveProgressToMain();
         localStorage.setItem('tut_done','1');
+        tutShowFinalModal();
     });
+}
+// ===== チュートリアルで得た成果を本編のセーブデータ形式にまとめて反映 =====
+// 本編game-dev.htmlのsaveGame()と同じlocalStorageキー・同じデータ構造を使用し、
+// 既存の本編データに「マージ」する（上書きしない）ことで、本編側の他の進行状況を壊さない。
+function tutSaveProgressToMain(){
+    var cat=tutChosenCategory||'meat';
+    var items=TUT_INGREDIENTS[cat]; // [食材1,食材2,食材3,スパイス]
+    var r=TUT_CURRY_RESULT[cat];
+    // 1) 食材・スパイスの発見フラグ（本編qr_curry_discoveredと同一形式）
+    //    → 冷蔵庫の図鑑・ビンゴマスが「？」のままにならないようにする
+    var discovered={};
+    try{discovered=JSON.parse(localStorage.getItem('qr_curry_discovered')||'{}');}catch(e){discovered={};}
+    items.forEach(function(it){discovered[it[0]]=true;});
+    localStorage.setItem('qr_curry_discovered',JSON.stringify(discovered));
+    // 2) 発見レシピ履歴（本編cookCurry()と全く同じキー生成ロジックでマージ）
+    //    → ストックには残らないが「発見したレシピ履歴」には残る
+    var materials=[items[0][0],items[1][0],items[2][0]];
+    var spice=items[3][0];
+    var rKey=materials.concat([spice]).filter(Boolean).sort().join('+');
+    var recipeBook={};
+    try{recipeBook=JSON.parse(localStorage.getItem('qr_curry_recipes')||'{}');}catch(e){recipeBook={};}
+    if(!recipeBook[rKey]){
+        recipeBook[rKey]={name:r.name,visual:r.image,materials:materials,spice:spice};
+        localStorage.setItem('qr_curry_recipes',JSON.stringify(recipeBook));
+    }
+    // 3) パック券2枚（本編qr_curry_ticketに加算。既存値に対して+2のマージ）
+    var ticket=parseInt(localStorage.getItem('qr_curry_ticket')||'0',10)||0;
+    ticket+=2;
+    localStorage.setItem('qr_curry_ticket',ticket);
+}
+function tutShowFinalModal(){
+    document.getElementById('modalTitle').innerHTML='📖 チュートリアル終了';
+    document.getElementById('modalMessage').innerHTML='<div style="font-size:14px;color:#420000;line-height:1.6;">チュートリアルお疲れ様でした。<br>TOP画面に戻ります。</div>';
+    document.getElementById('modalBtnGroup').innerHTML='<button class="modal-btn modal-btn-ok" onclick="tutGoToTop()">OK</button>';
+    document.getElementById('customModal').style.display='flex';
+}
+function tutGoToTop(){
+    window.location.href='game.html';
 }
 
 // ===== ダミー関数 =====
