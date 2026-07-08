@@ -639,6 +639,10 @@
            モーダル類はあらかじめその高さ分だけ表示領域を狭くしておく（height:100%を上書き）。
            このstyleブロックの末尾に置くことで確実に上のheight:100%指定より優先させる。 */
         .modal-overlay, #tut-name-modal { bottom: 130px; height: auto; }
+        /* .modal-box自体のmax-height:85vhは画面全体を基準にした値のため、上でmodal-overlayの
+           表示領域を狭くしただけでは足りない。縦長の画像などが入ると箱自体がナレーター欄の
+           裏まではみ出してしまうので、箱自体もナレーター分を差し引いた高さで頭打ちにする。 */
+        .modal-box { max-height: calc(100vh - 170px); }
 </style>
 </head>
 <body>
