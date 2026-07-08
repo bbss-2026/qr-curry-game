@@ -618,7 +618,11 @@
            その代わり、ナレーター欄は高さを固定し（縦幅が伸び縮みしない）、
            ゲーム画面・モーダルの両方をあらかじめこの高さ分狭く確保しておくことで、
            ナレーターが他の要素に重なってタップを奪ってしまう事故を防ぐ。 */
-        #tutNarrator { position:fixed; bottom:0; left:50%; transform:translateX(-50%); width:100%; max-width:480px; height:130px; box-sizing:border-box; background:#2a1200; border-top:3px solid #b88742; z-index:10500; padding:12px 14px 14px; display:flex; align-items:flex-start; gap:10px; cursor:pointer; user-select:none; }
+        #tutNarrator { position:fixed; bottom:0; left:50%; transform:translate(-50%,0); width:100%; max-width:480px; height:130px; box-sizing:border-box; background:#2a1200; border-top:3px solid #b88742; z-index:10500; padding:12px 14px 14px; display:flex; align-items:flex-start; gap:10px; cursor:pointer; user-select:none; transition:transform 0.35s ease-out; }
+        /* 最初のzakkuritutorial.pngモーダル（「チュートリアルを始める」を押す前）には
+           ナレーターはまだ登場しない想定のため、完全に画面外へ退避させておく。
+           tutSpeak()が最初に呼ばれた時にこのクラスを外し、下からひょこっとせり上がる。 */
+        #tutNarrator.tut-hidden { transform:translate(-50%,100%); }
         #tutNarrator .mc-img { flex-shrink:0; width:72px; height:72px; object-fit:contain; }
         .speech-text { font-size:14px; color:#fff8ee; line-height:1.6; max-height:80px; overflow-y:auto; white-space:pre-wrap; text-align:left; flex:1; }
         .speech-next { font-size:18px; color:#b88742; opacity:0; align-self:flex-end; }
@@ -892,7 +896,7 @@
         <button class="tut-btn-gold" onclick="tutConfirmName()">決定</button>
     </div>
 </div>
-<div id="tutNarrator" onclick="tutNarratorTap()">
+<div id="tutNarrator" class="tut-hidden" onclick="tutNarratorTap()">
     <img class="mc-img" src="tutorial/tutorial-mc.png" alt="">
     <div style="flex:1;display:flex;flex-direction:column;justify-content:center;gap:4px;">
         <div class="speech-text" id="tutSpeechText"></div>
@@ -1026,7 +1030,11 @@ function tutHideSpotlight(){
 var _q=[],_typing=false,_full='',_idx=0,_timer=null,_done=null;
 function $t(){return document.getElementById('tutSpeechText');}
 function $n(){return document.getElementById('tutSpeechNext');}
-function tutSpeak(lines,onDone){_q=lines.slice();_done=onDone||null;_nextLine();}
+function tutShowNarrator(){
+    var nar=document.getElementById('tutNarrator');
+    if(nar)nar.classList.remove('tut-hidden');
+}
+function tutSpeak(lines,onDone){tutShowNarrator();_q=lines.slice();_done=onDone||null;_nextLine();}
 function _nextLine(){
     if(_q.length===0){$n().classList.remove('show');if(_done){var cb=_done;_done=null;cb();}return;}
     var text=_q.shift();_typing=true;_full=text;_idx=0;
