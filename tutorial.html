@@ -636,6 +636,13 @@
 <button id="muteBtn" onclick="tutToggleMute()" style="position:fixed;top:8px;right:8px;width:32px;height:32px;border:none;background:transparent;cursor:pointer;z-index:8000;display:flex;align-items:center;justify-content:center;padding:0;">
     <img id="muteIcon" src="sound-on.svg" style="width:28px;height:28px;" alt="sound">
 </button>
+<!-- ===== 調理アニメーション（本編game-dev.htmlと同じ鍋演出：nabebg.png/nabepot.png） ===== -->
+<div id="cookingAnimation">
+    <div id="cookingScene">
+        <img id="cookingBg" src="intro/nabebg.png" alt="">
+        <img id="cookingPot" src="intro/nabepot.png" alt="">
+    </div>
+</div>
 <div class="modal-overlay" id="customModal">
     <div class="modal-box">
         <div class="modal-title" id="modalTitle">📢 お知らせ</div>
@@ -903,6 +910,10 @@ function tutShowSpotlight(targets){
     // CSSは変更せず、実行時に高さを画面いっぱいへ固定してスクロール可能にする。
     wrap.style.minHeight='0';
     wrap.style.height=window.innerHeight+'px';
+    // スポット表示中はユーザーの手動スクロールを禁止する（許可すると穴の位置と
+    // 実際のコンテンツ位置がズレてしまうため）。対象を画面内に収める処理は
+    // 以下でプログラム的にscrollTopを操作するので、overflow:hiddenでも機能する。
+    wrap.classList.add('overlay-lock');
     if(!targets||targets.length===0){
         _spotTargets=null;
         tutApplySpotlight();
@@ -910,29 +921,32 @@ function tutShowSpotlight(targets){
         return;
     }
     _spotTargets=targets;
-    // 対象がナレーション欄(高さNAR_H)を除いた表示領域の外にある場合だけスクロールする
-    var visibleBottom=window.innerHeight-NAR_H;
-    var minTop=Infinity,maxBottom=-Infinity;
-    targets.forEach(function(t){
-        if(!t.el)return;
-        var r=t.el.getBoundingClientRect(),p=t.padding||8;
-        minTop=Math.min(minTop,r.top-p);
-        maxBottom=Math.max(maxBottom,r.bottom+p);
-    });
-    var delta=0;
-    if(minTop!==Infinity){
-        if(maxBottom>visibleBottom) delta=maxBottom-visibleBottom;
-        else if(minTop<0) delta=minTop;
+    function scrollTargetsIntoView(){
+        // 対象がナレーション欄(高さNAR_H)を除いた表示領域の外にある場合だけスクロールする
+        var visibleBottom=window.innerHeight-NAR_H;
+        var minTop=Infinity,maxBottom=-Infinity;
+        targets.forEach(function(t){
+            if(!t.el)return;
+            var r=t.el.getBoundingClientRect(),p=t.padding||8;
+            minTop=Math.min(minTop,r.top-p);
+            maxBottom=Math.max(maxBottom,r.bottom+p);
+        });
+        var delta=0;
+        if(minTop!==Infinity){
+            if(maxBottom>visibleBottom) delta=maxBottom-visibleBottom;
+            else if(minTop<0) delta=minTop;
+        }
+        if(delta!==0){
+            wrap.scrollTop+=delta;
+            requestAnimationFrame(function(){requestAnimationFrame(tutApplySpotlight);});
+        }else{
+            tutApplySpotlight();
+        }
     }
-    if(delta!==0){
-        wrap.scrollTop+=delta;
-        requestAnimationFrame(function(){requestAnimationFrame(tutApplySpotlight);});
-    }else{
-        tutApplySpotlight();
-    }
-    // 対象内の画像(アイコン等)の読み込みが遅れて穴の位置がずれることがあるため、
-    // 少し後にもう一度だけ再計算して補正する
-    setTimeout(function(){if(_spotTargets===targets)tutApplySpotlight();},250);
+    scrollTargetsIntoView();
+    // 対象内の画像(アイコン等)の読み込みや遅延レイアウトで対象の位置が
+    // 後からズレることがあるため、少し後にスクロール位置と穴を再計算して補正する
+    setTimeout(function(){if(_spotTargets===targets)scrollTargetsIntoView();},250);
 }
 
 function tutApplySpotlight(){
@@ -1105,6 +1119,10 @@ var tutCookSpiceSelected=false;
 function tutScenario_Cook(){
     tutCookSelected=[];
     tutCookSpiceSelected=false;
+    // タブ切替直後は一瞬オーバーレイが全て消えた状態になり自由に操作できてしまうため、
+    // ナレーション開始前に即座に全画面ロックしておく
+    tutAllowedTabs=[];
+    tutShowSpotlight([]);
     tutRenderCookPanels();
     tutSpeak([
         'カレーの調理では食材は3つまで、\nスパイスは1つ選ぶことができるよ。',
@@ -1178,40 +1196,140 @@ function tutSelectSpice(){
         tutShowPointer(cookBtn);
     });
 }
+// 本編game-dev.htmlのplayCookingAnimation()を簡略移植：鍋(nabebg.png/nabepot.png)に
+// 食材アイコンが飛び込み、鍋がカタカタ揺れてから結果を表示する演出
 function tutDoCook(){
     tutHidePointer();
-    var box=document.getElementById('tutCookResultBox');
-    box.innerHTML='<div style="padding:20px;"><span class="btn-loading-spinner" style="border-color:rgba(184,135,66,0.3);border-top-color:#b88742;"></span><span style="color:#420000;font-weight:bold;">調理中…</span></div>';
-    box.style.display='block';
-    // 調理演出・結果がオーバーレイで隠れないよう結果ボックスをスポット対象にする
-    tutShowSpotlight([{el:box,padding:10}]);
-    setTimeout(tutRevealCookResult,900);
+    var overlay=document.getElementById('cookingAnimation');
+    var pot=document.getElementById('cookingPot');
+    var bg=document.getElementById('cookingBg');
+    overlay.style.display='block';
+    overlay.style.opacity='1';
+    overlay.style.transition='';
+    pot.style.animation='';
+
+    var timerIds=[];
+    function addTimer(fn,delay){var id=setTimeout(fn,delay);timerIds.push(id);return id;}
+
+    // 鍋の座標・サイズをbg.pngの実寸から計算（本編と同じX222 Y444基準）
+    function setupPot(){
+        var bgW=bg.naturalWidth||750,bgH=bg.naturalHeight||900;
+        pot.style.left=(222/bgW*100).toFixed(1)+'%';
+        pot.style.top=(444/bgH*100).toFixed(1)+'%';
+        if(pot.naturalWidth>0) pot.style.width=(pot.naturalWidth/bgW*100).toFixed(1)+'%';
+    }
+    if(bg.complete&&bg.naturalHeight>0){setupPot();}else{bg.onload=setupPot;}
+
+    var cat=tutChosenCategory||'meat';
+    var items=TUT_INGREDIENTS[cat]; // [食材1,食材2,食材3,スパイス]
+    var iconEls=[];
+    var iconSize=52,gap=12;
+    var totalW=items.length*(iconSize+gap)-gap;
+
+    function getPotCenter(){
+        var r=pot.getBoundingClientRect();
+        return {x:r.left+r.width*0.5,y:r.top+r.height*0.35};
+    }
+    function cleanupIcons(){iconEls.forEach(function(el){el.remove();});iconEls.length=0;}
+    function skipAnimation(){
+        timerIds.forEach(function(id){clearTimeout(id);});
+        cleanupIcons();
+        pot.style.animation='';
+        overlay.style.display='none';
+        overlay.style.opacity='1';
+        overlay.style.transition='';
+        overlay.removeEventListener('click',skipAnimation);
+        tutRevealCookResult();
+    }
+    overlay.addEventListener('click',skipAnimation);
+
+    // フェーズ1：アイコンをぱぱっと表示
+    items.forEach(function(it,i){
+        var el=document.createElement('div');
+        el.className='cook-icon-el';
+        el.innerHTML='<img src="'+it[1]+'" style="width:36px;height:36px;object-fit:contain;">';
+        el.style.opacity='0';el.style.transform='scale(0)';
+        document.body.appendChild(el);
+        iconEls.push(el);
+        addTimer(function(){
+            var pc=getPotCenter();
+            el.style.left=(pc.x-totalW/2+i*(iconSize+gap))+'px';
+            el.style.top=(pc.y-iconSize*2.6)+'px';
+            requestAnimationFrame(function(){requestAnimationFrame(function(){
+                el.style.transition='opacity 0.15s, transform 0.28s cubic-bezier(0.34,1.56,0.64,1)';
+                el.style.opacity='1';el.style.transform='scale(1)';
+            });});
+        },i*180);
+    });
+
+    // フェーズ2：鍋へ投げ込み
+    var flyDelay=items.length*180+350;
+    items.forEach(function(_,i){
+        addTimer(function(){
+            var el=iconEls[i];
+            var er=el.getBoundingClientRect();
+            var pc=getPotCenter();
+            var dx=pc.x-(er.left+iconSize/2);
+            var dy=pc.y-(er.top+iconSize/2);
+            el.style.transition='transform 0.42s cubic-bezier(0.4,0,0.8,0.6), opacity 0.2s 0.26s';
+            el.style.transform='translate('+dx+'px,'+dy+'px) scale(0.15)';
+            el.style.opacity='0';
+        },flyDelay+i*110);
+    });
+
+    // フェーズ3：鍋カタカタ
+    var shakeDelay=flyDelay+items.length*110+220;
+    addTimer(function(){
+        pot.style.animation='potShake 0.12s ease-in-out 7';
+    },shakeDelay);
+
+    // フェーズ4：結果表示 → フェードアウト
+    var showResultDelay=shakeDelay+840;
+    addTimer(function(){
+        overlay.removeEventListener('click',skipAnimation);
+        tutRevealCookResult();
+        addTimer(function(){
+            overlay.style.transition='opacity 0.55s ease';
+            overlay.style.opacity='0';
+            addTimer(function(){
+                overlay.style.display='none';
+                overlay.style.opacity='1';
+                overlay.style.transition='';
+                pot.style.animation='';
+                cleanupIcons();
+            },580);
+        },550);
+    },showResultDelay);
 }
 // 会心なし・確定で特殊カレー(わんぱく/種連射/海鮮)ができる想定のダミー結果
+// イラストは本編game-dev.htmlのCURRY_SPECIAL_IMAGESと同一パスを使用
 var TUT_CURRY_RESULT={
-    meat:{title:'わんぱく牛肉チキンウインナー',flash:'暴れ放題！わんぱくカレー誕生！',flashColor:'#e67e22',effect:'わんぱく：通常攻撃の振り幅が大きくなり、ミスをすることもある。',hp:255,atk:125,def:75,spd:65},
-    vegetable:{title:'種連発トマトナス玉ねぎ',flash:'種の力が炸裂！連続発射カレー爆誕！',flashColor:'#27ae60',effect:'種連続発射：40%の確率で攻撃を複数回連続で行う。',hp:175,atk:55,def:65,spd:55},
-    seafood:{title:'海鮮小エビサバイカ',flash:'波の音が聞こえる…海鮮スペシャルカレー！',flashColor:'#3498db',effect:'海鮮：戦闘中1回だけHPが回復する。',hp:150,atk:105,def:35,spd:170}
+    meat:{title:'わんぱく牛肉チキンウインナー',image:'currymonster/curry_wanpaku.png',flash:'🍛 暴れ放題！わんぱくカレー誕生！ 🍛',flashColor:'#e67e22',effectName:'🍛 わんぱく',effect:'通常攻撃の上下の振り幅が大きくなり、ミスをすることも。',hp:255,atk:125,def:75,spd:65},
+    vegetable:{title:'種連発トマトナス玉ねぎ',image:'currymonster/curry_tane.png',flash:'🌱 種の力が炸裂！連続発射カレー爆誕！ 🌱',flashColor:'#27ae60',effectName:'🌱 種連続発射',effect:'40％の攻撃を複数回連続で行う。',hp:175,atk:55,def:65,spd:55},
+    seafood:{title:'海鮮小エビサバイカ',image:'currymonster/curry_umi.png',flash:'🌊 海の幸が集結！海鮮スペシャルカレー！ 🌊',flashColor:'#3498db',effectName:'🌊 海鮮',effect:'波の音が聞こえる。そして癒される。',hp:150,atk:105,def:35,spd:170}
 };
 function tutRevealCookResult(){
     var cat=tutChosenCategory||'meat';
     var items=TUT_INGREDIENTS[cat];
     var r=TUT_CURRY_RESULT[cat];
     lsSet('cookedCurry',cat);
-    var iconsHtml=[0,1,2].map(function(i){return '<img src="'+items[i][1]+'" style="width:28px;height:28px;object-fit:contain;">';}).join('')
-        +'<img src="'+items[3][1]+'" style="width:22px;height:22px;object-fit:contain;opacity:0.8;">';
+    var iconsHtml=items.map(function(it){
+        return '<img src="'+it[1]+'" style="width:28px;height:28px;object-fit:contain;">';
+    }).join('');
     var box=document.getElementById('tutCookResultBox');
     box.innerHTML=
         '<div style="font-weight:bold;font-size:15px;margin-bottom:8px;color:'+r.flashColor+';">'+r.flash+'</div>'
-        +'<div style="display:flex;justify-content:center;gap:4px;margin-bottom:8px;">'+iconsHtml+'</div>'
+        +'<img src="'+r.image+'" alt="" style="display:block;width:140px;height:140px;object-fit:contain;margin:0 auto 6px;">'
+        +'<div style="display:flex;justify-content:center;flex-wrap:wrap;gap:4px;margin-bottom:8px;">'+iconsHtml+'</div>'
         +'<div style="font-size:18px;font-weight:bold;color:#c0392b;margin-bottom:6px;">'+r.title+' of カレー</div>'
-        +'<div style="font-size:12px;color:#5a3a1a;margin-bottom:10px;">'+r.effect+'</div>'
+        +'<div style="font-size:12px;color:#5a3a1a;margin-bottom:10px;">'+r.effectName+'：'+r.effect+'</div>'
         +'<div class="status-grid">'
         +'<div class="status-item">HP: '+r.hp+'</div>'
         +'<div class="status-item">ATK: '+r.atk+'</div>'
         +'<div class="status-item">DEF: '+r.def+'</div>'
         +'<div class="status-item">SPD: '+r.spd+'</div>'
         +'</div>';
+    box.style.display='block';
     tutShowSpotlight([{el:box,padding:10}]);
     tutSpeak([
         'ええ！すごい！特技を持った特殊カレーができたね！',
@@ -1226,7 +1344,11 @@ function tutRevealCookResult(){
         tutWaitTab('fridge',function(){tutAllowedTabs=[];tutHideSpotlight();tutScenario_Fridge();});
     });
 }
-function tutScenario_Fridge(){tutSpeak(['冷蔵庫でカレーを確認しよう！'],function(){});}
+function tutScenario_Fridge(){
+    tutAllowedTabs=[];
+    tutShowSpotlight([]);
+    tutSpeak(['冷蔵庫でカレーを確認しよう！'],function(){});
+}
 
 // ===== ダミー関数 =====
 function togglePlayerIcon(){tutOpenNameModal();}
