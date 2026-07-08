@@ -28,13 +28,13 @@
         @keyframes topFloat1 { 0%,100%{transform:translateY(0) scale(1);} 50%{transform:translateY(-8px) scale(1.02);} }
         @keyframes topFloat2 { 0%,100%{transform:translateY(0) rotate(0);} 50%{transform:translateY(-6px) rotate(1deg);} }
         /* ===== バトル技演出オーバーレイ ===== */
-        #battleSkillOverlay { position:fixed; top:0; left:0; width:100%; height:100%; z-index:6000; display:none; pointer-events:none; }
+        #battleSkillOverlay { position:fixed; top:0; left:0; width:100%; height:100%; z-index:7500; display:none; pointer-events:none; }
         #battleSkillWindow { position:absolute; top:30%; left:50%; transform:translate(-50%,-50%); width:100%; max-width:480px; }
         #battleSkillBgWrap { position:relative; clip-path:inset(50% 0 50% 0); }
         #battleSkillBgImg { width:100%; height:auto; display:block; }
         #battleSkillCharaImg { position:absolute; left:50%; top:80%; transform:translate(-50%,-50%) scale(1); width:60%; height:auto; object-fit:contain; z-index:1; }
         /* 種連射ホームラン割り込み用オーバーレイ（overlay1の上に重ねる） */
-        #battleSkillOverlay2 { position:fixed; top:0; left:0; width:100%; height:100%; z-index:6100; display:none; pointer-events:none; }
+        #battleSkillOverlay2 { position:fixed; top:0; left:0; width:100%; height:100%; z-index:7600; display:none; pointer-events:none; }
         #battleSkillWindow2 { position:absolute; top:30%; left:50%; transform:translate(-50%,-50%); width:100%; max-width:480px; }
         #battleSkillBgWrap2 { position:relative; clip-path:inset(50% 0 50% 0); }
         #battleSkillBgImg2 { width:100%; height:auto; display:block; }
@@ -697,10 +697,14 @@
     </div>
 </div>
 <!-- ===== バトル画面（本編#battleArena相当。id/クラスは本編と同一のものを流用） ===== -->
-<!-- ===== 種連続発射カットイン（本編playTanemakiAnimation()の簡易版） ===== -->
-<div id="tutSeedOverlay" style="position:fixed;top:0;left:0;width:100%;height:100%;z-index:7500;display:none;background:#000;overflow:hidden;">
-    <img id="tutSeedBg" src="battle/homerun_bg.png" style="position:absolute;top:0;left:0;width:100%;height:100%;object-fit:cover;">
-    <img id="tutSeedChara" src="battle/taneren_chara1.png" style="position:absolute;left:50%;top:80%;width:60%;transform:translate(-50%,-50%) scale(1);transition:none;">
+<!-- ===== 種連続発射カットイン（本編playTanemakiAnimation()と同一ID構成） ===== -->
+<div id="battleSkillOverlay">
+    <div id="battleSkillWindow">
+        <div id="battleSkillBgWrap">
+            <img id="battleSkillBgImg" src="battle/homerun_bg.png">
+            <img id="battleSkillCharaImg" src="battle/taneren_chara1.png">
+        </div>
+    </div>
 </div>
 <div id="tutBattleArena" style="position:fixed;top:0;left:0;width:100%;height:100%;background:#efdeb1;z-index:7000;display:none;overflow-y:auto;box-sizing:border-box;padding:16px;">
     <div class="battle-stage battle-bg-easy" id="battleStage">
@@ -1123,6 +1127,7 @@ function tutSpeak(lines,onDone){tutShowNarrator();_q=lines.slice();_done=onDone|
 function _nextLine(){
     if(_q.length===0){$n().classList.remove('show');if(_done){var cb=_done;_done=null;cb();}return;}
     var text=_q.shift();_typing=true;_full=text;_idx=0;
+    playSoundEffect('sound/message.mp3');
     $n().classList.remove('show');$t().textContent='';clearInterval(_timer);
     _timer=setInterval(function(){
         if(_idx<_full.length){$t().textContent+=_full[_idx++];}
@@ -1204,20 +1209,7 @@ function tutConfirmName(){
 
 // ===== 導入（本体game-dev.htmlでGAME START〜名前入力〜音声確認は完了済みの前提。
 //        ここでは本体が保存した名前・ミュート状態を読み込んで引き継ぎ、
-//        「ざっくり紹介＋チュートリアルを始める」から開始する） =====
-function tutShowIntroModal(){
-    document.getElementById('customModal').style.display='flex';
-    var msg='<img src="tutorial/zakkuritutorial.png" style="width:100%;max-width:100%;height:auto;display:block;margin:0 auto 16px auto;border-radius:8px;">'
-        +'<div style="font-size:14px;color:#420000;margin-bottom:16px;line-height:1.6;text-align:center;">QRで食材を集めて、カレーを作って、バトルで勝とう！<br>ここからは実際に操作しながら詳しく説明するね。</div>'
-        +'<button onclick="tutConfirmIntroStart()" style="width:100%;padding:12px;background:#b88742;color:#efdeb1;border:none;border-radius:4px;font-weight:bold;font-size:14px;cursor:pointer;">チュートリアルを始める</button>';
-    document.getElementById('modalTitle').innerHTML='📖 チュートリアル';
-    document.getElementById('modalMessage').innerHTML=msg;
-    document.getElementById('modalBtnGroup').innerHTML='';
-}
-function tutConfirmIntroStart(){
-    document.getElementById('customModal').style.display='none';
-    tutScenario_PlayerIntro();
-}
+//        紹介モーダルなしで自動的にtutScenario_PlayerIntro()から開始する） =====
 
 // ===== シナリオ: プレイヤー（チュートリアル開始後の案内人トーク） =====
 function tutScenario_PlayerIntro(){
@@ -1635,14 +1627,16 @@ var TUT_ENEMY={name:'案内人ネギ太',curryName:'涙の練習カレー',emoji
 // 魚介=一方的に攻められ瀕死→海鮮回復で九死に一生→反撃して勝利
 // ログ文言は独自表現を廃し、本編game-dev.htmlのstep()が実際に出す文言のみを使用する
 var TUT_BATTLE_DATA={
-    meat:{enemyHp:200,turns:[
-        {actor:'player',type:'miss'},
+    meat:{enemyHp:220,turns:[
+        {actor:'player',type:'hit',dmg:50},
         {actor:'enemy',type:'hit',dmg:60},
         {actor:'player',type:'miss'},
-        {actor:'enemy',type:'hit',dmg:90},
+        {actor:'enemy',type:'hit',dmg:70},
         {actor:'player',type:'miss'},
-        {actor:'enemy',type:'hit',dmg:75},
-        {actor:'player',type:'crit',dmg:200}
+        {actor:'enemy',type:'hit',dmg:80},
+        {actor:'player',type:'miss'},
+        {actor:'enemy',type:'hit',dmg:30},
+        {actor:'player',type:'crit',dmg:180}
     ]},
     vegetable:{enemyHp:160,turns:[
         {actor:'player',type:'hit',dmg:40},
@@ -1654,7 +1648,7 @@ var TUT_BATTLE_DATA={
     seafood:{enemyHp:150,turns:[
         {actor:'enemy',type:'hit',dmg:80},
         {actor:'enemy',type:'hit',dmg:60},
-        {actor:'player',type:'heal',heal:45},
+        {actor:'player',type:'heal',heal:60},
         {actor:'player',type:'hit',dmg:50},
         {actor:'enemy',type:'hit',dmg:20},
         {actor:'player',type:'hit',dmg:100}
@@ -1796,27 +1790,84 @@ function tutBattleEffect(kind,amount){
     setTimeout(function(){pop.style.display='none';},900);
 }
 // 種連続発射カットイン（本編playTanemakiAnimation()の簡易版）
+// 本編playTanemakiAnimation()と同一のマスク（clip-path）演出をそのまま移植
 function tutPlaySeedCutIn(callback){
-    var overlay=document.getElementById('tutSeedOverlay');
-    var chara=document.getElementById('tutSeedChara');
-    chara.src='battle/taneren_chara1.png';
-    chara.style.transition='none';
-    chara.style.transform='translate(-50%,-50%) scale(1)';
-    overlay.style.display='block';
-    playSoundEffect('sound/battlese.mp3');
-    setTimeout(function(){
-        chara.style.transition='transform 0.4s cubic-bezier(0.34,1.56,0.64,1)';
-        chara.style.transform='translate(-50%,-50%) scale(1.2)';
-    },150);
-    setTimeout(function(){
-        chara.src='battle/taneren_chara2.png';
-        chara.style.transition='none';
-        chara.style.transform='translate(-50%,-50%) scale(1.1) rotate(-3deg)';
-    },600);
-    setTimeout(function(){
-        overlay.style.display='none';
-        callback();
-    },1500);
+    var overlay=document.getElementById('battleSkillOverlay');
+    var bgImg=document.getElementById('battleSkillBgImg');
+    var charaImg=document.getElementById('battleSkillCharaImg');
+    var bgWrap=document.getElementById('battleSkillBgWrap');
+    if(!overlay){callback();return;}
+    var charaImgSrc='battle/taneren_chara1.png';
+    var chara2ImgSrc='battle/taneren_chara2.png';
+    var bgImgSrc='battle/homerun_bg.png';
+    var charaTop='80%';
+    var charaWidth='60%';
+    var charaMaxScale=1.2;
+
+    var played=false;
+    bgImg.onload=null;bgImg.onerror=null;
+    bgImg.src=bgImgSrc;
+    charaImg.src=charaImgSrc;
+    charaImg.style.top=charaTop;
+    charaImg.style.width=charaWidth;
+    charaImg.style.transition='none';
+    charaImg.style.transform='translate(-50%,-50%) scale(1)';
+    bgWrap.style.transition='none';
+    bgWrap.style.clipPath='inset(50% 0 50% 0)';
+    overlay.style.opacity='1';
+    overlay.style.transition='';
+    overlay.style.display='none';
+
+    function startAnim(){
+        if(played)return;
+        played=true;
+        bgImg.onload=null;bgImg.onerror=null;
+        overlay.style.display='block';
+        playSoundEffect('sound/battlese.mp3');
+        // マスクを開くJSアニメーション（本編と同一ロジック）
+        var toPct=20;
+        var t0=performance.now();
+        (function frame(ts){
+            var prog=Math.min((ts-t0)/500,1);
+            var ease=1-Math.pow(1-prog,2);
+            var cur=50+(toPct-50)*ease;
+            bgWrap.style.clipPath='inset('+cur.toFixed(2)+'% 0 '+cur.toFixed(2)+'% 0)';
+            if(prog<1)requestAnimationFrame(frame);
+        })(t0);
+        setTimeout(function(){
+            charaImg.style.transition='transform 0.4s cubic-bezier(0.34,1.56,0.64,1)';
+            charaImg.style.transform='translate(-50%,-50%) scale('+charaMaxScale+')';
+        },200);
+        setTimeout(function(){
+            charaImg.style.transition='transform 0.2s ease';
+            charaImg.style.transform='translate(-50%,-50%) scale('+(charaMaxScale*0.92).toFixed(2)+') rotate(-3deg)';
+        },580);
+        if(chara2ImgSrc){
+            setTimeout(function(){
+                charaImg.src=chara2ImgSrc;
+                charaImg.style.transition='none';
+                charaImg.style.transform='translate(-50%,-50%) scale('+(charaMaxScale*0.92).toFixed(2)+') rotate(-3deg)';
+            },690);
+        }
+        // 通常：種連射演出 → 完了後コールバック
+        setTimeout(function(){
+            charaImg.style.transition='transform 0.25s ease';
+            charaImg.style.transform='translate(-50%,-50%) scale(1.15) rotate(3deg)';
+        },800);
+        setTimeout(function(){
+            overlay.style.transition='opacity 0.3s ease';
+            overlay.style.opacity='0';
+        },1150);
+        setTimeout(function(){
+            overlay.style.display='none';
+            overlay.style.opacity='1';
+            overlay.style.transition='';
+            bgWrap.style.clipPath='inset(50% 0 50% 0)';
+            callback();
+        },1480);
+    }
+    if(bgImg.complete&&bgImg.naturalWidth>0){startAnim();}
+    else{bgImg.onload=startAnim;bgImg.onerror=startAnim;}
 }
 // 初めてバトルを見るプレイヤーにも分かりやすいよう、本編よりゆっくり進行させる
 var TUT_TURN_PAUSE=900;       // ターン表示（自分/相手のターン！）から結果が出るまでの間
@@ -1973,7 +2024,7 @@ window.addEventListener('load',function(){
     // 紹介モーダルの背後に何も無い状態を避けるため、先にgameUIを表示しておく
     // （実際の操作ロックはtutScenario_PlayerIntro内のtutShowSpotlight([])が担う）
     document.getElementById('gameUI').style.display='block';
-    tutShowIntroModal();
+    tutScenario_PlayerIntro();
 });
 </script>
 </body>
