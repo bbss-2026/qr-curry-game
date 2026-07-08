@@ -641,12 +641,16 @@
         @keyframes tutPointerBlink { 0%,100%{opacity:1;transform:translateY(0);} 50%{opacity:0.35;transform:translateY(6px);} }
         /* ナレーター欄(下固定・高さ130px)の上に他要素が重なってタップを奪わないよう、
            モーダル類はあらかじめその高さ分だけ表示領域を狭くしておく（height:100%を上書き）。
+           ただし最初のzakkuritutorialモーダルの時点ではナレーターがまだ画面外に退避しており
+           重なる心配が無いため、この制約は「ナレーターが一度でも登場した後」だけに限定する
+           （tutShowNarrator()がbodyにnarrator-activeクラスを付与する）。
            このstyleブロックの末尾に置くことで確実に上のheight:100%指定より優先させる。 */
-        .modal-overlay, #tut-name-modal { bottom: 130px; height: auto; }
+        body.narrator-active .modal-overlay, body.narrator-active #tut-name-modal { bottom: 130px; height: auto; }
         /* .modal-box自体のmax-height:85vhは画面全体を基準にした値のため、上でmodal-overlayの
            表示領域を狭くしただけでは足りない。縦長の画像などが入ると箱自体がナレーター欄の
-           裏まではみ出してしまうので、箱自体もナレーター分を差し引いた高さで頭打ちにする。 */
-        .modal-box { max-height: calc(100vh - 170px); }
+           裏まではみ出してしまうので、箱自体もナレーター分を差し引いた高さで頭打ちにする
+           （こちらも同様にナレーター登場後のみ適用）。 */
+        body.narrator-active .modal-box { max-height: calc(100vh - 170px); }
 </style>
 </head>
 <body>
@@ -667,6 +671,67 @@
         <img id="cookingBg" src="intro/nabebg.png" alt="">
         <img id="cookingPot" src="intro/nabepot.png" alt="">
     </div>
+</div>
+<!-- ===== 対戦マッチング（本編#vsCutIn相当。id/クラスは本編と同一のものを流用） ===== -->
+<div id="tutVsCutIn" style="position:fixed;top:0;left:0;width:100%;height:100%;background:#111;z-index:7000;display:none;flex-direction:column;justify-content:flex-start;align-items:center;color:white;overflow-y:auto;box-sizing:border-box;padding:20px;">
+    <h2 style="color:#e67e22;margin-top:10px;text-shadow:0 2px 4px rgba(0,0,0,0.8);font-style:italic;">⚔️ 練習対戦</h2>
+    <div class="vs-grid-layout">
+        <div class="vs-side">
+            <div style="font-size:12px;color:#f39c12;font-weight:bold;">CHALLENGER</div>
+            <div style="font-size:18px;font-weight:bold;" id="tutVsPlayerName">プレイヤー</div>
+            <div class="char-visual" id="vsPlayerVisual" style="margin:5px 0;"></div>
+        </div>
+        <div class="vs-center-badge" style="opacity:1;scale:1;">VS</div>
+        <div class="vs-side">
+            <div style="font-size:12px;color:#9b59b6;font-weight:bold;">OPPONENT</div>
+            <div style="font-size:18px;font-weight:bold;" id="tutVsEnemyName">案内人ネギ太</div>
+            <div class="char-visual" id="vsEnemyVisual" style="margin:5px 0;"></div>
+            <div style="font-size:13px;color:#f1c40f;font-weight:bold;background:rgba(0,0,0,0.4);padding:2px 6px;border-radius:4px;margin-top:4px;" id="tutVsEnemyCurry">涙の練習カレー</div>
+        </div>
+    </div>
+    <div class="vs-interactive-area">
+        <label style="font-weight:bold;color:#f39c12;font-size:13px;display:block;margin-bottom:6px;">🎒 出撃させるカレーを選択:</label>
+        <select id="tutVsCurrySelect" style="color:#333;font-weight:bold;width:100%;border-color:#f39c12;" disabled></select>
+        <button class="btn btn-cook" style="margin:10px 0 0 0;width:100%;background:#2ecc71;box-shadow:0 4px 0 #27ae60;" onclick="tutConfirmVsDeploy()">🔥 このカレーで出撃する！</button>
+        <button class="btn btn-cancel" style="margin:8px 0 0 0;width:100%;padding:6px;font-size:12px;box-shadow:0 3px 0 #2a0000;opacity:0.5;cursor:not-allowed;" onclick="return false;">🏳️ 撤退（キャンセル）</button>
+    </div>
+</div>
+<!-- ===== バトル画面（本編#battleArena相当。id/クラスは本編と同一のものを流用） ===== -->
+<div id="tutBattleArena" style="position:fixed;top:0;left:0;width:100%;height:100%;background:#efdeb1;z-index:7000;display:none;overflow-y:auto;box-sizing:border-box;padding:16px;">
+    <div class="battle-stage" id="battleStage">
+        <div class="damage-pop" id="damagePop" style="display:none;">0</div>
+        <div id="battleResultOverlay" style="display:none;position:absolute;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.6);z-index:20;flex-direction:column;justify-content:center;align-items:center;border-radius:8px;">
+            <div id="battleResultBig" style="font-size:52px;font-weight:900;font-family:'Impact',Arial,sans-serif;-webkit-text-stroke:2px #000;text-shadow:0 0 20px rgba(0,0,0,0.8);animation:resultPop 0.4s ease-out;white-space:nowrap;max-width:92%;text-align:center;"></div>
+        </div>
+        <div class="enemy-zone" id="enemyZone">
+            <div class="enemy-upper-row">
+                <div class="enemy-visual-box"><div class="char-visual" id="oVisual"></div></div>
+                <div class="hp-container enemy-hp" style="background:rgba(0,0,0,0.7);padding:8px;border-radius:6px;color:white;">
+                    <div style="font-size:13px;font-weight:bold;margin-bottom:2px;" id="oppOwnerText">案内人ネギ太</div>
+                    <div class="hp-bar-bg"><div id="oWeightBar" class="hp-bar"></div></div>
+                    <div id="oHpText" style="font-size:11px;text-align:right;font-weight:bold;margin-top:2px;">HP: --/--</div>
+                </div>
+            </div>
+            <div class="enemy-lower-row">
+                <div class="enemy-curry-emoji" id="oppCurryEmojiText">🧅🧅🧅</div>
+                <div class="sub-name-label" id="oppCurryNameText">涙の練習カレー</div>
+            </div>
+        </div>
+        <div class="player-zone">
+            <div style="text-align:left;max-width:55%;">
+                <div style="font-weight:bold;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px;" id="pOwnerText">プレイヤー</div>
+                <div style="display:flex;align-items:center;gap:4px;margin:4px 0;flex-wrap:wrap;">
+                    <div class="char-visual" style="font-size:26px;flex-shrink:0;" id="pVisual"></div>
+                </div>
+                <div style="font-size:11px;color:#f1c40f;font-weight:bold;" id="playerCurryNameText">マイカレー</div>
+            </div>
+            <div class="hp-container" style="width:45%;background:none;padding:0;">
+                <div id="pHpText" style="font-size:12px;font-weight:bold;text-align:right;">HP: 100/100</div>
+                <div class="hp-bar-bg"><div id="pWeightBar" class="hp-bar"></div></div>
+            </div>
+        </div>
+    </div>
+    <div class="battle-monitor" id="battleLog"></div>
 </div>
 <div class="modal-overlay" id="customModal">
     <div class="modal-box">
@@ -886,7 +951,7 @@
         </div>
         <div class="copyright-footer">©2026 Battle Curry All Rights Reserved.<br>QRコードは株式会社デンソーウェーブの登録商標です</div>
     </div>
-    <div id="page-battle" class="page"><div class="tut-placeholder">準備中...</div></div>
+    <div id="page-battle" class="page"><div class="tut-placeholder">対戦相手を探しています…</div></div>
     </div><!-- /gameUI -->
 </div><!-- /gameWrapper -->
 <div id="tut-name-modal">
@@ -1033,6 +1098,8 @@ function $n(){return document.getElementById('tutSpeechNext');}
 function tutShowNarrator(){
     var nar=document.getElementById('tutNarrator');
     if(nar)nar.classList.remove('tut-hidden');
+    // ナレーター登場後だけモーダル類の高さ制約(bottom:130px等)を有効にするフラグ
+    document.body.classList.add('narrator-active');
 }
 function tutSpeak(lines,onDone){tutShowNarrator();_q=lines.slice();_done=onDone||null;_nextLine();}
 function _nextLine(){
@@ -1515,9 +1582,218 @@ function tutCloseFridgeDetail(){
     tutShowPointer(battleTabEl);
     tutWaitTab('battle',function(){tutAllowedTabs=[];tutHideSpotlight();tutHidePointer();tutScenario_Battle();});
 }
+// ===== シナリオ: 対戦 =====
+// 練習相手は案内人ネギ太で固定。アイコンは案内人のアイコン(tutorial-mc.png)を流用。
+var TUT_ENEMY={name:'案内人ネギ太',curryName:'涙の練習カレー',emoji:'🧅🧅🧅',icon:'tutorial/tutorial-mc.png'};
+// 演出の都合上、展開は3カテゴリともあらかじめ決め打ち。
+// 肉=わんぱくミス連発でピンチ→最後にSpicyHitで勝利
+// 野菜=互角の打ち合いでピンチ→最後に種連続発射で逆転勝利
+// 魚介=一方的に攻められ瀕死→海鮮回復で九死に一生→反撃して勝利
+var TUT_BATTLE_DATA={
+    meat:{enemyHp:200,turns:[
+        {actor:'player',type:'miss',log:'💨 わんぱくが暴れすぎて攻撃が外れた！'},
+        {actor:'enemy',type:'hit',dmg:60,log:'🧅 ネギ太の攻撃！'},
+        {actor:'player',type:'miss',log:'💨 またわんぱくが暴れて攻撃が外れた…！'},
+        {actor:'enemy',type:'hit',dmg:90,log:'🧅 ネギ太の強い攻撃！ピンチ！'},
+        {actor:'player',type:'miss',log:'💨 なかなか当たらない…！絶体絶命！'},
+        {actor:'enemy',type:'hit',dmg:75,log:'🧅 ネギ太の追い打ち！'},
+        {actor:'player',type:'crit',dmg:200,log:'🌶️ SpicyHit！会心の一撃が炸裂！'}
+    ]},
+    vegetable:{enemyHp:160,turns:[
+        {actor:'player',type:'hit',dmg:40,log:'攻撃！'},
+        {actor:'enemy',type:'hit',dmg:90,log:'🧅 ネギ太の強い攻撃！ピンチ！'},
+        {actor:'player',type:'hit',dmg:35,log:'攻撃！'},
+        {actor:'enemy',type:'hit',dmg:65,log:'🧅 ネギ太の追い打ち！絶体絶命！'},
+        {actor:'player',type:'seed',dmgs:[35,30,25],log:'🌱 種連続発射！'}
+    ]},
+    seafood:{enemyHp:150,turns:[
+        {actor:'enemy',type:'hit',dmg:80,log:'🧅 ネギ太の攻撃！'},
+        {actor:'enemy',type:'hit',dmg:60,log:'🧅 ネギ太の強い一撃！絶体絶命！'},
+        {actor:'player',type:'heal',heal:45,log:'🌊 波の音が聞こえる…傷が少し癒えた！'},
+        {actor:'player',type:'hit',dmg:50,log:'反撃！'},
+        {actor:'enemy',type:'hit',dmg:20,log:'🧅 ネギ太の攻撃！'},
+        {actor:'player',type:'hit',dmg:100,log:'渾身の一撃！'}
+    ]}
+};
+var tutBattle={pHp:0,pMax:0,oHp:0,oMax:0};
+
 function tutScenario_Battle(){
     tutAllowedTabs=[];
     tutShowSpotlight([]);
+    tutSpeak([
+        'いくつか対戦の種類があるんだけど\n今回は特別に練習相手を用意しているよ',
+        'そう、それはもちろん僕だよ！\nでは早速！'
+    ],function(){
+        tutHideSpotlight();
+        tutRetractNarrator();
+        tutShowVsCutIn();
+    });
+}
+// ナレーターを画面外へ退避させる（マッチング〜バトル中は登場しない演出のため）
+function tutRetractNarrator(){
+    var nar=document.getElementById('tutNarrator');
+    if(nar)nar.classList.add('tut-hidden');
+}
+function tutShowVsCutIn(){
+    var cat=tutChosenCategory||'meat';
+    var r=TUT_CURRY_RESULT[cat];
+    var pname=localStorage.getItem('qr_curry_pname')||lsGet('name')||'プレイヤー';
+    document.getElementById('tutVsPlayerName').textContent=pname;
+    document.getElementById('vsPlayerVisual').innerHTML='<img src="'+r.image+'" alt="">';
+    document.getElementById('tutVsEnemyName').textContent=TUT_ENEMY.name;
+    document.getElementById('vsEnemyVisual').innerHTML='<img src="'+TUT_ENEMY.icon+'" alt="">';
+    document.getElementById('tutVsEnemyCurry').textContent=TUT_ENEMY.curryName;
+    document.getElementById('tutVsCurrySelect').innerHTML='<option>'+r.name+'</option>';
+    document.getElementById('tutVsCutIn').style.display='flex';
+}
+// 「撤退」は本チュートリアルでは選ばせない想定のためボタンは無効化済み(HTML側でonclick="return false")
+function tutConfirmVsDeploy(){
+    document.getElementById('tutVsCutIn').style.display='none';
+    tutStartBattle();
+}
+function tutStartBattle(){
+    var cat=tutChosenCategory||'meat';
+    var r=TUT_CURRY_RESULT[cat];
+    var data=TUT_BATTLE_DATA[cat];
+    var pname=localStorage.getItem('qr_curry_pname')||lsGet('name')||'プレイヤー';
+    tutBattle.pMax=r.hp;tutBattle.pHp=r.hp;
+    tutBattle.oMax=data.enemyHp;tutBattle.oHp=data.enemyHp;
+    document.getElementById('pOwnerText').textContent=pname;
+    document.getElementById('pVisual').innerHTML='<img src="'+r.image+'" alt="">';
+    document.getElementById('playerCurryNameText').textContent=r.name;
+    document.getElementById('oppOwnerText').textContent=TUT_ENEMY.name;
+    document.getElementById('oVisual').innerHTML='<img src="'+TUT_ENEMY.icon+'" alt="">';
+    document.getElementById('oppCurryEmojiText').textContent=TUT_ENEMY.emoji;
+    document.getElementById('oppCurryNameText').textContent=TUT_ENEMY.curryName;
+    tutUpdateHpBars();
+    document.getElementById('battleLog').innerHTML='⚔️ バトル開始！';
+    document.getElementById('battleResultOverlay').style.display='none';
+    document.getElementById('tutBattleArena').style.display='block';
+    setTimeout(function(){tutPlayTurns(data.turns,0);},900);
+}
+function tutUpdateHpBars(){
+    var p=document.getElementById('pWeightBar'),o=document.getElementById('oWeightBar');
+    var pPct=Math.max(0,tutBattle.pHp/tutBattle.pMax*100);
+    var oPct=Math.max(0,tutBattle.oHp/tutBattle.oMax*100);
+    p.style.width=pPct+'%';o.style.width=oPct+'%';
+    p.classList.toggle('danger',pPct<=30);
+    o.classList.toggle('danger',oPct<=30);
+    document.getElementById('pHpText').textContent='HP: '+Math.max(0,Math.round(tutBattle.pHp))+'/'+tutBattle.pMax;
+    document.getElementById('oHpText').textContent='HP: '+Math.max(0,Math.round(tutBattle.oHp))+'/'+tutBattle.oMax;
+}
+function tutBattleLogAppend(text){
+    var log=document.getElementById('battleLog');
+    log.innerHTML+='\n'+text;
+    log.scrollTop=log.scrollHeight;
+}
+// 本編triggerEffect()の簡易版：ダメージポップ・画面シェイク・被弾フラッシュを再現
+function tutBattleEffect(kind,amount){
+    var stage=document.getElementById('battleStage');
+    var pop=document.getElementById('damagePop');
+    stage.classList.add('animate-shake');
+    setTimeout(function(){stage.classList.remove('animate-shake');},220);
+    if(kind==='miss')return;
+    var zone = kind.indexOf('enemy')===0
+        ? document.getElementById('enemyZone')
+        : stage.querySelector('.player-zone');
+    var flashClass = kind==='enemy-crit' ? 'flash-crit' : (kind==='player-heal' ? null : 'flash-red');
+    if(flashClass){
+        zone.classList.add(flashClass);
+        setTimeout(function(){zone.classList.remove(flashClass);},350);
+    }
+    var zr=zone.getBoundingClientRect(),sr=stage.getBoundingClientRect();
+    pop.style.color = kind==='player-heal' ? '#2ecc71' : '#f1c40f';
+    pop.textContent = kind==='player-heal' ? ('+'+Math.round(amount)) : Math.round(amount);
+    pop.style.left=(zr.left-sr.left+zr.width/2-24)+'px';
+    pop.style.top=(zr.top-sr.top+6)+'px';
+    pop.style.display='block';
+    pop.style.animation='none';
+    void pop.offsetWidth;
+    pop.style.animation='popUp 0.9s ease-out';
+    setTimeout(function(){pop.style.display='none';},900);
+}
+function tutPlayTurns(turns,i){
+    if(i>=turns.length){tutBattleVictory();return;}
+    var t=turns[i];
+    if(t.actor==='player'){
+        if(t.type==='miss'){
+            tutBattleLogAppend(t.log);
+            tutBattleEffect('miss');
+            setTimeout(function(){tutPlayTurns(turns,i+1);},1200);
+        }else if(t.type==='hit'||t.type==='crit'){
+            tutBattleLogAppend(t.log);
+            tutBattle.oHp=Math.max(0,tutBattle.oHp-t.dmg);
+            tutUpdateHpBars();
+            tutBattleEffect(t.type==='crit'?'enemy-crit':'enemy',t.dmg);
+            tutBattleLogAppend('💥 ダメージ: '+t.dmg);
+            setTimeout(function(){tutPlayTurns(turns,i+1);},1300);
+        }else if(t.type==='seed'){
+            tutBattleLogAppend(t.log);
+            t.dmgs.forEach(function(d,idx){
+                setTimeout(function(){
+                    tutBattle.oHp=Math.max(0,tutBattle.oHp-d);
+                    tutUpdateHpBars();
+                    tutBattleEffect('enemy',d);
+                    tutBattleLogAppend('🌱 '+(idx+1)+'撃目！ダメージ: '+d);
+                },idx*380);
+            });
+            setTimeout(function(){tutPlayTurns(turns,i+1);},t.dmgs.length*380+900);
+        }else if(t.type==='heal'){
+            tutBattleLogAppend(t.log);
+            tutBattle.pHp=Math.min(tutBattle.pMax,tutBattle.pHp+t.heal);
+            tutUpdateHpBars();
+            tutBattleEffect('player-heal',t.heal);
+            setTimeout(function(){tutPlayTurns(turns,i+1);},1300);
+        }
+    }else{
+        tutBattleLogAppend(t.log);
+        tutBattle.pHp=Math.max(0,tutBattle.pHp-t.dmg);
+        tutUpdateHpBars();
+        tutBattleEffect('player',t.dmg);
+        tutBattleLogAppend('💥 ダメージ: '+t.dmg);
+        setTimeout(function(){tutPlayTurns(turns,i+1);},1300);
+    }
+}
+function tutBattleVictory(){
+    var overlay=document.getElementById('battleResultOverlay');
+    var big=document.getElementById('battleResultBig');
+    big.textContent='🏆 勝利!!';
+    big.style.color='#2ecc71';
+    overlay.style.display='flex';
+    setTimeout(function(){
+        overlay.style.display='none';
+        tutExitBattle();
+    },2000);
+}
+function tutExitBattle(){
+    document.getElementById('tutBattleArena').style.display='none';
+    lsSet('step','battleDone');
+    tutAllowedTabs=[];
+    tutShowSpotlight([]);
+    tutScenario_TutorialEnd();
+}
+function tutScenario_TutorialEnd(){
+    tutSpeak([
+        'いやぁ、負けちゃった。\n悔しいなあ',
+        'チュートリアルはここまでだけど\n？マークからもっと詳しい説明は読めるから\nぜひ読んでね！'
+    ],function(){
+        tutShowPackTicketModal();
+    });
+}
+function tutShowPackTicketModal(){
+    document.getElementById('modalTitle').innerHTML='🎫 通知';
+    document.getElementById('modalMessage').innerHTML='<div style="font-size:16px;font-weight:bold;color:#c0392b;">パック券2枚GET!</div>';
+    document.getElementById('modalBtnGroup').innerHTML='<button class="modal-btn modal-btn-ok" onclick="tutClosePackTicketModal()">OK</button>';
+    document.getElementById('customModal').style.display='flex';
+}
+function tutClosePackTicketModal(){
+    document.getElementById('customModal').style.display='none';
+    tutSpeak([
+        '冷蔵庫のくじで使えるパック券だよ。\nこの後忘れずに使ってね！',
+        'じゃあね〜'
+    ],function(){
+        localStorage.setItem('tut_done','1');
+    });
 }
 
 // ===== ダミー関数 =====
