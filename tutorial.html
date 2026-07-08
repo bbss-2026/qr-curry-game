@@ -946,21 +946,21 @@
 
     <div id="page-qr" class="page" style="text-align:center;">
         <button id="btnQrBingo" class="btn btn-start" onclick="return false;" style="display:flex;align-items:center;justify-content:center;gap:8px;width:80%;color:#efdeb1;font-size:16px;background:#d35400;margin-bottom:10px;">QR BINGO</button>
-        <button id="btnStartCamera" class="btn btn-start" onclick="tutQrCameraClick()" style="display:flex;align-items:center;justify-content:center;gap:8px;width:80%;color:#efdeb1;font-size:16px;"><img src="camera.svg" style="height:1em;width:auto;filter:brightness(10);position:relative;top:2px;" alt="">カメラを起動する</button>
+        <button id="btnStartCamera" class="btn btn-start" onclick="return false;" style="display:flex;align-items:center;justify-content:center;gap:8px;width:80%;color:#efdeb1;font-size:16px;"><img src="camera.svg" style="height:1em;width:auto;filter:brightness(10);position:relative;top:2px;" alt="">カメラを起動する</button>
         <div id="tutQrChoiceArea" style="display:none; margin-top:20px;">
             <div style="font-size:13px; color:#420000; font-weight:bold; margin-bottom:10px;">好きな食材ジャンルを選んでね</div>
             <div style="display:flex; gap:8px; justify-content:center;">
-                <button id="tutBtnMeat" class="btn btn-start" onclick="tutQrChoose('meat')" style="flex:1; margin:0;">🥩 肉</button>
-                <button id="tutBtnVeg" class="btn btn-start" onclick="tutQrChoose('vegetable')" style="flex:1; margin:0;">🥬 野菜</button>
-                <button id="tutBtnSeafood" class="btn btn-start" onclick="tutQrChoose('seafood')" style="flex:1; margin:0;">🐟 魚介</button>
+                <button id="tutBtnMeat" class="btn btn-start" onclick="tutQrChoose('meat')" style="flex:1; margin:0;">肉</button>
+                <button id="tutBtnVeg" class="btn btn-start" onclick="tutQrChoose('vegetable')" style="flex:1; margin:0;">野菜</button>
+                <button id="tutBtnSeafood" class="btn btn-start" onclick="tutQrChoose('seafood')" style="flex:1; margin:0;">魚介</button>
             </div>
         </div>
         <div class="get-box" id="tutGetBox" style="display:none; margin-top:20px; padding:15px; background:#fffdf0; border:2px dashed #e67e22; border-radius:10px; text-align:center;">
-            <div style="font-size:14px; color:#e67e22; font-weight:bold;">🎉 食材ゲット！</div>
+            <div style="font-size:14px; color:#e67e22; font-weight:bold;">食材ゲット！</div>
             <div id="tutGetBoxItems" style="display:flex; justify-content:center; gap:12px; margin-top:10px; flex-wrap:wrap;"></div>
         </div>
         <div style="margin: 16px auto 10px auto; max-width: 420px; background: #fffdf0; border: 1px solid #e0c080; border-radius: 8px; padding: 10px 14px; text-align: left; font-size: 12px; color: #7a6040; line-height: 1.7;">
-            <div style="font-weight: bold; margin-bottom: 4px; color: #b8860b;">⚠️ QRスキャンに関するご注意</div>
+            <div style="font-weight: bold; margin-bottom: 4px; color: #b8860b;">QRスキャンに関するご注意</div>
             ルールとマナーを守って楽しくお遊びください。<br>
             ・歩きスマホや、公共の場などで交通の邪魔になるスキャンはやめましょう。<br>
             ・お店のレジにある「QR決済コード」へのスキャンは、店員さんの誤解を招くためご遠慮ください。<br>
@@ -1169,21 +1169,19 @@ function tutScenario_PlayerIntro(){
 }
 
 // ===== シナリオ: QR =====
+// 「カメラを起動する」は押しても何も起きない（スポットライトのみ、案内はタップで自動進行）
 function tutScenario_QR(){
-    tutSpeak(['このカメラを起動するを押すと\nQRをスキャンできるんだ'],function(){
-        tutAllowedTabs=[];
-        tutShowSpotlight([{el:document.getElementById('btnStartCamera'),padding:10}]);
-    });
-}
-function tutQrCameraClick(){
-    tutHidePointer();
-    tutShowSpotlight([]);
+    tutAllowedTabs=[];
+    tutShowSpotlight([{el:document.getElementById('btnStartCamera'),padding:10}]);
     tutSpeak([
+        'この「カメラを起動する」を押すと\nQRをスキャンできるんだ',
+        'QRは身の周りにあるどんな\nQRでも大丈夫だよ！',
         '基本的には同じQRからは1日1回だけ\n食材を1つ入手できるよ',
         '時間帯や特定の条件によっては\n特別なことが起こるかも！？',
         '今はチュートリアルなのでQRスキャンはせず\n僕から食材をプレゼントするよ',
         '君は「肉」「野菜」「魚介」どれが好き？'
     ],function(){
+        tutHidePointer();
         var area=document.getElementById('tutQrChoiceArea');
         area.style.display='block';
         tutShowSpotlight([
@@ -1193,10 +1191,11 @@ function tutQrCameraClick(){
         ]);
     });
 }
+// 食材アイコンはfoods_icon配下の実素材(svg)を使用
 var TUT_INGREDIENTS={
-    meat:[['牛肉','🥩'],['チキン','🍗'],['ウインナー','🌭'],['シナモン','🪵']],
-    vegetable:[['トマト','🍅'],['ナス','🍆'],['玉ねぎ','🧅'],['ブラックペッパー','🖤']],
-    seafood:[['小エビ','🦐'],['サバ','🐟'],['イカ','🦑'],['コリアンダー','💚']]
+    meat:[['牛肉','foods_icon/item_04.svg'],['チキン','foods_icon/item_07.svg'],['ウインナー','foods_icon/item_11.svg'],['シナモン','foods_icon/item_26.svg']],
+    vegetable:[['トマト','foods_icon/item_41.svg'],['ナス','foods_icon/item_09.svg'],['玉ねぎ','foods_icon/item_13.svg'],['ブラックペッパー','foods_icon/item_35.svg']],
+    seafood:[['小エビ','foods_icon/item_20.svg'],['サバ','foods_icon/item_33.svg'],['イカ','foods_icon/item_19.svg'],['コリアンダー','foods_icon/item_25.svg']]
 };
 var tutChosenCategory=null;
 function tutQrChoose(cat){
@@ -1206,7 +1205,7 @@ function tutQrChoose(cat){
     var items=TUT_INGREDIENTS[cat];
     var wrap=document.getElementById('tutGetBoxItems');
     wrap.innerHTML=items.map(function(it){
-        return '<div style="text-align:center;"><div style="font-size:36px;">'+it[1]+'</div><div style="font-size:11px;color:#420000;font-weight:bold;">'+it[0]+'</div></div>';
+        return '<div style="text-align:center;"><img src="'+it[1]+'" alt="'+it[0]+'" style="width:44px;height:44px;object-fit:contain;display:block;margin:0 auto;"><div style="font-size:11px;color:#420000;font-weight:bold;margin-top:4px;">'+it[0]+'</div></div>';
     }).join('');
     document.getElementById('tutGetBox').style.display='block';
     tutSpeak(['いいね！じゃあこれを受け取って！'],function(){
