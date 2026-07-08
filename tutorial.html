@@ -697,8 +697,13 @@
     </div>
 </div>
 <!-- ===== バトル画面（本編#battleArena相当。id/クラスは本編と同一のものを流用） ===== -->
+<!-- ===== 種連続発射カットイン（本編playTanemakiAnimation()の簡易版） ===== -->
+<div id="tutSeedOverlay" style="position:fixed;top:0;left:0;width:100%;height:100%;z-index:7500;display:none;background:#000;overflow:hidden;">
+    <img id="tutSeedBg" src="battle/homerun_bg.png" style="position:absolute;top:0;left:0;width:100%;height:100%;object-fit:cover;">
+    <img id="tutSeedChara" src="battle/taneren_chara1.png" style="position:absolute;left:50%;top:80%;width:60%;transform:translate(-50%,-50%) scale(1);transition:none;">
+</div>
 <div id="tutBattleArena" style="position:fixed;top:0;left:0;width:100%;height:100%;background:#efdeb1;z-index:7000;display:none;overflow-y:auto;box-sizing:border-box;padding:16px;">
-    <div class="battle-stage" id="battleStage">
+    <div class="battle-stage battle-bg-easy" id="battleStage">
         <div class="damage-pop" id="damagePop" style="display:none;">0</div>
         <div id="battleResultOverlay" style="display:none;position:absolute;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.6);z-index:20;flex-direction:column;justify-content:center;align-items:center;border-radius:8px;">
             <div id="battleResultBig" style="font-size:52px;font-weight:900;font-family:'Impact',Arial,sans-serif;-webkit-text-stroke:2px #000;text-shadow:0 0 20px rgba(0,0,0,0.8);animation:resultPop 0.4s ease-out;white-space:nowrap;max-width:92%;text-align:center;"></div>
@@ -1156,6 +1161,32 @@ function playSoundEffect(src){
     se.currentTime=0;se.volume=0.7;
     se.play().catch(function(){});
 }
+// ===== BGM・合成音（本編game-dev.htmlのplayTone()/playBattleBGM()と同じ実装） =====
+var _tutAudioCtx=null;
+function playTone(freq,type,duration){
+    if(isMuted)return;
+    try{
+        if(!_tutAudioCtx)_tutAudioCtx=new (window.AudioContext||window.webkitAudioContext)();
+        var osc=_tutAudioCtx.createOscillator(),gain=_tutAudioCtx.createGain();
+        osc.type=type;osc.frequency.value=freq;osc.connect(gain);gain.connect(_tutAudioCtx.destination);
+        osc.start();gain.gain.setValueAtTime(0.2,_tutAudioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.00001,_tutAudioCtx.currentTime+duration);
+        osc.stop(_tutAudioCtx.currentTime+duration);
+    }catch(e){}
+}
+function playWinSound(){playTone(523.25,'square',0.1);setTimeout(function(){playTone(659.25,'square',0.1);},80);setTimeout(function(){playTone(783.99,'square',0.8);},160);}
+var _tutBattleBGM=null;
+function playBattleBGM(src){
+    if(isMuted)return;
+    stopBattleBGM();
+    _tutBattleBGM=new Audio(src);
+    _tutBattleBGM.loop=true;
+    _tutBattleBGM.volume=0.2;
+    _tutBattleBGM.play().catch(function(){});
+}
+function stopBattleBGM(){
+    if(_tutBattleBGM){_tutBattleBGM.pause();_tutBattleBGM.currentTime=0;_tutBattleBGM=null;}
+}
 
 // ===== 名前入力（プレイヤータブでの名前タップ変更用。オンボーディングとは別） =====
 function tutOpenNameModal(){
@@ -1602,30 +1633,31 @@ var TUT_ENEMY={name:'案内人ネギ太',curryName:'涙の練習カレー',emoji
 // 肉=わんぱくミス連発でピンチ→最後にSpicyHitで勝利
 // 野菜=互角の打ち合いでピンチ→最後に種連続発射で逆転勝利
 // 魚介=一方的に攻められ瀕死→海鮮回復で九死に一生→反撃して勝利
+// ログ文言は独自表現を廃し、本編game-dev.htmlのstep()が実際に出す文言のみを使用する
 var TUT_BATTLE_DATA={
     meat:{enemyHp:200,turns:[
-        {actor:'player',type:'miss',log:'💨 わんぱくが暴れすぎて攻撃が外れた！'},
-        {actor:'enemy',type:'hit',dmg:60,log:'🧅 ネギ太の攻撃！'},
-        {actor:'player',type:'miss',log:'💨 またわんぱくが暴れて攻撃が外れた…！'},
-        {actor:'enemy',type:'hit',dmg:90,log:'🧅 ネギ太の強い攻撃！ピンチ！'},
-        {actor:'player',type:'miss',log:'💨 なかなか当たらない…！絶体絶命！'},
-        {actor:'enemy',type:'hit',dmg:75,log:'🧅 ネギ太の追い打ち！'},
-        {actor:'player',type:'crit',dmg:200,log:'🌶️ SpicyHit！会心の一撃が炸裂！'}
+        {actor:'player',type:'miss'},
+        {actor:'enemy',type:'hit',dmg:60},
+        {actor:'player',type:'miss'},
+        {actor:'enemy',type:'hit',dmg:90},
+        {actor:'player',type:'miss'},
+        {actor:'enemy',type:'hit',dmg:75},
+        {actor:'player',type:'crit',dmg:200}
     ]},
     vegetable:{enemyHp:160,turns:[
-        {actor:'player',type:'hit',dmg:40,log:'攻撃！'},
-        {actor:'enemy',type:'hit',dmg:90,log:'🧅 ネギ太の強い攻撃！ピンチ！'},
-        {actor:'player',type:'hit',dmg:35,log:'攻撃！'},
-        {actor:'enemy',type:'hit',dmg:65,log:'🧅 ネギ太の追い打ち！絶体絶命！'},
-        {actor:'player',type:'seed',dmgs:[35,30,25],log:'🌱 種連続発射！'}
+        {actor:'player',type:'hit',dmg:40},
+        {actor:'enemy',type:'hit',dmg:90},
+        {actor:'player',type:'hit',dmg:35},
+        {actor:'enemy',type:'hit',dmg:65},
+        {actor:'player',type:'seed',dmgs:[35,30,25],spicy:1}
     ]},
     seafood:{enemyHp:150,turns:[
-        {actor:'enemy',type:'hit',dmg:80,log:'🧅 ネギ太の攻撃！'},
-        {actor:'enemy',type:'hit',dmg:60,log:'🧅 ネギ太の強い一撃！絶体絶命！'},
-        {actor:'player',type:'heal',heal:45,log:'🌊 波の音が聞こえる…傷が少し癒えた！'},
-        {actor:'player',type:'hit',dmg:50,log:'反撃！'},
-        {actor:'enemy',type:'hit',dmg:20,log:'🧅 ネギ太の攻撃！'},
-        {actor:'player',type:'hit',dmg:100,log:'渾身の一撃！'}
+        {actor:'enemy',type:'hit',dmg:80},
+        {actor:'enemy',type:'hit',dmg:60},
+        {actor:'player',type:'heal',heal:45},
+        {actor:'player',type:'hit',dmg:50},
+        {actor:'enemy',type:'hit',dmg:20},
+        {actor:'player',type:'hit',dmg:100}
     ]}
 };
 var tutBattle={pHp:0,pMax:0,oHp:0,oMax:0};
@@ -1675,6 +1707,7 @@ function tutStartBattle(){
     var pname=localStorage.getItem('qr_curry_pname')||lsGet('name')||'プレイヤー';
     tutBattle.pMax=r.hp;tutBattle.pHp=r.hp;
     tutBattle.oMax=data.enemyHp;tutBattle.oHp=data.enemyHp;
+    tutBattle.pname=pname;
     document.getElementById('pOwnerText').textContent=pname;
     // 本編のBot戦と同じく、バトル画面ではpVisualは空にしてpCurryIconsに食材アイコン列を表示する
     document.getElementById('pVisual').innerHTML='';
@@ -1693,7 +1726,8 @@ function tutStartBattle(){
     document.getElementById('battleLog').innerHTML='⚔️ バトル開始！';
     document.getElementById('battleResultOverlay').style.display='none';
     document.getElementById('tutBattleArena').style.display='block';
-    setTimeout(function(){tutPlayTurns(data.turns,0);},900);
+    playBattleBGM('bossbgm.mp3');
+    setTimeout(function(){tutPlayTurns(data.turns,0);},1500);
 }
 function tutUpdateHpBars(){
     var p=document.getElementById('pWeightBar'),o=document.getElementById('oWeightBar');
@@ -1705,91 +1739,168 @@ function tutUpdateHpBars(){
     document.getElementById('pHpText').textContent='HP: '+Math.max(0,Math.round(tutBattle.pHp))+'/'+tutBattle.pMax;
     document.getElementById('oHpText').textContent='HP: '+Math.max(0,Math.round(tutBattle.oHp))+'/'+tutBattle.oMax;
 }
+// 本編は毎ターン開始時にログを消去して「🔥 自分のターン！」/「⚠️ 相手のターン！」から書き直す。
+// それ以外の行（ダメージ等）は同じターン内で追記する。
+function tutBattleTurnHeader(actor){
+    var log=document.getElementById('battleLog');
+    log.innerHTML = actor==='player' ? '🔥 自分のターン！' : '⚠️ 相手のターン！';
+    playTone(actor==='player'?440:330,'triangle',0.08);
+}
 function tutBattleLogAppend(text){
     var log=document.getElementById('battleLog');
     log.innerHTML+='\n'+text;
     log.scrollTop=log.scrollHeight;
 }
-// 本編triggerEffect()の簡易版：ダメージポップ・画面シェイク・被弾フラッシュを再現
+// 種連続発射の合計ダメージのように、改行せず同じ行の末尾に追記したい場合に使う
+function tutBattleLogAppendSameLine(text){
+    var log=document.getElementById('battleLog');
+    log.innerHTML+=text;
+    log.scrollTop=log.scrollHeight;
+}
+// 本編triggerEffect()と同じ範囲でダメージポップ・画面シェイク・被弾フラッシュを再現。
+// 敵への通常ヒットは敵ゾーンのみシェイク（ステージ全体は光らない）、会心はステージにflash-crit、
+// 自分が被弾した時だけステージ全体にflash-red+シェイクがかかる。
 function tutBattleEffect(kind,amount){
     var stage=document.getElementById('battleStage');
     var pop=document.getElementById('damagePop');
-    stage.classList.add('animate-shake');
-    setTimeout(function(){stage.classList.remove('animate-shake');},220);
-    if(kind==='miss')return;
-    var zone = kind.indexOf('enemy')===0
-        ? document.getElementById('enemyZone')
-        : stage.querySelector('.player-zone');
-    var flashClass = kind==='enemy-crit' ? 'flash-crit' : (kind==='player-heal' ? null : 'flash-red');
-    if(flashClass){
-        zone.classList.add(flashClass);
-        setTimeout(function(){zone.classList.remove(flashClass);},350);
-    }
-    var zr=zone.getBoundingClientRect(),sr=stage.getBoundingClientRect();
-    pop.style.color = kind==='player-heal' ? '#2ecc71' : '#f1c40f';
-    pop.textContent = kind==='player-heal' ? ('+'+Math.round(amount)) : Math.round(amount);
-    pop.style.left=(zr.left-sr.left+zr.width/2-24)+'px';
-    pop.style.top=(zr.top-sr.top+6)+'px';
-    pop.style.display='block';
-    pop.style.animation='none';
+    var isCrit = kind==='enemy-crit'||kind==='player-crit';
+    pop.innerHTML = isCrit
+        ? '<div style="font-size:14px;color:#ff4500;line-height:1.2;">Spicy Hit!!!!!!!!</div><div>'+Math.round(amount)+'</div>'
+        : (kind==='player-heal' ? ('+'+Math.round(amount)) : Math.round(amount));
+    pop.style.display='block';pop.style.animation='none';
     void pop.offsetWidth;
-    pop.style.animation='popUp 0.9s ease-out';
+    stage.classList.remove('flash-red','flash-crit');
+    if(kind==='enemy'||kind==='enemy-crit'){
+        var enemyZoneEl=document.getElementById('enemyZone');
+        enemyZoneEl.classList.add('animate-shake');
+        pop.style.top='130px';pop.style.left='25%';
+        pop.style.color = isCrit ? '#ff4500' : '#f1c40f';
+        if(isCrit){
+            stage.classList.add('flash-crit');
+            setTimeout(function(){stage.classList.remove('flash-crit');},350);
+            playSoundEffect('spicyhit.mp3');
+        }
+        pop.style.animation='popUp 0.9s ease-out';
+        setTimeout(function(){enemyZoneEl.classList.remove('animate-shake');},220);
+    }else if(kind==='player-heal'){
+        pop.style.top='240px';pop.style.left='45%';
+        pop.style.color='#2ecc71';
+        pop.style.animation='popUp 0.9s ease-out';
+    }else{ // player が被弾
+        stage.classList.add(isCrit?'flash-crit':'flash-red','animate-shake');
+        pop.style.top='240px';pop.style.left='45%';
+        pop.style.color=isCrit?'#ff4500':'#ff4757';
+        pop.style.animation='popUp 0.9s ease-out';
+        setTimeout(function(){stage.classList.remove('flash-red','flash-crit','animate-shake');},isCrit?350:220);
+    }
     setTimeout(function(){pop.style.display='none';},900);
 }
+// 種連続発射カットイン（本編playTanemakiAnimation()の簡易版）
+function tutPlaySeedCutIn(callback){
+    var overlay=document.getElementById('tutSeedOverlay');
+    var chara=document.getElementById('tutSeedChara');
+    chara.src='battle/taneren_chara1.png';
+    chara.style.transition='none';
+    chara.style.transform='translate(-50%,-50%) scale(1)';
+    overlay.style.display='block';
+    playSoundEffect('sound/battlese.mp3');
+    setTimeout(function(){
+        chara.style.transition='transform 0.4s cubic-bezier(0.34,1.56,0.64,1)';
+        chara.style.transform='translate(-50%,-50%) scale(1.2)';
+    },150);
+    setTimeout(function(){
+        chara.src='battle/taneren_chara2.png';
+        chara.style.transition='none';
+        chara.style.transform='translate(-50%,-50%) scale(1.1) rotate(-3deg)';
+    },600);
+    setTimeout(function(){
+        overlay.style.display='none';
+        callback();
+    },1500);
+}
+// 初めてバトルを見るプレイヤーにも分かりやすいよう、本編よりゆっくり進行させる
+var TUT_TURN_PAUSE=900;       // ターン表示（自分/相手のターン！）から結果が出るまでの間
+var TUT_NEXT_TURN_PAUSE=2100; // 結果が出てから次のターンに進むまでの間
 function tutPlayTurns(turns,i){
     if(i>=turns.length){tutBattleVictory();return;}
     var t=turns[i];
-    if(t.actor==='player'){
-        if(t.type==='miss'){
-            tutBattleLogAppend(t.log);
-            tutBattleEffect('miss');
-            setTimeout(function(){tutPlayTurns(turns,i+1);},1200);
-        }else if(t.type==='hit'||t.type==='crit'){
-            tutBattleLogAppend(t.log);
-            tutBattle.oHp=Math.max(0,tutBattle.oHp-t.dmg);
+    tutBattleTurnHeader(t.actor);
+    setTimeout(function(){
+        if(t.actor==='player'){
+            if(t.type==='miss'){
+                playSoundEffect('sound/miss.mp3');
+                tutBattleLogAppend('💨 わんぱくが暴れすぎて攻撃が外れた！');
+                setTimeout(function(){tutPlayTurns(turns,i+1);},TUT_NEXT_TURN_PAUSE);
+            }else if(t.type==='hit'||t.type==='crit'){
+                tutBattle.oHp=Math.max(0,tutBattle.oHp-t.dmg);
+                tutUpdateHpBars();
+                playSoundEffect('punch.mp3');
+                if(t.type==='crit'){
+                    tutBattleLogAppend('🌶️ Spicy Hit!!!!!!!! 💥 ダメージ: '+t.dmg);
+                    tutBattleEffect('enemy-crit',t.dmg);
+                }else{
+                    tutBattleLogAppend('💥 ダメージ: '+t.dmg);
+                    tutBattleEffect('enemy',t.dmg);
+                }
+                setTimeout(function(){tutPlayTurns(turns,i+1);},TUT_NEXT_TURN_PAUSE);
+            }else if(t.type==='seed'){
+                tutBattleLogAppend('🌱 種連続発射！');
+                tutPlaySeedCutIn(function(){
+                    var total=0;
+                    t.dmgs.forEach(function(d,idx){
+                        setTimeout(function(){
+                            tutBattle.oHp=Math.max(0,tutBattle.oHp-d);
+                            tutUpdateHpBars();
+                            tutBattleEffect('enemy',d);
+                            total+=d;
+                            if(idx===0){
+                                playSoundEffect('machine-gun.mp3');
+                                tutBattleLogAppend('🌱 種連続発射 '+t.dmgs.length+'連撃！'+(t.spicy?(' 🌶️ SpicyHit×'+t.spicy+'！'):''));
+                            }
+                            if(idx===t.dmgs.length-1){
+                                tutBattleLogAppendSameLine(' 合計: '+total);
+                                setTimeout(function(){tutPlayTurns(turns,i+1);},TUT_NEXT_TURN_PAUSE);
+                            }
+                        },idx*450);
+                    });
+                });
+            }else if(t.type==='heal'){
+                var pname=tutBattle.pname||'プレイヤー';
+                tutBattle.pHp=Math.min(tutBattle.pMax,tutBattle.pHp+t.heal);
+                tutUpdateHpBars();
+                playSoundEffect('healing.mp3');
+                tutBattleLogAppend('🌊 '+pname+'は波の音に癒された。HP回復+'+t.heal);
+                tutBattleEffect('player-heal',t.heal);
+                setTimeout(function(){tutPlayTurns(turns,i+1);},TUT_NEXT_TURN_PAUSE);
+            }
+        }else{
+            tutBattle.pHp=Math.max(0,tutBattle.pHp-t.dmg);
             tutUpdateHpBars();
-            tutBattleEffect(t.type==='crit'?'enemy-crit':'enemy',t.dmg);
+            playSoundEffect('punch.mp3');
             tutBattleLogAppend('💥 ダメージ: '+t.dmg);
-            setTimeout(function(){tutPlayTurns(turns,i+1);},1300);
-        }else if(t.type==='seed'){
-            tutBattleLogAppend(t.log);
-            t.dmgs.forEach(function(d,idx){
-                setTimeout(function(){
-                    tutBattle.oHp=Math.max(0,tutBattle.oHp-d);
-                    tutUpdateHpBars();
-                    tutBattleEffect('enemy',d);
-                    tutBattleLogAppend('🌱 '+(idx+1)+'撃目！ダメージ: '+d);
-                },idx*380);
-            });
-            setTimeout(function(){tutPlayTurns(turns,i+1);},t.dmgs.length*380+900);
-        }else if(t.type==='heal'){
-            tutBattleLogAppend(t.log);
-            tutBattle.pHp=Math.min(tutBattle.pMax,tutBattle.pHp+t.heal);
-            tutUpdateHpBars();
-            tutBattleEffect('player-heal',t.heal);
-            setTimeout(function(){tutPlayTurns(turns,i+1);},1300);
+            tutBattleEffect('player',t.dmg);
+            setTimeout(function(){tutPlayTurns(turns,i+1);},TUT_NEXT_TURN_PAUSE);
         }
-    }else{
-        tutBattleLogAppend(t.log);
-        tutBattle.pHp=Math.max(0,tutBattle.pHp-t.dmg);
-        tutUpdateHpBars();
-        tutBattleEffect('player',t.dmg);
-        tutBattleLogAppend('💥 ダメージ: '+t.dmg);
-        setTimeout(function(){tutPlayTurns(turns,i+1);},1300);
-    }
+    },TUT_TURN_PAUSE);
 }
 function tutBattleVictory(){
+    stopBattleBGM();
+    playWinSound();
     var overlay=document.getElementById('battleResultOverlay');
     var big=document.getElementById('battleResultBig');
-    big.textContent='🏆 勝利!!';
+    big.innerHTML='<div>🏆 勝利!!</div><div style="font-size:16px;margin-top:14px;animation:blinkArr 0.8s ease-in-out infinite;">▼ タップして進む</div>';
     big.style.color='#2ecc71';
     overlay.style.display='flex';
-    setTimeout(function(){
+    overlay.style.cursor='pointer';
+    function proceed(){
+        overlay.removeEventListener('click',proceed);
         overlay.style.display='none';
         tutExitBattle();
-    },2000);
+    }
+    overlay.addEventListener('click',proceed);
 }
 function tutExitBattle(){
+    stopBattleBGM();
     document.getElementById('tutBattleArena').style.display='none';
     lsSet('step','battleDone');
     tutAllowedTabs=[];
