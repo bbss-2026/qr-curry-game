@@ -630,6 +630,12 @@
 <div class="tut-ov" id="ov-lft"></div>
 <div class="tut-ov" id="ov-rgt"></div>
 <div class="tut-pointer" id="tutPointer">👆</div>
+<!-- ミュートはチュートリアル中も常に操作可能にする必要があるため、
+     オーバーレイ(.tut-ov / z-index:4000)の影響を受けないよう#gameWrapperの外に
+     body直下・position:fixedで独立して配置している -->
+<button id="muteBtn" onclick="tutToggleMute()" style="position:fixed;top:8px;right:8px;width:32px;height:32px;border:none;background:transparent;cursor:pointer;z-index:8000;display:flex;align-items:center;justify-content:center;padding:0;">
+    <img id="muteIcon" src="sound-on.svg" style="width:28px;height:28px;" alt="sound">
+</button>
 <div class="modal-overlay" id="customModal">
     <div class="modal-box">
         <div class="modal-title" id="modalTitle">📢 お知らせ</div>
@@ -645,11 +651,6 @@
         </button>
         <button id="helpBtn" onclick="return false;" style="position:absolute;top:8px;right:46px;width:32px;height:32px;border:none;background:transparent;cursor:pointer;z-index:10;display:flex;align-items:center;justify-content:center;padding:0;">
             <img src="help.svg" style="width:28px;height:28px;" alt="?">
-        </button>
-        <!-- ミュートはチュートリアル中でも常に操作可能にするため、スポットライトオーバーレイ(z-index:4000)より
-             手前に出るようz-indexを高くしている -->
-        <button id="muteBtn" onclick="tutToggleMute()" style="position:absolute;top:8px;right:8px;width:32px;height:32px;border:none;background:transparent;cursor:pointer;z-index:5000;display:flex;align-items:center;justify-content:center;padding:0;">
-            <img id="muteIcon" src="sound-on.svg" style="width:28px;height:28px;" alt="sound">
         </button>
     </div>
 
@@ -995,7 +996,9 @@ function lsGet(k){return localStorage.getItem('tut_'+k)||'';}
 var tutAllowedTabs=[];
 var tutPendingTab=null;
 function tutTabClick(tab){
-    if(tutAllowedTabs.length>0&&tutAllowedTabs.indexOf(tab)<0)return;
+    // tutAllowedTabsが空配列の場合は「全タブ許可」ではなく「全タブ禁止」として扱う
+    // （各シナリオはタブ操作を止めたい時にtutAllowedTabs=[]を設定しているため）
+    if(tutAllowedTabs.indexOf(tab)<0)return;
     tutHidePointer();
     tutSwitchTab(tab);
     if(tutPendingTab&&tutPendingTab.tab===tab){var cb=tutPendingTab.cb;tutPendingTab=null;setTimeout(cb,150);}
@@ -1145,7 +1148,6 @@ function tutShowIntroModal(){
 }
 function tutConfirmIntroStart(){
     document.getElementById('customModal').style.display='none';
-    document.getElementById('gameUI').style.display='block';
     tutScenario_PlayerIntro();
 }
 
@@ -1155,28 +1157,17 @@ function tutScenario_PlayerIntro(){
     tutSpeak([
         'ようこそ、バトルカレーへ。\n簡単にゲームのことを説明させてね。',
         'このゲームはQRで食材を集めて\nその食材でカレーを作って\nそのカレーでバトルするゲームなんだ',
+        'まずはQRタブをタップしてくれるかな？'
     ],function(){
-        // 5つのタブだけをオーバーレイの穴にして可視化する（操作はまだできないまま）。
-        // tutHideSpotlight()で全面解除すると、タブ以外のページ内容（ボタン等）まで
-        // 操作できてしまうため、5タブをまとめてスポットライト対象にする。
-        tutAllowedTabs=[];
-        tutShowSpotlight([
-            {el:document.getElementById('tab-player'),padding:2},
-            {el:document.getElementById('tab-qr'),padding:2},
-            {el:document.getElementById('tab-fridge'),padding:2},
-            {el:document.getElementById('tab-cook'),padding:2},
-            {el:document.getElementById('tab-battle'),padding:2}
-        ]);
-        tutSpeak(['上に5つのメニュータブがあるでしょ\nまずはQRタブを選んでみて'],function(){
-            lsSet('step','qr');
-            tutAllowedTabs=['qr'];
-            var qrTabEl=document.getElementById('tab-qr');
-            tutShowSpotlight([{el:qrTabEl,padding:6}]);
-            tutShowPointer(qrTabEl);
-            tutWaitTab('qr',function(){tutAllowedTabs=[];tutHideSpotlight();tutScenario_QR();});
-        });
+        lsSet('step','qr');
+        tutAllowedTabs=['qr'];
+        var qrTabEl=document.getElementById('tab-qr');
+        tutShowSpotlight([{el:qrTabEl,padding:6}]);
+        tutShowPointer(qrTabEl);
+        tutWaitTab('qr',function(){tutAllowedTabs=[];tutHideSpotlight();tutScenario_QR();});
     });
 }
+
 // ===== シナリオ: QR =====
 function tutScenario_QR(){
     tutSpeak(['このカメラを起動するを押すと\nQRをスキャンできるんだ'],function(){
@@ -1269,9 +1260,10 @@ window.addEventListener('load',function(){
     if(mi)mi.src=(localStorage.getItem('qr_muted')==='1')?'sound-off.svg':'sound-on.svg';
     var pb=document.getElementById('postBtn');if(pb)pb.style.display='flex';
     var hb=document.getElementById('helpBtn');if(hb)hb.style.display='flex';
-    var mb=document.getElementById('muteBtn');if(mb)mb.style.display='flex';
     tutSwitchTab('player');
-    // gameUIは「チュートリアルを始める」を押すまで非表示。まずは紹介モーダルを表示する。
+    // 紹介モーダルの背後に何も無い状態を避けるため、先にgameUIを表示しておく
+    // （実際の操作ロックはtutScenario_PlayerIntro内のtutShowSpotlight([])が担う）
+    document.getElementById('gameUI').style.display='block';
     tutShowIntroModal();
 });
 </script>
