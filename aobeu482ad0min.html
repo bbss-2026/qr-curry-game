@@ -76,6 +76,7 @@
         <button style="background:#2980b9;" onclick="actShowSyncErrors()">🔄 同期エラーログ</button>
         <button style="background:#c0392b;" onclick="actDebugModeReleaseAll()">🔓 デバッグモード全解除</button>
         <button style="background:#27ae60;" onclick="actCheckAuthMigrationStatus()">🔑 UID移行状況を確認</button>
+        <button style="background:#8e44ad;" onclick="actAnalyticsIntegrityCheck()">📐 アナリティクス整合性チェック</button>
     </div>
 
     <div class="section">
@@ -524,6 +525,92 @@ function actCheckAuthMigrationStatus() {
             + '<div style="margin-top:10px;font-size:11px;color:#888;">※一般プレイヤーは未claimでも問題ありません。新しいgame-dev.htmlを開いた時点で自動的にclaimされます（ルール適用前でも後でも可）。未claimのまま残るのは、まだ新しいコードを一度も読み込んでいない端末です。</div>'
             + '</div>';
         showCustomAlert('🔑 UID移行状況', html);
+    }).catch(function(e) {
+        showCustomAlert("❌ エラー", "取得に失敗しました: " + e.message);
+    });
+}
+
+// アナリティクスの全体カウンター（scan.total / cook.total）は、各プレイヤーのstats.scanTotal / stats.cookTotalと
+// 「本来のプレイで増えるときは必ず同時に+1される」実装になっている（incrementGlobalStat）。
+// そのため、全プレイヤーのstats合計と全体カウンターを突き合わせれば、
+// 直接Firebaseに書き込むタイプの不正（今回のイベントダメージ改ざんと同じ手口）があったかどうかを検出できる。
+// ※battleカウンターは敗北も数えるため、totalWins（勝利数のみ）との単純比較はできない。参考値として表示するのみ。
+function actAnalyticsIntegrityCheck() {
+    if (!database) { showCustomAlert("❌ エラー", "通信に問題があります。"); return; }
+    showCustomAlert("📐 読み込み中...", "全プレイヤーのデータを集計しています。");
+    Promise.all([
+        database.ref('players').once('value'),
+        database.ref('analytics').once('value')
+    ]).then(function(results) {
+        const players = results[0].val() || {};
+        const analytics = results[1].val() || {};
+        let sumScan = 0, sumCook = 0, sumWins = 0, playerCount = 0;
+        const outliers = [];
+        Object.keys(players).forEach(function(pid) {
+            const sd = players[pid] && players[pid].savedata;
+            if (!sd) return;
+            let stats = {};
+            try { stats = typeof sd.stats === 'string' ? JSON.parse(sd.stats) : (sd.stats || {}); } catch(e) {}
+            const scanTotal = stats.scanTotal || 0;
+            const cookTotal = stats.cookTotal || 0;
+            playerCount++;
+            sumScan += scanTotal;
+            sumCook += cookTotal;
+            sumWins += (stats.totalWins || 0);
+            // 突出して多いプレイヤー（不正の疑いがある個別アカウント）を検出する目安として表示
+            if (scanTotal >= 300 || cookTotal >= 300) {
+                outliers.push({ pid: pid, name: (players[pid].name || '名無し'), scanTotal: scanTotal, cookTotal: cookTotal });
+            }
+        });
+        const scanG = (analytics.scan && analytics.scan.total) || 0;
+        const cookG = (analytics.cook && analytics.cook.total) || 0;
+        const battleG = ((analytics.battle && analytics.battle.bot) || 0) + ((analytics.battle && analytics.battle.hard) || 0) + ((analytics.battle && analytics.battle.tag) || 0) + ((analytics.battle && analytics.battle.room) || 0);
+
+        function diffRow(label, sumVal, globalVal) {
+            const diff = globalVal - sumVal;
+            const suspicious = globalVal > 0 && diff > Math.max(10, globalVal * 0.1);
+            return '<div style="padding:6px 0;border-bottom:1px solid #eee;font-size:12px;">'
+                + '<div style="font-weight:bold;color:#420000;">' + label + '</div>'
+                + '<div>全プレイヤーstats合計: <b>' + sumVal + '</b> ／ 全体カウンター: <b>' + globalVal + '</b></div>'
+                + '<div style="' + (suspicious ? 'color:#c0392b;font-weight:bold;' : 'color:#2e8b6f;') + '">差分: ' + diff + (suspicious ? '　⚠️ 直接改ざんの疑いあり' : '　（誤差範囲）') + '</div>'
+                + '</div>';
+        }
+
+        let outlierHtml = '';
+        if (outliers.length > 0) {
+            outliers.sort(function(a,b){ return (b.scanTotal + b.cookTotal) - (a.scanTotal + a.cookTotal); });
+            outlierHtml = '<div style="font-size:13px;font-weight:bold;margin:12px 0 4px;">突出して多い個別プレイヤー（scan/cookが300以上）</div>'
+                + outliers.map(function(o) {
+                    return '<div style="padding:3px 0;font-size:12px;">' + o.name + ' <span style="color:#999;">(' + o.pid + ')</span>　scan:' + o.scanTotal + ' / cook:' + o.cookTotal + '</div>';
+                }).join('');
+        }
+
+        const html = '<div style="text-align:left;max-height:65vh;overflow-y:auto;">'
+            + '<div style="font-size:11px;color:#888;margin-bottom:8px;">対象: ' + playerCount + '人分のセーブデータ</div>'
+            + diffRow('📷 QRスキャン合計', sumScan, scanG)
+            + diffRow('🍛 調理合計', sumCook, cookG)
+            + '<div style="padding:6px 0;border-bottom:1px solid #eee;font-size:12px;">'
+            + '<div style="font-weight:bold;color:#420000;">⚔️ バトル実施数（参考）</div>'
+            + '<div>全プレイヤー勝利数合計: <b>' + sumWins + '</b> ／ バトル実施カウンター(bot+hard+tag+room): <b>' + battleG + '</b></div>'
+            + '<div style="color:#888;">※敗北分も数えるため単純比較はできません。実施数が勝利数より極端に大きい分には正常です。</div>'
+            + '</div>'
+            + outlierHtml
+            + '<div style="margin-top:10px;font-size:11px;color:#888;">⚠️の項目は「全体カウンターが個人の合計より明らかに多い」＝ゲームプレイを経由せず直接Firebaseの数値を書き換えた可能性を示します。修正する場合は下のボタンで、全体カウンターを「全プレイヤーstats合計」の値に置き換えられます。</div>'
+            + '</div>';
+
+        const btnGroup2 = function() {
+            showCustomConfirm('📐 アナリティクス整合性チェック', html, function() {
+                const updates = {};
+                updates['analytics/scan/total'] = sumScan;
+                updates['analytics/cook/total'] = sumCook;
+                database.ref().update(updates).then(function() {
+                    showCustomAlert('✅ 修正完了', 'scan.total を ' + sumScan + '、cook.total を ' + sumCook + ' に修正しました。<br>※normal/bonus/rareなどの内訳は個別データを持たないため修正できません。');
+                }).catch(function(e) {
+                    showCustomAlert('❌ エラー', '修正に失敗しました: ' + e.message);
+                });
+            }, null, '合計値に修正する');
+        };
+        btnGroup2();
     }).catch(function(e) {
         showCustomAlert("❌ エラー", "取得に失敗しました: " + e.message);
     });
