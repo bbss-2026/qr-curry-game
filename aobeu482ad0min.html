@@ -76,6 +76,7 @@
         <button style="background:#2980b9;" onclick="actShowSyncErrors()">🔄 同期エラーログ</button>
         <button style="background:#c0392b;" onclick="actDebugModeReleaseAll()">🔓 デバッグモード全解除</button>
         <button style="background:#27ae60;" onclick="actCheckAuthMigrationStatus()">🔑 UID移行状況を確認</button>
+        <button style="background:#16a085;" onclick="actResetPlayerUidClaim()">🔓 UID紐付けをリセット（1人）</button>
         <button style="background:#8e44ad;" onclick="actAnalyticsIntegrityCheck()">📐 アナリティクス整合性チェック</button>
         <button style="background:#e67e22;" onclick="actToggleAnalyticsExclusion()">🚫 アナリティクス除外設定</button>
         <button style="background:#c0392b;" onclick="actExcludeKnownSuspiciousAccounts()">🚫 不正疑い3キャラを除外</button>
@@ -528,6 +529,38 @@ function actCheckAuthMigrationStatus() {
             + '<div style="margin-top:10px;font-size:11px;color:#888;">※一般プレイヤーは未claimでも問題ありません。新しいgame-dev.htmlを開いた時点で自動的にclaimされます（ルール適用前でも後でも可）。未claimのまま残るのは、まだ新しいコードを一度も読み込んでいない端末です。</div>'
             + '</div>';
         showCustomAlert('🔑 UID移行状況', html);
+    }).catch(function(e) {
+        showCustomAlert("❌ エラー", "取得に失敗しました: " + e.message);
+    });
+}
+
+// ブラウザのプライベートブラウズ・ストレージ削除・アプリ内ブラウザ等が原因で、
+// 認証状態が引き継がれず「uidが紐付いているのに現在のセッションのUIDと一致しない」ために
+// クラウド同期（savedataの書き込み）が失敗し続けているプレイヤーを救済する。
+// uidフィールドを削除し「未claim」状態に戻すことで、次回そのIDでアクセスした端末が
+// （新しいUIDのまま）改めて所有権を確定でき、以降は正常に同期できるようになる。
+function actResetPlayerUidClaim() {
+    if (!database) { showCustomAlert("❌ エラー", "通信に問題があります。"); return; }
+    const targetId = prompt("🔓 UID紐付けをリセットするプレイヤーのIDを入力してください（例: BC-XXXXXXXX）\n\n※本人が今使っている端末で該当ゲーム画面を開き直すと、そのタイミングで自動的に再紐付けされます。");
+    if (!targetId) return;
+    database.ref('players/' + targetId).once('value').then(function(snap) {
+        if (!snap.exists()) { showCustomAlert("❌ エラー", "そのIDのプレイヤーは見つかりません。"); return; }
+        const data = snap.val();
+        const name = data.name || '名無し';
+        const hasSavedata = !!data.savedata;
+        showCustomConfirm(
+            '🔓 UID紐付けをリセット',
+            'ID: ' + targetId + '（' + name + '）<br>savedata: ' + (hasSavedata ? 'あり' : '❌ なし（今回の症状に一致）') + '<br><br>このIDのUID紐付けを解除します。<br>本人が次にゲーム画面を開いたときに、そのセッションのUIDで自動的に再紐付けされ、以降クラウド同期できるようになります。<br><br>よろしいですか？',
+            function() {
+                database.ref('players/' + targetId + '/uid').remove().then(function() {
+                    showCustomAlert('✅ 解除完了', 'ID: ' + targetId + ' のUID紐付けを解除しました。<br>本人にゲーム画面を開き直してもらってください。');
+                }).catch(function(e) {
+                    showCustomAlert('❌ エラー', '解除に失敗しました: ' + e.message);
+                });
+            },
+            null,
+            '解除する'
+        );
     }).catch(function(e) {
         showCustomAlert("❌ エラー", "取得に失敗しました: " + e.message);
     });
