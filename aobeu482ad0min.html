@@ -6,6 +6,7 @@
 <title>管理ツール</title>
 <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
 <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js" onerror="document.write('<script src=\'https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js\'><\/script>')"></script>
 <style>
     * { box-sizing: border-box; }
@@ -39,14 +40,19 @@
 </head>
 <body>
 
-<!-- デバッグモードOFF（かつ管理者IDでもない）ブラウザからのアクセスをブロックするロック画面。
-     JSでアクセス権が無いと判定された場合のみ表示され、その他の画面・操作は一切見えない・操作できない。 -->
-<div id="adminLockScreen" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:#efdeb1;z-index:99999;flex-direction:column;align-items:center;justify-content:center;padding:20px;box-sizing:border-box;">
-    <div style="width:100%;max-width:320px;background:#fffdf0;border:1px solid #b88742;border-radius:8px;padding:24px;box-sizing:border-box;text-align:center;">
-        <div style="font-size:16px;font-weight:bold;color:#420000;margin-bottom:16px;">🔒 パスワードを入力してください</div>
-        <input type="password" id="adminLockPassword" style="width:100%;padding:10px;border:1px solid #b88742;border-radius:4px;font-size:14px;box-sizing:border-box;margin-bottom:12px;" placeholder="パスワード">
-        <button onclick="checkAdminLockPassword()" style="width:100%;padding:10px;background:#b88742;color:#efdeb1;border:none;border-radius:4px;font-weight:bold;cursor:pointer;">ログイン</button>
-        <div id="adminLockError" style="color:#e74c3c;font-size:12px;margin-top:10px;display:none;">パスワードが正しくありません。</div>
+<div class="modal-overlay" id="adminLockScreen" style="display:none;z-index:99999;">
+    <div class="modal-box">
+        <div class="modal-title">🔒 管理者専用ツール</div>
+        <div class="modal-message">
+            このツールにアクセスするにはパスワードが必要です。
+            <div style="margin-top:12px;">
+                <input type="password" id="adminLockPasswordInput" placeholder="パスワード" style="width:100%;padding:8px;border:1px solid #b88742;border-radius:4px;font-size:14px;box-sizing:border-box;">
+            </div>
+            <div id="adminLockError" style="display:none;color:#e74c3c;font-size:12px;margin-top:8px;">❌ パスワードが違います。</div>
+        </div>
+        <div class="modal-btn-group">
+            <button class="modal-btn modal-btn-ok" onclick="checkAdminLockPassword()">ログイン</button>
+        </div>
     </div>
 </div>
 
@@ -67,8 +73,9 @@
         <button style="background:#d35400;" onclick="actResetBingo()">QR BINGO リセット</button>
         <button id="btnQrIgnore" style="background:#27ae60;" onclick="actToggleQrIgnore()">🔓 QR使用済み無視: OFF</button>
         <button id="btnNewPlayerMode" style="background:#7f8c8d;" onclick="actToggleNewPlayerMode()">🆕 初期プレイヤー化: OFF</button>
-        <button style="background:#c0392b;" onclick="actShowSyncErrors()">🔄 同期エラーログ</button>
-        <button style="background:#8e2de2;" onclick="actDebugModeReleaseAll()">🔓 デバッグモード全解除</button>
+        <button style="background:#2980b9;" onclick="actShowSyncErrors()">🔄 同期エラーログ</button>
+        <button style="background:#c0392b;" onclick="actDebugModeReleaseAll()">🔓 デバッグモード全解除</button>
+        <button style="background:#27ae60;" onclick="actCheckAuthMigrationStatus()">🔑 UID移行状況を確認</button>
     </div>
 
     <div class="section">
@@ -198,6 +205,52 @@ if(firebaseConfig.apiKey !== "YOUR_API_KEY") {
 }
 
 // ============================================================
+// Firebase匿名認証（セキュリティルール強化対応）
+// game-dev.html側と同じ仕組み：このブラウザのUIDを発行し、
+// 3人の管理者IDのいずれかを所持しているUIDだけが admins/{uid}=true を
+// 自分で書き込める（＝管理者権限を持てる）というルールをサーバー側で強制する。
+// ============================================================
+let currentUid = null;
+let _authReadyPromise = null;
+function ensureFirebaseAuth() {
+    if (_authReadyPromise) return _authReadyPromise;
+    _authReadyPromise = new Promise(function(resolve) {
+        if (!database || typeof firebase === 'undefined' || !firebase.auth) { resolve(null); return; }
+        let resolved = false;
+        firebase.auth().onAuthStateChanged(function(user) {
+            if (user && !resolved) {
+                resolved = true;
+                currentUid = user.uid;
+                resolve(currentUid);
+            }
+        });
+        firebase.auth().signInAnonymously().catch(function() {
+            if (!resolved) { resolved = true; resolve(null); }
+        });
+    });
+    return _authReadyPromise;
+}
+
+// このブラウザのUIDを、自分の管理者プレイヤーIDに紐付ける（admins/{uid}=true の自己登録）。
+// ルール上、players/{その管理者ID}/uid が自分のUIDになっていない限りこの書き込みは失敗するため、
+// 実際にその管理者アカウントでこのブラウザからログイン済みでない限り誰も自称できない。
+function registerAsAdminIfEligible() {
+    const pid = localStorage.getItem('qr_player_id');
+    if (!database || !currentUid || !isAdminSuperId(pid)) return;
+    database.ref('players/' + pid + '/uid').once('value').then(function(snap) {
+        const ownerUid = snap.val();
+        if (!ownerUid) {
+            // このブラウザがまだ所有権を確定していない場合は先に確定させる
+            database.ref('players/' + pid + '/uid').set(currentUid).then(function() {
+                database.ref('admins/' + currentUid).set(true).catch(function(){});
+            }).catch(function(){});
+        } else if (ownerUid === currentUid) {
+            database.ref('admins/' + currentUid).set(true).catch(function(){});
+        }
+    }).catch(function(){});
+}
+
+// ============================================================
 // マスターデータ（アイテム全補充・レベル設定用）
 // ============================================================
 const masterIngredients = {
@@ -238,6 +291,29 @@ let isDebugMode = (localStorage.getItem('qr_debug_mode') === '1');
 let eventEnabled = false;
 
 // ============================================================
+// アクセス制御（管理者以外はロック画面を表示し、一切操作させない）
+// ============================================================
+const ADMIN_SUPER_IDS = ['BC-MXB6JXKB', 'BC-ZQ34WFEU', 'BC-GJPGTMTN'];
+function isAdminSuperId(pid) { return !!pid && ADMIN_SUPER_IDS.indexOf(pid) !== -1; }
+function hasAdminAccess() {
+    const pid = localStorage.getItem('qr_player_id');
+    if (isAdminSuperId(pid)) return true;
+    return localStorage.getItem('qr_debug_mode') === '1';
+}
+function enforceAdminAccessGate() {
+    if (hasAdminAccess()) return true;
+    const container = document.querySelector('.container');
+    if (container) container.style.display = 'none';
+    const lock = document.getElementById('adminLockScreen');
+    if (lock) lock.style.display = 'flex';
+    return false;
+}
+function checkAdminLockPassword() {
+    const err = document.getElementById('adminLockError');
+    if (err) err.style.display = 'block';
+}
+
+// ============================================================
 // 共通モーダル
 // ============================================================
 function showCustomAlert(title, message, onOk) {
@@ -269,38 +345,6 @@ function showCustomConfirm(title, message, onConfirm, onCancel, okLabel) {
     okBtn.onclick = function() { document.getElementById("customModal").style.display = "none"; if(onConfirm) onConfirm(); };
     btnGroup.appendChild(okBtn);
     document.getElementById("customModal").style.display = "flex";
-}
-
-// ============================================================
-// アクセス制御（デバッグモードOFF かつ 管理者IDでもないブラウザからのアクセスをブロック）
-// ============================================================
-// 常にデバッグモード扱いとする管理者専用プレイヤーID
-const ADMIN_SUPER_IDS = ['BC-MXB6JXKB', 'BC-ZQ34WFEU', 'BC-GJPGTMTN'];
-
-function isAdminSuperId(pid) {
-    return !!pid && ADMIN_SUPER_IDS.indexOf(pid) !== -1;
-}
-
-function hasAdminAccess() {
-    const pid = localStorage.getItem('qr_player_id');
-    if (isAdminSuperId(pid)) return true;
-    return localStorage.getItem('qr_debug_mode') === '1';
-}
-
-// アクセス権が無ければ画面本体を隠してロック画面のみ表示する。戻り値はアクセス可否。
-function enforceAdminAccessGate() {
-    if (hasAdminAccess()) return true;
-    const container = document.querySelector('.container');
-    if (container) container.style.display = 'none';
-    const lock = document.getElementById('adminLockScreen');
-    if (lock) lock.style.display = 'flex';
-    return false;
-}
-
-// パスワードは何を入力しても常にエラーにする（本来アクセス権の無い人をここで足止めする画面のため）
-function checkAdminLockPassword() {
-    const err = document.getElementById('adminLockError');
-    if (err) err.style.display = 'block';
 }
 
 // ============================================================
@@ -366,15 +410,15 @@ function actToggleDebugMode() {
     isDebugMode = !isDebugMode;
     localStorage.setItem('qr_debug_mode', isDebugMode ? '1' : '0');
     updateButtonLabels();
-    // このブラウザに紐づくプレイヤーIDが分かっていれば、クラウド側のdebugMode記録も
-    // 即座に更新する（管理者が「デバッグモード全解除」で状況を把握できるようにするため）。
     const pid = localStorage.getItem('qr_player_id');
-    if (database && pid) { database.ref('players/' + pid + '/debugMode').set(isDebugMode); }
+    if (database && pid) {
+        database.ref('players/' + pid + '/debugMode').set(isDebugMode).catch(function(){});
+    }
     showCustomAlert("✅ 設定完了", "デバッグモードを " + (isDebugMode ? "ON" : "OFF") + " にしました。");
 }
 
-// 管理者専用ID(ADMIN_SUPER_IDS)のみが使える一括解除ボタン。
-// それ以外の人がこのボタンを押した場合は本番ゲームへ移動させる。
+// 現在デバッグモードがONになっている全プレイヤー（管理者を除く）を一覧表示し、確認の上で一括OFFにする。
+// 3人の管理者ID以外がこのボタンを押した場合は、実行させずゲームのTOPへ移動させる。
 function actDebugModeReleaseAll() {
     const pid = localStorage.getItem('qr_player_id');
     if (!isAdminSuperId(pid)) {
@@ -408,6 +452,78 @@ function actDebugModeReleaseAll() {
                 showCustomAlert('❌ エラー', '解除に失敗しました: ' + e.message);
             });
         }, null, '解除');
+    }).catch(function(e) {
+        showCustomAlert("❌ エラー", "取得に失敗しました: " + e.message);
+    });
+}
+
+// 同期エラーログの確認（game-dev.html側のlogSyncEvent()が記録したエラーを新しい順に表示する）
+function actShowSyncErrors() {
+    if (!database) { showCustomAlert("❌ エラー", "通信に問題があります。"); return; }
+    showCustomAlert("🔄 読み込み中...", "同期エラーログを取得しています。");
+    database.ref('syncErrors').limitToLast(100).once('value').then(function(snap) {
+        const data = snap.val() || {};
+        const entries = Object.keys(data).map(function(k) { const v = data[k] || {}; v._key = k; return v; });
+        entries.sort(function(a, b) { return (b.timestamp || 0) - (a.timestamp || 0); });
+        if (entries.length === 0) {
+            showCustomAlert('🔄 同期エラーログ', '記録されているエラーはありません。');
+            return;
+        }
+        let rows = '';
+        entries.forEach(function(e) {
+            const dateStr = e.timestamp ? new Date(e.timestamp).toLocaleString('ja-JP') : '不明';
+            const isIframeFlag = e.isIframe ? '<span style="color:#e74c3c;font-weight:bold;"> [iframe埋め込み]</span>' : '';
+            rows += '<div style="border:1px solid #b88742;border-radius:6px;padding:8px;margin-bottom:6px;background:#fffdf0;">'
+                + '<div style="font-size:12px;font-weight:bold;color:#420000;">' + (e.context || '(不明なcontext)') + isIframeFlag + '</div>'
+                + '<div style="font-size:11px;color:#555;margin-top:2px;">ID: ' + (e.playerId || '(unknown)') + '</div>'
+                + (e.detail ? '<div style="font-size:11px;color:#888;margin-top:2px;word-break:break-all;">' + e.detail + '</div>' : '')
+                + '<div style="font-size:10px;color:#999;margin-top:2px;">' + dateStr + '</div>'
+                + (e.referrer ? '<div style="font-size:10px;color:#999;">referrer: ' + e.referrer + '</div>' : '')
+                + '</div>';
+        });
+        showCustomAlert('🔄 同期エラーログ（新しい順・最大100件）', '<div style="text-align:left;max-height:65vh;overflow-y:auto;">' + rows + '</div>');
+    }).catch(function(e) {
+        showCustomAlert("❌ エラー", "取得に失敗しました: " + e.message);
+    });
+}
+
+// セキュリティルール強化（UIDによる所有権チェック）への移行状況を確認する。
+// 「players/{ID}/uid」が設定済み＝そのプレイヤーは新しいコードで一度アクセス済み（所有権確定済み）を意味する。
+// 未設定のまま残っているプレイヤーは、新しいgame-dev.html/admin.htmlを読み込むまで
+// クラウド同期の書き込みが失敗する可能性がある（ローカルのプレイ自体はできる）。
+// 3人の管理者IDが未確定のままだと、ルール適用直後は一度admin.htmlを開き直すまで管理者権限が使えないので、
+// ここが✅になっているかを必ず確認してからルールを適用すること。
+function actCheckAuthMigrationStatus() {
+    if (!database) { showCustomAlert("❌ エラー", "通信に問題があります。"); return; }
+    showCustomAlert("🔑 読み込み中...", "UID移行状況を確認しています。");
+    database.ref('players').once('value').then(function(snap) {
+        const players = snap.val() || {};
+        const ids = Object.keys(players);
+        let claimed = 0, unclaimed = 0;
+        const unclaimedList = [];
+        ids.forEach(function(pid) {
+            if (players[pid] && players[pid].uid) claimed++;
+            else { unclaimed++; unclaimedList.push(pid); }
+        });
+        let adminRows = '';
+        ADMIN_SUPER_IDS.forEach(function(pid) {
+            const ok = !!(players[pid] && players[pid].uid);
+            adminRows += '<div style="padding:3px 0;font-size:12px;">'
+                + (ok ? '✅' : '❌') + ' ' + pid + (ok ? ' （claim済み）' : ' （未claim・要ログイン）')
+                + '</div>';
+        });
+        const pct = ids.length > 0 ? Math.round(claimed / ids.length * 100) : 100;
+        const readyForRules = ADMIN_SUPER_IDS.every(function(pid) { return !!(players[pid] && players[pid].uid); });
+        const html = '<div style="text-align:left;max-height:65vh;overflow-y:auto;">'
+            + '<div style="font-size:13px;font-weight:bold;margin-bottom:8px;">全プレイヤー: ' + ids.length + '人 中 ' + claimed + '人がclaim済み（' + pct + '%）</div>'
+            + '<div style="font-size:13px;font-weight:bold;margin:10px 0 4px;">管理者3IDのclaim状況（これが全部✅ならルール適用OK）</div>'
+            + adminRows
+            + (readyForRules
+                ? '<div style="margin-top:12px;padding:8px;background:#eafaf1;border-radius:6px;color:#1a6e3c;font-size:12px;font-weight:bold;">✅ 管理者3人はclaim済みです。ルールを適用しても管理者ツールがロックされることはありません。</div>'
+                : '<div style="margin-top:12px;padding:8px;background:#fdecea;border-radius:6px;color:#c0392b;font-size:12px;font-weight:bold;">⚠️ まだclaimしていない管理者IDがあります。該当の管理者がこのadmin.html（新しい方）を一度開いてから、ルールを適用してください。</div>')
+            + '<div style="margin-top:10px;font-size:11px;color:#888;">※一般プレイヤーは未claimでも問題ありません。新しいgame-dev.htmlを開いた時点で自動的にclaimされます（ルール適用前でも後でも可）。未claimのまま残るのは、まだ新しいコードを一度も読み込んでいない端末です。</div>'
+            + '</div>';
+        showCustomAlert('🔑 UID移行状況', html);
     }).catch(function(e) {
         showCustomAlert("❌ エラー", "取得に失敗しました: " + e.message);
     });
@@ -499,37 +615,6 @@ function initNewPlayerModeBtn() {
     if(!btn) return;
     btn.style.background = on ? '#e74c3c' : '#7f8c8d';
     btn.innerText = on ? '🆕 初期プレイヤー化: ON' : '🆕 初期プレイヤー化: OFF';
-}
-
-// game-dev.html側でクラウド同期に失敗した際に記録されるログ（syncErrors）を表示する。
-// ユーザーからの不具合報告に頼らず、実際にどの環境で同期異常が起きているか確認できる。
-function actShowSyncErrors() {
-    if(!database) { showCustomAlert("❌ エラー", "通信に問題があります。"); return; }
-    showCustomAlert("🔄 読み込み中...", "同期エラーログを取得しています。");
-    database.ref('syncErrors').limitToLast(100).once('value').then(function(snap){
-        const data = snap.val() || {};
-        const entries = Object.keys(data).map(function(k){ const v = data[k]; v.key = k; return v; });
-        entries.sort(function(a, b){ return (b.timestamp || 0) - (a.timestamp || 0); });
-        if(entries.length === 0) {
-            showCustomAlert('🔄 同期エラーログ', '記録されたログはまだありません。');
-            return;
-        }
-        const rows = entries.map(function(e){
-            const dateStr = e.timestamp ? new Date(e.timestamp).toLocaleString('ja-JP') : '不明';
-            const iframeBadge = e.isIframe ? '<span style="color:#e74c3c;font-weight:bold;">[iframe埋め込み]</span> ' : '';
-            const refText = e.referrer ? ('参照元: ' + e.referrer) : '参照元: (直接アクセス)';
-            return '<div style="border-bottom:1px solid #eee;padding:6px 0;font-size:11px;">'
-                + '<div style="color:#420000;font-weight:bold;">' + dateStr + ' ' + iframeBadge + '(' + (e.context || '') + ')</div>'
-                + (e.detail ? '<div style="color:#e74c3c;">' + e.detail + '</div>' : '')
-                + '<div style="color:#888;">' + refText + ' / ID: ' + (e.playerId || '不明') + '</div>'
-                + '</div>';
-        }).join('');
-        showCustomAlert('🔄 同期エラーログ（直近' + entries.length + '件・新しい順）',
-            '<div style="text-align:left;max-height:60vh;overflow-y:auto;">' + rows + '</div>'
-        );
-    }).catch(function(e){
-        showCustomAlert("❌ エラー", "取得に失敗しました: " + e.message);
-    });
 }
 
 function actAnalytics() {
@@ -1190,8 +1275,13 @@ function actRevokeAnnouncement(key) {
 }
 
 window.onload = function() {
-    if (!enforceAdminAccessGate()) return; // アクセス権が無い場合はロック画面のみ表示し、他は一切初期化しない
-    loadInitialData(); initQrIgnoreBtn(); initNewPlayerModeBtn();
+    if (!enforceAdminAccessGate()) return;
+    loadInitialData();
+    initQrIgnoreBtn();
+    initNewPlayerModeBtn();
+    if (database) {
+        ensureFirebaseAuth().then(function() { registerAsAdminIfEligible(); });
+    }
 };
 </script>
 
