@@ -56,6 +56,7 @@
         <button style="background:#d35400;" onclick="actResetBingo()">QR BINGO リセット</button>
         <button id="btnQrIgnore" style="background:#27ae60;" onclick="actToggleQrIgnore()">🔓 QR使用済み無視: OFF</button>
         <button id="btnNewPlayerMode" style="background:#7f8c8d;" onclick="actToggleNewPlayerMode()">🆕 初期プレイヤー化: OFF</button>
+        <button style="background:#c0392b;" onclick="actShowSyncErrors()">🔄 同期エラーログ</button>
     </div>
 
     <div class="section">
@@ -410,6 +411,37 @@ function initNewPlayerModeBtn() {
     if(!btn) return;
     btn.style.background = on ? '#e74c3c' : '#7f8c8d';
     btn.innerText = on ? '🆕 初期プレイヤー化: ON' : '🆕 初期プレイヤー化: OFF';
+}
+
+// game-dev.html側でクラウド同期に失敗した際に記録されるログ（syncErrors）を表示する。
+// ユーザーからの不具合報告に頼らず、実際にどの環境で同期異常が起きているか確認できる。
+function actShowSyncErrors() {
+    if(!database) { showCustomAlert("❌ エラー", "通信に問題があります。"); return; }
+    showCustomAlert("🔄 読み込み中...", "同期エラーログを取得しています。");
+    database.ref('syncErrors').limitToLast(100).once('value').then(function(snap){
+        const data = snap.val() || {};
+        const entries = Object.keys(data).map(function(k){ const v = data[k]; v.key = k; return v; });
+        entries.sort(function(a, b){ return (b.timestamp || 0) - (a.timestamp || 0); });
+        if(entries.length === 0) {
+            showCustomAlert('🔄 同期エラーログ', '記録されたログはまだありません。');
+            return;
+        }
+        const rows = entries.map(function(e){
+            const dateStr = e.timestamp ? new Date(e.timestamp).toLocaleString('ja-JP') : '不明';
+            const iframeBadge = e.isIframe ? '<span style="color:#e74c3c;font-weight:bold;">[iframe埋め込み]</span> ' : '';
+            const refText = e.referrer ? ('参照元: ' + e.referrer) : '参照元: (直接アクセス)';
+            return '<div style="border-bottom:1px solid #eee;padding:6px 0;font-size:11px;">'
+                + '<div style="color:#420000;font-weight:bold;">' + dateStr + ' ' + iframeBadge + '(' + (e.context || '') + ')</div>'
+                + (e.detail ? '<div style="color:#e74c3c;">' + e.detail + '</div>' : '')
+                + '<div style="color:#888;">' + refText + ' / ID: ' + (e.playerId || '不明') + '</div>'
+                + '</div>';
+        }).join('');
+        showCustomAlert('🔄 同期エラーログ（直近' + entries.length + '件・新しい順）',
+            '<div style="text-align:left;max-height:60vh;overflow-y:auto;">' + rows + '</div>'
+        );
+    }).catch(function(e){
+        showCustomAlert("❌ エラー", "取得に失敗しました: " + e.message);
+    });
 }
 
 function actAnalytics() {
