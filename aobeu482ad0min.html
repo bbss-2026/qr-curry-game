@@ -1293,6 +1293,7 @@ function actShowDeliveryCurryList() {
                 + '<div style="font-size:10px;color:#888;margin-top:2px;">使用回数: ' + (d.usedCount || 0) + ' / 勝利回数: ' + (d.winCount || 0) + ' / 登録日時: ' + createdAtStr + '</div>'
                 + issueHtml
                 + '<button onclick="actDeleteDeliveryCurry(\'' + pid + '\')" style="margin-top:6px;padding:4px 10px;font-size:11px;background:#e74c3c;color:#fff;border:none;border-radius:4px;cursor:pointer;">🗑️ このデータを削除</button>'
+                + '<button onclick="actForceRemoveDeliveryCurry(\'' + pid + '\')" style="margin-top:6px;margin-left:6px;padding:4px 10px;font-size:11px;background:#8e44ad;color:#fff;border:none;border-radius:4px;cursor:pointer;">🔕 通知なしで強制削除</button>'
                 + '</div>';
         });
         resultDiv.innerHTML = html;
@@ -1302,15 +1303,38 @@ function actShowDeliveryCurryList() {
 }
 
 // 不整合な宅配カレーデータを手動で削除する（食べ尽くされたはずなのに残っていた等の修正用）
+// 注意：これは公開データ(deliveryCurries)だけを消す。プレイヤー本人の冷蔵庫にはisDeliveringフラグ付きで残るため、
+// 次回そのプレイヤーがログインすると自動で再公開される（意図的な一時的削除向け）。
 function actDeleteDeliveryCurry(pid) {
     if(!database) return;
-    showCustomConfirm("🗑️ データ削除", "ID: " + pid + " の宅配カレーデータを削除します。<br>本当によろしいですか？", function(){
+    showCustomConfirm("🗑️ データ削除", "ID: " + pid + " の宅配カレーデータを削除します。<br>本人が次回ログインすると自動で再公開されます。<br>本当によろしいですか？", function(){
         database.ref('deliveryCurries/' + pid).remove().then(function(){
             showCustomAlert("✅ 削除完了", "削除しました。", function(){ actShowDeliveryCurryList(); });
         }).catch(function(e){
             showCustomAlert("❌ エラー", "削除に失敗しました。" + e.message);
         });
     });
+}
+
+// 公開データ削除に加えて、プレイヤー本人の冷蔵庫からも通知なしで完全に消す（次回そのプレイヤーがアプリを開いたタイミングで実行される）
+function actForceRemoveDeliveryCurry(pid) {
+    if(!database) return;
+    showCustomConfirm(
+        "🔕 通知なしで強制削除",
+        "ID: " + pid + " の宅配カレーを、公開データごと削除し、次回本人がアプリを開いた際に手紙などの通知を出さずに冷蔵庫からも削除します。<br>本当によろしいですか？",
+        function(){
+            Promise.all([
+                database.ref('deliveryCurries/' + pid).remove(),
+                database.ref('players/' + pid + '/forceRemoveDelivering').set(true)
+            ]).then(function(){
+                showCustomAlert("✅ 設定完了", "次回本人がアプリを開いたタイミングで、通知なしで削除されます。", function(){ actShowDeliveryCurryList(); });
+            }).catch(function(e){
+                showCustomAlert("❌ エラー", "処理に失敗しました。" + e.message);
+            });
+        },
+        null,
+        "強制削除する"
+    );
 }
 
 // ===== お知らせ手紙の配信 =====
