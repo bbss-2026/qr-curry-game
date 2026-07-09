@@ -4432,13 +4432,21 @@ function onBattleWin(type, botName) {
 // バックアップコード
 // ============================================================
 // ===== セーブデータの共通構築・適用（バックアップコード／クラウド同期で共用） =====
-// FirebaseのキーはURLなどに含まれる . # $ / [ ] を使えない。
-// scanHistoryはスキャンしたQRの生テキストをそのままキーにしているため、
-// （SNSフォロー特典QR等で）URLを読み取ると、そのキーを含むsavedata全体の書き込みが
-// 以後ずっと失敗し続けてしまう（クラウド同期が完全に止まる）不具合があったため、
-// クラウド送信時だけキーをサニタイズする（ローカルの日次スキャン制限判定には影響しない）。
+// Firebaseのキーは . # $ / [ ] や制御文字を使えない。scanHistoryはスキャンしたQRの
+// 生テキストをそのままキーにしているため、想定外の文字（URLの記号・制御文字等）を含む
+// QRを読み取ると、そのキーを含むsavedata全体の書き込みが以後ずっと失敗し続けてしまう
+// （クラウド同期が完全に止まる）不具合があった。個別の禁止文字を都度置換するのではなく、
+// 元の文字列を確定的にハッシュ化した「必ず安全な文字だけの文字列」に変換することで、
+// QRの内容がどんなものであっても書き込みが失敗しないようにする。
+// （ローカルの日次スキャン制限判定はscanHistory本体を見ているので影響しない）
 function sanitizeFirebaseKey(key) {
-    return String(key).replace(/[.#$\/\[\]]/g, '_');
+    const str = String(key);
+    let hash = 0;
+    for (let i = 0; i < str.length; i++) {
+        hash = ((hash << 5) - hash + str.charCodeAt(i)) | 0;
+    }
+    const safePrefix = str.replace(/[^A-Za-z0-9_-]/g, '').slice(0, 20);
+    return 'k' + (safePrefix ? safePrefix + '_' : '') + Math.abs(hash).toString(36);
 }
 function buildSaveDataObject() {
     const safeScanHistory = {};
