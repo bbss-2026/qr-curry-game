@@ -77,6 +77,8 @@
         <button style="background:#c0392b;" onclick="actDebugModeReleaseAll()">🔓 デバッグモード全解除</button>
         <button style="background:#27ae60;" onclick="actCheckAuthMigrationStatus()">🔑 UID移行状況を確認</button>
         <button style="background:#8e44ad;" onclick="actAnalyticsIntegrityCheck()">📐 アナリティクス整合性チェック</button>
+        <button style="background:#e67e22;" onclick="actToggleAnalyticsExclusion()">🚫 アナリティクス除外設定</button>
+        <button style="background:#c0392b;" onclick="actExcludeKnownSuspiciousAccounts()">🚫 不正疑い3キャラを除外</button>
     </div>
 
     <div class="section">
@@ -547,6 +549,9 @@ function actAnalyticsIntegrityCheck() {
         let sumScan = 0, sumCook = 0, sumWins = 0, playerCount = 0;
         const outliers = [];
         Object.keys(players).forEach(function(pid) {
+            // 管理者アカウントはテスト操作（アイテム全補充・QR生成テスト等）で個人統計だけが伸びやすく、
+            // かつデバッグモード中は全体カウンターに反映されない仕様のため、集計・突出検出の対象から除外する。
+            if (isAdminSuperId(pid)) return;
             const sd = players[pid] && players[pid].savedata;
             if (!sd) return;
             let stats = {};
@@ -614,6 +619,60 @@ function actAnalyticsIntegrityCheck() {
     }).catch(function(e) {
         showCustomAlert("❌ エラー", "取得に失敗しました: " + e.message);
     });
+}
+
+// 指定したIDのアナリティクス除外フラグ（players/{id}/analyticsExcluded）をON/OFFする。
+// ONにすると、そのIDは以後どれだけ普通にプレイしても scan/cook/battle の全体カウンターに反映されなくなる。
+// ※IDそのものへの除外なので、同じ人が端末初期化等で新しいIDを取り直した場合は対象外（別IDとして扱われる）。
+function actToggleAnalyticsExclusion() {
+    if (!database) { showCustomAlert("❌ エラー", "通信に問題があります。"); return; }
+    const targetId = prompt("🚫 アナリティクス除外を設定/解除するプレイヤーのIDを入力してください（例: BC-XXXXXXXX）");
+    if (!targetId) return;
+    database.ref('players/' + targetId).once('value').then(function(snap) {
+        if (!snap.exists()) { showCustomAlert("❌ エラー", "そのIDのプレイヤーは見つかりません。"); return; }
+        const data = snap.val();
+        const name = data.name || '名無し';
+        const current = !!data.analyticsExcluded;
+        const next = !current;
+        showCustomConfirm(
+            '🚫 アナリティクス除外設定',
+            'ID: ' + targetId + '（' + name + '）<br>現在: ' + (current ? '除外中' : '通常') + '<br><br>' + (next ? 'このIDを今後アナリティクス集計から除外します。' : 'このIDのアナリティクス除外を解除します。') + '<br>よろしいですか？',
+            function() {
+                database.ref('players/' + targetId + '/analyticsExcluded').set(next).then(function() {
+                    showCustomAlert('✅ 設定完了', 'ID: ' + targetId + ' を' + (next ? '除外に設定' : '通常に戻しました') + '。');
+                }).catch(function(e) {
+                    showCustomAlert('❌ エラー', '設定に失敗しました: ' + e.message);
+                });
+            },
+            null,
+            next ? '除外する' : '解除する'
+        );
+    }).catch(function(e) {
+        showCustomAlert("❌ エラー", "取得に失敗しました: " + e.message);
+    });
+}
+
+// 特盛りイベントで不正なダメージ改ざんが確認された3アカウントを一括でアナリティクス除外にする。
+// BC-27593C5A / BC-8B38BHYA: イベントダメージ捏造が確定した2件
+// BC-BY47LGR7: 同時期に同じ手口で作成された、同様のパターンを持つ要注意アカウント
+const KNOWN_SUSPICIOUS_IDS = ['BC-27593C5A', 'BC-8B38BHYA', 'BC-BY47LGR7'];
+function actExcludeKnownSuspiciousAccounts() {
+    if (!database) { showCustomAlert("❌ エラー", "通信に問題があります。"); return; }
+    showCustomConfirm(
+        '🚫 不正疑い3キャラを除外',
+        '以下の3IDを一括でアナリティクス除外に設定します。<br><br>' + KNOWN_SUSPICIOUS_IDS.map(function(id){ return '・' + id; }).join('<br>') + '<br><br>今後これらのIDが普通にプレイしても、全体カウンターには反映されなくなります（ゲームプレイ自体は制限しません）。<br>よろしいですか？',
+        function() {
+            const updates = {};
+            KNOWN_SUSPICIOUS_IDS.forEach(function(id) { updates['players/' + id + '/analyticsExcluded'] = true; });
+            database.ref().update(updates).then(function() {
+                showCustomAlert('✅ 設定完了', '3IDをアナリティクス除外に設定しました。');
+            }).catch(function(e) {
+                showCustomAlert('❌ エラー', '設定に失敗しました: ' + e.message + '<br>（該当IDがまだ存在しない場合は失敗することがあります）');
+            });
+        },
+        null,
+        '除外する'
+    );
 }
 
 function actEventToggle() {
