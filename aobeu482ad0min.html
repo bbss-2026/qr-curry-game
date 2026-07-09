@@ -79,6 +79,7 @@
         <button style="background:#8e44ad;" onclick="actAnalyticsIntegrityCheck()">📐 アナリティクス整合性チェック</button>
         <button style="background:#e67e22;" onclick="actToggleAnalyticsExclusion()">🚫 アナリティクス除外設定</button>
         <button style="background:#c0392b;" onclick="actExcludeKnownSuspiciousAccounts()">🚫 不正疑い3キャラを除外</button>
+        <button style="background:#7f0000;" onclick="actResetScanCookBattleAnalytics()">🗑️ スキャン/調理/バトルをリセット</button>
     </div>
 
     <div class="section">
@@ -652,6 +653,31 @@ function actToggleAnalyticsExclusion() {
     });
 }
 
+// アナリティクスの「QRスキャン」「調理」「バトル」の内訳（合計を含む）をまとめてリセットする。
+// 内訳（通常/ボーナス/レア、カレー種別ごと、バトル種別ごと）は個人データ側に対応する回数が残っておらず、
+// 不正3キャラの寄与分だけを正確に差し引くことも、改ざん前の値に戻すこともできないため、
+// ユーザーの判断で「直近14日アクセス」以外のscan/cook/battleを丸ごと0から再集計する。
+function actResetScanCookBattleAnalytics() {
+    if (!database) { showCustomAlert("❌ エラー", "通信に問題があります。"); return; }
+    showCustomConfirm(
+        '🗑️ スキャン/調理/バトルをリセット',
+        'アナリティクスの「QRスキャン」「調理」「バトル」（内訳・合計とも全項目）を0にリセットします。<br>「直近14日アクセス」は対象外で、そのまま残ります。<br><br>この操作は元に戻せません。よろしいですか？',
+        function() {
+            Promise.all([
+                database.ref('analytics/scan').remove(),
+                database.ref('analytics/cook').remove(),
+                database.ref('analytics/battle').remove()
+            ]).then(function() {
+                showCustomAlert('✅ リセット完了', 'QRスキャン・調理・バトルのアナリティクスをリセットしました。今後の集計は0から再スタートします。');
+            }).catch(function(e) {
+                showCustomAlert('❌ エラー', 'リセットに失敗しました: ' + e.message);
+            });
+        },
+        null,
+        'リセットする'
+    );
+}
+
 // 特盛りイベントで不正なダメージ改ざんが確認された3アカウントを一括でアナリティクス除外にする。
 // BC-27593C5A / BC-8B38BHYA: イベントダメージ捏造が確定した2件
 // BC-BY47LGR7: 同時期に同じ手口で作成された、同様のパターンを持つ要注意アカウント
@@ -944,6 +970,21 @@ function actEventSetHp() {
     });
 }
 
+// 上位ランカーのダメージ値が、その本人のプレイ実績（stats）と矛盾していないかを自動チェックする。
+// 「ダメージがあるのにイベント参加履歴も勝利数も撃破記録も一切ない」場合は、
+// 過去に実際に確認された不正（直接Firebase書き換え）と同じパターンなので警告表示する。
+function isEventDamageSuspicious(stats) {
+    if (!stats) return true; // statsが全く無い＝プレイ記録が一切ない
+    const hasAnyBattleEvidence = !!stats.eventBattleJoined
+        || (stats.totalWins || 0) > 0
+        || (stats.defeatedBots && stats.defeatedBots.length > 0)
+        || (stats.defeatedHardBots && stats.defeatedHardBots.length > 0)
+        || (stats.defeatedTagExtraBots && stats.defeatedTagExtraBots.length > 0)
+        || (stats.scanTotal || 0) > 0
+        || (stats.cookTotal || 0) > 0;
+    return !hasAnyBattleEvidence;
+}
+
 function actEventDamage() {
     if(!database) { showCustomAlert("❌ エラー", "通信に問題があります。"); return; }
     database.ref('events/tokumori001/damages').once('value').then(function(snap){
@@ -951,16 +992,28 @@ function actEventDamage() {
         const entries = Object.keys(data).map(function(pid){ return { pid: pid, dmg: data[pid] }; });
         entries.sort(function(a,b){ return b.dmg - a.dmg; });
         const top15 = entries.slice(0, 15);
-        database.ref('events/tokumori001/participants').once('value').then(function(pSnap){
-            const pData = pSnap.val() || {};
+        Promise.all([
+            database.ref('events/tokumori001/participants').once('value'),
+            Promise.all(top15.map(function(e){ return database.ref('players/' + e.pid).once('value'); }))
+        ]).then(function(results){
+            const pData = results[0].val() || {};
+            const playerSnaps = results[1];
             let rows = '';
+            let suspiciousCount = 0;
             if(top15.length === 0) { rows = '<div style="font-size:12px;color:#888;">まだデータがありません。</div>'; }
             top15.forEach(function(e, i){
                 try {
                     const name = (pData[e.pid] && pData[e.pid].name) ? pData[e.pid].name : '名無し';
                     const safeName = String(name).replace(/'/g, "\\'");
-                    rows += '<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;border-bottom:1px solid #eee;font-size:12px;gap:6px;">'
-                        + '<span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;">' + (i+1) + '. ' + name + ' <span style="color:#999;">(' + e.pid + ')</span></span>'
+                    const pRec = playerSnaps[i].val() || {};
+                    const sd = pRec.savedata || {};
+                    let stats = {};
+                    try { stats = typeof sd.stats === 'string' ? JSON.parse(sd.stats) : (sd.stats || {}); } catch(err2) {}
+                    const suspicious = isEventDamageSuspicious(stats);
+                    if (suspicious) suspiciousCount++;
+                    const warnBadge = suspicious ? ' <span style="color:#fff;background:#c0392b;border-radius:3px;padding:1px 5px;font-size:10px;">⚠️不審</span>' : '';
+                    rows += '<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;border-bottom:1px solid #eee;font-size:12px;gap:6px;' + (suspicious ? 'background:#fdecea;' : '') + '">'
+                        + '<span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;">' + (i+1) + '. ' + name + ' <span style="color:#999;">(' + e.pid + ')</span>' + warnBadge + '</span>'
                         + '<span style="font-weight:bold;color:#420000;flex-shrink:0;">' + e.dmg + '</span>'
                         + '<button onclick="editEventPlayerDamage(\'' + e.pid + '\',' + e.dmg + ',\'' + safeName + '\')" style="flex-shrink:0;padding:3px 8px;background:#d35400;color:white;border:none;border-radius:4px;font-size:11px;cursor:pointer;">編集</button>'
                         + '</div>';
@@ -969,11 +1022,17 @@ function actEventDamage() {
                 }
             });
             const totalParticipants = Object.keys(pData).length;
+            const warnSummary = suspiciousCount > 0
+                ? '<div style="margin-bottom:8px;padding:8px;background:#fdecea;border-radius:6px;color:#c0392b;font-size:12px;font-weight:bold;">⚠️ ' + suspiciousCount + '件、ダメージがあるのにプレイ実績（イベント参加・勝利・撃破・スキャン・調理いずれも）が確認できないアカウントがあります。過去に確認された不正と同じパターンです。</div>'
+                : '';
             showCustomAlert('📊 特盛りイベント ダメージ集計',
                 '<div style="margin-bottom:4px;font-size:13px;font-weight:bold;color:#420000;">参加人数: ' + totalParticipants + '人</div>'
                 + '<div style="margin-bottom:10px;font-size:11px;color:#888;">上位15位まで表示</div>'
+                + warnSummary
                 + rows
             );
+        }).catch(function(e){
+            showCustomAlert("❌ エラー", "取得に失敗しました: " + e.message);
         });
     });
 }
