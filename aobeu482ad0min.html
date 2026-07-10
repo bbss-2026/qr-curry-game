@@ -81,6 +81,7 @@
         <button style="background:#e67e22;" onclick="actToggleAnalyticsExclusion()">🚫 アナリティクス除外設定</button>
         <button style="background:#c0392b;" onclick="actExcludeKnownSuspiciousAccounts()">🚫 不正疑い3キャラを除外</button>
         <button style="background:#7f0000;" onclick="actResetScanCookBattleAnalytics()">🗑️ スキャン/調理/バトルをリセット</button>
+        <button style="background:#2c3e50;" onclick="actMigrateStatsToObject()">🛠️ statsをオブジェクト形式へ移行</button>
     </div>
 
     <div class="section">
@@ -708,6 +709,49 @@ function actResetScanCookBattleAnalytics() {
         },
         null,
         'リセットする'
+    );
+}
+
+// 不正対策の一環：savedata.statsを文字列(JSON)から、Firebaseルールで項目ごとに増加量を検証できる
+// 通常のオブジェクト形式へ、既存プレイヤー全員分まとめて移行する（1回限りの移行用ツール）。
+function actMigrateStatsToObject() {
+    if (!database) { showCustomAlert("❌ エラー", "通信に問題があります。"); return; }
+    showCustomConfirm(
+        '🛠️ stats移行',
+        '全プレイヤーの savedata.stats を文字列形式からオブジェクト形式へ変換します。<br>既にオブジェクト形式の場合はスキップします。<br><br>実行しますか？',
+        function() {
+            showCustomAlert("🛠️ 移行中...", "プレイヤーデータを取得しています。しばらくお待ちください。");
+            database.ref('players').once('value').then(function(snap) {
+                const players = snap.val() || {};
+                const pids = Object.keys(players);
+                let migrated = 0, skippedNoSavedata = 0, alreadyObject = 0, failed = 0;
+                const failedIds = [];
+                const tasks = pids.map(function(pid) {
+                    const sd = players[pid].savedata;
+                    if (!sd) { skippedNoSavedata++; return Promise.resolve(); }
+                    if (typeof sd.stats !== 'string') { alreadyObject++; return Promise.resolve(); }
+                    let parsed;
+                    try { parsed = JSON.parse(sd.stats || '{}'); } catch (e) { parsed = {}; }
+                    return database.ref('players/' + pid + '/savedata/stats').set(parsed).then(function() {
+                        migrated++;
+                    }).catch(function(e) {
+                        failed++; failedIds.push(pid + '(' + e.message + ')');
+                    });
+                });
+                Promise.all(tasks).then(function() {
+                    const msg = '移行完了: ' + migrated + '件<br>'
+                        + '既にオブジェクト形式: ' + alreadyObject + '件<br>'
+                        + 'savedataなし(対象外): ' + skippedNoSavedata + '件<br>'
+                        + '失敗: ' + failed + '件'
+                        + (failedIds.length ? '<br><span style="color:#e74c3c;font-size:11px;">' + failedIds.join('<br>') + '</span>' : '');
+                    showCustomAlert('✅ 移行結果', msg);
+                });
+            }).catch(function(e) {
+                showCustomAlert("❌ エラー", "取得に失敗しました: " + e.message);
+            });
+        },
+        null,
+        '移行する'
     );
 }
 
