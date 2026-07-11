@@ -7,6 +7,7 @@
 <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
 <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
 <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app-check.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js" onerror="document.write('<script src=\'https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js\'><\/script>')"></script>
 <style>
     * { box-sizing: border-box; }
@@ -207,6 +208,13 @@ const firebaseConfig = {
 let database = null;
 if(firebaseConfig.apiKey !== "YOUR_API_KEY") {
     firebase.initializeApp(firebaseConfig);
+    // App Check: game-dev.html側と同じ設定。管理ツールもこのSDK経由でFirebaseへ書き込むため、
+    // Enforceを有効にする前にここも必ず組み込んでおく（忘れると管理ツールごとブロックされる）。
+    if (typeof firebase.appCheck === 'function') {
+        try {
+            firebase.appCheck().activate('6LcGjE0tAAAAAKpaazekUnb-1SRjYY0cKJ4Aeg-3', true);
+        } catch(e) { console.error('App Check activate failed:', e); }
+    }
     database = firebase.database();
 }
 
