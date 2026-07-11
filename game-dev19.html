@@ -2357,6 +2357,16 @@ const TABLEWARE_LIST = {
     'アルマイト皿': { hp: 0, atk: -10, def: 20, spd: 0,  desc: 'ATK-10 / DEF+20' },
     '温もりの木皿': { hp: 0, atk: 0,   def: -10, spd: 30, desc: 'DEF-10 / SPD+30' }
 };
+// ステータス表示に、装備中食器の補正を色付きで併記するヘルパー（例: "50" → "50+20"(青字)）。
+// 補正が0の場合は数値のみを返す。宅配カレー・対戦相手のカレー等「自分の食器補正をかけるべきでない」表示には使わないこと。
+function statDisplayWithTableware(statKey, baseVal) {
+    const info = TABLEWARE_LIST[selectedTableware];
+    const mod = info ? (info[statKey] || 0) : 0;
+    if (!mod) return String(baseVal);
+    const color = mod > 0 ? '#2980b9' : '#e74c3c';
+    const sign = mod > 0 ? '+' : '';
+    return `${baseVal}<span style="color:${color};">${sign}${mod}</span>`;
+}
 let selectedBase = '白米';
 let selectedTableware = '白い皿';
 let unlockAlumiteTableware = false;
@@ -5817,7 +5827,7 @@ function updateFridgeCurryStockGrid() {
                 + `<div style="font-weight:bold;color:#c0392b;margin-bottom:4px;">${typeLabel}</div>`
                 + `<div style="display:flex;justify-content:center;gap:4px;margin-bottom:8px;">${iconsHtml}</div>`
                 + `<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:13px;font-weight:bold;color:#420000;margin-bottom:6px;">`
-                + `<div>HP: ${curry.hp}</div><div>ATK: ${curry.atk}</div><div>DEF: ${curry.def}</div><div>SPD: ${curry.spd}</div>`
+                + `<div>HP: ${statDisplayWithTableware('hp', curry.hp)}</div><div>ATK: ${statDisplayWithTableware('atk', curry.atk)}</div><div>DEF: ${statDisplayWithTableware('def', curry.def)}</div><div>SPD: ${statDisplayWithTableware('spd', curry.spd)}</div>`
                 + `</div>`
                 + skillsHtml
                 + deliveringNote;
@@ -7030,7 +7040,7 @@ function syncVsSelection(idx) {
     const statusEl = document.getElementById("vsCurryStatus");
     if(statusEl && c) {
         const iconsHTML = curryIconsHTML(c.materials, c.spice, '16px');
-        statusEl.innerHTML = `${iconsHTML} HP:${c.hp} / ATK:${c.atk} / DEF:${c.def} / SPD:${c.spd}`;
+        statusEl.innerHTML = `${iconsHTML} HP:${statDisplayWithTableware('hp', c.hp)} / ATK:${statDisplayWithTableware('atk', c.atk)} / DEF:${statDisplayWithTableware('def', c.def)} / SPD:${statDisplayWithTableware('spd', c.spd)}`;
     } else if(statusEl) { statusEl.innerHTML = ""; }
 }
 function startBotBattle() {
@@ -7972,7 +7982,7 @@ function updateTagMatchPreview() {
     const curry = curryStock[idx];
     if(curry) {
         statusBox.style.display = 'grid';
-        statusBox.innerHTML = `<div>HP: ${curry.hp}</div><div>ATK: ${curry.atk}</div><div>DEF: ${curry.def}</div><div>SPD: ${curry.spd}</div>`;
+        statusBox.innerHTML = `<div>HP: ${statDisplayWithTableware('hp', curry.hp)}</div><div>ATK: ${statDisplayWithTableware('atk', curry.atk)}</div><div>DEF: ${statDisplayWithTableware('def', curry.def)}</div><div>SPD: ${statDisplayWithTableware('spd', curry.spd)}</div>`;
     } else {
         statusBox.style.display = 'none';
     }
@@ -9137,7 +9147,7 @@ function updateOnlineCurryStatus(idx) {
     if(isNaN(idxN) || idxN < 0 || !curryStock || !curryStock[idxN]) { statusEl.innerHTML = ""; return; }
     const c = curryStock[idxN];
     const iconsHTML = curryIconsHTML(c.materials, c.spice, '16px');
-    statusEl.innerHTML = `${iconsHTML} HP:${c.hp} / ATK:${c.atk} / DEF:${c.def} / SPD:${c.spd}`;
+    statusEl.innerHTML = `${iconsHTML} HP:${statDisplayWithTableware('hp', c.hp)} / ATK:${statDisplayWithTableware('atk', c.atk)} / DEF:${statDisplayWithTableware('def', c.def)} / SPD:${statDisplayWithTableware('spd', c.spd)}`;
 }
 
 function createMatchRoom() {
