@@ -473,6 +473,42 @@ function actDebugModeReleaseAll() {
     });
 }
 
+// ===== 同期エラーログの自動判定 =====
+// 「どれが無視していいのか毎回わからない」問題を解消するため、各エントリにその場で
+// 目安（無視してOK／様子見／環境要因／要確認）を自動で付与する。あくまで目安であり
+// 絶対の判定ではないが、ここで判断がつけばいちいち確認する必要がなくなる。
+const SYNC_KNOWN_ADMIN_IDS = ['BC-MXB6JXKB', 'BC-ZQ34WFEU', 'BC-GJPGTMTN'];
+const SYNC_LEVEL_STYLE = {
+    ok:     { color: '#27ae60', bg: '#f2fbf5', label: '🟢 無視してOK' },
+    info:   { color: '#7f8c8d', bg: '#fbfbfb', label: '🟡 単発・様子見でOK' },
+    warn:   { color: '#e67e22', bg: '#fff8ee', label: '🟠 環境要因の可能性' },
+    danger: { color: '#c0392b', bg: '#fdecea', label: '🔴 要確認' }
+};
+function classifySyncEntry(e, siblings) {
+    const isAdminId = SYNC_KNOWN_ADMIN_IDS.indexOf(e.playerId) !== -1;
+    if (e.context === 'remoteUpdateApplied') {
+        if (isAdminId) return { level: 'ok', reason: '管理者用IDです。複数端末・複数セッションで使うため通常発生します。' };
+        const hasNearbyFailure = siblings.some(function(s) {
+            return s !== e && s.context !== 'remoteUpdateApplied' && Math.abs((s.timestamp || 0) - (e.timestamp || 0)) <= 30 * 60 * 1000;
+        });
+        if (hasNearbyFailure) return { level: 'warn', reason: '前後30分以内に同じIDで失敗ログもあります。念のため他のログも確認してください。' };
+        return { level: 'ok', reason: 'クラウド側が新しいデータを正しく読み込んだだけの正常動作です。' };
+    }
+    if (e.context === 'syncSaveDataToCloud_write_failed' || e.context === 'checkCloudSyncOnLoad_read_failed') {
+        if (e.isIframe) return { level: 'warn', reason: '外部サイトへのiframe埋め込み経由です。サードパーティのストレージ制限が原因のことが多く、公式ページで開き直せば解消します。' };
+        const sameContextCount = siblings.filter(function(s) { return s.context === e.context; }).length;
+        if (sameContextCount >= 3) return { level: 'danger', reason: '同じIDで同種の失敗が繰り返されています。UID紐付けの不整合が疑われるので「UID紐付けをリセット」の使用を検討してください。' };
+        return { level: 'info', reason: '単発の失敗です。一時的な通信不良の可能性が高く、繰り返さなければ様子見でOKです。' };
+    }
+    if (e.context === 'authTimeout') {
+        return { level: 'info', reason: '認証処理が一時的にタイムアウトしただけの可能性が高いです。頻発しなければ様子見でOKです。' };
+    }
+    if (e.context === 'authSignInFailed') {
+        return { level: 'warn', reason: 'プライベートブラウズやアプリ内ブラウザなど、認証情報を保存できない環境の可能性があります。' };
+    }
+    return { level: 'info', reason: '' };
+}
+
 // 同期エラーログの確認（game-dev.html側のlogSyncEvent()が記録したエラーを新しい順に表示する）
 function actShowSyncErrors() {
     if (!database) { showCustomAlert("❌ エラー", "通信に問題があります。"); return; }
@@ -485,11 +521,26 @@ function actShowSyncErrors() {
             showCustomAlert('🔄 同期エラーログ', '記録されているエラーはありません。');
             return;
         }
+        // 自動判定は同じIDのエントリ同士を突き合わせて行うため、IDごとにグループ化しておく
+        const byId = {};
+        entries.forEach(function(e) {
+            const pid = e.playerId || '(unknown)';
+            if (!byId[pid]) byId[pid] = [];
+            byId[pid].push(e);
+        });
+        const legend = '<div style="font-size:10px;color:#555;margin-bottom:8px;line-height:1.8;padding:6px 8px;background:#f5f5f5;border-radius:6px;">'
+            + '🟢 無視してOK　🟡 単発・様子見でOK　🟠 環境要因の可能性（対応不要なことが多い）　🔴 要確認'
+            + '<br>※あくまで目安の自動判定です。'
+            + '</div>';
         let rows = '';
         entries.forEach(function(e) {
+            const siblings = byId[e.playerId || '(unknown)'];
+            const cls = classifySyncEntry(e, siblings);
+            const style = SYNC_LEVEL_STYLE[cls.level] || SYNC_LEVEL_STYLE.info;
             const dateStr = e.timestamp ? new Date(e.timestamp).toLocaleString('ja-JP') : '不明';
             const isIframeFlag = e.isIframe ? '<span style="color:#e74c3c;font-weight:bold;"> [iframe埋め込み]</span>' : '';
-            rows += '<div style="border:1px solid #b88742;border-radius:6px;padding:8px;margin-bottom:6px;background:#fffdf0;">'
+            rows += '<div style="border:1px solid ' + style.color + ';border-left:5px solid ' + style.color + ';border-radius:6px;padding:8px;margin-bottom:6px;background:' + style.bg + ';">'
+                + '<div style="font-size:11px;font-weight:bold;color:' + style.color + ';margin-bottom:4px;">' + style.label + (cls.reason ? ' - ' + cls.reason : '') + '</div>'
                 + '<div style="font-size:12px;font-weight:bold;color:#420000;">' + (e.context || '(不明なcontext)') + isIframeFlag + '</div>'
                 + '<div style="font-size:11px;color:#555;margin-top:2px;">ID: ' + (e.playerId || '(unknown)') + '</div>'
                 + (e.detail ? '<div style="font-size:11px;color:#888;margin-top:2px;word-break:break-all;">' + e.detail + '</div>' : '')
@@ -497,7 +548,7 @@ function actShowSyncErrors() {
                 + (e.referrer ? '<div style="font-size:10px;color:#999;">referrer: ' + e.referrer + '</div>' : '')
                 + '</div>';
         });
-        showCustomAlert('🔄 同期エラーログ（新しい順・最大100件）', '<div style="text-align:left;max-height:65vh;overflow-y:auto;">' + rows + '</div>');
+        showCustomAlert('🔄 同期エラーログ（新しい順・最大100件）', '<div style="text-align:left;max-height:65vh;overflow-y:auto;">' + legend + rows + '</div>');
     }).catch(function(e) {
         showCustomAlert("❌ エラー", "取得に失敗しました: " + e.message);
     });
