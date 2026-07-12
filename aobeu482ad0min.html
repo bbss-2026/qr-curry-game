@@ -75,6 +75,8 @@
         <button id="btnQrIgnore" style="background:#27ae60;" onclick="actToggleQrIgnore()">🔓 QR使用済み無視: OFF</button>
         <button id="btnNewPlayerMode" style="background:#7f8c8d;" onclick="actToggleNewPlayerMode()">🆕 初期プレイヤー化: OFF</button>
         <button style="background:#2980b9;" onclick="actShowSyncErrors()">🔄 同期エラーログ</button>
+        <button style="background:#922b21;" onclick="actShowFraudAlerts()">🚩 不正検知アラート</button>
+        <button style="background:#7f8c8d;" onclick="actResetSyncSeal()">🔧 syncSealリセット（1人）</button>
         <button style="background:#c0392b;" onclick="actDebugModeReleaseAll()">🔓 デバッグモード全解除</button>
         <button style="background:#27ae60;" onclick="actCheckAuthMigrationStatus()">🔑 UID移行状況を確認</button>
         <button style="background:#16a085;" onclick="actResetPlayerUidClaim()">🔓 UID紐付けをリセット（1人）</button>
@@ -538,6 +540,64 @@ function actCheckAuthMigrationStatus() {
             + '<div style="margin-top:10px;font-size:11px;color:#888;">※一般プレイヤーは未claimでも問題ありません。新しいgame-dev.htmlを開いた時点で自動的にclaimされます（ルール適用前でも後でも可）。未claimのまま残るのは、まだ新しいコードを一度も読み込んでいない端末です。</div>'
             + '</div>';
         showCustomAlert('🔑 UID移行状況', html);
+    }).catch(function(e) {
+        showCustomAlert("❌ エラー", "取得に失敗しました: " + e.message);
+    });
+}
+
+// 不正検知アラート（囮フィールド syncSeal の確認）
+// game-dev.html側は、playerG/playerEXP/packTicket/spicyCoinから決まる値を毎回savedata.syncSealに書き込んでいる。
+// ゲームクライアントを経由せず直接savedataを書き換えた場合、この値まで正しく再現するのは難しいため、
+// 数値の組み合わせとsyncSealが食い違っていればfraudAlertsに記録される。本人には一切通知していない。
+function actShowFraudAlerts() {
+    if (!database) { showCustomAlert("❌ エラー", "通信に問題があります。"); return; }
+    showCustomAlert("🔄 読み込み中...", "不正検知アラートを取得しています。");
+    database.ref('fraudAlerts').once('value').then(function(snap) {
+        const data = snap.val() || {};
+        const entries = [];
+        Object.keys(data).forEach(function(pid) {
+            const perPlayer = data[pid] || {};
+            Object.keys(perPlayer).forEach(function(msgId) {
+                const v = perPlayer[msgId] || {};
+                entries.push({ playerId: pid, name: v.name || '', detectedAt: v.detectedAt || 0 });
+            });
+        });
+        entries.sort(function(a, b) { return b.detectedAt - a.detectedAt; });
+        if (entries.length === 0) {
+            showCustomAlert('🚩 不正検知アラート', '記録されているアラートはありません。');
+            return;
+        }
+        let rows = '';
+        entries.slice(0, 100).forEach(function(e) {
+            const dateStr = e.detectedAt ? new Date(e.detectedAt).toLocaleString('ja-JP') : '不明';
+            rows += '<div style="border:1px solid #922b21;border-radius:6px;padding:8px;margin-bottom:6px;background:#fff5f5;">'
+                + '<div style="font-size:12px;font-weight:bold;color:#922b21;">ID: ' + e.playerId + '</div>'
+                + '<div style="font-size:12px;color:#420000;margin-top:2px;">名前: ' + (e.name || '(不明)') + '</div>'
+                + '<div style="font-size:10px;color:#999;margin-top:2px;">' + dateStr + '</div>'
+                + '</div>';
+        });
+        showCustomAlert('🚩 不正検知アラート（新しい順・最大100件）', '<div style="text-align:left;max-height:65vh;overflow-y:auto;">' + rows + '</div>');
+    }).catch(function(e) {
+        showCustomAlert("❌ エラー", "取得に失敗しました: " + e.message);
+    });
+}
+
+// syncSealのリセット（安全弁）
+// 管理者がFirebase Console等からG/EXP/パック券/スパイシーコインを直接書き換えた場合、
+// syncSealが実際の数値と食い違い、本人が誤って不正検知の対象になってしまう（誤検知）。
+// そのような操作をした後は、このボタンでsyncSealを削除しておくと、次回の正規同期まで
+// チェック対象から外れる（syncSealが存在しない間はチェックされない仕様のため安全）。
+function actResetSyncSeal() {
+    if (!database) { showCustomAlert("❌ エラー", "通信に問題があります。"); return; }
+    const targetId = prompt("🔧 syncSealをリセットするプレイヤーのIDを入力してください（例: BC-XXXXXXXX）\n\n※G/EXP/パック券/スパイシーコインを管理ツール以外（Firebase Console等）から直接編集した後、誤検知を防ぐために使ってください。");
+    if (!targetId) return;
+    database.ref('players/' + targetId + '/savedata').once('value').then(function(snap) {
+        if (!snap.exists()) { showCustomAlert("❌ エラー", "そのIDのsavedataは見つかりません。"); return; }
+        database.ref('players/' + targetId + '/savedata/syncSeal').remove().then(function() {
+            showCustomAlert('✅ リセット完了', 'ID: ' + targetId + ' のsyncSealをリセットしました。<br>次回の正規同期時に新しい値が書き込まれます。');
+        }).catch(function(e) {
+            showCustomAlert('❌ エラー', 'リセットに失敗しました: ' + e.message);
+        });
     }).catch(function(e) {
         showCustomAlert("❌ エラー", "取得に失敗しました: " + e.message);
     });
