@@ -1246,11 +1246,11 @@
         <!-- 画像素材はユーザー側で用意（fest/配下）。ファイルが揃うまでは壊れた画像表示のままでOK -->
         <div style="position:relative; width:100%; min-height:90px;">
             <img src="fest/fest-title-banner.png" alt="カレーフェス" style="width:100%; display:block;">
-            <div style="position:absolute; top:0; left:0; width:100%; height:100%; display:flex; align-items:flex-end; gap:10px; padding:0 10px 8px; box-sizing:border-box;">
+            <div style="position:absolute; top:0; left:0; width:100%; height:100%; display:flex; align-items:center; gap:10px; padding:0 10px; box-sizing:border-box;">
                 <div style="position:relative; flex:0 0 64px; width:64px; height:64px;">
                     <img src="fest/fest-streak-badge.png" alt="" style="width:100%; height:100%; object-fit:contain; display:block;">
                     <div style="position:absolute; top:0; left:0; width:100%; height:100%; display:flex; align-items:center; justify-content:center;">
-                        <div style="font-size:22px; font-weight:900; color:#420000; line-height:1;" id="festHeaderStreak">0</div>
+                        <div style="font-size:22px; font-weight:900; color:#420000; line-height:1; margin-top:-6px;" id="festHeaderStreak">0</div>
                     </div>
                 </div>
                 <div style="flex:1; font-size:11px; font-weight:bold; color:#420000; line-height:1.5; text-shadow:0 0 3px #fff,0 0 3px #fff,0 0 3px #fff;">
@@ -1262,8 +1262,8 @@
                 </button>
             </div>
         </div>
-        <!-- ナビ行：ショップ／調理／仲間（小さめ・間隔あり）／進む（大きめ） -->
-        <div style="display:flex; gap:8px; align-items:flex-end; padding:14px 10px 0;">
+        <!-- ナビ行：ショップ／調理／仲間（小さめ・間隔あり）／進む（仲間ボタンと上下センター揃え・やや小さめ） -->
+        <div style="display:flex; gap:8px; align-items:center; padding:14px 10px 0;">
             <button class="fest-nav-btn" data-panel="shop" onclick="showFestPanel('shop')" style="flex:0 0 22%; border:none; background:none; padding:0; cursor:pointer;">
                 <img src="fest/fest-tab-shop.png" alt="ショップ" style="width:100%; display:block;">
             </button>
@@ -1273,8 +1273,8 @@
             <button class="fest-nav-btn" data-panel="ally" onclick="showFestPanel('ally')" style="flex:0 0 22%; border:none; background:none; padding:0; cursor:pointer;">
                 <img src="fest/fest-tab-ally.png" alt="仲間" style="width:100%; display:block;">
             </button>
-            <button onclick="proceedFestForward()" style="flex:1; border:none; background:none; padding:0; cursor:pointer;">
-                <img src="fest/fest-tab-forward.png" alt="進む" style="width:100%; display:block;">
+            <button onclick="proceedFestForward()" style="flex:1; border:none; background:none; padding:0; cursor:pointer; margin-left:12px;">
+                <img src="fest/fest-tab-forward.png" alt="進む" style="width:90%; display:block; margin:0 auto;">
             </button>
         </div>
 
