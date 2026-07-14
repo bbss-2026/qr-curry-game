@@ -1250,7 +1250,7 @@
                 <div style="position:relative; flex:0 0 64px; width:64px; height:64px;">
                     <img src="fest/fest-streak-badge.png" alt="" style="width:100%; height:100%; object-fit:contain; display:block;">
                     <div style="position:absolute; top:0; left:0; width:100%; height:100%; display:flex; align-items:center; justify-content:center;">
-                        <div style="font-size:22px; font-weight:900; color:#420000; line-height:1; margin-top:-6px;" id="festHeaderStreak">0</div>
+                        <div style="font-size:22px; font-weight:900; color:#420000; line-height:1; margin-top:-11px;" id="festHeaderStreak">0</div>
                     </div>
                 </div>
                 <div style="flex:1; font-size:11px; font-weight:bold; color:#420000; line-height:1.5; text-shadow:0 0 3px #fff,0 0 3px #fff,0 0 3px #fff;">
@@ -1281,8 +1281,8 @@
         <!-- 調理パネル（フェス外の調理UIと同等の構成。festInventory/festSpiceInventoryのみを使用） -->
         <div id="festCookPanel" style="padding:12px 10px; display:none;">
             <div style="display:flex; gap:8px; margin-bottom:8px;">
-                <button class="btn-cook-sub" style="flex:1;" onclick="showCustomAlert('お知らせ','この機能は今後実装予定です。')">おすすめセット</button>
-                <button class="btn-cook-sub" style="flex:0 0 70px;" onclick="showCustomAlert('お知らせ','この機能は今後実装予定です。')">条件選択</button>
+                <button class="btn-cook-sub" style="flex:1;" onclick="festApplyRecommendedSet()">おすすめセット</button>
+                <button class="btn-cook-sub" style="flex:0 0 70px;" onclick="showCookConditionModal()">条件選択</button>
             </div>
             <div style="display:flex; gap:8px; margin-bottom:12px; align-items:stretch;">
                 <button class="btn btn-cook" onclick="festCookCurry()" style="margin-bottom:0; flex:1; padding:12px;">カレーを調理する</button>
@@ -2608,21 +2608,48 @@ function enterCurryFest() {
         }
     );
 }
+// FP100・初期食材3つ・スパイス1つを実際に付与する（呼び出し元で通知表示とセットで使うこと）
 function grantFestStarterItems() {
+    festFP = 100;
     const normalIngredients = Object.keys(masterIngredients).filter(function(n){ return masterIngredients[n].shop === 0; });
     const normalSpices = Object.keys(masterSpices).filter(function(n){ return masterSpices[n].shop === 0; });
+    const gotIngredients = [];
     for(let i = 0; i < 3; i++) {
         const pick = normalIngredients[Math.floor(Math.random() * normalIngredients.length)];
         festInventory[pick] = (festInventory[pick] || 0) + 1;
+        gotIngredients.push(pick);
     }
+    let gotSpice = null;
     if(normalSpices.length) {
-        const spicePick = normalSpices[Math.floor(Math.random() * normalSpices.length)];
-        festSpiceInventory[spicePick] = (festSpiceInventory[spicePick] || 0) + 1;
+        gotSpice = normalSpices[Math.floor(Math.random() * normalSpices.length)];
+        festSpiceInventory[gotSpice] = (festSpiceInventory[gotSpice] || 0) + 1;
     }
+    return { ingredients: gotIngredients, spice: gotSpice };
+}
+// フェス画面に入った後に支給品を付与し、通知で知らせる（最初から所持している見た目にしない）
+function showFestStarterGrantNotice() {
+    const got = grantFestStarterItems();
+    saveFestState();
+    updateFestStatusBar();
+    if(festActivePanel === 'cook') renderFestCookUI();
+    else if(festActivePanel === 'ally') renderFestAllyUI();
+    const itemHtml = got.ingredients.map(function(n){
+        const d = masterIngredients[n];
+        const img = d && d.icon ? `<img src="${d.icon}" style="width:1.2em;height:1.2em;vertical-align:middle;object-fit:contain;">` : (d ? d.emoji : '');
+        return img + n;
+    }).join('、');
+    let spiceHtml = 'なし';
+    if(got.spice) {
+        const d = masterSpices[got.spice];
+        const img = d && d.icon ? `<img src="${d.icon}" style="width:1.2em;height:1.2em;vertical-align:middle;object-fit:contain;">` : (d ? d.emoji : '');
+        spiceHtml = img + got.spice;
+    }
+    playWinSound();
+    showCustomAlert('🎪 フェス開始！支給品', `<b>FP +100</b><br><br>食材：${itemHtml}<br>スパイス：${spiceHtml}`);
 }
 function startNewFestRun() {
     festActive = true;
-    festFP = 100;
+    festFP = 0;
     festInventory = {};
     festSpiceInventory = {};
     festCurryStock = [];
@@ -2632,9 +2659,9 @@ function startNewFestRun() {
     festHiredAllyName = null;
     festAllyHp = null;
     festHireCandidates = rollFestHireCandidates(); // 雇用候補3体をフェス開始時に確定
-    grantFestStarterItems(); // 初期付与（ノーマル食材3つ＋スパイス1つ）はフェス開始時のみ
     saveFestState();
     showFestScreen();
+    setTimeout(showFestStarterGrantNotice, 300); // 画面表示後に支給品を通知付きで付与
 }
 // 撤退＝その時点でフェスを終える（連勝数に応じた報酬付与はPhase4で実装）
 function retreatFromFest() {
@@ -2718,22 +2745,36 @@ function buyFestShopItem(type) {
         const pool = Object.keys(masterIngredients).filter(function(n){ return masterIngredients[n].shop === 0; });
         const winner = pool[Math.floor(Math.random() * pool.length)];
         festFP -= cost; festInventory[winner] = (festInventory[winner]||0) + 1;
-        showCustomAlert('🎫 食材くじ結果', `${winner} を手に入れた！`);
+        const d = masterIngredients[winner];
+        const img = d && d.icon ? `<img src="${d.icon}" style="width:1.5em;height:1.5em;vertical-align:middle;object-fit:contain;">` : (d ? d.emoji : '');
+        playWinSound();
+        showCustomAlert("くじ結果", `見事！${img}【${winner}】を引き当てた！`);
     } else if(type === 'spice') {
         const pool = Object.keys(masterSpices).filter(function(n){ return masterSpices[n].shop === 0; });
         const winner = pool[Math.floor(Math.random() * pool.length)];
         festFP -= cost; festSpiceInventory[winner] = (festSpiceInventory[winner]||0) + 1;
-        showCustomAlert('🎫 スパイスくじ結果', `${winner} を手に入れた！`);
+        const d = masterSpices[winner];
+        const img = d && d.icon ? `<img src="${d.icon}" style="width:1.5em;height:1.5em;vertical-align:middle;object-fit:contain;">` : (d ? d.emoji : '');
+        playWinSound();
+        showCustomAlert("くじ結果", `見事！${img}【${winner}】を引き当てた！`);
     } else if(type === 'pack') {
         const normalIng = Object.keys(masterIngredients).filter(function(n){ return masterIngredients[n].shop === 0; });
         const normalSp = Object.keys(masterSpices).filter(function(n){ return masterSpices[n].shop === 0; });
         const higherIng = Object.keys(masterIngredients).filter(function(n){ return masterIngredients[n].shop === 1 || masterIngredients[n].shop === 2; });
         festFP -= cost;
-        const got = [];
-        for(let i=0;i<7;i++){ const n = normalIng[Math.floor(Math.random()*normalIng.length)]; festInventory[n]=(festInventory[n]||0)+1; got.push(n); }
-        for(let i=0;i<2;i++){ const n = normalSp[Math.floor(Math.random()*normalSp.length)]; festSpiceInventory[n]=(festSpiceInventory[n]||0)+1; got.push(n); }
-        if(higherIng.length){ const n = higherIng[Math.floor(Math.random()*higherIng.length)]; festInventory[n]=(festInventory[n]||0)+1; got.push(n); }
-        showCustomAlert('🎉 10個パックくじ結果', '以下の10個を手に入れた！<br>' + got.join('、'));
+        const rewards = [];
+        for(let i=0;i<7;i++){ const n = normalIng[Math.floor(Math.random()*normalIng.length)]; festInventory[n]=(festInventory[n]||0)+1; rewards.push(n); }
+        for(let i=0;i<2;i++){ const n = normalSp[Math.floor(Math.random()*normalSp.length)]; festSpiceInventory[n]=(festSpiceInventory[n]||0)+1; rewards.push(n); }
+        if(higherIng.length){ const n = higherIng[Math.floor(Math.random()*higherIng.length)]; festInventory[n]=(festInventory[n]||0)+1; rewards.push(n); }
+        let resultHTML = "<div style='text-align:left; max-height:220px; overflow-y:auto; background:#fff; padding:10px; border-radius:8px; border:1px solid #ddd; line-height:1.6;'>";
+        rewards.forEach(function(name, idx) {
+            const pd = masterIngredients[name] || masterSpices[name];
+            const pImg = pd && pd.icon ? `<img src="${pd.icon}" style="width:1.2em;height:1.2em;vertical-align:middle;object-fit:contain;">` : (pd ? pd.emoji : '');
+            resultHTML += (idx+1) + '. ' + pImg + ' <b>' + name + '</b><br>';
+        });
+        resultHTML += "</div>";
+        playWinSound();
+        showCustomAlert("🎉 豪華10個パック開封！", `以下の10個を手に入れた！<br><br>${resultHTML}`);
     } else if(type === 'heal') {
         festFP -= cost; festHealSpice++;
         showCustomAlert('🧂 購入完了', '回復スパイスを1つ手に入れた！');
@@ -2880,6 +2921,58 @@ function clearFestCookSelection() {
     festCookSelectedIngredients = []; festCookSelectedSpice = "";
     renderFestCookUI();
 }
+// フェス外のapplyRecommendedSet()と同じロジック（優先ステータス条件は共通設定を流用）をfestInventory/festSpiceInventory向けに適用
+function festApplyRecommendedSet() {
+    const cond = getCookCondition();
+    const priorityStats = cond.stats || [];
+    const excludeMid     = cond.excludeMid     ?? false;
+    const excludeHigh    = cond.excludeHigh    ?? false;
+    const excludeSpecial = cond.excludeSpecial ?? false;
+
+    const availIngredients = Object.keys(masterIngredients).filter(function(k) {
+        if((festInventory[k]||0) <= 0) return false;
+        const shop = masterIngredients[k].shop || 0;
+        if(excludeMid     && shop === 1) return false;
+        if(excludeHigh    && shop === 2) return false;
+        if(excludeSpecial && shop < 0)  return false;
+        return true;
+    });
+    const availSpices = Object.keys(masterSpices).filter(function(k) {
+        if((festSpiceInventory[k]||0) <= 0) return false;
+        const shop = masterSpices[k].shop || 0;
+        if(excludeMid  && shop === 1) return false;
+        if(excludeHigh && shop === 2) return false;
+        return true;
+    });
+
+    if(availIngredients.length === 0) { showCustomAlert('⚠️ 食材不足', '条件に合う食材の在庫がありません。'); return; }
+
+    let picks = [];
+    if(priorityStats.length === 0) {
+        for(let i = 0; i < 3; i++) picks.push(availIngredients[Math.floor(Math.random() * availIngredients.length)]);
+    } else {
+        const scoreOf = function(d){ let s=0; priorityStats.forEach(function(st){ s += d[st]||0; }); return s; };
+        const sorted = availIngredients.slice().sort(function(a,b){ return scoreOf(masterIngredients[b]) - scoreOf(masterIngredients[a]); });
+        const topPool = sorted.slice(0, Math.min(5, sorted.length));
+        for(let i = 0; i < 3; i++) picks.push(topPool[Math.floor(Math.random() * topPool.length)]);
+    }
+
+    let bestSpice = '';
+    if(availSpices.length > 0) {
+        if(priorityStats.length > 0) {
+            const match = availSpices.filter(function(k){ return priorityStats.includes(masterSpices[k].mul); });
+            bestSpice = match.length > 0
+                ? match.sort(function(a,b){ return masterSpices[b].val - masterSpices[a].val; })[0]
+                : availSpices[Math.floor(Math.random() * availSpices.length)];
+        } else {
+            bestSpice = availSpices[Math.floor(Math.random() * availSpices.length)];
+        }
+    }
+
+    festCookSelectedIngredients = picks.filter(Boolean);
+    festCookSelectedSpice = bestSpice || "";
+    renderFestCookUI();
+}
 function festCookCurry() {
     const i1 = festCookSelectedIngredients[0] || "", i2 = festCookSelectedIngredients[1] || "", i3 = festCookSelectedIngredients[2] || "";
     const sp = festCookSelectedSpice || "";
@@ -3023,10 +3116,10 @@ function openFestHireModal() {
                 const already = festHiredAllyName === name;
                 return '<div style="display:flex; align-items:center; gap:10px; padding:8px 0; border-bottom:1px solid #e0d0b0;">'
                     + '<div style="flex:1; text-align:left; font-size:12px; color:#420000;">'
-                    + '<b>' + name + '</b>（' + def.cost + 'FP・Lv' + stats.level + '）<br>'
+                    + '<b>' + name + '</b>（Lv' + stats.level + '）<br>'
                     + 'HP:' + stats.hp + ' ATK:' + stats.atk + ' DEF:' + stats.def + ' SPD:' + stats.spd
                     + '</div>'
-                    + '<button class="modal-btn modal-btn-ok" style="flex:0 0 70px;" ' + (already ? 'disabled' : '') + ' onclick="hireFestAlly(\'' + name + '\')">' + (already ? '雇用中' : '雇う') + '</button>'
+                    + '<button class="modal-btn modal-btn-ok" style="flex:0 0 92px; white-space:nowrap;" ' + (already ? 'disabled' : '') + ' onclick="hireFestAlly(\'' + name + '\')">' + (already ? '雇用中' : def.cost + 'FPで雇う') + '</button>'
                     + '</div>';
             }).join('');
         }
