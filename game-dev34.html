@@ -1246,7 +1246,7 @@
         <!-- 画像素材はユーザー側で用意（fest/配下）。ファイルが揃うまでは壊れた画像表示のままでOK -->
         <div style="position:relative; width:100%; min-height:90px;">
             <img src="fest/fest-title-banner.png" alt="カレーフェス" style="width:100%; display:block;">
-            <div style="position:absolute; top:0; left:0; width:100%; height:100%; display:flex; align-items:center; gap:10px; padding:0 10px; box-sizing:border-box;">
+            <div style="position:absolute; top:0; left:0; width:100%; height:100%; display:flex; align-items:flex-end; gap:10px; padding:0 10px 8px; box-sizing:border-box;">
                 <div style="position:relative; flex:0 0 64px; width:64px; height:64px;">
                     <img src="fest/fest-streak-badge.png" alt="" style="width:100%; height:100%; object-fit:contain; display:block;">
                     <div style="position:absolute; top:0; left:0; width:100%; height:100%; display:flex; align-items:center; justify-content:center;">
@@ -1262,15 +1262,15 @@
                 </button>
             </div>
         </div>
-        <!-- ナビ行：ショップ／調理／仲間（やや小さめ・間隔あり）／進む（やや大きめ） -->
-        <div style="display:flex; gap:14px; align-items:flex-end; padding:14px 10px 0;">
-            <button class="fest-nav-btn" data-panel="shop" onclick="showFestPanel('shop')" style="flex:0 0 26%; border:none; background:none; padding:0; cursor:pointer;">
+        <!-- ナビ行：ショップ／調理／仲間（小さめ・間隔あり）／進む（大きめ） -->
+        <div style="display:flex; gap:8px; align-items:flex-end; padding:14px 10px 0;">
+            <button class="fest-nav-btn" data-panel="shop" onclick="showFestPanel('shop')" style="flex:0 0 22%; border:none; background:none; padding:0; cursor:pointer;">
                 <img src="fest/fest-tab-shop.png" alt="ショップ" style="width:100%; display:block;">
             </button>
-            <button class="fest-nav-btn" data-panel="cook" onclick="showFestPanel('cook')" style="flex:0 0 26%; border:none; background:none; padding:0; cursor:pointer;">
+            <button class="fest-nav-btn" data-panel="cook" onclick="showFestPanel('cook')" style="flex:0 0 22%; border:none; background:none; padding:0; cursor:pointer;">
                 <img src="fest/fest-tab-cook.png" alt="調理" style="width:100%; display:block;">
             </button>
-            <button class="fest-nav-btn" data-panel="ally" onclick="showFestPanel('ally')" style="flex:0 0 26%; border:none; background:none; padding:0; cursor:pointer;">
+            <button class="fest-nav-btn" data-panel="ally" onclick="showFestPanel('ally')" style="flex:0 0 22%; border:none; background:none; padding:0; cursor:pointer;">
                 <img src="fest/fest-tab-ally.png" alt="仲間" style="width:100%; display:block;">
             </button>
             <button onclick="proceedFestForward()" style="flex:1; border:none; background:none; padding:0; cursor:pointer;">
@@ -1287,6 +1287,33 @@
             <div style="display:flex; gap:8px; margin-bottom:12px; align-items:stretch;">
                 <button class="btn btn-cook" onclick="festCookCurry()" style="margin-bottom:0; flex:1; padding:12px;">カレーを調理する</button>
                 <button onclick="clearFestCookSelection()" style="flex:0 0 70px; background:#9a6e30; color:#efdeb1; border:none; border-radius:4px; font-weight:bold; font-size:13px; cursor:pointer;">クリア</button>
+            </div>
+            <div class="result-box" id="festResultBox" style="display:none; margin-top:16px; margin-bottom:24px; padding:15px; background:#fffdf0; border:2px dashed #e67e22; border-radius:10px; text-align:center;">
+                <div id="festCriticalFlashText" style="color:#d35400; font-weight:bold; font-size:16px; display:none;">✨ 会心の出来！！！ ✨</div>
+                <div id="festPoisonFlashText" style="color:#9b59b6; font-weight:bold; font-size:16px; display:none;">☠️ 危険！怪しい毒気が立ち上っている…！ ☠️</div>
+                <div id="festGoldFlashText" style="color:#f39c12; font-weight:bold; font-size:16px; display:none;">🌟 眩い輝き！最高級金箔仕立て！ 🌟</div>
+                <div id="festMargheritaFlashText" style="color:#e74c3c; font-weight:bold; font-size:16px; display:none;">🍅🧀 マルゲリータの奇跡！全ステータス上昇！ 🧀🍅</div>
+                <div id="festTontonFlashText" style="color:#f39c12; font-weight:bold; font-size:16px; display:none;">🐷🐷🐷 3匹のトントントン！ブヒィ！ 🐷🐷🐷</div>
+                <div id="festWaveFlashText" style="color:#3498db; font-weight:bold; font-size:16px; display:none;">🌊 海の幸が集結！海鮮スペシャルカレー！ 🌊</div>
+                <div id="festIllusionFlashText" style="color:#1abc9c; font-weight:bold; font-size:16px; display:none;">🦑🍄 幻惑の霧が漂う…敵の命中率が下がる！ 🍄🦑</div>
+                <div id="festStickyFlashText" style="color:#2ecc71; font-weight:bold; font-size:16px; display:none;">🫛🧀 ネバネバが敵を封じる！必ず先攻を取れる！ 🧀🫛</div>
+                <div id="festSeedFlashText" style="color:#27ae60; font-weight:bold; font-size:16px; display:none;">🌱 種の力が炸裂！連続発射カレー爆誕！ 🌱</div>
+                <div id="festWanpakuFlashText" style="color:#e67e22; font-weight:bold; font-size:16px; display:none;">🍛 暴れ放題！わんぱくカレー誕生！ 🍛</div>
+                <div id="festRatatouilleFlashText" style="color:#f1c40f; font-weight:bold; font-size:16px; display:none;">☀️ 太陽の恵み！ラタトゥイユの結界！ ☀️</div>
+                <div id="festHomerunFlashText" style="color:#2980b9; font-weight:bold; font-size:16px; display:none;">🏏 カキーン！ホームランの予感！ 🏏</div>
+                <div id="festPoisonappleFlashText" style="color:#c0392b; font-weight:bold; font-size:16px; display:none;">🍎☠️ 甘い香りに毒が潜む…！毒りんごの誘惑！ ☠️🍎</div>
+                <div id="festFluffyomeletteFlashText" style="color:#f1c40f; font-weight:bold; font-size:16px; display:none;">🥚 ふわとろバリアが優しく包み込む！ 🥚</div>
+                <div id="festGreencurryFlashText" style="color:#27ae60; font-weight:bold; font-size:16px; display:none;">🟢🌶️ 激辛エスニックの嵐！ヒリヒリ注意！ 🌶️🟢</div>
+                <div id="festTricaviarFlashText" style="color:#d4af37; font-weight:bold; font-size:16px; display:none;">👑 世界三大珍味が織りなす至高の一皿ざます！ 👑</div>
+                <img id="festCurryVisualImg" src="" alt="" style="display:none; width:140px; height:140px; object-fit:contain; margin:0 auto 6px;">
+                <div id="festCookResultIcons" style="display:flex; flex-wrap:wrap; justify-content:center; gap:4px; margin-bottom:8px;"></div>
+                <div style="font-size:18px; font-weight:bold; color:#c0392b; margin-bottom:10px;" id="festCurryName">未調理 of カレー</div>
+                <div class="status-grid">
+                    <div class="status-item" style="background:#f5e9c8; color:#420000; border:1px solid #b88742; border-radius:4px; padding:6px 10px; font-weight:bold;">HP: <span id="festStatHP">0</span></div>
+                    <div class="status-item" style="background:#f5e9c8; color:#420000; border:1px solid #b88742; border-radius:4px; padding:6px 10px; font-weight:bold;">ATK: <span id="festStatATK">0</span></div>
+                    <div class="status-item" style="background:#f5e9c8; color:#420000; border:1px solid #b88742; border-radius:4px; padding:6px 10px; font-weight:bold;">DEF: <span id="festStatDEF">0</span></div>
+                    <div class="status-item" style="background:#f5e9c8; color:#420000; border:1px solid #b88742; border-radius:4px; padding:6px 10px; font-weight:bold;">SPD: <span id="festStatSPD">0</span></div>
+                </div>
             </div>
             <h3 style="font-size:14px; margin:0 0 6px;">食材を選ぶ（3つまで）</h3>
             <div id="festCookSelectedSlots" style="display:flex; gap:6px; margin-bottom:8px;"></div>
@@ -2857,27 +2884,99 @@ function festCookCurry() {
     const i1 = festCookSelectedIngredients[0] || "", i2 = festCookSelectedIngredients[1] || "", i3 = festCookSelectedIngredients[2] || "";
     const sp = festCookSelectedSpice || "";
     if(!i1 && !i2 && !i3) { showCustomAlert('⚠️ 食材未選択', '食材を1つ以上選んでください。'); return; }
+    playCookingAnimation([i1,i2,i3], sp, function(){ festCookCurryFinish(i1,i2,i3,sp); }, 'festResultBox');
+}
+// フェス外のcookCurry()と同じ演出（結果ボックス・特殊効果フラッシュ・イラスト表示）をフェス専用DOM要素に対して行う
+function festCookCurryFinish(i1,i2,i3,sp) {
     [i1,i2,i3].forEach(function(n){ if(n) festInventory[n]--; });
     if(sp) festSpiceInventory[sp]--;
     const newCurry = buildCurryFromMaterials([i1,i2,i3], sp);
+    const { name: cName, hp, atk, def, spd, isPoison, hasGold, isMargherita, isTonTonTon, isSeafood, isIllusion, isSticky, isSeed, isWanpaku, isRatatouille, isHomerun, isPoisonApple, isFluffyOmelette, isGreenCurry, isTriCaviar, isCritical, materials: acts } = newCurry;
+
     festCurryStock.push(newCurry);
     festCookSelectedIngredients = []; festCookSelectedSpice = "";
     saveFestState();
-    playWinSound();
-    showCustomAlert('🍛 調理完了', newCurry.name + ' ができました！');
+
+    const resultBox = document.getElementById("festResultBox");
+    ['gold-box','wave-box','critical-box','poison-box','poisonapple-box','margherita-box','tonton-box','illusion-box','sticky-box','seed-box','wanpaku-box','ratatouille-box','homerun-box','fluffyomelette-box','greencurry-box','tricaviar-box'].forEach(c => resultBox.classList.remove(c));
+    ['festGoldFlashText','festWaveFlashText','festCriticalFlashText','festPoisonFlashText','festPoisonappleFlashText','festMargheritaFlashText','festTontonFlashText','festIllusionFlashText','festStickyFlashText','festSeedFlashText','festWanpakuFlashText','festRatatouilleFlashText','festHomerunFlashText','festFluffyomeletteFlashText','festGreencurryFlashText','festTricaviarFlashText'].forEach(function(id){ const el=document.getElementById(id); if(el) el.style.display='none'; });
+
+    if(hasGold) { resultBox.classList.add("gold-box"); document.getElementById("festGoldFlashText").style.display="block"; }
+    if(isSeafood) { resultBox.classList.add("wave-box"); document.getElementById("festWaveFlashText").style.display="block"; }
+    if(isCritical){ resultBox.classList.add("critical-box"); document.getElementById("festCriticalFlashText").style.display="block"; }
+
+    if(isPoison) { resultBox.classList.add("poison-box"); document.getElementById("festPoisonFlashText").style.display="block";
+        if(isPoisonApple) { const el=document.getElementById("festPoisonappleFlashText"); if(el) el.style.display="block"; resultBox.classList.add("poisonapple-box"); }
+    }
+    else if(isMargherita) { resultBox.classList.add("margherita-box"); document.getElementById("festMargheritaFlashText").style.display="block"; }
+    else if(isTonTonTon) { resultBox.classList.add("tonton-box"); document.getElementById("festTontonFlashText").style.display="block"; }
+    else if(isIllusion) { resultBox.classList.add("illusion-box"); document.getElementById("festIllusionFlashText").style.display="block"; }
+    else if(isSticky) { resultBox.classList.add("sticky-box"); document.getElementById("festStickyFlashText").style.display="block"; }
+    else if(isSeed) { resultBox.classList.add("seed-box"); document.getElementById("festSeedFlashText").style.display="block"; }
+    else if(isWanpaku) { resultBox.classList.add("wanpaku-box"); document.getElementById("festWanpakuFlashText").style.display="block"; }
+    else if(isRatatouille) { resultBox.classList.add("ratatouille-box"); document.getElementById("festRatatouilleFlashText").style.display="block"; }
+    else if(isHomerun) { resultBox.classList.add("homerun-box"); document.getElementById("festHomerunFlashText").style.display="block"; }
+    else if(isFluffyOmelette) { resultBox.classList.add("fluffyomelette-box"); const el=document.getElementById("festFluffyomeletteFlashText"); if(el) el.style.display="block"; }
+    else if(isGreenCurry) { resultBox.classList.add("greencurry-box"); const el=document.getElementById("festGreencurryFlashText"); if(el) el.style.display="block"; }
+    else if(isTriCaviar) { resultBox.classList.add("tricaviar-box"); const el=document.getElementById("festTricaviarFlashText"); if(el) el.style.display="block"; }
+
+    const _resultSounds = function() {
+        if(isTriCaviar)          { playSoundEffect('healing.mp3'); }
+        else if(isFluffyOmelette){ playSoundEffect('healing.mp3'); }
+        else if(isGreenCurry)    { playSoundEffect('hirihiri.mp3'); }
+        else if(isPoison)        { playSoundEffect('poison.mp3'); }
+        else if(isMargherita)    { playSoundEffect('sound/syakin.mp3'); }
+        else if(isTonTonTon)     { playSoundEffect('pig2.mp3'); }
+        else if(isRatatouille)   { playSoundEffect('sound/syakin.mp3'); }
+        else if(isWanpaku)       { playSoundEffect('sound/syakin.mp3'); }
+        else if(isHomerun)       { playSoundEffect('sound/syakin.mp3'); }
+        else if(isSticky)        { playSoundEffect('sound/syakin.mp3'); }
+        else if(isSeed)          { playSoundEffect('sound/syakin.mp3'); }
+        else if(isIllusion)      { playSoundEffect('sound/syakin.mp3'); }
+        else if(isSeafood)       { playSoundEffect('sound/syakin.mp3'); }
+        else if(isCritical)      { playSoundEffect('sound/syakin.mp3'); }
+        else if(hasGold)         { playSoundEffect('sound/kinpaku.mp3'); }
+        else                     { playSoundEffect('sound/pirorin.mp3'); }
+    };
+    if(window.cookAnimActive) { window.pendingCookSound = _resultSounds; }
+    else { _resultSounds(); }
+
+    const curryImg = document.getElementById("festCurryVisualImg");
+    curryImg.src = getCurryImage(newCurry); curryImg.style.display = "block";
+    const cookIconsHTML = curryIconsHTML(acts, sp, '32px');
+    document.getElementById("festCookResultIcons").innerHTML = cookIconsHTML;
+    document.getElementById("festCurryName").innerText = cName;
+    document.getElementById("festStatHP").innerText = hp;
+    document.getElementById("festStatATK").innerText = atk;
+    document.getElementById("festStatDEF").innerText = def;
+    document.getElementById("festStatSPD").innerText = spd;
+    resultBox.style.display = "block";
+
     renderFestCookUI();
 }
 
 // ===== フェス専用 仲間パネル（ストックカレー表示・雇用中の仲間表示・雇用モーダル） =====
 // ストックカレーをタップした時の詳細表示
+// フェス外の冷蔵庫ストックカレー詳細（showStockCurryDetail）と同じ構成。宅配カレー設定・売却はフェスでは不要のため除外
 function showFestCurryDetail(idx) {
     const c = festCurryStock[idx];
     if(!c) return;
-    const materialsText = (c.materials && c.materials.length) ? c.materials.join('、') : 'なし';
-    const spiceText = c.spice || 'なし';
-    showCustomAlert((c.visual || '🍛') + ' ' + c.name,
-        'HP: ' + c.hp + '　ATK: ' + c.atk + '<br>DEF: ' + c.def + '　SPD: ' + c.spd
-        + '<br><br>食材：' + materialsText + '<br>スパイス：' + spiceText);
+    const typeImg = getCurryImage(c);
+    const typeLabel = CURRY_TYPE_LABELS[c.curryType] || 'バランス型';
+    const iconsHtml = curryIconsHTML(c.materials, c.spice, '24px');
+    const skills = getCurrySkills(c);
+    let skillsHtml = '';
+    if(skills.length > 0) {
+        skillsHtml = skills.map(function(s){ return '<div style="margin-top:8px;"><b style="color:#e67e22;">' + s.name + '</b><br><span style="font-size:12px;">' + s.desc + '</span></div>'; }).join('');
+    }
+    const html = '<img src="' + typeImg + '" style="width:90px;height:90px;object-fit:contain;display:block;margin:0 auto 10px;">'
+        + '<div style="font-weight:bold;color:#c0392b;margin-bottom:4px;">' + typeLabel + '</div>'
+        + '<div style="display:flex;justify-content:center;gap:4px;margin-bottom:8px;">' + iconsHtml + '</div>'
+        + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:13px;font-weight:bold;color:#420000;margin-bottom:6px;">'
+        + '<div>HP: ' + c.hp + '</div><div>ATK: ' + c.atk + '</div><div>DEF: ' + c.def + '</div><div>SPD: ' + c.spd + '</div>'
+        + '</div>'
+        + skillsHtml;
+    showCustomAlert(c.name, html);
 }
 function renderFestAllyUI() {
     const stockBox = document.getElementById('festCurryStockList');
@@ -2885,8 +2984,9 @@ function renderFestAllyUI() {
         stockBox.innerHTML = festCurryStock.length === 0
             ? '<div style="color:#b0a090; font-size:12px; padding:8px 0;">所持しているカレーはありません</div>'
             : festCurryStock.map(function(c, idx){
+                const typeImg = getCurryImage(c);
                 return '<div onclick="showFestCurryDetail(' + idx + ')" style="flex:0 0 30%; background:#fff8ee; border:1px solid #b88742; border-radius:6px; padding:8px; text-align:center; font-size:11px; color:#420000; cursor:pointer;">'
-                    + (c.visual || '🍛') + '<br>' + c.name + '</div>';
+                    + '<img src="' + typeImg + '" style="width:36px;height:36px;object-fit:contain;display:block;margin:0 auto 4px;">' + c.name + '</div>';
             }).join('');
     }
     const allyBox = document.getElementById('festAllyDisplay');
@@ -7308,7 +7408,8 @@ function checkCookStock() {
     else doCook();
 }
 
-function playCookingAnimation(ingredients, spice, callback) {
+function playCookingAnimation(ingredients, spice, callback, resultBoxId) {
+    resultBoxId = resultBoxId || 'resultBox';
     const overlay = document.getElementById('cookingAnimation');
     const pot     = document.getElementById('cookingPot');
     const bg      = document.getElementById('cookingBg');
@@ -7339,7 +7440,7 @@ function playCookingAnimation(ingredients, spice, callback) {
         callback();
         if(window.pendingCookSound) { window.pendingCookSound(); window.pendingCookSound = null; }
         setTimeout(function() {
-            const rb = document.getElementById('resultBox');
+            const rb = document.getElementById(resultBoxId);
             if(rb) rb.scrollIntoView({ behavior: 'instant', block: 'center' });
         }, 80);
     }
@@ -7417,7 +7518,7 @@ function playCookingAnimation(ingredients, spice, callback) {
         overlay.removeEventListener('click', skipAnimation);
         callback();
         addTimer(function() {
-            const rb = document.getElementById('resultBox');
+            const rb = document.getElementById(resultBoxId);
             if(rb) rb.scrollIntoView({ behavior: 'instant', block: 'center' });
         }, 80);
         addTimer(function() {
