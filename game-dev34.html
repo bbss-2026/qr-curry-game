@@ -1706,6 +1706,28 @@ function showCookConditionModal() {
     });
 }
 
+// おすすめセット共通ヘルパー：同じ食材が所持数を超えて複数枠にセットされないよう、
+// 優先度に合った候補食材を「所持数分だけ複製した山」から重複なしで最大3つ引く（フェス外・フェス共通で使用）
+function pickRecommendedIngredients(availNames, invObj, priorityStats) {
+    let candidateNames = availNames;
+    if(priorityStats.length > 0) {
+        const scoreOf = function(d) { let s=0; priorityStats.forEach(function(st){ s += d[st]||0; }); return s; };
+        const sorted = availNames.slice().sort(function(a,b){ return scoreOf(masterIngredients[b]) - scoreOf(masterIngredients[a]); });
+        candidateNames = sorted.slice(0, Math.min(5, sorted.length));
+    }
+    const pool = [];
+    candidateNames.forEach(function(n) {
+        const cnt = Math.min(invObj[n] || 0, 3);
+        for(let i = 0; i < cnt; i++) pool.push(n);
+    });
+    const picks = [];
+    for(let i = 0; i < 3 && pool.length > 0; i++) {
+        const idx = Math.floor(Math.random() * pool.length);
+        picks.push(pool[idx]);
+        pool.splice(idx, 1);
+    }
+    return picks;
+}
 function applyRecommendedSet() {
     const cond = getCookCondition();
     const priorityStats = cond.stats || [];
@@ -1734,16 +1756,7 @@ function applyRecommendedSet() {
 
     if(availIngredients.length === 0) { showCustomAlert('⚠️ 食材不足', '条件に合う食材の在庫がありません。'); return; }
 
-    let picks = [];
-    if(priorityStats.length === 0) {
-        // 条件なし → ランダム選択
-        for(let i = 0; i < 3; i++) picks.push(availIngredients[Math.floor(Math.random() * availIngredients.length)]);
-    } else {
-        function scoreOf(d) { let s=0; priorityStats.forEach(st => { s += d[st]||0; }); return s; }
-        const sorted = [...availIngredients].sort((a,b) => scoreOf(masterIngredients[b]) - scoreOf(masterIngredients[a]));
-        const topPool = sorted.slice(0, Math.min(5, sorted.length));
-        for(let i = 0; i < 3; i++) picks.push(topPool[Math.floor(Math.random() * topPool.length)]);
-    }
+    let picks = pickRecommendedIngredients(availIngredients, inventory, priorityStats);
 
     let bestSpice = '';
     if(availSpices.length > 0) {
@@ -2659,6 +2672,8 @@ function startNewFestRun() {
     festHiredAllyName = null;
     festAllyHp = null;
     festHireCandidates = rollFestHireCandidates(); // 雇用候補3体をフェス開始時に確定
+    festCookSelectedIngredients = [];
+    festCookSelectedSpice = "";
     saveFestState();
     showFestScreen();
     setTimeout(showFestStarterGrantNotice, 300); // 画面表示後に支給品を通知付きで付与
@@ -2668,6 +2683,9 @@ function retreatFromFest() {
     showCustomConfirm('🚩 撤退', 'ここでフェスを終えて対戦タブに戻ります。<br><span style="color:#c0392b;">※本実装では、ここで連勝数に応じた報酬（G）が確定します（Phase4で実装予定）。</span>', function() {
         festActive = false;
         localStorage.removeItem('qr_fest_session');
+        // 調理でセットしていた食材・スパイスは撤退時にクリアし、次回入場時に残らないようにする
+        festCookSelectedIngredients = [];
+        festCookSelectedSpice = "";
         hideFestScreen();
     });
 }
@@ -2777,9 +2795,11 @@ function buyFestShopItem(type) {
         showCustomAlert("🎉 豪華10個パック開封！", `以下の10個を手に入れた！<br><br>${resultHTML}`);
     } else if(type === 'heal') {
         festFP -= cost; festHealSpice++;
+        playWinSound();
         showCustomAlert('🧂 購入完了', '回復スパイスを1つ手に入れた！');
     } else if(type === 'spicy') {
         festFP -= cost; festSpicySpice++;
+        playWinSound();
         showCustomAlert('🌶️ 購入完了', '辛味スパイスを1つ手に入れた！');
     }
     saveFestState(); updateFestStatusBar(); updateFestShopButtons();
@@ -2947,15 +2967,7 @@ function festApplyRecommendedSet() {
 
     if(availIngredients.length === 0) { showCustomAlert('⚠️ 食材不足', '条件に合う食材の在庫がありません。'); return; }
 
-    let picks = [];
-    if(priorityStats.length === 0) {
-        for(let i = 0; i < 3; i++) picks.push(availIngredients[Math.floor(Math.random() * availIngredients.length)]);
-    } else {
-        const scoreOf = function(d){ let s=0; priorityStats.forEach(function(st){ s += d[st]||0; }); return s; };
-        const sorted = availIngredients.slice().sort(function(a,b){ return scoreOf(masterIngredients[b]) - scoreOf(masterIngredients[a]); });
-        const topPool = sorted.slice(0, Math.min(5, sorted.length));
-        for(let i = 0; i < 3; i++) picks.push(topPool[Math.floor(Math.random() * topPool.length)]);
-    }
+    let picks = pickRecommendedIngredients(availIngredients, festInventory, priorityStats);
 
     let bestSpice = '';
     if(availSpices.length > 0) {
