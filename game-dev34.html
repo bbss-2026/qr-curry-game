@@ -403,6 +403,8 @@
         .vs-interactive-area { width: 100%; max-width: 420px; background: rgba(255,255,255,0.1); padding: 15px; border-radius: 12px; border: 2px solid #e67e22; margin-top: 25px; box-sizing: border-box; text-align: left; }
         
         .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; height: 100dvh; background: rgba(66,0,0,0.5); z-index: 9999; display: none; justify-content: center; align-items: center; overscroll-behavior: contain; }
+        /* 汎用アラート／確認モーダルは、他のモーダル（ショップ・雇用など）の上に必ず出るよう最優先のz-indexにする */
+        #customModal { z-index: 10500; }
         body.modal-open { overflow: hidden; }
         .modal-box { background: #efdeb1; width: 85%; max-width: 380px; max-height: 85vh; overflow-y: auto; padding: 24px; border-radius: 4px; border: 1px solid #b88742; box-shadow: 0 8px 32px rgba(66,0,0,0.2); text-align: center; box-sizing: border-box; -webkit-overflow-scrolling: touch; position: relative; }
         .item-lock-btn { position: absolute; top: 10px; right: 10px; width: 28px; height: 28px; padding: 4px; background: transparent; border: none; cursor: pointer; z-index: 5; }
@@ -1240,41 +1242,38 @@
     <!-- 対戦アリーナタブ -->
     <!-- バトルカレーフェス専用ページ（Phase1：枠のみ。ショップ／調理／仲間の中身はPhase2で実装） -->
     <div id="pageFest" class="page" style="background:#fff;">
-        <!-- フェス専用ヘッダー：連勝バッジ／プレイヤー情報／撤退ボタン。タイトルロゴ・バナー枠は画像素材を後日差し替え -->
+        <!-- フェス専用ヘッダー：横幅いっぱいのタイトルバナーの上に、連勝バッジ／プレイヤー情報／撤退ボタンを重ねて表示 -->
         <!-- 画像素材はユーザー側で用意（fest/配下）。ファイルが揃うまでは壊れた画像表示のままでOK -->
-        <div style="background:#fff; padding:10px 10px 6px;">
-            <div style="text-align:center; margin-bottom:4px;">
-                <img src="fest/fest-title-banner.png" alt="カレーフェス" style="max-width:220px; width:60%; display:inline-block;">
-            </div>
-            <div style="display:flex; align-items:center; gap:10px;">
-                <div style="position:relative; flex:0 0 74px; width:74px; height:74px;">
+        <div style="position:relative; width:100%; min-height:90px;">
+            <img src="fest/fest-title-banner.png" alt="カレーフェス" style="width:100%; display:block;">
+            <div style="position:absolute; top:0; left:0; width:100%; height:100%; display:flex; align-items:center; gap:10px; padding:0 10px; box-sizing:border-box;">
+                <div style="position:relative; flex:0 0 64px; width:64px; height:64px;">
                     <img src="fest/fest-streak-badge.png" alt="" style="width:100%; height:100%; object-fit:contain; display:block;">
-                    <div style="position:absolute; top:0; left:0; width:100%; height:100%; display:flex; flex-direction:column; align-items:center; justify-content:center;">
-                        <div style="font-size:24px; font-weight:900; color:#420000; line-height:1;" id="festHeaderStreak">0</div>
-                        <div style="font-size:10px; font-weight:bold; color:#420000;">連勝</div>
+                    <div style="position:absolute; top:0; left:0; width:100%; height:100%; display:flex; align-items:center; justify-content:center;">
+                        <div style="font-size:22px; font-weight:900; color:#420000; line-height:1;" id="festHeaderStreak">0</div>
                     </div>
                 </div>
-                <div style="flex:1; font-size:12px; font-weight:bold; color:#420000; line-height:1.6;">
+                <div style="flex:1; font-size:11px; font-weight:bold; color:#420000; line-height:1.5; text-shadow:0 0 3px #fff,0 0 3px #fff,0 0 3px #fff;">
                     <span id="festHeaderPlayerName">プレイヤー名</span>｜FP:<span id="festHeaderFP">0</span>｜経験スパイス：<span id="festHeaderExpSpice">0</span><br>
                     回復スパイス：<span id="festHeaderHealSpice">0</span>｜辛味スパイス：<span id="festHeaderSpicySpice">0</span>
                 </div>
-                <button onclick="retreatFromFest()" style="flex:0 0 56px; width:56px; height:56px; border:none; background:none; padding:0; cursor:pointer;">
+                <button onclick="retreatFromFest()" style="flex:0 0 48px; width:48px; height:48px; border:none; background:none; padding:0; cursor:pointer;">
                     <img src="fest/fest-retreat-btn.png" alt="撤退" style="width:100%; height:100%; object-fit:contain; display:block;">
                 </button>
             </div>
         </div>
-        <!-- ナビ行：ショップ／調理／仲間／進む -->
-        <div style="display:flex; gap:8px; padding:14px 10px 0;">
-            <button class="fest-nav-btn" data-panel="shop" onclick="showFestPanel('shop')" style="flex:1; border:none; background:none; padding:0; cursor:pointer;">
+        <!-- ナビ行：ショップ／調理／仲間（やや小さめ・間隔あり）／進む（やや大きめ） -->
+        <div style="display:flex; gap:14px; align-items:flex-end; padding:14px 10px 0;">
+            <button class="fest-nav-btn" data-panel="shop" onclick="showFestPanel('shop')" style="flex:0 0 26%; border:none; background:none; padding:0; cursor:pointer;">
                 <img src="fest/fest-tab-shop.png" alt="ショップ" style="width:100%; display:block;">
             </button>
-            <button class="fest-nav-btn" data-panel="cook" onclick="showFestPanel('cook')" style="flex:1; border:none; background:none; padding:0; cursor:pointer;">
+            <button class="fest-nav-btn" data-panel="cook" onclick="showFestPanel('cook')" style="flex:0 0 26%; border:none; background:none; padding:0; cursor:pointer;">
                 <img src="fest/fest-tab-cook.png" alt="調理" style="width:100%; display:block;">
             </button>
-            <button class="fest-nav-btn" data-panel="ally" onclick="showFestPanel('ally')" style="flex:1; border:none; background:none; padding:0; cursor:pointer;">
+            <button class="fest-nav-btn" data-panel="ally" onclick="showFestPanel('ally')" style="flex:0 0 26%; border:none; background:none; padding:0; cursor:pointer;">
                 <img src="fest/fest-tab-ally.png" alt="仲間" style="width:100%; display:block;">
             </button>
-            <button onclick="proceedFestForward()" style="flex:0 0 64px; border:none; background:none; padding:0; cursor:pointer;">
+            <button onclick="proceedFestForward()" style="flex:1; border:none; background:none; padding:0; cursor:pointer;">
                 <img src="fest/fest-tab-forward.png" alt="進む" style="width:100%; display:block;">
             </button>
         </div>
@@ -2469,6 +2468,7 @@ let festWinStreak = 0;           // 連勝数（フェス開始からの通算�
 let festSetIndex = 1;            // 現在のセット番号（1開始。敵強化倍率 = 1 + 0.10×(N-1) の元になる）
 let festHiredAllyName = null;    // 現在雇用中の仲間bot名（未雇用はnull）
 let festAllyHp = null;           // 雇用中の仲間の現在HP（戦闘をまたいで持ち越し。フェス再開始時に全回復）
+let festHireCandidates = [];     // 今回のフェスで雇用可能な仲間候補（討伐済みのbotから抽選で3体。フェス開始時に確定）
 
 // 仲間bot定義（雇用費・基本ステータス・初期レベル）。初期レベルは、タカシの成長曲線
 // 合計=190+10×(Lv-1) に各botの基本合計ステータスを当てはめて算出したもの（設計書2-4参照）。
@@ -2519,6 +2519,20 @@ function getFestAllyCurrentStats(name) {
     };
 }
 
+// 仲間の雇用候補を抽選する：初級・中級（マハラジャ除く）で討伐済みのbotの中からランダムに最大3体。
+// フェス開始時に一度だけ確定し、そのフェスの間は変わらない。
+function rollFestHireCandidates() {
+    const s = getStats();
+    const defeated = (s.defeatedBots || []).concat(s.defeatedHardBots || []);
+    const eligible = FEST_ALLY_DEFS.map(function(d){ return d.name; }).filter(function(name){ return defeated.includes(name); });
+    // シャッフルして先頭3体を採用
+    for(let i = eligible.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        const tmp = eligible[i]; eligible[i] = eligible[j]; eligible[j] = tmp;
+    }
+    return eligible.slice(0, 3);
+}
+
 // ===== フェス進行中の一時state保存（端末ローカルのみ。クラウド同期はしない） =====
 // フェス中に途中でページを閉じても再開できるように、進行中stateだけlocalStorageに保存する。
 // フェス自体はビンゴ・図鑑等に影響を与えない専用領域という設計方針のため、あえてクラウド同期対象には含めない。
@@ -2527,7 +2541,7 @@ function saveFestState() {
     const session = {
         festActive, festFP, festInventory, festSpiceInventory, festCurryStock,
         festExpSpice, festHealSpice, festSpicySpice, festWinStreak, festSetIndex,
-        festHiredAllyName, festAllyHp
+        festHiredAllyName, festAllyHp, festHireCandidates
     };
     localStorage.setItem('qr_fest_session', JSON.stringify(session));
 }
@@ -2549,6 +2563,7 @@ function loadFestState() {
         festSetIndex = session.festSetIndex || 1;
         festHiredAllyName = session.festHiredAllyName || null;
         festAllyHp = (typeof session.festAllyHp === 'number') ? session.festAllyHp : null;
+        festHireCandidates = session.festHireCandidates || [];
     } catch(e) { /* 壊れていれば無視して通常起動 */ }
 }
 
@@ -2589,6 +2604,7 @@ function startNewFestRun() {
     festSetIndex = 1;
     festHiredAllyName = null;
     festAllyHp = null;
+    festHireCandidates = rollFestHireCandidates(); // 雇用候補3体をフェス開始時に確定
     grantFestStarterItems(); // 初期付与（ノーマル食材3つ＋スパイス1つ）はフェス開始時のみ
     saveFestState();
     showFestScreen();
@@ -2853,13 +2869,23 @@ function festCookCurry() {
 }
 
 // ===== フェス専用 仲間パネル（ストックカレー表示・雇用中の仲間表示・雇用モーダル） =====
+// ストックカレーをタップした時の詳細表示
+function showFestCurryDetail(idx) {
+    const c = festCurryStock[idx];
+    if(!c) return;
+    const materialsText = (c.materials && c.materials.length) ? c.materials.join('、') : 'なし';
+    const spiceText = c.spice || 'なし';
+    showCustomAlert((c.visual || '🍛') + ' ' + c.name,
+        'HP: ' + c.hp + '　ATK: ' + c.atk + '<br>DEF: ' + c.def + '　SPD: ' + c.spd
+        + '<br><br>食材：' + materialsText + '<br>スパイス：' + spiceText);
+}
 function renderFestAllyUI() {
     const stockBox = document.getElementById('festCurryStockList');
     if(stockBox) {
         stockBox.innerHTML = festCurryStock.length === 0
             ? '<div style="color:#b0a090; font-size:12px; padding:8px 0;">所持しているカレーはありません</div>'
-            : festCurryStock.map(function(c){
-                return '<div style="flex:0 0 30%; background:#fff8ee; border:1px solid #b88742; border-radius:6px; padding:8px; text-align:center; font-size:11px; color:#420000;">'
+            : festCurryStock.map(function(c, idx){
+                return '<div onclick="showFestCurryDetail(' + idx + ')" style="flex:0 0 30%; background:#fff8ee; border:1px solid #b88742; border-radius:6px; padding:8px; text-align:center; font-size:11px; color:#420000; cursor:pointer;">'
                     + (c.visual || '🍛') + '<br>' + c.name + '</div>';
             }).join('');
     }
@@ -2884,20 +2910,26 @@ function renderFestAllyUI() {
         }
     }
 }
+// 雇用候補は「初級・中級（マハラジャ除く）で討伐済みのbotから抽選した3体」のみ（festHireCandidates、フェス開始時に確定）
 function openFestHireModal() {
     const box = document.getElementById('festHireListArea');
     if(box) {
-        box.innerHTML = FEST_ALLY_DEFS.map(function(def) {
-            const stats = getFestAllyCurrentStats(def.name);
-            const already = festHiredAllyName === def.name;
-            return '<div style="display:flex; align-items:center; gap:10px; padding:8px 0; border-bottom:1px solid #e0d0b0;">'
-                + '<div style="flex:1; text-align:left; font-size:12px; color:#420000;">'
-                + '<b>' + def.name + '</b>（' + def.cost + 'FP・Lv' + stats.level + '）<br>'
-                + 'HP:' + stats.hp + ' ATK:' + stats.atk + ' DEF:' + stats.def + ' SPD:' + stats.spd
-                + '</div>'
-                + '<button class="modal-btn modal-btn-ok" style="flex:0 0 70px;" ' + (already ? 'disabled' : '') + ' onclick="hireFestAlly(\'' + def.name + '\')">' + (already ? '雇用中' : '雇う') + '</button>'
-                + '</div>';
-        }).join('');
+        if(festHireCandidates.length === 0) {
+            box.innerHTML = '<div style="text-align:center; color:#b0a090; font-size:12px; padding:16px 0;">討伐済みのbotがいないため、今回雇える仲間はいません。<br>PC戦（初級・中級）で敵を倒してから挑戦してください。</div>';
+        } else {
+            box.innerHTML = festHireCandidates.map(function(name) {
+                const def = getFestAllyDef(name);
+                const stats = getFestAllyCurrentStats(name);
+                const already = festHiredAllyName === name;
+                return '<div style="display:flex; align-items:center; gap:10px; padding:8px 0; border-bottom:1px solid #e0d0b0;">'
+                    + '<div style="flex:1; text-align:left; font-size:12px; color:#420000;">'
+                    + '<b>' + name + '</b>（' + def.cost + 'FP・Lv' + stats.level + '）<br>'
+                    + 'HP:' + stats.hp + ' ATK:' + stats.atk + ' DEF:' + stats.def + ' SPD:' + stats.spd
+                    + '</div>'
+                    + '<button class="modal-btn modal-btn-ok" style="flex:0 0 70px;" ' + (already ? 'disabled' : '') + ' onclick="hireFestAlly(\'' + name + '\')">' + (already ? '雇用中' : '雇う') + '</button>'
+                    + '</div>';
+            }).join('');
+        }
     }
     const overlay = document.getElementById('festHireOverlay');
     if(overlay) overlay.style.display = 'flex';
