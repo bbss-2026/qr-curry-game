@@ -1259,7 +1259,7 @@
 
     <!-- 対戦アリーナタブ -->
     <!-- バトルカレーフェス専用ページ（Phase1：枠のみ。ショップ／調理／仲間の中身はPhase2で実装） -->
-    <div id="pageFest" class="page fest-theme" style="background-image:url('fest/fest-bg.png'); background-size:100% auto; background-repeat:repeat-y; background-position:top center; background-color:#ffffff;">
+    <div id="pageFest" class="page fest-theme" style="background-image:url('fest/fest-bg.png'); background-size:100% auto; background-repeat:no-repeat; background-position:bottom center; background-color:#ffffff;">
         <!-- フェス専用ヘッダー：横幅いっぱいのタイトルバナーの上に、連勝バッジ／プレイヤー情報／撤退ボタンを重ねて表示 -->
         <!-- 画像素材はユーザー側で用意（fest/配下）。ファイルが揃うまでは壊れた画像表示のままでOK -->
         <div style="position:relative; width:100%; min-height:90px;">
@@ -1279,6 +1279,10 @@
                     <img src="fest/fest-retreat-btn.png" alt="撤退" style="width:100%; height:100%; object-fit:contain; display:block;">
                 </button>
             </div>
+        </div>
+        <!-- 全プレイヤーを通じた最高連勝記録（Firebase festGlobalRecord/maxStreakを表示） -->
+        <div style="background:#454545; color:#ffffff; text-align:center; font-size:12px; font-weight:bold; padding:6px 10px; letter-spacing:0.05em;">
+            全プレイヤー最高記録<span id="festGlobalRecordStreak">0</span>連勝
         </div>
         <!-- ナビ行：ショップ／調理／仲間（小さめ・間隔あり）／進む（仲間ボタンと上下センター揃え・やや小さめ） -->
         <div style="display:flex; gap:8px; align-items:center; padding:14px 10px 0;">
@@ -2527,6 +2531,7 @@ let festSetIndex = 1;            // 現在のセット番号（1開始。敵強�
 let festHiredAllyName = null;    // 現在雇用中の仲間bot名（未雇用はnull）
 let festAllyHp = null;           // 雇用中の仲間の現在HP（戦闘をまたいで持ち越し。フェス再開始時に全回復）
 let festHireCandidates = [];     // 今回のフェスで雇用可能な仲間候補（討伐済みのbotから抽選で3体。フェス開始時に確定）
+let festGlobalMaxStreak = 0;     // 全プレイヤーを通じた最高連勝記録のローカルキャッシュ（Firebase festGlobalRecord/maxStreakを表示用に保持）
 
 // 仲間bot定義（雇用費・基本ステータス・初期レベル）。初期レベルは、タカシの成長曲線
 // 合計=190+10×(Lv-1) に各botの基本合計ステータスを当てはめて算出したもの（設計書2-4参照）。
@@ -2718,6 +2723,28 @@ function showFestScreen() {
     hideQuestGuideChar(); // フェス中は右下の案内人を非表示
     const cm = document.getElementById('customModal');
     if(cm) cm.classList.add('fest-theme'); // フェス中は共有アラート（くじ結果・購入完了等）もフェス配色にする
+    fetchFestGlobalRecord();
+}
+// 全プレイヤーを通じた最高連勝記録を取得して表示する（Firebase festGlobalRecord/maxStreak）
+function fetchFestGlobalRecord() {
+    const el = document.getElementById('festGlobalRecordStreak');
+    if(!database) return;
+    database.ref('festGlobalRecord/maxStreak').once('value').then(function(snap) {
+        festGlobalMaxStreak = snap.val() || 0;
+        if(el) el.innerText = festGlobalMaxStreak;
+    }).catch(function() { /* 通信失敗時はローカルキャッシュ(0)のまま表示 */ });
+}
+// 自分の連勝数が記録を上回っていれば全プレイヤー最高記録を更新する。
+// 現状フェスの対戦ループ（Phase3）が未実装のためfestWinStreakは常に0だが、
+// 実装後はfestWinStreakが増えるたびに呼び出せばそのまま機能する想定。
+function updateFestGlobalRecordIfHigher() {
+    if(!database) return;
+    if(festWinStreak <= festGlobalMaxStreak) return;
+    database.ref('festGlobalRecord/maxStreak').set(festWinStreak).then(function() {
+        festGlobalMaxStreak = festWinStreak;
+        const el = document.getElementById('festGlobalRecordStreak');
+        if(el) el.innerText = festGlobalMaxStreak;
+    }).catch(function() { /* 更新失敗時は次回同期時に再試行される */ });
 }
 function hideFestScreen() {
     setFestStatusBarVisible(false);
@@ -2741,6 +2768,7 @@ function updateFestStatusBar() {
     setEl('festHeaderHealSpice', festHealSpice);
     setEl('festHeaderSpicySpice', festSpicySpice);
     setEl('festHeaderStreak', festWinStreak);
+    updateFestGlobalRecordIfHigher();
 }
 
 // ===== フェス画面：ナビ（ショップ／調理／仲間／進む） =====
@@ -3126,7 +3154,7 @@ function renderFestAllyUI() {
             const progress = getFestAllyProgress(festHiredAllyName);
             const needExp = festExpNeededForLevel(Math.min(progress.level+1, FEST_ALLY_LEVEL_CAP));
             allyBox.innerHTML =
-                '<div style="display:flex; align-items:center; gap:12px;">'
+                '<div style="display:flex; align-items:center; gap:12px; background:rgba(255,255,255,0.85); border-radius:8px; padding:10px;">'
                 + '<img src="' + (def ? def.image : '') + '" style="width:64px; height:64px; border-radius:50%; border:2px solid #99aee3; object-fit:cover; background:#fff;">'
                 + '<div style="text-align:left; font-size:12px; color:#454545; line-height:1.6;">'
                 + '<div style="font-weight:bold; font-size:14px;">' + festHiredAllyName + '</div>'
@@ -3135,7 +3163,7 @@ function renderFestAllyUI() {
                 + '特技：（Phase3で実装予定）'
                 + '</div></div>';
         } else {
-            allyBox.innerHTML = '<div style="color:#454545; font-size:12px; padding:8px 0;">仲間は未雇用です</div>';
+            allyBox.innerHTML = '<div style="color:#454545; font-size:12px; padding:8px 0; background:rgba(255,255,255,0.85); border-radius:8px;">仲間は未雇用です</div>';
         }
     }
 }
