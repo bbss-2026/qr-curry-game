@@ -388,6 +388,8 @@
             position: absolute; font-family: 'Impact', Arial, sans-serif; font-size: 36px; color: #f1c40f;
             -webkit-text-stroke: 1.5px #000; font-weight: bold; display: none; pointer-events: none; z-index: 25;
         }
+        /* フェスバトル画面のみ背景をfest/fest-bg.pngに変更（下合わせ） */
+        #festBattleStage { background: #2c3e50 url('fest/fest-bg.png') bottom center/100% auto no-repeat; }
         .tag-enemy-zone { display: flex; flex-direction: column; gap: 10px; margin-bottom: 12px; }
         .tag-enemy-card { background: rgba(0,0,0,0.7); border-radius: 8px; padding: 8px 10px; transition: transform 0.1s; }
         .tag-enemy-card-top { display: flex; align-items: center; gap: 8px; }
@@ -401,6 +403,16 @@
         .tag-enemy-curry-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #f1c40f; font-weight: bold; }
         .tag-enemy-card-hp { font-weight: bold; flex-shrink: 0; display: block; text-align: right; font-size: 10px; color: #ddd; margin-top: 2px; }
         .tag-enemy-card.ko { opacity: 0.4; filter: grayscale(80%); }
+        /* フェス：雑魚戦は画像を左固定、名前→HPバー→HP数字を右に縦積み。ボス戦は画像上・情報下の縦積みレイアウト（画像150%拡大＋名前省略なし） */
+        .fest-enemy-card { display: flex; align-items: center; gap: 10px; text-align: left; }
+        .fest-enemy-card .fest-enemy-info { flex: 1; min-width: 0; }
+        .fest-enemy-card .tag-enemy-card-name { max-width: 100%; text-align: left; }
+        .fest-enemy-card .tag-enemy-card-hp { text-align: right; }
+        .fest-enemy-card.fest-boss-card { flex-direction: column; text-align: center; }
+        .fest-enemy-card.fest-boss-card .tag-enemy-card-visual { margin: 0 auto 6px; width: 96px; height: 96px; }
+        .fest-enemy-card.fest-boss-card .fest-enemy-info { width: 100%; }
+        .fest-enemy-card.fest-boss-card .tag-enemy-card-name { text-align: center; white-space: normal; overflow: visible; text-overflow: clip; }
+        .fest-enemy-card.fest-boss-card .tag-enemy-card-hp { text-align: center; }
         .tag-player-zone { display: flex; gap: 8px; }
         .tag-player-card { flex: 1; min-width: 0; background: rgba(0,0,0,0.7); border-radius: 8px; padding: 8px; color: #fff; }
         .tag-player-card-name { font-size: 12px; font-weight: bold; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-bottom: 3px; }
@@ -1397,17 +1409,21 @@
                 </div>
 
                 <div class="tag-enemy-zone" id="festEnemyZone">
-                    <div class="tag-enemy-card" id="festEnemyCard0" style="text-align:center;">
-                        <div class="tag-enemy-card-visual" style="margin:0 auto 6px;"><img id="festEnemyImg0" src="" alt=""></div>
-                        <div class="tag-enemy-card-name" id="festEnemyName0" style="text-align:center;">敵1</div>
-                        <div class="hp-bar-bg tag-enemy-hpbar-bg" style="margin-top:4px;"><div id="festEnemyHpBar0" class="hp-bar"></div></div>
-                        <span class="tag-enemy-card-hp" id="festEnemyHpText0" style="display:block; text-align:center;">HP: --/--</span>
+                    <div class="tag-enemy-card fest-enemy-card" id="festEnemyCard0">
+                        <div class="tag-enemy-card-visual"><img id="festEnemyImg0" src="" alt=""></div>
+                        <div class="fest-enemy-info">
+                            <div class="tag-enemy-card-name" id="festEnemyName0">敵1</div>
+                            <div class="hp-bar-bg tag-enemy-hpbar-bg" style="margin-top:4px;"><div id="festEnemyHpBar0" class="hp-bar"></div></div>
+                            <span class="tag-enemy-card-hp" id="festEnemyHpText0" style="display:block;">HP: --/--</span>
+                        </div>
                     </div>
-                    <div class="tag-enemy-card" id="festEnemyCard1" style="text-align:center;">
-                        <div class="tag-enemy-card-visual" style="margin:0 auto 6px;"><img id="festEnemyImg1" src="" alt=""></div>
-                        <div class="tag-enemy-card-name" id="festEnemyName1" style="text-align:center;">敵2</div>
-                        <div class="hp-bar-bg tag-enemy-hpbar-bg" style="margin-top:4px;"><div id="festEnemyHpBar1" class="hp-bar"></div></div>
-                        <span class="tag-enemy-card-hp" id="festEnemyHpText1" style="display:block; text-align:center;">HP: --/--</span>
+                    <div class="tag-enemy-card fest-enemy-card" id="festEnemyCard1">
+                        <div class="tag-enemy-card-visual"><img id="festEnemyImg1" src="" alt=""></div>
+                        <div class="fest-enemy-info">
+                            <div class="tag-enemy-card-name" id="festEnemyName1">敵2</div>
+                            <div class="hp-bar-bg tag-enemy-hpbar-bg" style="margin-top:4px;"><div id="festEnemyHpBar1" class="hp-bar"></div></div>
+                            <span class="tag-enemy-card-hp" id="festEnemyHpText1" style="display:block;">HP: --/--</span>
+                        </div>
                     </div>
                 </div>
 
@@ -1441,7 +1457,7 @@
                     <button class="btn-cook-sub" style="flex:1;" id="festBattleHealBtn" onclick="useFestHealSpiceInBattle()">回復スパイスを使う（<span id="festBattleHealCount">0</span>）</button>
                     <button class="btn-cook-sub" style="flex:1;" id="festBattleSpicyBtn" onclick="useFestSpicySpiceInBattle()">辛味スパイスを使う（<span id="festBattleSpicyCount">0</span>）</button>
                 </div>
-                <button class="btn btn-battle" style="width:100%;" onclick="festBattleContinue()">次へ進む</button>
+                <button class="btn btn-battle" style="width:100%;" id="festBattleContinueBtn" onclick="festBattleContinue()">次へ進む</button>
                 <button class="btn btn-battle" style="width:100%;margin-top:8px;background:#7f8c8d;" onclick="showFestBattleLogHistory()">📜 戦闘ログ</button>
             </div>
             <div id="festBattleDefeatArea" style="display:none; margin-top:10px; text-align:center;">
@@ -3168,6 +3184,7 @@ function festInitBattleCards() {
     const allyStats = festHiredAllyName ? getFestAllyCurrentStats(festHiredAllyName) : null;
     if(allyStats && festAllyHp === null) festAllyHp = allyStats.hp;
 
+    const isBossFight = festBattlePhase > 3; // ボス戦は画像上・情報下の縦積みレイアウト（画像150%拡大）
     [0,1].forEach(function(i) {
         const e = festBattleEnemies[i];
         const card = document.getElementById('festEnemyCard' + i);
@@ -3175,6 +3192,7 @@ function festInitBattleCards() {
         if(!e) { card.style.display = 'none'; return; }
         card.style.display = '';
         card.classList.remove('ko');
+        card.classList.toggle('fest-boss-card', isBossFight);
         const img = document.getElementById('festEnemyImg' + i);
         if(img) img.src = e.image;
         const nameEl = document.getElementById('festEnemyName' + i);
@@ -3668,6 +3686,9 @@ function festBattleWin() {
         const spicyCountEl = document.getElementById('festBattleSpicyCount');
         if(healCountEl) healCountEl.innerText = festHealSpice;
         if(spicyCountEl) spicyCountEl.innerText = festSpicySpice;
+        // 次にfestBattleContinue()を押した時の遷移先（次の対戦 or 準備画面）に合わせてボタン表記を出し分ける
+        const continueBtn = document.getElementById('festBattleContinueBtn');
+        if(continueBtn) continueBtn.innerText = (festBattlePhase <= 3) ? '次の対戦へ進む' : '準備画面へ進む';
         document.getElementById('festBattleResultArea').style.display = 'block';
     });
 }
@@ -3731,6 +3752,7 @@ function festBattleContinue() {
         festSetIndex += 1;
         festBattlePhase = 1;
         festBattleEnemies = [];
+        festHireCandidates = rollFestHireCandidates(); // 1セットクリアごとに雇用候補を再抽選
         saveFestState();
         returnToFestHubAfterBattle();
     }
@@ -4197,18 +4219,68 @@ function renderFestAllyUI() {
             const stats = getFestAllyCurrentStats(festHiredAllyName);
             const progress = getFestAllyProgress(festHiredAllyName);
             const needExp = festExpNeededForLevel(Math.min(progress.level+1, FEST_ALLY_LEVEL_CAP));
+            const curHp = (festAllyHp === null) ? stats.hp : festAllyHp;
             allyBox.innerHTML =
                 '<div style="display:flex; align-items:center; gap:12px; background:rgba(255,255,255,0.85); border-radius:8px; padding:10px;">'
                 + '<img src="' + (def ? def.image : '') + '" style="width:64px; height:64px; border-radius:50%; border:2px solid #99aee3; object-fit:cover; background:#fff;">'
                 + '<div style="text-align:left; font-size:12px; color:#454545; line-height:1.6;">'
                 + '<div style="font-weight:bold; font-size:14px;">' + festHiredAllyName + '</div>'
                 + 'Lv.' + progress.level + (progress.level < FEST_ALLY_LEVEL_CAP ? '(EXP' + progress.exp + '/' + needExp + ')' : '(カンスト)') + '<br>'
-                + 'HP:' + stats.hp + ' ATK:' + stats.atk + ' DEF:' + stats.def + ' SPD:' + stats.spd + '<br>'
+                + 'HP:' + curHp + '/' + stats.hp + ' ATK:' + stats.atk + ' DEF:' + stats.def + ' SPD:' + stats.spd + '<br>'
                 + '特技：' + getFestAllySpecialLabel(def && def.specialEffect)
-                + '</div></div>';
+                + '</div></div>'
+                + '<div style="display:flex; gap:8px; margin-top:8px;">'
+                + '<button class="btn-cook-sub" style="flex:1;" onclick="useFestHealSpiceOutsideBattle()">回復スパイスを使う（' + festHealSpice + '）</button>'
+                + '<button class="btn-cook-sub" style="flex:1;" onclick="useFestExpSpiceOutsideBattle()">経験値スパイスを使う（' + festExpSpice + '）</button>'
+                + '</div>';
         } else {
             allyBox.innerHTML = '<div style="color:#454545; font-size:12px; padding:8px 0; background:rgba(255,255,255,0.85); border-radius:8px;">仲間は未雇用です</div>';
         }
+    }
+}
+// 戦闘外：仲間パネルから回復スパイスを使って雇用中の仲間のHPを全回復する
+function useFestHealSpiceOutsideBattle() {
+    if(festHealSpice <= 0) { showCustomAlert('⚠️ 回復スパイスがありません', 'フェスショップで購入してください。'); return; }
+    if(!festHiredAllyName) { showCustomAlert('⚠️ 仲間が未雇用です', '先に仲間を雇用してください。'); return; }
+    const stats = getFestAllyCurrentStats(festHiredAllyName);
+    const curHp = (festAllyHp === null) ? stats.hp : festAllyHp;
+    if(curHp >= stats.hp) { showCustomAlert('⚠️ HPは満タンです', festHiredAllyName + 'のHPはすでに満タンです。'); return; }
+    festHealSpice -= 1;
+    festAllyHp = stats.hp;
+    saveFestState();
+    updateFestStatusBar();
+    renderFestAllyUI();
+    playSoundEffect('healing.mp3');
+    showCustomAlert('💊 回復スパイス使用', festHiredAllyName + 'のHPが全回復した！');
+}
+// 戦闘外：仲間パネルから経験値スパイスを使って雇用中の仲間に経験値を1付与する（レベルキャップ50まで）
+function useFestExpSpiceOutsideBattle() {
+    if(festExpSpice <= 0) { showCustomAlert('⚠️ 経験値スパイスがありません', 'ボスを撃破すると手に入ります。'); return; }
+    if(!festHiredAllyName) { showCustomAlert('⚠️ 仲間が未雇用です', '先に仲間を雇用してください。'); return; }
+    const progress = getFestAllyProgress(festHiredAllyName);
+    if(progress.level >= FEST_ALLY_LEVEL_CAP) { showCustomAlert('⚠️ レベル上限です', festHiredAllyName + 'は既にカンストしています。'); return; }
+    festExpSpice -= 1;
+    let level = progress.level, exp = progress.exp + 1;
+    let leveledUp = false;
+    while(level < FEST_ALLY_LEVEL_CAP) {
+        const need = festExpNeededForLevel(level + 1);
+        if(exp < need) break;
+        exp -= need;
+        level += 1;
+        leveledUp = true;
+    }
+    if(level >= FEST_ALLY_LEVEL_CAP) { level = FEST_ALLY_LEVEL_CAP; exp = 0; }
+    updateStats(function(s) {
+        if(!s.festAllyLevels) s.festAllyLevels = {};
+        s.festAllyLevels[festHiredAllyName] = { level: level, exp: exp };
+    });
+    saveFestState();
+    updateFestStatusBar();
+    renderFestAllyUI();
+    playSoundEffect('sound/pirorin.mp3');
+    if(leveledUp) {
+        playWinSound();
+        showCustomAlert('✨ レベルアップ！', festHiredAllyName + 'はLv.' + level + 'になった！');
     }
 }
 // 雇用候補は「初級・中級（マハラジャ除く）で討伐済みのbotから抽選した3体」のみ（festHireCandidates、フェス開始時に確定）
@@ -6306,13 +6378,13 @@ function getStats() {
         // バトルカレーフェス：仲間botのレベル・経験値（フェスをまたいで永続。初期値は設計書2-4の初期レベル）
         festAllyLevels: {
             '見習い料理人タカシ':   { level:1,  exp:0 },
-            '魔術師レオン':         { level:12, exp:0 },
-            'ガンコ親父':           { level:21, exp:0 },
-            '宮廷カレー長':         { level:36, exp:0 },
-            'イカ星人グニョグニョ': { level:28, exp:0 },
-            '種まき婆ちゃん':       { level:31, exp:0 },
-            'ドラゴン料理長':       { level:40, exp:0 },
-            '毒舌料理人ミスズ':     { level:37, exp:0 }
+            '魔術師レオン':         { level:5,  exp:0 },
+            'ガンコ親父':           { level:5,  exp:0 },
+            '宮廷カレー長':         { level:10, exp:0 },
+            'イカ星人グニョグニョ': { level:15, exp:0 },
+            '種まき婆ちゃん':       { level:15, exp:0 },
+            'ドラゴン料理長':       { level:20, exp:0 },
+            '毒舌料理人ミスズ':     { level:20, exp:0 }
         }
     };
 }
