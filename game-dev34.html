@@ -1079,6 +1079,31 @@
         </div>
     </div>
 
+    <!-- フェスバトル マッチング画面（タッグ戦マッチングと同じ構成） -->
+    <div id="festMatchFullscreen" class="tutorial-fullscreen">
+        <div class="tutorial-header">
+            <button class="tutorial-close" onclick="closeFestMatchModal()">✕</button>
+            <div class="tutorial-page-indicator">フェスバトル マッチング</div>
+        </div>
+        <div class="tag-match-body">
+            <div class="tag-match-enemy-wrap" id="festMatchEnemyWrap">
+                <div class="tag-match-section-label">対戦相手</div>
+                <div class="tag-enemy-list" id="festEnemyMatchList"></div>
+            </div>
+
+            <div class="tag-match-player-wrap" id="festMatchPlayerWrap">
+                <div class="tag-match-section-label" style="margin-top:18px;">自分の出撃カレー</div>
+                <select id="festMatchCurrySelect" class="room-input" style="margin:6px 0;" onchange="updateFestMatchPreview()"></select>
+                <div class="tag-my-curry-status" id="festMatchCurryStatus" style="display:none;"></div>
+
+                <div class="tag-match-section-label" style="margin-top:14px;">仲間</div>
+                <div id="festMatchAllyInfo" style="color:#efdeb1; font-size:12px; background:#2b2b2b; border:1px solid #6b5a3f; border-radius:6px; padding:8px 10px;">仲間は未雇用です</div>
+
+                <button class="tutorial-nav-btn" id="festDeployBtn" style="width:100%;margin-top:24px;margin-bottom:20px;background:#d35400;" onclick="confirmFestDeploy()">出撃する</button>
+            </div>
+        </div>
+    </div>
+
     <!-- PC戦（初級・中級）進行状況画面 -->
     <div id="botProgressFullscreen" class="tutorial-fullscreen">
         <div class="tutorial-header">
@@ -1396,12 +1421,14 @@
 
                 <div class="tag-player-zone" id="festPlayerZone">
                     <div class="tag-player-card" id="festPlayerCard0">
-                        <div class="tag-player-card-name" id="festPlayerName0">カレー名</div>
+                        <div class="tag-player-card-name" id="festPlayerName0">プレイヤー名</div>
+                        <div class="tag-player-card-curryname" id="festPlayerCurryName0">カレー名</div>
                         <div class="hp-bar-bg"><div id="festPlayerHpBar0" class="hp-bar"></div></div>
                         <div class="tag-player-card-hp" id="festPlayerHpText0">HP: --/--</div>
                     </div>
                     <div class="tag-player-card" id="festPlayerCard1">
                         <div class="tag-player-card-name" id="festPlayerName1">仲間名</div>
+                        <div class="tag-player-card-curryname" id="festPlayerCurryName1">Lv.1</div>
                         <div class="hp-bar-bg"><div id="festPlayerHpBar1" class="hp-bar"></div></div>
                         <div class="tag-player-card-hp" id="festPlayerHpText1">HP: --/--</div>
                     </div>
@@ -2836,6 +2863,7 @@ function retreatFromFest() {
         saveGame();
         festActive = false;
         festBattleInProgress = false;
+        stopBattleBGM();
         localStorage.removeItem('qr_fest_session');
         // 調理でセットしていた食材・スパイスは撤退時にクリアし、次回入場時に残らないようにする
         festCookSelectedIngredients = [];
@@ -2857,6 +2885,8 @@ function showFestScreen() {
     if(battlePanel) battlePanel.style.display = 'none';
     const navRow = document.getElementById('festNavRow');
     if(navRow) navRow.style.display = 'flex';
+    const matchScreen = document.getElementById('festMatchFullscreen');
+    if(matchScreen) matchScreen.classList.remove('active');
     showFestPanel(festActivePanel || 'cook');
     hideQuestGuideChar(); // フェス中は右下の案内人を非表示
     const cm = document.getElementById('customModal');
@@ -2971,19 +3001,114 @@ function buildFestBattleEnemies() {
 }
 function proceedFestForward() {
     if(festBattleInProgress) return;
-    festActiveCurryIdx = getFestActiveCurryIndex();
-    if(festActiveCurryIdx === -1) {
+    ensureFestCurryHp();
+    if(getFestActiveCurryIndex() === -1) {
         showCustomAlert('⚠️ 出撃できるカレーがありません', 'HPが残っているストックカレーがありません。調理してから進んでください。');
         return;
     }
+    openFestMatchModal();
+}
+
+// ===== フェスバトル マッチング画面（タッグ戦マッチングと同じ流れ：対戦相手を確定→出撃カレーを選択） =====
+function openFestMatchModal() {
+    if(festBattleInProgress) return;
+    ensureFestCurryHp();
+    if(getFestActiveCurryIndex() === -1) {
+        showCustomAlert('⚠️ 出撃できるカレーがありません', 'HPが残っているストックカレーがありません。調理してから進んでください。');
+        return;
+    }
+    // 対戦相手をここで確定し、マッチング画面のプレビューと実際のバトルで同じ相手になるようにする
+    festBattleEnemies = buildFestBattleEnemies();
+    renderFestMatchEnemyList();
+    populateFestMatchCurrySelect();
+    renderFestMatchAllyInfo();
+
+    document.querySelectorAll('.page').forEach(function(p){ p.classList.remove('active'); });
+    document.querySelectorAll('.tab-btn').forEach(function(b){ b.classList.remove('active'); });
+    document.getElementById('festMatchFullscreen').classList.add('active');
+    hideQuestGuideChar();
+
+    const enemyWrap = document.getElementById('festMatchEnemyWrap');
+    const playerWrap = document.getElementById('festMatchPlayerWrap');
+    enemyWrap.classList.remove('slide-in');
+    playerWrap.classList.remove('slide-in');
+    setTimeout(function(){ enemyWrap.classList.add('slide-in'); }, 100);
+    setTimeout(function(){ playerWrap.classList.add('slide-in'); }, 300);
+}
+function closeFestMatchModal() {
+    document.getElementById('festMatchFullscreen').classList.remove('active');
+    showFestScreen();
+}
+function renderFestMatchEnemyList() {
+    const wrap = document.getElementById('festEnemyMatchList');
+    if(!wrap) return;
+    // フェスの敵はカレーを持たないbotのため、タッグ戦と異なり「カレー名」の行は出さない
+    wrap.innerHTML = festBattleEnemies.map(function(e) {
+        return '<div class="tag-match-enemy-card"><img class="tag-enemy-icon" src="' + e.image + '" alt="' + e.name + '">'
+            + '<div class="tag-enemy-info"><div class="tag-enemy-name">' + e.name + (e.isBoss ? ' 👑' : '') + '</div></div></div>';
+    }).join('');
+}
+function populateFestMatchCurrySelect() {
+    const sel = document.getElementById('festMatchCurrySelect');
+    if(!sel) return;
+    sel.innerHTML = '';
+    festCurryStock.forEach(function(c, idx) {
+        if(c.curHp <= 0) return;
+        const opt = document.createElement('option');
+        opt.value = idx;
+        opt.innerText = c.name + '（HP' + c.curHp + '/' + c.hp + '）';
+        sel.appendChild(opt);
+    });
+    updateFestMatchPreview();
+}
+function updateFestMatchPreview() {
+    const sel = document.getElementById('festMatchCurrySelect');
+    const statusBox = document.getElementById('festMatchCurryStatus');
+    if(!sel || !statusBox) return;
+    const idx = parseInt(sel.value, 10);
+    const curry = festCurryStock[idx];
+    if(curry) {
+        statusBox.style.display = 'grid';
+        statusBox.innerHTML = '<div>HP: ' + curry.curHp + '/' + curry.hp + '</div><div>ATK: ' + curry.atk + '</div><div>DEF: ' + curry.def + '</div><div>SPD: ' + curry.spd + '</div>';
+    } else {
+        statusBox.style.display = 'none';
+    }
+}
+function renderFestMatchAllyInfo() {
+    const box = document.getElementById('festMatchAllyInfo');
+    if(!box) return;
+    if(festHiredAllyName) {
+        const stats = getFestAllyCurrentStats(festHiredAllyName);
+        const hp = (festAllyHp === null) ? stats.hp : festAllyHp;
+        box.innerHTML = festHiredAllyName + '（Lv.' + stats.level + '）HP: ' + Math.max(0, hp) + '/' + stats.hp;
+    } else {
+        box.innerText = '仲間は未雇用です';
+    }
+}
+function confirmFestDeploy() {
+    const sel = document.getElementById('festMatchCurrySelect');
+    const idx = parseInt(sel.value, 10);
+    if(isNaN(idx) || !festCurryStock[idx]) return;
+    festActiveCurryIdx = idx;
+    document.getElementById('festMatchFullscreen').classList.remove('active');
+    document.querySelectorAll('.tab-btn').forEach(function(b){ b.classList.remove('active'); });
+    document.querySelectorAll('.page').forEach(function(p){ p.classList.remove('active'); });
+    const page = document.getElementById('pageFest');
+    if(page) page.classList.add('active');
     startFestBattle();
 }
+
 // ===== Phase3：バトルラウンド処理（フェス外のタッグ戦バトル画面と同じ演出方式：カード表示・自動進行・速度切替） =====
 let festBattleQueue = [];       // 現在のラウンドの残り行動キュー（SPD順。空になったら次ラウンドを組み直す）
 let festBattleLogHistory = [];  // 戦闘ログの履歴（📜 戦闘ログボタンで一覧表示）
+// フェスバトルのBGM。既存のplayBattleBGM/stopBattleBGM（全バトル共通）をそのまま利用する。
+function festPlayBattleBgm(isZako) {
+    playBattleBGM(isZako ? 'soound/fest-zako.mp3' : 'soound/fest-boss.mp3');
+}
+function festStopBattleBgm() { stopBattleBGM(); }
 
 function startFestBattle() {
-    festBattleEnemies = buildFestBattleEnemies();
+    // 対戦相手（festBattleEnemies）はマッチング画面（openFestMatchModal）で既に確定済みのため、ここでは再抽選しない
     festBattleTurnCount = 0;
     festBattleQueue = [];
     festBattleLogHistory = [];
@@ -3006,8 +3131,9 @@ function startFestBattle() {
     if(overlay) overlay.style.display = 'none';
     document.getElementById('festBattleLog').innerHTML = '';
     const title = document.getElementById('festBattleTitle');
-    if(title) title.innerText = 'セット' + festSetIndex + '・' + (festBattlePhase <= 3 ? ('雑魚戦 ' + festBattlePhase + '/3') : 'ボス戦');
+    if(title) title.style.display = 'none'; // セット数・雑魚戦の進捗表記は不要
     festInitBattleCards();
+    festPlayBattleBgm(festBattlePhase <= 3);
     festLogSet((festBattlePhase <= 3 ? '雑魚' : 'ボス') + 'が現れた！');
     setTimeout(festBattleAutoStep, battleDelay(700));
 }
@@ -3027,7 +3153,7 @@ function festInitBattleCards() {
         const img = document.getElementById('festEnemyImg' + i);
         if(img) img.src = e.image;
         const nameEl = document.getElementById('festEnemyName' + i);
-        if(nameEl) nameEl.innerText = e.name + ' Lv' + e.level + (e.isBoss ? ' 👑' : '');
+        if(nameEl) nameEl.innerText = e.name; // 敵はカレーを持たないため名前のみ表示
     });
 
     const card0 = document.getElementById('festPlayerCard0');
@@ -3035,7 +3161,9 @@ function festInitBattleCards() {
         card0.style.display = '';
         card0.classList.remove('ko');
         const n0 = document.getElementById('festPlayerName0');
-        if(n0) n0.innerText = curry ? curry.name : '（カレーなし）';
+        if(n0) n0.innerText = playerName;
+        const c0 = document.getElementById('festPlayerCurryName0');
+        if(c0) c0.innerText = curry ? curry.name : '（カレーなし）';
     }
     const card1 = document.getElementById('festPlayerCard1');
     if(card1) {
@@ -3044,6 +3172,8 @@ function festInitBattleCards() {
             card1.classList.remove('ko');
             const n1 = document.getElementById('festPlayerName1');
             if(n1) n1.innerText = festHiredAllyName;
+            const c1 = document.getElementById('festPlayerCurryName1');
+            if(c1) c1.innerText = 'Lv.' + allyStats.level;
         } else {
             card1.style.display = 'none';
         }
@@ -3147,11 +3277,13 @@ function applyFestPoisonTick() {
         curry.curHp = Math.max(0, curry.curHp - 10);
         festTriggerDamagePop('player', 0, 10, '#9b59b6');
         festLogSet('☠️ 毒のダメージ！ ' + curry.name + 'に10ダメージ！');
+        playSoundEffect('poison.mp3');
     }
     if(festAllyPoisoned && festHiredAllyName && festAllyHp > 0) {
         festAllyHp = Math.max(0, festAllyHp - 10);
         festTriggerDamagePop('player', 1, 10, '#9b59b6');
         festLogAppend('☠️ 毒のダメージ！ ' + festHiredAllyName + 'に10ダメージ！');
+        playSoundEffect('poison.mp3');
     }
     festUpdateAllHpDisplays();
 }
@@ -3173,6 +3305,7 @@ function festPlayerActAttack(unitType, curry, allyStats) {
     target.curHp = Math.max(0, target.curHp - d);
     festTriggerDamagePop('enemy', pick.idx, d, isCrit ? '#ff4500' : '#f1c40f');
     festLogSet((isCrit ? '🌟会心！ ' : '') + name + 'の攻撃！ ' + target.name + 'に' + d + 'ダメージ！');
+    playSoundEffect('punch.mp3');
     festUpdateAllHpDisplays();
 }
 function festEnemyActAttackSimple(e, curry, allyStats) {
@@ -3190,6 +3323,7 @@ function festEnemyActAttackSimple(e, curry, allyStats) {
     applyFestDamageToPlayer(t.type, d, curry);
     festTriggerDamagePop('player', t.idx, d, isCrit ? '#ff4500' : '#e74c3c');
     festLogAppend((isCrit ? '🌟会心！ ' : '') + e.name + 'の追撃！ ' + targetName + 'に' + d + 'ダメージ！');
+    playSoundEffect('punch.mp3');
     festUpdateAllHpDisplays();
 }
 function festEnemyActAttack(e, curry, allyStats, enemyIdx) {
@@ -3204,6 +3338,7 @@ function festEnemyActAttack(e, curry, allyStats, enemyIdx) {
         e.selfHealUsed = true;
         festTriggerDamagePop('enemy', enemyIdx, -healAmt, '#2ecc71');
         festLogSet('👑 ' + e.name + 'は「' + skill.name + '」でHPを' + healAmt + '回復した！');
+        playSoundEffect('healing.mp3');
         festUpdateAllHpDisplays();
         return;
     }
@@ -3233,11 +3368,13 @@ function festEnemyActAttack(e, curry, allyStats, enemyIdx) {
     applyFestDamageToPlayer(t.type, d, curry);
     festTriggerDamagePop('player', t.idx, d, isCrit ? '#ff4500' : '#e74c3c');
     festLogSet((isCrit ? '🌟会心！ ' : '') + e.name + 'の攻撃！ ' + targetName + 'に' + d + 'ダメージ！' + (skillMsg ? '（' + skillMsg + '）' : ''));
+    playSoundEffect('punch.mp3');
     festUpdateAllHpDisplays();
 
     if(unlocked && skill.type === 'poison' && Math.random() < skill.chance) {
         if(t.type === 'curry') festPlayerPoisoned = true; else festAllyPoisoned = true;
         festLogAppend('☠️ ' + targetName + 'は「' + skill.name + '」で毒状態になった！');
+        playSoundEffect('poison.mp3');
     }
     if(unlocked && skill.type === 'atkDown' && Math.random() < skill.chance) {
         if(t.type === 'curry') festPlayerAtkDownActive = true; else festAllyAtkDownActive = true;
@@ -3258,17 +3395,23 @@ function checkFestBattleEndSilent() {
 }
 function checkFestBattleEnd() {
     let curry = festCurryStock[festActiveCurryIdx];
-    if(!curry || curry.curHp <= 0) {
-        const nextIdx = getFestActiveCurryIndex();
-        if(nextIdx !== -1 && nextIdx !== festActiveCurryIdx) {
-            festActiveCurryIdx = nextIdx;
-            curry = festCurryStock[festActiveCurryIdx];
-            const n0 = document.getElementById('festPlayerName0');
-            if(n0) n0.innerText = curry.name;
-            const card0 = document.getElementById('festPlayerCard0');
-            if(card0) card0.classList.remove('ko');
-            festLogAppend('🍛 ' + curry.name + 'が代わりに出撃した！');
-        }
+    // HPが0になったカレーはストック（festCurryStock）から消費して取り除く。生存カレーの並び順は維持する。
+    const survivors = festCurryStock.filter(function(c){ return c.curHp > 0; });
+    const stillHasCurrentCurry = curry && curry.curHp > 0 && survivors.indexOf(curry) !== -1;
+    festCurryStock = survivors;
+    if(stillHasCurrentCurry) {
+        festActiveCurryIdx = festCurryStock.indexOf(curry);
+    } else if(festCurryStock.length > 0) {
+        festActiveCurryIdx = 0;
+        curry = festCurryStock[0];
+        const n0 = document.getElementById('festPlayerCurryName0');
+        if(n0) n0.innerText = curry.name;
+        const card0 = document.getElementById('festPlayerCard0');
+        if(card0) card0.classList.remove('ko');
+        festLogAppend('🍛 ' + curry.name + 'が代わりに出撃した！');
+    } else {
+        festActiveCurryIdx = -1;
+        curry = null;
     }
     const curryAlive = curry && curry.curHp > 0;
     const allyAlive = festHiredAllyName && festAllyHp > 0;
@@ -3311,8 +3454,9 @@ function festBattleAutoStep() {
         const e = festBattleEnemies[actor.idx];
         if(e && e.curHp > 0) festEnemyActAttack(e, curry, allyStats, actor.idx);
     }
-    saveFestState();
+    // checkFestBattleEnd()内でHP0のカレーをストックから消費するため、必ずこの後にsaveFestState()する
     if(checkFestBattleEnd()) return;
+    saveFestState();
     setTimeout(festBattleAutoStep, battleDelay(900));
 }
 // タッグ戦のtagBattleResultOverlay同様、勝敗が決まったら大きく結果を表示してから下の結果ボックスを開く
@@ -3337,26 +3481,22 @@ function festBattleWin() {
     festBattleInProgress = false;
     festSpicyBuffActive = false;
     festPlayerPoisoned = false; festAllyPoisoned = false;
-    let rewardMsg;
+    festStopBattleBgm();
+    festWinStreak += 1; // 雑魚戦・ボス戦を問わず、1勝ごとに連勝数+1（報酬額の計算は引き続きセット数ベース）
     if(festBattlePhase <= 3) {
-        const g = festSetIndex * 10;
-        festAccumulatedReward += g;
-        rewardMsg = '🎉 勝利！ ' + g + 'Gを確保しました（フェス終了時にまとめて受け取り）';
+        festAccumulatedReward += festSetIndex * 10;
     } else {
-        const g = festSetIndex * 30;
-        festAccumulatedReward += g;
+        festAccumulatedReward += festSetIndex * 30;
         festExpSpice += 1;
         festFP += 20;
-        festWinStreak += 1;
-        updateFestGlobalRecordIfHigher();
-        rewardMsg = '🎉 ボス撃破！ セット' + festSetIndex + 'クリア！ ' + g + 'Gを確保／経験スパイス+1／FP+20';
     }
-    festLogAppend(rewardMsg);
+    updateFestGlobalRecordIfHigher();
     saveFestState();
     updateFestStatusBar();
+    playWinSound();
     festShowBattleResultOverlay('WIN!', '#2ecc71', function() {
         const resultText = document.getElementById('festBattleResultText');
-        if(resultText) resultText.innerText = rewardMsg;
+        if(resultText) resultText.innerText = '';
         const healCountEl = document.getElementById('festBattleHealCount');
         const spicyCountEl = document.getElementById('festBattleSpicyCount');
         if(healCountEl) healCountEl.innerText = festHealSpice;
@@ -3381,6 +3521,7 @@ function useFestHealSpiceInBattle() {
     }
     const healCountEl = document.getElementById('festBattleHealCount');
     if(healCountEl) healCountEl.innerText = festHealSpice;
+    playSoundEffect('healing.mp3');
     saveFestState();
     updateFestStatusBar();
     festUpdateAllHpDisplays();
@@ -3393,6 +3534,7 @@ function useFestSpicySpiceInBattle() {
     festLogAppend('🌶️ 辛味スパイス使用：次の戦闘、味方ATK+40！');
     const spicyCountEl = document.getElementById('festBattleSpicyCount');
     if(spicyCountEl) spicyCountEl.innerText = festSpicySpice;
+    playSoundEffect('hirihiri.mp3');
     saveFestState();
     updateFestStatusBar();
 }
@@ -3401,7 +3543,7 @@ function festBattleContinue() {
     if(festBattlePhase <= 3) {
         festBattlePhase += 1;
         saveFestState();
-        startFestBattle();
+        openFestMatchModal(); // 次の雑魚戦へ：改めてマッチング画面で出撃カレーを選び直せる
     } else {
         festSetIndex += 1;
         festBattlePhase = 1;
@@ -3421,6 +3563,7 @@ function festBattleLoseRun() {
     festBattleInProgress = false;
     festSpicyBuffActive = false;
     festPlayerPoisoned = false; festAllyPoisoned = false;
+    festStopBattleBgm();
     document.getElementById('festBattleResultArea').style.display = 'none';
     const msg = '💥 出撃できるカレー・仲間が尽きました…\nここまでの記録：' + festWinStreak + '連勝\n確保していたG：' + festAccumulatedReward + 'G';
     festLogAppend('💥 出撃できるカレー・仲間が尽きた…フェス終了。');
@@ -3824,6 +3967,7 @@ function festCookCurryFinish(i1,i2,i3,sp) {
 function showFestCurryDetail(idx) {
     const c = festCurryStock[idx];
     if(!c) return;
+    ensureFestCurryHp();
     const typeImg = getCurryImage(c);
     const typeLabel = CURRY_TYPE_LABELS[c.curryType] || 'バランス型';
     const iconsHtml = curryIconsHTML(c.materials, c.spice, '24px');
@@ -3836,12 +3980,13 @@ function showFestCurryDetail(idx) {
         + '<div style="font-weight:bold;color:#ff998b;margin-bottom:4px;">' + typeLabel + '</div>'
         + '<div style="display:flex;justify-content:center;gap:4px;margin-bottom:8px;">' + iconsHtml + '</div>'
         + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:13px;font-weight:bold;color:#454545;margin-bottom:6px;">'
-        + '<div>HP: ' + c.hp + '</div><div>ATK: ' + c.atk + '</div><div>DEF: ' + c.def + '</div><div>SPD: ' + c.spd + '</div>'
+        + '<div>HP: ' + c.curHp + '/' + c.hp + '</div><div>ATK: ' + c.atk + '</div><div>DEF: ' + c.def + '</div><div>SPD: ' + c.spd + '</div>'
         + '</div>'
         + skillsHtml;
     showCustomAlert(c.name, html);
 }
 function renderFestAllyUI() {
+    ensureFestCurryHp();
     const stockBox = document.getElementById('festCurryStockList');
     if(stockBox) {
         stockBox.innerHTML = festCurryStock.length === 0
@@ -3849,7 +3994,8 @@ function renderFestAllyUI() {
             : festCurryStock.map(function(c, idx){
                 const typeImg = getCurryImage(c);
                 return '<div onclick="showFestCurryDetail(' + idx + ')" style="flex:0 0 30%; background:#ffffff; border:1px solid #99aee3; border-radius:6px; padding:8px; text-align:center; font-size:11px; color:#454545; cursor:pointer;">'
-                    + '<img src="' + typeImg + '" style="width:36px;height:36px;object-fit:contain;display:block;margin:0 auto 4px;">' + c.name + '</div>';
+                    + '<img src="' + typeImg + '" style="width:36px;height:36px;object-fit:contain;display:block;margin:0 auto 4px;">' + c.name
+                    + '<div style="font-size:10px;color:#888;margin-top:2px;">HP' + c.curHp + '/' + c.hp + '</div></div>';
             }).join('');
     }
     const allyBox = document.getElementById('festAllyDisplay');
