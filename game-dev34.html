@@ -2661,15 +2661,16 @@ let festAllyPoisoned = false;        // 同上、仲間側
 // 仲間bot定義（雇用費・基本ステータス・初期レベル）。初期レベルは、タカシの成長曲線
 // 合計=190+10×(Lv-1) に各botの基本合計ステータスを当てはめて算出したもの（設計書2-4参照）。
 // specialEffect：PCと対戦（初級・中級）の同名Botと同じ特技をそのまま流用（無印はPC戦でも特技なし）
+// 各初期レベルは指定値に変更。ステータスは「そのキャラを旧初期レベルまで上げると旧ステータスに一致する」よう逆算して調整済み
 const FEST_ALLY_DEFS = [
     { name:'見習い料理人タカシ',     cost:3,  hp:130, atk:25,  def:20,  spd:15, initLevel:1,  image:'botimage/bot01.png' },
-    { name:'魔術師レオン',           cost:10, hp:180, atk:65,  def:15,  spd:35, initLevel:12, image:'botimage/bot02.png' },
-    { name:'ガンコ親父',             cost:15, hp:280, atk:55,  def:45,  spd:5,  initLevel:21, image:'botimage/bot03.png' },
-    { name:'宮廷カレー長',           cost:20, hp:350, atk:90,  def:60,  spd:40, initLevel:36, image:'botimage/bot04.png' },
-    { name:'イカ星人グニョグニョ',   cost:30, hp:250, atk:95,  def:50,  spd:60, initLevel:28, image:'botimage/bot06.png', specialEffect:'illusion' },
-    { name:'種まき婆ちゃん',         cost:30, hp:250, atk:80,  def:140, spd:15, initLevel:31, image:'botimage/bot07.png', specialEffect:'seed' },
-    { name:'ドラゴン料理長',         cost:40, hp:400, atk:100, def:60,  spd:20, initLevel:40, image:'botimage/bot08.png', specialEffect:'breath' },
-    { name:'毒舌料理人ミスズ',       cost:40, hp:360, atk:90,  def:65,  spd:35, initLevel:37, image:'botimage/bot09.png', specialEffect:'poison' },
+    { name:'魔術師レオン',           cost:10, hp:137, atk:50,  def:11,  spd:27, initLevel:5,  image:'botimage/bot02.png' },
+    { name:'ガンコ親父',             cost:15, hp:164, atk:32,  def:26,  spd:3,  initLevel:5,  image:'botimage/bot03.png' },
+    { name:'宮廷カレー長',           cost:20, hp:181, atk:47,  def:31,  spd:21, initLevel:10, image:'botimage/bot04.png' },
+    { name:'イカ星人グニョグニョ',   cost:30, hp:179, atk:68,  def:36,  spd:43, initLevel:15, image:'botimage/bot06.png', specialEffect:'illusion' },
+    { name:'種まき婆ちゃん',         cost:30, hp:168, atk:54,  def:94,  spd:10, initLevel:15, image:'botimage/bot07.png', specialEffect:'seed' },
+    { name:'ドラゴン料理長',         cost:40, hp:262, atk:66,  def:39,  spd:13, initLevel:20, image:'botimage/bot08.png', specialEffect:'breath' },
+    { name:'毒舌料理人ミスズ',       cost:40, hp:249, atk:62,  def:45,  spd:24, initLevel:20, image:'botimage/bot09.png', specialEffect:'poison' },
 ];
 
 // フェス専用の敵キャラ（設計書3-3の弱体化版数値）。既存タッグ戦のBotは使い回さない。
@@ -2810,9 +2811,9 @@ function enterCurryFest() {
         }
     );
 }
-// FP100・初期食材3つ・スパイス1つを実際に付与する（呼び出し元で通知表示とセットで使うこと）
+// FP80・初期食材3つ・スパイス1つを実際に付与する（呼び出し元で通知表示とセットで使うこと）
 function grantFestStarterItems() {
-    festFP = 100;
+    festFP = 80;
     const normalIngredients = Object.keys(masterIngredients).filter(function(n){ return masterIngredients[n].shop === 0; });
     const normalSpices = Object.keys(masterSpices).filter(function(n){ return masterSpices[n].shop === 0; });
     const gotIngredients = [];
@@ -2847,7 +2848,7 @@ function showFestStarterGrantNotice() {
         spiceHtml = img + got.spice;
     }
     playWinSound();
-    showCustomAlert('🎪 フェス開始！支給品', `<b>FP +100</b><br><br>食材：${itemHtml}<br>スパイス：${spiceHtml}`);
+    showCustomAlert('🎪 フェス開始！支給品', `<b>FP +80</b><br><br>食材：${itemHtml}<br>スパイス：${spiceHtml}`);
 }
 function startNewFestRun() {
     festActive = true;
@@ -3654,7 +3655,7 @@ function festBattleWin() {
     } else {
         festAccumulatedReward += festSetIndex * 30;
         festExpSpice += 1;
-        festFP += 20;
+        festFP += 10;
     }
     updateFestGlobalRecordIfHigher();
     saveFestState();
@@ -3856,6 +3857,15 @@ function renderFestCookUI() {
     renderFestCookCategoryPanels();
     renderFestCookSpicePanel();
     updateFestCookPreview();
+}
+// 調理完了直後の再描画専用：食材/スパイス欄は最新化するが、updateFestCookPreview()内の
+// 「前回結果を消す」処理を通さないことで、表示したばかりの調理結果(festResultBox)を消さないようにする
+function renderFestCookPanelsKeepResult() {
+    renderFestCookSelectedSlots();
+    renderFestCookCategoryTabs();
+    renderFestCookCategoryPanels();
+    renderFestCookSpicePanel();
+    hideFestCookStatPreview();
 }
 // フェス外のupdateCookPreview()と同じ挙動：食材・スパイスの選択が変わるたびに
 // （１）前回の調理結果表示（festResultBox）を消し、（２）右下に完成時ステータス予想を表示する。
@@ -4140,7 +4150,7 @@ function festCookCurryFinish(i1,i2,i3,sp) {
     document.getElementById("festStatSPD").innerText = spd;
     resultBox.style.display = "block";
 
-    renderFestCookUI();
+    renderFestCookPanelsKeepResult();
 }
 
 // ===== フェス専用 仲間パネル（ストックカレー表示・雇用中の仲間表示・雇用モーダル） =====
