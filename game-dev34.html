@@ -289,6 +289,24 @@
         .btn-cook-sub { height:44px; background:#9a6e30; color:#efdeb1; border:none; border-radius:4px; font-weight:bold; font-size:13px; cursor:pointer; letter-spacing:0.04em; }
         .fest-nav-btn { opacity:0.6; }
         .fest-nav-btn.active { opacity:1; box-shadow: inset 0 -4px 0 rgba(0,0,0,0.25); }
+        /* ===== フェス専用配色（フェス外のブラウン系は使わず、#ffbbb5/#ff998b/#accced/#99aee3/#ffe699/#e8cc86/#ffffff/#454545で統一） =====
+           .fest-theme は #pageFest / festShopOverlay / festHireOverlay / 共有#customModal（フェス中のみJSでクラス付与）に付与して、
+           このスコープ内だけ既存の共有クラス（.btn-cook等）の見た目を上書きする。フェス外の見た目には一切影響しない。 */
+        .fest-theme.modal-overlay { background: rgba(69,69,69,0.55); }
+        .fest-theme .modal-box, .fest-theme.modal-box { background:#ffffff; border-color:#99aee3; }
+        .fest-theme .modal-title { color:#454545; }
+        .fest-theme .modal-message { color:#454545; }
+        .fest-theme .modal-btn-ok { background:#99aee3; color:#ffffff; }
+        .fest-theme .modal-btn-cancel { background:#454545; color:#ffffff; }
+        .fest-theme .modal-btn-sell { background:#ff998b; color:#ffffff; }
+        .fest-theme .btn-shop-30 { background:#99aee3; color:#ffffff; }
+        .fest-theme .btn-shop-30s { background:#ff998b; color:#ffffff; }
+        .fest-theme .btn-shop-100 { background:#accced; color:#454545; }
+        .fest-theme .btn-shop-300 { background:#454545; color:#ffffff; }
+        .fest-theme .btn-shop-pack { background:#e8cc86; color:#454545; }
+        .fest-theme .btn-cook { background:#99aee3; color:#ffffff; }
+        .fest-theme .btn-cook-sub { background:#ff998b; color:#ffffff; }
+        .fest-theme .btn-battle { background:#454545; color:#ffffff; }
         .btn-battle { background: #420000; color: #efdeb1; width: 100%; }
         .btn-bot { background: #b88742; color: #efdeb1; width: 100%; }
         .btn-bot-img { flex: 1; background: transparent; border: none; padding: 0; cursor: pointer; line-height: 0; }
@@ -1241,7 +1259,7 @@
 
     <!-- 対戦アリーナタブ -->
     <!-- バトルカレーフェス専用ページ（Phase1：枠のみ。ショップ／調理／仲間の中身はPhase2で実装） -->
-    <div id="pageFest" class="page" style="background:#fff;">
+    <div id="pageFest" class="page fest-theme" style="background-image:url('fest/fest-bg.png'); background-size:100% auto; background-repeat:repeat-y; background-position:top center; background-color:#ffffff;">
         <!-- フェス専用ヘッダー：横幅いっぱいのタイトルバナーの上に、連勝バッジ／プレイヤー情報／撤退ボタンを重ねて表示 -->
         <!-- 画像素材はユーザー側で用意（fest/配下）。ファイルが揃うまでは壊れた画像表示のままでOK -->
         <div style="position:relative; width:100%; min-height:90px;">
@@ -1250,10 +1268,10 @@
                 <div style="position:relative; flex:0 0 64px; width:64px; height:64px;">
                     <img src="fest/fest-streak-badge.png" alt="" style="width:100%; height:100%; object-fit:contain; display:block;">
                     <div style="position:absolute; top:0; left:0; width:100%; height:100%; display:flex; align-items:center; justify-content:center;">
-                        <div style="font-size:22px; font-weight:900; color:#420000; line-height:1; margin-top:-11px;" id="festHeaderStreak">0</div>
+                        <div style="font-size:22px; font-weight:900; color:#454545; line-height:1; margin-top:-11px;" id="festHeaderStreak">0</div>
                     </div>
                 </div>
-                <div style="flex:1; font-size:11px; font-weight:bold; color:#420000; line-height:1.5; text-shadow:0 0 3px #fff,0 0 3px #fff,0 0 3px #fff;">
+                <div style="flex:1; font-size:11px; font-weight:bold; color:#454545; line-height:1.5; text-shadow:0 0 3px #fff,0 0 3px #fff,0 0 3px #fff;">
                     <span id="festHeaderPlayerName">プレイヤー名</span>｜FP:<span id="festHeaderFP">0</span>｜経験スパイス：<span id="festHeaderExpSpice">0</span><br>
                     回復スパイス：<span id="festHeaderHealSpice">0</span>｜辛味スパイス：<span id="festHeaderSpicySpice">0</span>
                 </div>
@@ -1286,9 +1304,9 @@
             </div>
             <div style="display:flex; gap:8px; margin-bottom:12px; align-items:stretch;">
                 <button class="btn btn-cook" onclick="festCookCurry()" style="margin-bottom:0; flex:1; padding:12px;">カレーを調理する</button>
-                <button onclick="clearFestCookSelection()" style="flex:0 0 70px; background:#9a6e30; color:#efdeb1; border:none; border-radius:4px; font-weight:bold; font-size:13px; cursor:pointer;">クリア</button>
+                <button onclick="clearFestCookSelection()" style="flex:0 0 70px; background:#ff998b; color:#ffffff; border:none; border-radius:4px; font-weight:bold; font-size:13px; cursor:pointer;">クリア</button>
             </div>
-            <div class="result-box" id="festResultBox" style="display:none; margin-top:16px; margin-bottom:24px; padding:15px; background:#fffdf0; border:2px dashed #e67e22; border-radius:10px; text-align:center;">
+            <div class="result-box" id="festResultBox" style="display:none; margin-top:16px; margin-bottom:24px; padding:15px; background:#ffffff; border:2px dashed #99aee3; border-radius:10px; text-align:center;">
                 <div id="festCriticalFlashText" style="color:#d35400; font-weight:bold; font-size:16px; display:none;">✨ 会心の出来！！！ ✨</div>
                 <div id="festPoisonFlashText" style="color:#9b59b6; font-weight:bold; font-size:16px; display:none;">☠️ 危険！怪しい毒気が立ち上っている…！ ☠️</div>
                 <div id="festGoldFlashText" style="color:#f39c12; font-weight:bold; font-size:16px; display:none;">🌟 眩い輝き！最高級金箔仕立て！ 🌟</div>
@@ -1307,38 +1325,38 @@
                 <div id="festTricaviarFlashText" style="color:#d4af37; font-weight:bold; font-size:16px; display:none;">👑 世界三大珍味が織りなす至高の一皿ざます！ 👑</div>
                 <img id="festCurryVisualImg" src="" alt="" style="display:none; width:140px; height:140px; object-fit:contain; margin:0 auto 6px;">
                 <div id="festCookResultIcons" style="display:flex; flex-wrap:wrap; justify-content:center; gap:4px; margin-bottom:8px;"></div>
-                <div style="font-size:18px; font-weight:bold; color:#c0392b; margin-bottom:10px;" id="festCurryName">未調理 of カレー</div>
+                <div style="font-size:18px; font-weight:bold; color:#ff998b; margin-bottom:10px;" id="festCurryName">未調理 of カレー</div>
                 <div class="status-grid">
-                    <div class="status-item" style="background:#f5e9c8; color:#420000; border:1px solid #b88742; border-radius:4px; padding:6px 10px; font-weight:bold;">HP: <span id="festStatHP">0</span></div>
-                    <div class="status-item" style="background:#f5e9c8; color:#420000; border:1px solid #b88742; border-radius:4px; padding:6px 10px; font-weight:bold;">ATK: <span id="festStatATK">0</span></div>
-                    <div class="status-item" style="background:#f5e9c8; color:#420000; border:1px solid #b88742; border-radius:4px; padding:6px 10px; font-weight:bold;">DEF: <span id="festStatDEF">0</span></div>
-                    <div class="status-item" style="background:#f5e9c8; color:#420000; border:1px solid #b88742; border-radius:4px; padding:6px 10px; font-weight:bold;">SPD: <span id="festStatSPD">0</span></div>
+                    <div class="status-item" style="background:#ffe699; color:#454545; border:1px solid #99aee3; border-radius:4px; padding:6px 10px; font-weight:bold;">HP: <span id="festStatHP">0</span></div>
+                    <div class="status-item" style="background:#ffe699; color:#454545; border:1px solid #99aee3; border-radius:4px; padding:6px 10px; font-weight:bold;">ATK: <span id="festStatATK">0</span></div>
+                    <div class="status-item" style="background:#ffe699; color:#454545; border:1px solid #99aee3; border-radius:4px; padding:6px 10px; font-weight:bold;">DEF: <span id="festStatDEF">0</span></div>
+                    <div class="status-item" style="background:#ffe699; color:#454545; border:1px solid #99aee3; border-radius:4px; padding:6px 10px; font-weight:bold;">SPD: <span id="festStatSPD">0</span></div>
                 </div>
             </div>
-            <h3 style="font-size:14px; margin:0 0 6px;">食材を選ぶ（3つまで）</h3>
+            <h3 style="font-size:14px; margin:0 0 6px; color:#454545;">食材を選ぶ（3つまで）</h3>
             <div id="festCookSelectedSlots" style="display:flex; gap:6px; margin-bottom:8px;"></div>
             <div id="festIngredientCategoryTabs" style="display:flex; margin-bottom:8px;"></div>
-            <div style="overflow:hidden; border:1px solid #b88742; border-radius:6px; background:#fffdf0;">
+            <div style="overflow:hidden; border:1px solid #99aee3; border-radius:6px; background:#ffffff;">
                 <div id="festIngredientCategoryPanels" style="display:flex; transition:transform 0.25s ease;"></div>
             </div>
-            <h3 style="font-size:14px; margin:14px 0 6px;">スパイスを選ぶ（任意・1つまで）</h3>
+            <h3 style="font-size:14px; margin:14px 0 6px; color:#454545;">スパイスを選ぶ（任意・1つまで）</h3>
             <div id="festCookSelectedSpiceSlot" style="display:flex; gap:6px; margin-bottom:8px;"></div>
-            <div id="festSpiceCategoryPanel" style="border:1px solid #b88742; border-radius:6px; background:#fffdf0; padding:8px;"></div>
+            <div id="festSpiceCategoryPanel" style="border:1px solid #99aee3; border-radius:6px; background:#ffffff; padding:8px;"></div>
         </div>
 
         <!-- 仲間パネル：ストックカレー／雇用中の仲間表示／仲間を雇う -->
         <div id="festAllyPanel" style="padding:12px 10px; display:none;">
-            <h3 style="font-size:14px; margin:0 0 6px;">ストックカレー</h3>
+            <h3 style="font-size:14px; margin:0 0 6px; color:#454545;">ストックカレー</h3>
             <div id="festCurryStockList" style="display:flex; flex-wrap:wrap; gap:8px; margin-bottom:16px;"></div>
-            <h3 style="font-size:14px; margin:0 0 6px;">仲間</h3>
+            <h3 style="font-size:14px; margin:0 0 6px; color:#454545;">仲間</h3>
             <div id="festAllyDisplay" style="margin-bottom:14px;"></div>
             <button class="btn btn-battle" style="width:100%;" onclick="openFestHireModal()">仲間を雇う</button>
         </div>
     </div>
 
     <!-- フェス専用ショップモーダル -->
-    <div class="modal-overlay" id="festShopOverlay" style="display:none;">
-        <div class="modal-box" style="max-width:420px;">
+    <div class="modal-overlay fest-theme" id="festShopOverlay" style="display:none;">
+        <div class="modal-box fest-theme" style="max-width:420px;">
             <div class="modal-title" style="text-align:center;">🎪 フェスショップ</div>
             <div class="shop-grid" style="margin-top:10px;">
                 <button class="btn-shop btn-shop-30" id="festBtnGachaNormal" onclick="buyFestShopItem('normal')">食材くじ（3FP）<br><span style="font-size:9px;font-weight:normal;">ノーマル食材1個</span></button>
@@ -1352,8 +1370,8 @@
     </div>
 
     <!-- フェス専用 仲間雇用モーダル -->
-    <div class="modal-overlay" id="festHireOverlay" style="display:none;">
-        <div class="modal-box" style="max-width:420px;">
+    <div class="modal-overlay fest-theme" id="festHireOverlay" style="display:none;">
+        <div class="modal-box fest-theme" style="max-width:420px;">
             <div class="modal-title" style="text-align:center;">🤝 仲間を雇う</div>
             <div id="festHireListArea" style="margin-top:10px; max-height:60vh; overflow-y:auto;"></div>
             <button class="modal-btn modal-btn-cancel" style="width:100%;margin-top:12px;" onclick="closeFestHireModal()">閉じる</button>
@@ -2697,10 +2715,16 @@ function showFestScreen() {
     setFestStatusBarVisible(true);
     updateFestStatusBar();
     showFestPanel(festActivePanel || 'cook');
+    hideQuestGuideChar(); // フェス中は右下の案内人を非表示
+    const cm = document.getElementById('customModal');
+    if(cm) cm.classList.add('fest-theme'); // フェス中は共有アラート（くじ結果・購入完了等）もフェス配色にする
 }
 function hideFestScreen() {
     setFestStatusBarVisible(false);
     switchTab('battle', document.querySelector('.tab-btn[onclick*="battle"]'));
+    showBattleGuideChar(); // フェス終了・撤退で対戦タブに戻るので案内人を再表示
+    const cm = document.getElementById('customModal');
+    if(cm) cm.classList.remove('fest-theme');
 }
 // フェス中はメインタブ・通常の資金表示欄を非表示にし、フェス専用ヘッダーに切り替える
 function setFestStatusBarVisible(isFest) {
@@ -2830,15 +2854,15 @@ function renderFestCookSelectedSlots() {
     for(let i = 0; i < 3; i++) {
         const name = festCookSelectedIngredients[i];
         const box = document.createElement("div");
-        box.style.cssText = "flex:1; min-height:96px; border:1px dashed #b88742; border-radius:6px; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:4px; cursor:pointer; background:#fffdf0;";
+        box.style.cssText = "flex:1; min-height:96px; border:1px dashed #99aee3; border-radius:6px; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:4px; cursor:pointer; background:#ffffff;";
         if(name) {
             const d = masterIngredients[name];
-            if(d && d.shop !== 0) { applyRarityBorder(box, d.shop, '#fffdf0'); } else { box.style.border = "1px solid #b88742"; }
-            const statLine = d ? `<div style="font-size:11px;color:#5a3a1a;font-weight:bold;line-height:1.4;margin-top:2px;">HP+${d.hp} ATK+${d.atk}<br>DEF+${d.def} SPD+${d.spd}</div>` : '';
-            box.innerHTML = (d && d.icon ? `<img src="${d.icon}" style="width:26px;height:26px;object-fit:contain;">` : '') + `<div style="font-size:10px;color:#420000;margin-top:1px;text-align:center;">${name}</div>` + statLine;
+            if(d && d.shop !== 0) { applyRarityBorder(box, d.shop, '#ffffff'); } else { box.style.border = "1px solid #99aee3"; }
+            const statLine = d ? `<div style="font-size:11px;color:#454545;font-weight:bold;line-height:1.4;margin-top:2px;">HP+${d.hp} ATK+${d.atk}<br>DEF+${d.def} SPD+${d.spd}</div>` : '';
+            box.innerHTML = (d && d.icon ? `<img src="${d.icon}" style="width:26px;height:26px;object-fit:contain;">` : '') + `<div style="font-size:10px;color:#454545;margin-top:1px;text-align:center;">${name}</div>` + statLine;
             box.onclick = function(){ festCookSelectedIngredients.splice(i,1); renderFestCookUI(); };
         } else {
-            box.innerHTML = `<div style="font-size:22px;color:#cbb088;">＋</div>`;
+            box.innerHTML = `<div style="font-size:22px;color:#accced;">＋</div>`;
         }
         wrap.appendChild(box);
     }
@@ -2867,7 +2891,7 @@ function renderFestCookCategoryPanels() {
         const items = getFestCookCategoryItems(c.key);
         if(items.length === 0) {
             const label = COOK_CATEGORY_LABEL_JA[c.key] || '';
-            panel.innerHTML = `<div style="text-align:center;color:#b0a090;font-size:12px;padding:20px 0;">所持している${label}食材はありません</div>`;
+            panel.innerHTML = `<div style="text-align:center;color:#454545;font-size:12px;padding:20px 0;">所持している${label}食材はありません</div>`;
         } else {
             const grid = document.createElement("div");
             grid.style.cssText = "display:grid; grid-template-columns:repeat(3,1fr); gap:8px;";
@@ -2878,9 +2902,9 @@ function renderFestCookCategoryPanels() {
                 const isFull = festCookSelectedIngredients.length >= 3;
                 const disabled = usedCount >= have;
                 const cell = document.createElement("div");
-                cell.style.cssText = `text-align:center; padding:6px 2px; border-radius:6px; border:1px solid ${disabled?'#e0d0b0':'#b88742'}; background:${disabled?'#ece2cc':'#fff'}; opacity:${disabled?'0.5':'1'}; cursor:${disabled?'default':'pointer'};`;
+                cell.style.cssText = `text-align:center; padding:6px 2px; border-radius:6px; border:1px solid ${disabled?'#accced':'#99aee3'}; background:${disabled?'#ffffff':'#fff'}; opacity:${disabled?'0.5':'1'}; cursor:${disabled?'default':'pointer'};`;
                 cell.innerHTML = (d && d.icon ? `<img src="${d.icon}" style="width:32px;height:32px;object-fit:contain;">` : '<div style="font-size:24px;">🍴</div>')
-                    + `<div style="font-size:10px;color:#420000;margin-top:2px;">${name}</div>`
+                    + `<div style="font-size:10px;color:#454545;margin-top:2px;">${name}</div>`
                     + `<div style="font-size:10px;color:#888;">所持:${have - usedCount}</div>`
                     + `<div style="font-size:10px;color:#aaa;">${d.hp}/${d.atk}/${d.def}/${d.spd}</div>`;
                 if(!disabled && d && d.shop !== 0) applyRarityBorder(cell, d.shop, '#fff');
@@ -2901,22 +2925,22 @@ function renderFestCookSpicePanel() {
     if(!slotWrap || !panel) return;
     slotWrap.innerHTML = "";
     const slotBox = document.createElement("div");
-    slotBox.style.cssText = "flex:0 0 120px; min-height:80px; border:1px dashed #b88742; border-radius:6px; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:4px; cursor:pointer; background:#fffdf0;";
+    slotBox.style.cssText = "flex:0 0 120px; min-height:80px; border:1px dashed #99aee3; border-radius:6px; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:4px; cursor:pointer; background:#ffffff;";
     if(festCookSelectedSpice) {
         const d = masterSpices[festCookSelectedSpice];
-        if(d && d.shop !== 0) { applyRarityBorder(slotBox, d.shop, '#fffdf0'); } else { slotBox.style.border = "1px solid #b88742"; }
-        const statLine = d ? `<div style="font-size:11px;color:#5a3a1a;font-weight:bold;margin-top:2px;">${formatSpiceEffectText(d)}</div>` : '';
-        slotBox.innerHTML = (d && d.icon ? `<img src="${d.icon}" style="width:26px;height:26px;object-fit:contain;">` : '') + `<div style="font-size:10px;color:#420000;margin-top:1px;">${festCookSelectedSpice}</div>` + statLine;
+        if(d && d.shop !== 0) { applyRarityBorder(slotBox, d.shop, '#ffffff'); } else { slotBox.style.border = "1px solid #99aee3"; }
+        const statLine = d ? `<div style="font-size:11px;color:#454545;font-weight:bold;margin-top:2px;">${formatSpiceEffectText(d)}</div>` : '';
+        slotBox.innerHTML = (d && d.icon ? `<img src="${d.icon}" style="width:26px;height:26px;object-fit:contain;">` : '') + `<div style="font-size:10px;color:#454545;margin-top:1px;">${festCookSelectedSpice}</div>` + statLine;
         slotBox.onclick = function(){ festCookSelectedSpice = ""; renderFestCookUI(); };
     } else {
-        slotBox.innerHTML = `<div style="font-size:20px;color:#cbb088;">＋</div>`;
+        slotBox.innerHTML = `<div style="font-size:20px;color:#accced;">＋</div>`;
     }
     slotWrap.appendChild(slotBox);
 
     panel.innerHTML = "";
     const spiceNames = Object.keys(masterSpices).filter(function(n){ return (festSpiceInventory[n]||0) > 0; });
     if(spiceNames.length === 0) {
-        panel.innerHTML = `<div style="text-align:center;color:#b0a090;font-size:12px;padding:10px 0;">所持しているスパイスがありません</div>`;
+        panel.innerHTML = `<div style="text-align:center;color:#454545;font-size:12px;padding:10px 0;">所持しているスパイスがありません</div>`;
         return;
     }
     const grid = document.createElement("div");
@@ -2926,13 +2950,13 @@ function renderFestCookSpicePanel() {
         const have = festSpiceInventory[name] || 0;
         const isSelected = festCookSelectedSpice === name;
         const cell = document.createElement("div");
-        cell.style.cssText = `text-align:center; padding:6px 2px; border-radius:6px; border:${isSelected?'2px':'1px'} solid ${isSelected?'#420000':'#b88742'}; background:${isSelected?'#f5e9c8':'#fff'}; cursor:pointer;`;
+        cell.style.cssText = `text-align:center; padding:6px 2px; border-radius:6px; border:${isSelected?'2px':'1px'} solid ${isSelected?'#454545':'#99aee3'}; background:${isSelected?'#ffe699':'#fff'}; cursor:pointer;`;
         cell.innerHTML = (d && d.icon ? `<img src="${d.icon}" style="width:32px;height:32px;object-fit:contain;">` : '<div style="font-size:24px;">🧂</div>')
-            + `<div style="font-size:10px;color:#420000;margin-top:2px;">${name}</div>`
+            + `<div style="font-size:10px;color:#454545;margin-top:2px;">${name}</div>`
             + `<div style="font-size:10px;color:#888;">所持:${have}</div>`
             + `<div style="font-size:10px;color:#aaa;">${formatSpiceEffectText(d)}</div>`;
         cell.onclick = function(){ festCookSelectedSpice = name; renderFestCookUI(); };
-        if(d && d.shop) applyRarityBorder(cell, d.shop, isSelected ? '#f5e9c8' : '#fff');
+        if(d && d.shop) applyRarityBorder(cell, d.shop, isSelected ? '#ffe699' : '#fff');
         grid.appendChild(cell);
     });
     panel.appendChild(grid);
@@ -3072,12 +3096,12 @@ function showFestCurryDetail(idx) {
     const skills = getCurrySkills(c);
     let skillsHtml = '';
     if(skills.length > 0) {
-        skillsHtml = skills.map(function(s){ return '<div style="margin-top:8px;"><b style="color:#e67e22;">' + s.name + '</b><br><span style="font-size:12px;">' + s.desc + '</span></div>'; }).join('');
+        skillsHtml = skills.map(function(s){ return '<div style="margin-top:8px;"><b style="color:#ff998b;">' + s.name + '</b><br><span style="font-size:12px;">' + s.desc + '</span></div>'; }).join('');
     }
     const html = '<img src="' + typeImg + '" style="width:90px;height:90px;object-fit:contain;display:block;margin:0 auto 10px;">'
-        + '<div style="font-weight:bold;color:#c0392b;margin-bottom:4px;">' + typeLabel + '</div>'
+        + '<div style="font-weight:bold;color:#ff998b;margin-bottom:4px;">' + typeLabel + '</div>'
         + '<div style="display:flex;justify-content:center;gap:4px;margin-bottom:8px;">' + iconsHtml + '</div>'
-        + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:13px;font-weight:bold;color:#420000;margin-bottom:6px;">'
+        + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:13px;font-weight:bold;color:#454545;margin-bottom:6px;">'
         + '<div>HP: ' + c.hp + '</div><div>ATK: ' + c.atk + '</div><div>DEF: ' + c.def + '</div><div>SPD: ' + c.spd + '</div>'
         + '</div>'
         + skillsHtml;
@@ -3087,10 +3111,10 @@ function renderFestAllyUI() {
     const stockBox = document.getElementById('festCurryStockList');
     if(stockBox) {
         stockBox.innerHTML = festCurryStock.length === 0
-            ? '<div style="color:#b0a090; font-size:12px; padding:8px 0;">所持しているカレーはありません</div>'
+            ? '<div style="color:#454545; font-size:12px; padding:8px 0;">所持しているカレーはありません</div>'
             : festCurryStock.map(function(c, idx){
                 const typeImg = getCurryImage(c);
-                return '<div onclick="showFestCurryDetail(' + idx + ')" style="flex:0 0 30%; background:#fff8ee; border:1px solid #b88742; border-radius:6px; padding:8px; text-align:center; font-size:11px; color:#420000; cursor:pointer;">'
+                return '<div onclick="showFestCurryDetail(' + idx + ')" style="flex:0 0 30%; background:#ffffff; border:1px solid #99aee3; border-radius:6px; padding:8px; text-align:center; font-size:11px; color:#454545; cursor:pointer;">'
                     + '<img src="' + typeImg + '" style="width:36px;height:36px;object-fit:contain;display:block;margin:0 auto 4px;">' + c.name + '</div>';
             }).join('');
     }
@@ -3103,15 +3127,15 @@ function renderFestAllyUI() {
             const needExp = festExpNeededForLevel(Math.min(progress.level+1, FEST_ALLY_LEVEL_CAP));
             allyBox.innerHTML =
                 '<div style="display:flex; align-items:center; gap:12px;">'
-                + '<img src="' + (def ? def.image : '') + '" style="width:64px; height:64px; border-radius:50%; border:2px solid #b88742; object-fit:cover; background:#fff;">'
-                + '<div style="text-align:left; font-size:12px; color:#420000; line-height:1.6;">'
+                + '<img src="' + (def ? def.image : '') + '" style="width:64px; height:64px; border-radius:50%; border:2px solid #99aee3; object-fit:cover; background:#fff;">'
+                + '<div style="text-align:left; font-size:12px; color:#454545; line-height:1.6;">'
                 + '<div style="font-weight:bold; font-size:14px;">' + festHiredAllyName + '</div>'
                 + 'Lv.' + progress.level + (progress.level < FEST_ALLY_LEVEL_CAP ? '(EXP' + progress.exp + '/' + needExp + ')' : '(カンスト)') + '<br>'
                 + 'HP:' + stats.hp + ' ATK:' + stats.atk + ' DEF:' + stats.def + ' SPD:' + stats.spd + '<br>'
                 + '特技：（Phase3で実装予定）'
                 + '</div></div>';
         } else {
-            allyBox.innerHTML = '<div style="color:#b0a090; font-size:12px; padding:8px 0;">仲間は未雇用です</div>';
+            allyBox.innerHTML = '<div style="color:#454545; font-size:12px; padding:8px 0;">仲間は未雇用です</div>';
         }
     }
 }
@@ -3120,14 +3144,14 @@ function openFestHireModal() {
     const box = document.getElementById('festHireListArea');
     if(box) {
         if(festHireCandidates.length === 0) {
-            box.innerHTML = '<div style="text-align:center; color:#b0a090; font-size:12px; padding:16px 0;">討伐済みのbotがいないため、今回雇える仲間はいません。<br>PC戦（初級・中級）で敵を倒してから挑戦してください。</div>';
+            box.innerHTML = '<div style="text-align:center; color:#454545; font-size:12px; padding:16px 0;">討伐済みのbotがいないため、今回雇える仲間はいません。<br>PC戦（初級・中級）で敵を倒してから挑戦してください。</div>';
         } else {
             box.innerHTML = festHireCandidates.map(function(name) {
                 const def = getFestAllyDef(name);
                 const stats = getFestAllyCurrentStats(name);
                 const already = festHiredAllyName === name;
-                return '<div style="display:flex; align-items:center; gap:10px; padding:8px 0; border-bottom:1px solid #e0d0b0;">'
-                    + '<div style="flex:1; text-align:left; font-size:12px; color:#420000;">'
+                return '<div style="display:flex; align-items:center; gap:10px; padding:8px 0; border-bottom:1px solid #accced;">'
+                    + '<div style="flex:1; text-align:left; font-size:12px; color:#454545;">'
                     + '<b>' + name + '</b>（Lv' + stats.level + '）<br>'
                     + 'HP:' + stats.hp + ' ATK:' + stats.atk + ' DEF:' + stats.def + ' SPD:' + stats.spd
                     + '</div>'
