@@ -1397,25 +1397,17 @@
                 </div>
 
                 <div class="tag-enemy-zone" id="festEnemyZone">
-                    <div class="tag-enemy-card" id="festEnemyCard0">
-                        <div class="tag-enemy-card-top">
-                            <div class="tag-enemy-card-visual"><img id="festEnemyImg0" src="" alt=""></div>
-                            <div class="tag-enemy-card-name" id="festEnemyName0">敵1</div>
-                            <div class="tag-enemy-hp-block">
-                                <div class="hp-bar-bg tag-enemy-hpbar-bg"><div id="festEnemyHpBar0" class="hp-bar"></div></div>
-                                <span class="tag-enemy-card-hp" id="festEnemyHpText0">HP: --/--</span>
-                            </div>
-                        </div>
+                    <div class="tag-enemy-card" id="festEnemyCard0" style="text-align:center;">
+                        <div class="tag-enemy-card-visual" style="margin:0 auto 6px;"><img id="festEnemyImg0" src="" alt=""></div>
+                        <div class="tag-enemy-card-name" id="festEnemyName0" style="text-align:center;">敵1</div>
+                        <div class="hp-bar-bg tag-enemy-hpbar-bg" style="margin-top:4px;"><div id="festEnemyHpBar0" class="hp-bar"></div></div>
+                        <span class="tag-enemy-card-hp" id="festEnemyHpText0" style="display:block; text-align:center;">HP: --/--</span>
                     </div>
-                    <div class="tag-enemy-card" id="festEnemyCard1">
-                        <div class="tag-enemy-card-top">
-                            <div class="tag-enemy-card-visual"><img id="festEnemyImg1" src="" alt=""></div>
-                            <div class="tag-enemy-card-name" id="festEnemyName1">敵2</div>
-                            <div class="tag-enemy-hp-block">
-                                <div class="hp-bar-bg tag-enemy-hpbar-bg"><div id="festEnemyHpBar1" class="hp-bar"></div></div>
-                                <span class="tag-enemy-card-hp" id="festEnemyHpText1">HP: --/--</span>
-                            </div>
-                        </div>
+                    <div class="tag-enemy-card" id="festEnemyCard1" style="text-align:center;">
+                        <div class="tag-enemy-card-visual" style="margin:0 auto 6px;"><img id="festEnemyImg1" src="" alt=""></div>
+                        <div class="tag-enemy-card-name" id="festEnemyName1" style="text-align:center;">敵2</div>
+                        <div class="hp-bar-bg tag-enemy-hpbar-bg" style="margin-top:4px;"><div id="festEnemyHpBar1" class="hp-bar"></div></div>
+                        <span class="tag-enemy-card-hp" id="festEnemyHpText1" style="display:block; text-align:center;">HP: --/--</span>
                     </div>
                 </div>
 
@@ -1481,6 +1473,24 @@
             <div class="modal-title" style="text-align:center;">🤝 仲間を雇う</div>
             <div id="festHireListArea" style="margin-top:10px; max-height:60vh; overflow-y:auto;"></div>
             <button class="modal-btn modal-btn-cancel" style="width:100%;margin-top:12px;" onclick="closeFestHireModal()">閉じる</button>
+        </div>
+    </div>
+    <!-- バトル中：出撃カレーのHPが0になった際、次に出すカレーを選ぶモーダル -->
+    <div class="modal-overlay fest-theme" id="festCurrySwapOverlay" style="display:none;">
+        <div class="modal-box fest-theme" style="max-width:420px;">
+            <div class="modal-title" style="text-align:center;">🍛 次に出すカレーを選んでください</div>
+            <div id="festCurrySwapList" style="margin-top:10px; display:flex; flex-direction:column; gap:8px; max-height:60vh; overflow-y:auto;"></div>
+        </div>
+    </div>
+    <!-- バトル中：回復スパイスの対象（カレー／仲間）を選ぶモーダル -->
+    <div class="modal-overlay fest-theme" id="festHealTargetOverlay" style="display:none;">
+        <div class="modal-box fest-theme" style="max-width:360px;">
+            <div class="modal-title" style="text-align:center;">💊 回復スパイスを使う</div>
+            <div class="modal-message">どちらを回復しますか？</div>
+            <div class="modal-btn-group">
+                <button class="modal-btn modal-btn-ok" onclick="chooseFestHealTarget('curry')">カレー</button>
+                <button class="modal-btn modal-btn-ok" onclick="chooseFestHealTarget('ally')">仲間</button>
+            </div>
         </div>
     </div>
     <div id="pageBattle" class="page">
@@ -2650,15 +2660,16 @@ let festAllyPoisoned = false;        // 同上、仲間側
 
 // 仲間bot定義（雇用費・基本ステータス・初期レベル）。初期レベルは、タカシの成長曲線
 // 合計=190+10×(Lv-1) に各botの基本合計ステータスを当てはめて算出したもの（設計書2-4参照）。
+// specialEffect：PCと対戦（初級・中級）の同名Botと同じ特技をそのまま流用（無印はPC戦でも特技なし）
 const FEST_ALLY_DEFS = [
     { name:'見習い料理人タカシ',     cost:3,  hp:130, atk:25,  def:20,  spd:15, initLevel:1,  image:'botimage/bot01.png' },
     { name:'魔術師レオン',           cost:10, hp:180, atk:65,  def:15,  spd:35, initLevel:12, image:'botimage/bot02.png' },
     { name:'ガンコ親父',             cost:15, hp:280, atk:55,  def:45,  spd:5,  initLevel:21, image:'botimage/bot03.png' },
     { name:'宮廷カレー長',           cost:20, hp:350, atk:90,  def:60,  spd:40, initLevel:36, image:'botimage/bot04.png' },
-    { name:'イカ星人グニョグニョ',   cost:30, hp:250, atk:95,  def:50,  spd:60, initLevel:28, image:'botimage/bot06.png' },
-    { name:'種まき婆ちゃん',         cost:30, hp:250, atk:80,  def:140, spd:15, initLevel:31, image:'botimage/bot07.png' },
-    { name:'ドラゴン料理長',         cost:40, hp:400, atk:100, def:60,  spd:20, initLevel:40, image:'botimage/bot08.png' },
-    { name:'毒舌料理人ミスズ',       cost:40, hp:360, atk:90,  def:65,  spd:35, initLevel:37, image:'botimage/bot09.png' },
+    { name:'イカ星人グニョグニョ',   cost:30, hp:250, atk:95,  def:50,  spd:60, initLevel:28, image:'botimage/bot06.png', specialEffect:'illusion' },
+    { name:'種まき婆ちゃん',         cost:30, hp:250, atk:80,  def:140, spd:15, initLevel:31, image:'botimage/bot07.png', specialEffect:'seed' },
+    { name:'ドラゴン料理長',         cost:40, hp:400, atk:100, def:60,  spd:20, initLevel:40, image:'botimage/bot08.png', specialEffect:'breath' },
+    { name:'毒舌料理人ミスズ',       cost:40, hp:360, atk:90,  def:65,  spd:35, initLevel:37, image:'botimage/bot09.png', specialEffect:'poison' },
 ];
 
 // フェス専用の敵キャラ（設計書3-3の弱体化版数値）。既存タッグ戦のBotは使い回さない。
@@ -2695,6 +2706,16 @@ function festExpNeededForLevel(lv) {
     return 20; // Lv31〜50
 }
 function getFestAllyDef(name) { return FEST_ALLY_DEFS.find(function(b){ return b.name === name; }) || null; }
+// 特技IDを日本語ラベルに変換（仲間パネル表示用）
+function getFestAllySpecialLabel(specialEffect) {
+    switch(specialEffect) {
+        case 'illusion': return '幻惑（敵をたまに攻撃ミスにする）';
+        case 'seed': return '種連続発射（多段攻撃）';
+        case 'breath': return '熱々ブレス（敵全体にDEF無視ダメージ）';
+        case 'poison': return '毒（敵に継続ダメージ）';
+        default: return '特になし';
+    }
+}
 // 現在のレベル・経験値（永続データ。未登録なら初期レベルを返す）
 function getFestAllyProgress(name) {
     const def = getFestAllyDef(name);
@@ -2980,7 +3001,8 @@ function makeFestEnemyInstance(def, mult, level, isBoss) {
         name: def.name, image: def.image, isBoss: isBoss, level: level,
         maxHp: maxHp, curHp: maxHp,
         atk: Math.round(def.atk * mult), def: Math.round(def.def * mult), spd: Math.round(def.spd * mult),
-        skill: def.skill, turnsActed: 0, selfHealUsed: false, statusAtkDown: false
+        skill: def.skill, turnsActed: 0, selfHealUsed: false, statusAtkDown: false,
+        isPoisoned: false, poisonLevel: 0, isIlluded: false
     };
 }
 function buildFestBattleEnemies() {
@@ -3103,7 +3125,7 @@ let festBattleQueue = [];       // 現在のラウンドの残り行動キュー
 let festBattleLogHistory = [];  // 戦闘ログの履歴（📜 戦闘ログボタンで一覧表示）
 // フェスバトルのBGM。既存のplayBattleBGM/stopBattleBGM（全バトル共通）をそのまま利用する。
 function festPlayBattleBgm(isZako) {
-    playBattleBGM(isZako ? 'soound/fest-zako.mp3' : 'soound/fest-boss.mp3');
+    playBattleBGM(isZako ? 'sound/fest-zako.mp3' : 'sound/fest-boss.mp3');
 }
 function festStopBattleBgm() { stopBattleBGM(); }
 
@@ -3135,6 +3157,8 @@ function startFestBattle() {
     festInitBattleCards();
     festPlayBattleBgm(festBattlePhase <= 3);
     festLogSet((festBattlePhase <= 3 ? '雑魚' : 'ボス') + 'が現れた！');
+    festApplyAllySpecialOnBattleStart();
+    festUpdateAllHpDisplays();
     setTimeout(festBattleAutoStep, battleDelay(700));
 }
 // カード（画像・名前）の初期表示を行う。HPバーは festUpdateAllHpDisplays() 側で毎アクション更新する。
@@ -3276,7 +3300,7 @@ function applyFestPoisonTick() {
     if(festPlayerPoisoned && curry && curry.curHp > 0) {
         curry.curHp = Math.max(0, curry.curHp - 10);
         festTriggerDamagePop('player', 0, 10, '#9b59b6');
-        festLogSet('☠️ 毒のダメージ！ ' + curry.name + 'に10ダメージ！');
+        festLogSet('☠️ 毒のダメージ！ ' + playerName + 'に10ダメージ！');
         playSoundEffect('poison.mp3');
     }
     if(festAllyPoisoned && festHiredAllyName && festAllyHp > 0) {
@@ -3285,16 +3309,62 @@ function applyFestPoisonTick() {
         festLogAppend('☠️ 毒のダメージ！ ' + festHiredAllyName + 'に10ダメージ！');
         playSoundEffect('poison.mp3');
     }
+    // 仲間「毒舌料理人ミスズ」の特技で毒にかかった敵側の継続ダメージ（タッグ戦のtagExecuteTurnStartと同じ計算式）
+    festBattleEnemies.forEach(function(e, idx) {
+        if(e.isPoisoned && e.curHp > 0) {
+            const d = Math.round(e.maxHp * 0.08 * (e.poisonLevel || 1));
+            e.curHp = Math.max(0, e.curHp - d);
+            festTriggerDamagePop('enemy', idx, d, '#9b59b6');
+            festLogAppend('☠️ 毒のダメージ！ ' + e.name + 'に' + d + 'ダメージ！');
+            playSoundEffect('poison.mp3');
+        }
+    });
     festUpdateAllHpDisplays();
 }
-function festPlayerActAttack(unitType, curry, allyStats) {
+// 戦闘開始時：雇用中の仲間が幻惑／毒の特技を持つ場合、敵側のランダムな1体に付与する（タッグ戦の開幕処理と同じ）
+function festApplyAllySpecialOnBattleStart() {
+    [0,1].forEach(function(i) {
+        const el = document.getElementById('festEnemyName' + i);
+        if(el) el.classList.remove('name-poisoned', 'name-illuded');
+    });
+    const allyDef = festHiredAllyName ? getFestAllyDef(festHiredAllyName) : null;
+    if(!allyDef || (allyDef.specialEffect !== 'poison' && allyDef.specialEffect !== 'illusion')) return;
     const pick = pickLivingFestEnemyWithIdx();
     if(!pick) return;
+    const target = pick.enemy;
+    if(allyDef.specialEffect === 'poison' && !target.isPoisoned) {
+        target.isPoisoned = true;
+        target.poisonLevel = 1;
+        festLogAppend('☠️ ' + target.name + 'は毒にかかった！');
+        setTimeout(function() {
+            playSoundEffect('poison.mp3');
+            const el = document.getElementById('festEnemyName' + pick.idx);
+            if(el) el.classList.add('name-poisoned');
+        }, battleDelay(300));
+    } else if(allyDef.specialEffect === 'illusion' && !target.isIlluded) {
+        target.isIlluded = true;
+        festLogAppend('🌀 ' + target.name + 'は幻惑にかかった！');
+        setTimeout(function() {
+            playSoundEffect('sound/miss.mp3');
+            const el = document.getElementById('festEnemyName' + pick.idx);
+            if(el) el.classList.add('name-illuded');
+        }, battleDelay(300));
+    }
+}
+function festPlayerActAttack(unitType, curry, allyStats, callback) {
+    const done = callback || function(){};
+    if(unitType === 'ally') {
+        const allyDef = getFestAllyDef(festHiredAllyName);
+        if(allyDef && allyDef.specialEffect === 'seed' && Math.random() < 0.35) { festAllySeedAttack(allyStats, done); return; }
+        if(allyDef && allyDef.specialEffect === 'breath' && Math.random() < 0.25) { festAllyBreathAttack(allyStats, done); return; }
+    }
+    const pick = pickLivingFestEnemyWithIdx();
+    if(!pick) { done(); return; }
     const target = pick.enemy;
     let atk, spd, name;
     if(unitType === 'curry') {
         atk = curry.atk * (festPlayerAtkDownActive ? 0.7 : 1) + (festSpicyBuffActive ? 40 : 0);
-        spd = curry.spd; name = curry.name;
+        spd = curry.spd; name = playerName;
     } else {
         atk = allyStats.atk * (festAllyAtkDownActive ? 0.7 : 1) + (festSpicyBuffActive ? 40 : 0);
         spd = allyStats.spd; name = festHiredAllyName;
@@ -3307,6 +3377,51 @@ function festPlayerActAttack(unitType, curry, allyStats) {
     festLogSet((isCrit ? '🌟会心！ ' : '') + name + 'の攻撃！ ' + target.name + 'に' + d + 'ダメージ！');
     playSoundEffect('punch.mp3');
     festUpdateAllHpDisplays();
+    done();
+}
+// 仲間「種まき婆ちゃん」の特技：種連続発射（タッグ戦の同名Botと同じ計算式・演出。演出はタッグ戦のplayTanemakiAnimationを共用）
+function festAllySeedAttack(allyStats, callback) {
+    const done = callback || function(){};
+    const aliveEnemies = festBattleEnemies.filter(function(e){ return e.curHp > 0; });
+    if(aliveEnemies.length === 0) { done(); return; }
+    playTanemakiAnimation(TANEMAKI_TAG_ENEMY_CONFIG, false, function() {
+        const avgEnemySpd = aliveEnemies.reduce(function(a,e){ return a + e.spd; }, 0) / aliveEnemies.length;
+        const hits = rollSeedHits(allyStats.spd, avgEnemySpd);
+        let total = 0;
+        const records = [];
+        for(let h = 0; h < hits; h++) {
+            const pick = pickLivingFestEnemyWithIdx();
+            if(!pick) break;
+            let d = Math.max(2, Math.round(allyStats.atk*0.4 - pick.enemy.def/4));
+            d = Math.round(d * (0.9 + Math.random()*0.2));
+            if(Math.random() < getCritRate(allyStats.spd, avgEnemySpd)) d = Math.round(d*2);
+            pick.enemy.curHp = Math.max(0, pick.enemy.curHp - d);
+            total += d;
+            records.push({ idx: pick.idx, d: d });
+        }
+        festLogSet('🌱 ' + festHiredAllyName + 'の種連続発射 ' + hits + '連撃！ 合計' + total + 'ダメージ！');
+        playSoundEffect('machine-gun.mp3');
+        records.forEach(function(r){ festTriggerDamagePop('enemy', r.idx, r.d, '#f1c40f'); });
+        festUpdateAllHpDisplays();
+        done();
+    });
+}
+// 仲間「ドラゴン料理長」の特技：熱々ブレス（タッグ戦の同名Botと同じ計算式・演出。敵全体にDEF無視固定ダメージ。演出はタッグ戦のplayTanemakiAnimationを共用）
+function festAllyBreathAttack(allyStats, callback) {
+    const done = callback || function(){};
+    const aliveEnemies = festBattleEnemies.filter(function(e){ return e.curHp > 0; });
+    if(aliveEnemies.length === 0) { done(); return; }
+    playTanemakiAnimation(DRAGON_TAG_ENEMY_CONFIG, false, function() {
+        festBattleEnemies.forEach(function(e, idx) {
+            if(e.curHp <= 0) return;
+            e.curHp = Math.max(0, e.curHp - 40);
+            festTriggerDamagePop('enemy', idx, 40, '#e74c3c');
+        });
+        festLogSet('🔥 ' + festHiredAllyName + 'の熱々ブレス！敵全体にDEF無視40ダメージ！');
+        playSoundEffect('breath.mp3');
+        festUpdateAllHpDisplays();
+        done();
+    });
 }
 function festEnemyActAttackSimple(e, curry, allyStats) {
     const targets = [];
@@ -3316,7 +3431,7 @@ function festEnemyActAttackSimple(e, curry, allyStats) {
     const t = targets[Math.floor(Math.random() * targets.length)];
     const targetDef = t.type === 'curry' ? curry.def : allyStats.def;
     const targetSpd = t.type === 'curry' ? curry.spd : allyStats.spd;
-    const targetName = t.type === 'curry' ? curry.name : festHiredAllyName;
+    const targetName = t.type === 'curry' ? playerName : festHiredAllyName;
     const isCrit = Math.random() < getCritRate(e.spd, targetSpd);
     let d = isCrit ? Math.max(8, e.atk) : Math.max(8, e.atk - Math.floor(targetDef/2));
     d = Math.round(d * (0.9 + Math.random()*0.2));
@@ -3327,6 +3442,18 @@ function festEnemyActAttackSimple(e, curry, allyStats) {
     festUpdateAllHpDisplays();
 }
 function festEnemyActAttack(e, curry, allyStats, enemyIdx) {
+    // 幻惑状態（仲間「イカ星人グニョグニョ」の特技で付与）：タッグ戦と同じミス判定
+    if(e.isIlluded) {
+        const aliveSpds = [];
+        if(curry && curry.curHp > 0) aliveSpds.push(curry.spd);
+        if(allyStats && festAllyHp > 0) aliveSpds.push(allyStats.spd);
+        const avgSpd = aliveSpds.length ? aliveSpds.reduce(function(a,b){ return a+b; },0)/aliveSpds.length : 50;
+        if(Math.random() < getIllusionMissRate(e.spd, avgSpd)) {
+            playSoundEffect('sound/miss.mp3');
+            festLogSet('💨 ' + e.name + 'は幻惑で攻撃が外れた！');
+            return;
+        }
+    }
     e.turnsActed = (e.turnsActed || 0) + 1;
     const skill = e.skill;
     const unlocked = skill && festSetIndex >= skill.levelReq;
@@ -3350,7 +3477,7 @@ function festEnemyActAttack(e, curry, allyStats, enemyIdx) {
     const t = targets[Math.floor(Math.random() * targets.length)];
     const targetDef = t.type === 'curry' ? curry.def : allyStats.def;
     const targetSpd = t.type === 'curry' ? curry.spd : allyStats.spd;
-    const targetName = t.type === 'curry' ? curry.name : festHiredAllyName;
+    const targetName = t.type === 'curry' ? playerName : festHiredAllyName;
 
     let critRate = getCritRate(e.spd, targetSpd);
     if(unlocked && skill.type === 'critUp') critRate += 0.15;
@@ -3402,13 +3529,16 @@ function checkFestBattleEnd() {
     if(stillHasCurrentCurry) {
         festActiveCurryIdx = festCurryStock.indexOf(curry);
     } else if(festCurryStock.length > 0) {
-        festActiveCurryIdx = 0;
-        curry = festCurryStock[0];
-        const n0 = document.getElementById('festPlayerCurryName0');
-        if(n0) n0.innerText = curry.name;
-        const card0 = document.getElementById('festPlayerCard0');
-        if(card0) card0.classList.remove('ko');
-        festLogAppend('🍛 ' + curry.name + 'が代わりに出撃した！');
+        // 出撃中のカレーが力尽きたが、他に出せるカレーがある→自動選択せず、プレイヤーに選ばせる（オートバトルを一時停止）
+        festActiveCurryIdx = -1;
+        curry = null;
+        festUpdateAllHpDisplays();
+        const allyAliveNow = festHiredAllyName && festAllyHp > 0;
+        const enemiesAliveNow = festBattleEnemies.some(function(e){ return e.curHp > 0; });
+        if(!enemiesAliveNow) { festBattleWin(); return true; }
+        saveFestState();
+        festPromptCurrySwap(function(){ festBattleAutoStep(); });
+        return true;
     } else {
         festActiveCurryIdx = -1;
         curry = null;
@@ -3420,6 +3550,36 @@ function checkFestBattleEnd() {
     if(!enemiesAlive) { festBattleWin(); return true; }
     if(!curryAlive && !allyAlive) { festBattleLoseRun(); return true; }
     return false;
+}
+// 出撃中カレーが力尽きた時、次に出すカレーをプレイヤーに選ばせるモーダル（choose後にcallbackでオートバトル再開）
+let festCurrySwapCallback = null;
+function festPromptCurrySwap(callback) {
+    const list = document.getElementById('festCurrySwapList');
+    if(list) {
+        list.innerHTML = festCurryStock.map(function(c, idx) {
+            return '<button class="btn-cook-sub" style="width:100%;" onclick="chooseFestCurrySwap(' + idx + ')">' + c.name + '（HP' + c.curHp + '/' + c.hp + '）</button>';
+        }).join('');
+    }
+    const overlay = document.getElementById('festCurrySwapOverlay');
+    if(overlay) overlay.style.display = 'flex';
+    festCurrySwapCallback = callback;
+}
+function chooseFestCurrySwap(idx) {
+    const curry = festCurryStock[idx];
+    if(!curry) return;
+    festActiveCurryIdx = idx;
+    const overlay = document.getElementById('festCurrySwapOverlay');
+    if(overlay) overlay.style.display = 'none';
+    const n0 = document.getElementById('festPlayerCurryName0');
+    if(n0) n0.innerText = curry.name;
+    const card0 = document.getElementById('festPlayerCard0');
+    if(card0) card0.classList.remove('ko');
+    festLogAppend('🍛 ' + curry.name + 'が代わりに出撃した！');
+    festUpdateAllHpDisplays();
+    saveFestState();
+    const cb = festCurrySwapCallback;
+    festCurrySwapCallback = null;
+    if(cb) cb();
 }
 function festBuildRoundQueue() {
     const curry = festCurryStock[festActiveCurryIdx];
@@ -3447,17 +3607,23 @@ function festBattleAutoStep() {
     const actor = festBattleQueue.shift();
     const curry = festCurryStock[festActiveCurryIdx];
     const allyStats = festHiredAllyName ? getFestAllyCurrentStats(festHiredAllyName) : null;
+    // 種連続発射・熱々ブレスはタッグ戦と同じ演出（playTanemakiAnimation）を挟むため非同期。
+    // 演出完了後のコールバックで戦闘終了判定・保存・次ターン予約を行う。
+    function afterAction() {
+        // checkFestBattleEnd()内でHP0のカレーをストックから消費するため、必ずこの後にsaveFestState()する
+        if(checkFestBattleEnd()) return;
+        saveFestState();
+        setTimeout(festBattleAutoStep, battleDelay(900));
+    }
     if(actor.side === 'player') {
-        if(actor.unit === 'curry' && curry && curry.curHp > 0) festPlayerActAttack('curry', curry, allyStats);
-        if(actor.unit === 'ally' && festAllyHp > 0) festPlayerActAttack('ally', curry, allyStats);
+        if(actor.unit === 'curry' && curry && curry.curHp > 0) { festPlayerActAttack('curry', curry, allyStats, afterAction); return; }
+        if(actor.unit === 'ally' && festAllyHp > 0) { festPlayerActAttack('ally', curry, allyStats, afterAction); return; }
+        afterAction();
     } else {
         const e = festBattleEnemies[actor.idx];
         if(e && e.curHp > 0) festEnemyActAttack(e, curry, allyStats, actor.idx);
+        afterAction();
     }
-    // checkFestBattleEnd()内でHP0のカレーをストックから消費するため、必ずこの後にsaveFestState()する
-    if(checkFestBattleEnd()) return;
-    saveFestState();
-    setTimeout(festBattleAutoStep, battleDelay(900));
 }
 // タッグ戦のtagBattleResultOverlay同様、勝敗が決まったら大きく結果を表示してから下の結果ボックスを開く
 function festShowBattleResultOverlay(text, color, thenShowBox) {
@@ -3508,14 +3674,30 @@ function useFestHealSpiceInBattle() {
     if(festHealSpice <= 0) { showCustomAlert('⚠️ 回復スパイスがありません', 'フェスショップで購入してください。'); return; }
     const curry = festCurryStock[festActiveCurryIdx];
     const allyStats = festHiredAllyName ? getFestAllyCurrentStats(festHiredAllyName) : null;
-    if(!curry && !allyStats) return;
-    const curryPct = curry ? (curry.curHp / curry.hp) : 1;
-    const allyPct = allyStats ? ((festAllyHp === null ? allyStats.hp : festAllyHp) / allyStats.hp) : 1;
+    const curryAlive = curry && curry.curHp > 0;
+    const allyAlive = allyStats && festAllyHp > 0;
+    if(!curryAlive && !allyAlive) return;
+    // カレー・仲間の両方が生存している場合はどちらを回復するか選ばせる（タッグ戦の操作感に合わせる）
+    if(curryAlive && allyAlive) {
+        const overlay = document.getElementById('festHealTargetOverlay');
+        if(overlay) overlay.style.display = 'flex';
+        return;
+    }
+    applyFestHealSpice(curryAlive ? 'curry' : 'ally');
+}
+function chooseFestHealTarget(type) {
+    const overlay = document.getElementById('festHealTargetOverlay');
+    if(overlay) overlay.style.display = 'none';
+    applyFestHealSpice(type);
+}
+function applyFestHealSpice(type) {
+    const curry = festCurryStock[festActiveCurryIdx];
+    const allyStats = festHiredAllyName ? getFestAllyCurrentStats(festHiredAllyName) : null;
     festHealSpice -= 1;
-    if(!allyStats || curryPct <= allyPct) {
+    if(type === 'curry' && curry) {
         curry.curHp = curry.hp;
-        festLogAppend('💊 回復スパイス使用：' + curry.name + 'のHPが全回復した！');
-    } else {
+        festLogAppend('💊 回復スパイス使用：' + playerName + 'のHPが全回復した！');
+    } else if(type === 'ally' && allyStats) {
         festAllyHp = allyStats.hp;
         festLogAppend('💊 回復スパイス使用：' + festHiredAllyName + 'のHPが全回復した！');
     }
@@ -4012,7 +4194,7 @@ function renderFestAllyUI() {
                 + '<div style="font-weight:bold; font-size:14px;">' + festHiredAllyName + '</div>'
                 + 'Lv.' + progress.level + (progress.level < FEST_ALLY_LEVEL_CAP ? '(EXP' + progress.exp + '/' + needExp + ')' : '(カンスト)') + '<br>'
                 + 'HP:' + stats.hp + ' ATK:' + stats.atk + ' DEF:' + stats.def + ' SPD:' + stats.spd + '<br>'
-                + '特技：（Phase3で実装予定）'
+                + '特技：' + getFestAllySpecialLabel(def && def.specialEffect)
                 + '</div></div>';
         } else {
             allyBox.innerHTML = '<div style="color:#454545; font-size:12px; padding:8px 0; background:rgba(255,255,255,0.85); border-radius:8px;">仲間は未雇用です</div>';
