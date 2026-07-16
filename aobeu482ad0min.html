@@ -76,7 +76,8 @@
         <button id="btnNewPlayerMode" style="background:#7f8c8d;" onclick="actToggleNewPlayerMode()">🆕 初期プレイヤー化: OFF</button>
         <button style="background:#2980b9;" onclick="actShowSyncErrors()">🔄 同期エラーログ</button>
         <button style="background:#922b21;" onclick="actShowFraudAlerts()">🚩 不正検知アラート</button>
-        <button style="background:#7f8c8d;" onclick="actResetSyncSeal()">🔧 syncSealリセット（1人）</button>
+        <button style="background:#7f8c8d;" onclick="actResetSyncSeal()">🔧 syncSeal/scanSealリセット（1人）</button>
+        <button style="background:#6d4c1c;" onclick="actResetFestGlobalRecord()">🏆 全プレイヤー最高連勝記録リセット</button>
         <button style="background:#c0392b;" onclick="actDebugModeReleaseAll()">🔓 デバッグモード全解除</button>
         <button style="background:#27ae60;" onclick="actCheckAuthMigrationStatus()">🔑 UID移行状況を確認</button>
         <button style="background:#16a085;" onclick="actResetPlayerUidClaim()">🔓 UID紐付けをリセット（1人）</button>
@@ -610,7 +611,7 @@ function actShowFraudAlerts() {
             const perPlayer = data[pid] || {};
             Object.keys(perPlayer).forEach(function(msgId) {
                 const v = perPlayer[msgId] || {};
-                entries.push({ playerId: pid, name: v.name || '', detectedAt: v.detectedAt || 0 });
+                entries.push({ playerId: pid, name: v.name || '', detectedAt: v.detectedAt || 0, reason: v.reason || 'economy' });
             });
         });
         entries.sort(function(a, b) { return b.detectedAt - a.detectedAt; });
@@ -618,12 +619,17 @@ function actShowFraudAlerts() {
             showCustomAlert('🚩 不正検知アラート', '記録されているアラートはありません。');
             return;
         }
+        // reasonは'economy'/'scanHistory'/'fest'をカンマ区切りで組み合わせた文字列（例:'economy,fest'）。
+        // 過去に書き込まれた古い形式（'both'）とも互換性を持たせて表示する。
+        const reasonLabel = { economy: '💰 経済値(syncSeal)', scanHistory: '📷 スキャン履歴(scanSeal)', fest: '🏆 フェス自己ベスト(festSeal)', both: '💰📷 経済値+スキャン履歴' };
         let rows = '';
         entries.slice(0, 100).forEach(function(e) {
             const dateStr = e.detectedAt ? new Date(e.detectedAt).toLocaleString('ja-JP') : '不明';
+            const reasonText = String(e.reason || 'economy').split(',').map(function(r) { return reasonLabel[r] || r; }).join(' + ');
             rows += '<div style="border:1px solid #922b21;border-radius:6px;padding:8px;margin-bottom:6px;background:#fff5f5;">'
                 + '<div style="font-size:12px;font-weight:bold;color:#922b21;">ID: ' + e.playerId + '</div>'
                 + '<div style="font-size:12px;color:#420000;margin-top:2px;">名前: ' + (e.name || '(不明)') + '</div>'
+                + '<div style="font-size:11px;color:#7d1f1f;margin-top:2px;">検知理由: ' + reasonText + '</div>'
                 + '<div style="font-size:10px;color:#999;margin-top:2px;">' + dateStr + '</div>'
                 + '</div>';
         });
@@ -633,24 +639,52 @@ function actShowFraudAlerts() {
     });
 }
 
-// syncSealのリセット（安全弁）
-// 管理者がFirebase Console等からG/EXP/パック券/スパイシーコインを直接書き換えた場合、
-// syncSealが実際の数値と食い違い、本人が誤って不正検知の対象になってしまう（誤検知）。
-// そのような操作をした後は、このボタンでsyncSealを削除しておくと、次回の正規同期まで
-// チェック対象から外れる（syncSealが存在しない間はチェックされない仕様のため安全）。
+// syncSeal / scanSeal / festSealのリセット（安全弁）
+// 管理者がFirebase Console等からG/EXP/パック券/スパイシーコイン（syncSeal対象）や
+// scanHistory・stats.scanTotal（scanSeal対象）、フェス自己ベスト・参加回数（festSeal対象）を
+// 直接書き換えた場合、該当のsealが実際の値と食い違い、本人が誤って不正検知の対象になってしまう（誤検知）。
+// そのような操作をした後は、書き換えた方のsealだけ削除しておくと、次回の正規同期まで
+// チェック対象から外れる（sealが存在しない間はチェックされない仕様のため安全）。
 function actResetSyncSeal() {
     if (!database) { showCustomAlert("❌ エラー", "通信に問題があります。"); return; }
-    const targetId = prompt("🔧 syncSealをリセットするプレイヤーのIDを入力してください（例: BC-XXXXXXXX）\n\n※G/EXP/パック券/スパイシーコインを管理ツール以外（Firebase Console等）から直接編集した後、誤検知を防ぐために使ってください。");
+    const targetId = prompt("🔧 sealをリセットするプレイヤーのIDを入力してください（例: BC-XXXXXXXX）\n\n※管理ツール以外（Firebase Console等）から直接編集した後、誤検知を防ぐために使ってください。");
     if (!targetId) return;
+    const which = prompt("どちらをリセットしますか？（カンマ区切りで複数選択可、例: 1,3）\n1: syncSeal（G/EXP/パック券/スパイシーコイン）\n2: scanSeal（スキャン履歴・スキャン総数）\n3: festSeal（フェス自己ベスト・参加回数）\n4: すべて\n\n番号を入力してください", "1");
+    if (!which) return;
+    const fieldMap = { '1': 'syncSeal', '2': 'scanSeal', '3': 'festSeal' };
+    let targets = [];
+    const sel = which.split(',').map(function(s) { return s.trim(); });
+    if (sel.indexOf('4') !== -1) {
+        targets = ['syncSeal', 'scanSeal', 'festSeal'];
+    } else {
+        sel.forEach(function(s) { if (fieldMap[s] && targets.indexOf(fieldMap[s]) === -1) targets.push(fieldMap[s]); });
+    }
+    if (targets.length === 0) { showCustomAlert("❌ エラー", "1〜4のいずれかを入力してください。"); return; }
     database.ref('players/' + targetId + '/savedata').once('value').then(function(snap) {
         if (!snap.exists()) { showCustomAlert("❌ エラー", "そのIDのsavedataは見つかりません。"); return; }
-        database.ref('players/' + targetId + '/savedata/syncSeal').remove().then(function() {
-            showCustomAlert('✅ リセット完了', 'ID: ' + targetId + ' のsyncSealをリセットしました。<br>次回の正規同期時に新しい値が書き込まれます。');
+        const removals = targets.map(function(field) {
+            return database.ref('players/' + targetId + '/savedata/' + field).remove();
+        });
+        Promise.all(removals).then(function() {
+            showCustomAlert('✅ リセット完了', 'ID: ' + targetId + ' の ' + targets.join(' / ') + ' をリセットしました。<br>次回の正規同期時に新しい値が書き込まれます。');
         }).catch(function(e) {
             showCustomAlert('❌ エラー', 'リセットに失敗しました: ' + e.message);
         });
     }).catch(function(e) {
         showCustomAlert("❌ エラー", "取得に失敗しました: " + e.message);
+    });
+}
+
+// 全プレイヤー最高連勝記録（festGlobalRecord/maxStreak）のリセット。
+// 個々のプレイヤーの記録（savedata.stats.festBestStreak等）には一切触れない。
+// リセット後、次に誰かがフェスで1勝でもすれば、その時点の連勝数がそのまま新しい全体記録として書き込まれる。
+function actResetFestGlobalRecord() {
+    if (!database) { showCustomAlert("❌ エラー", "通信に問題があります。"); return; }
+    if (!confirm("⚠️ 全プレイヤー最高連勝記録（フェス）をリセットします。\n個々のプレイヤーの記録は消えません。\nよろしいですか？")) return;
+    database.ref('festGlobalRecord/maxStreak').remove().then(function() {
+        showCustomAlert('✅ リセット完了', '全プレイヤー最高連勝記録をリセットしました。<br>個々のプレイヤーの記録には影響ありません。');
+    }).catch(function(e) {
+        showCustomAlert('❌ エラー', 'リセットに失敗しました: ' + e.message);
     });
 }
 
