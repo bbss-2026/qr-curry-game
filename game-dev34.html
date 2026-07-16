@@ -1317,12 +1317,21 @@
                 <div style="flex:1; font-size:11px; font-weight:bold; color:#454545; line-height:1.5; text-shadow:0 0 3px #fff,0 0 3px #fff,0 0 3px #fff;">
                     <span id="festHeaderPlayerName">プレイヤー名</span>｜FP:<span id="festHeaderFP">0</span>｜経験スパイス：<span id="festHeaderExpSpice">0</span><br>
                     回復スパイス：<span id="festHeaderHealSpice">0</span>｜辛味スパイス：<span id="festHeaderSpicySpice">0</span><br>
-                    <span style="color:#ffbbb5;">全プレイヤー最高記録:<span id="festGlobalRecordStreak" style="font-size:18px;">0</span>連勝</span>
+                    <span style="color:#ffbbb5;">全プレイヤー最高記録:<span id="festGlobalRecordStreak" style="font-size:18px;">0</span>連勝</span><br>
+                    自己ベスト：<span id="festHeaderBestStreak">0</span>連勝｜参加回数：<span id="festHeaderJoinCount">0</span>回
                 </div>
                 <button onclick="retreatFromFest()" style="flex:0 0 48px; width:48px; height:48px; border:none; background:none; padding:0; cursor:pointer;">
                     <img src="fest/fest-retreat-btn.png" alt="撤退" style="width:100%; height:100%; object-fit:contain; display:block;">
                 </button>
             </div>
+        </div>
+        <!-- セット内の進行状況インジケーター：銀ポット×3＋金ポット×1を並べ、現在の戦闘に応じてプレイヤーアイコンを該当ポットへ重ねて表示 -->
+        <div id="festProgressPotRow" style="position:relative; display:none; align-items:flex-end; justify-content:space-between; padding:8px 20px 4px; box-sizing:border-box;">
+            <img id="festProgressPlayerIcon" src="" alt="" style="position:absolute; z-index:1; border-radius:50%; border:2px solid #fff; box-shadow:0 1px 4px rgba(0,0,0,0.3); transition:left 0.3s ease, top 0.3s ease; pointer-events:none; display:none;">
+            <div class="fest-pot-slot" id="festPotSlot0" style="position:relative; z-index:2; width:17%;"><img src="fest/currypot-s.svg" alt="" style="width:100%; display:block;"></div>
+            <div class="fest-pot-slot" id="festPotSlot1" style="position:relative; z-index:2; width:17%;"><img src="fest/currypot-s.svg" alt="" style="width:100%; display:block;"></div>
+            <div class="fest-pot-slot" id="festPotSlot2" style="position:relative; z-index:2; width:17%;"><img src="fest/currypot-s.svg" alt="" style="width:100%; display:block;"></div>
+            <div class="fest-pot-slot" id="festPotSlot3" style="position:relative; z-index:2; width:26%;"><img src="fest/currypot-g.svg" alt="" style="width:100%; display:block;"></div>
         </div>
         <!-- ナビ行：ショップ／調理／仲間（小さめ・間隔あり）／進む（仲間ボタンと上下センター揃え・やや小さめ） -->
         <div id="festNavRow" style="display:flex; gap:8px; align-items:center; padding:14px 10px 0;">
@@ -2906,6 +2915,7 @@ function showFestStarterGrantNotice() {
     showCustomAlert('🎪 フェス開始！支給品', `<b>FP +80</b><br><br>食材：${itemHtml}<br>スパイス：${spiceHtml}`);
 }
 function startNewFestRun() {
+    updateStats(function(s) { s.festJoinCount = (s.festJoinCount || 0) + 1; }); // フェス参加回数を永続記録
     festActive = true;
     festFP = 0;
     festInventory = {};
@@ -3049,6 +3059,20 @@ function updateFestGlobalRecordIfHigher() {
         if(el) el.innerText = festGlobalMaxStreak;
     }).catch(function() { /* 更新失敗時は次回同期時に再試行される */ });
 }
+// 自分の連勝数の自己ベストを更新し、20連勝到達で報酬アイコンを解放する（プレイヤーごとにqr_statsへ永続保存）
+function festUpdatePersonalBestAndIconUnlock() {
+    updateStats(function(s) {
+        if(!s.festBestStreak || festWinStreak > s.festBestStreak) s.festBestStreak = festWinStreak;
+    });
+    const bestEl = document.getElementById('festHeaderBestStreak');
+    if(bestEl) bestEl.innerText = getStats().festBestStreak || 0;
+    if(festWinStreak >= 20) {
+        const unlocked = unlockIcon('myimageicon/mayimage11.png');
+        if(unlocked) {
+            setTimeout(function(){ showIconGetOverlay('myimageicon/mayimage11.png', 'フェス20連勝報酬'); }, 1500);
+        }
+    }
+}
 function hideFestScreen() {
     setFestStatusBarVisible(false);
     switchTab('battle', document.querySelector('.tab-btn[onclick*="battle"]'));
@@ -3072,7 +3096,40 @@ function updateFestStatusBar() {
     setEl('festHeaderHealSpice', festHealSpice);
     setEl('festHeaderSpicySpice', festSpicySpice);
     setEl('festHeaderStreak', festWinStreak);
+    const stats = getStats();
+    setEl('festHeaderBestStreak', stats.festBestStreak || 0);
+    setEl('festHeaderJoinCount', stats.festJoinCount || 0);
     updateFestGlobalRecordIfHigher();
+    updateFestProgressPotRow();
+}
+
+// セット内の進行状況インジケーター：銀ポット3つ（雑魚戦1〜3）＋金ポット1つ（ボス戦）を並べ、
+// 現在の戦闘（festBattlePhase：1〜3=雑魚戦、4=ボス戦）に応じてプレイヤーアイコンを該当ポットの上に、
+// 下半分がポットの陰に隠れる形で重ねて表示する（ポットからポットへ進んでいく見た目にする）
+function updateFestProgressPotRow() {
+    const row = document.getElementById('festProgressPotRow');
+    const icon = document.getElementById('festProgressPlayerIcon');
+    if(!row || !icon) return;
+    if(!festActive) { row.style.display = 'none'; return; }
+    row.style.display = 'flex';
+    icon.src = currentIconFile;
+    const activeIdx = Math.min(3, Math.max(0, festBattlePhase - 1));
+    const slot = document.getElementById('festPotSlot' + activeIdx);
+    if(!slot) return;
+    // display切替直後はサイズが取得できないことがあるため、描画反映後（次フレーム）に位置計算する
+    requestAnimationFrame(function() {
+        const rowRect = row.getBoundingClientRect();
+        const slotRect = slot.getBoundingClientRect();
+        if(rowRect.width === 0 || slotRect.width === 0) return;
+        const potWidth = slotRect.width;
+        const iconWidth = Math.round(potWidth * 0.62);
+        const centerX = (slotRect.left - rowRect.left) + potWidth / 2;
+        icon.style.width = iconWidth + 'px';
+        icon.style.height = iconWidth + 'px';
+        icon.style.left = Math.round(centerX - iconWidth / 2) + 'px';
+        icon.style.top = Math.round((slotRect.top - rowRect.top) - iconWidth * 0.42) + 'px';
+        icon.style.display = 'block';
+    });
 }
 
 // ===== フェス画面：ナビ（ショップ／調理／仲間／進む） =====
@@ -3169,6 +3226,7 @@ function openFestMatchModal() {
     renderFestMatchEnemyList();
     populateFestMatchCurrySelect();
     renderFestMatchAllyInfo();
+    updateFestProgressPotRow();
 
     document.querySelectorAll('.page').forEach(function(p){ p.classList.remove('active'); });
     document.querySelectorAll('.tab-btn').forEach(function(b){ b.classList.remove('active'); });
@@ -3972,6 +4030,7 @@ function festBattleWin() {
     festPlayerIlluded = false; festAllyIlluded = false;
     festStopBattleBgm();
     festWinStreak += 1; // 雑魚戦・ボス戦を問わず、1勝ごとに連勝数+1（報酬額の計算は引き続きセット数ベース）
+    festUpdatePersonalBestAndIconUnlock();
     if(festBattlePhase <= 3) {
         festAccumulatedReward += festSetIndex * 10;
     } else {
@@ -6725,6 +6784,8 @@ function getStats() {
         gotRareItem:false, rareItemsObtained:[],
         gotTonTonTon:false, gotPoisonApple:false, gotFluffyOmelette:false, gotGreenCurry:false, gotTriCaviar:false,
         gotDraw:false, gotDoubleBingo:false, gotTripleBingo:false,
+        // バトルカレーフェス：参加回数・自己ベスト連勝数（フェスをまたいで永続）
+        festJoinCount: 0, festBestStreak: 0,
         // バトルカレーフェス：仲間botのレベル・経験値（フェスをまたいで永続。初期値は設計書2-4の初期レベル）
         festAllyLevels: {
             '見習い料理人タカシ':   { level:1,  exp:0 },
