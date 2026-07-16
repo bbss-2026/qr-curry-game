@@ -2702,20 +2702,23 @@ let festAllyAtkDownActive = false;   // 同上、仲間側
 let festPlayerPoisoned = false;      // 「焦げ跡の術」でカレー側が毒状態か（戦闘またぎでは持続しない）
 let festAllyPoisoned = false;        // 同上、仲間側
 let festCurrySeaHealUsed = false;    // 海鮮カレー（isSeafood）の1回きり自動回復を使用済みか（戦闘開始時にリセット）
+let festPlayerIlluded = false;       // 「墨吐き幻惑」でカレー側が幻惑状態か（戦闘またぎでは持続しない）
+let festAllyIlluded = false;         // 同上、仲間側
 
 // 仲間bot定義（雇用費・基本ステータス・初期レベル）。初期レベルは、タカシの成長曲線
 // 合計=190+10×(Lv-1) に各botの基本合計ステータスを当てはめて算出したもの（設計書2-4参照）。
 // specialEffect：PCと対戦（初級・中級）の同名Botと同じ特技をそのまま流用（無印はPC戦でも特技なし）
 // 各初期レベルは指定値に変更。ステータスは「そのキャラを旧初期レベルまで上げると旧ステータスに一致する」よう逆算して調整済み
+// foodCategoryはPC対戦の同名Bot定義（botOpponents/hardBotOpponents）の値をそのまま踏襲（見習い=vegetable, レオン/ガンコ/ドラゴン=meat, 宮廷/イカ/婆ちゃん=seafood, ミスズ=なし）
 const FEST_ALLY_DEFS = [
-    { name:'見習い料理人タカシ',     cost:3,  hp:130, atk:25,  def:20,  spd:15, initLevel:1,  image:'botimage/bot01.png' },
-    { name:'魔術師レオン',           cost:10, hp:137, atk:50,  def:11,  spd:27, initLevel:5,  image:'botimage/bot02.png' },
-    { name:'ガンコ親父',             cost:15, hp:164, atk:32,  def:26,  spd:3,  initLevel:5,  image:'botimage/bot03.png' },
-    { name:'宮廷カレー長',           cost:20, hp:181, atk:47,  def:31,  spd:21, initLevel:10, image:'botimage/bot04.png' },
-    { name:'イカ星人グニョグニョ',   cost:30, hp:179, atk:68,  def:36,  spd:43, initLevel:15, image:'botimage/bot06.png', specialEffect:'illusion' },
-    { name:'種まき婆ちゃん',         cost:30, hp:168, atk:54,  def:94,  spd:10, initLevel:15, image:'botimage/bot07.png', specialEffect:'seed' },
-    { name:'ドラゴン料理長',         cost:40, hp:262, atk:66,  def:39,  spd:13, initLevel:20, image:'botimage/bot08.png', specialEffect:'breath' },
-    { name:'毒舌料理人ミスズ',       cost:40, hp:249, atk:62,  def:45,  spd:24, initLevel:20, image:'botimage/bot09.png', specialEffect:'poison' },
+    { name:'見習い料理人タカシ',     cost:3,  hp:130, atk:25,  def:20,  spd:15, initLevel:1,  image:'botimage/bot01.png', foodCategory:'vegetable' },
+    { name:'魔術師レオン',           cost:10, hp:137, atk:50,  def:11,  spd:27, initLevel:5,  image:'botimage/bot02.png', foodCategory:'meat' },
+    { name:'ガンコ親父',             cost:15, hp:164, atk:32,  def:26,  spd:3,  initLevel:5,  image:'botimage/bot03.png', foodCategory:'meat' },
+    { name:'宮廷カレー長',           cost:20, hp:181, atk:47,  def:31,  spd:21, initLevel:10, image:'botimage/bot04.png', foodCategory:'seafood' },
+    { name:'イカ星人グニョグニョ',   cost:30, hp:179, atk:68,  def:36,  spd:43, initLevel:15, image:'botimage/bot06.png', specialEffect:'illusion', foodCategory:'seafood' },
+    { name:'種まき婆ちゃん',         cost:30, hp:168, atk:54,  def:94,  spd:10, initLevel:15, image:'botimage/bot07.png', specialEffect:'seed', foodCategory:'seafood' },
+    { name:'ドラゴン料理長',         cost:40, hp:262, atk:66,  def:39,  spd:13, initLevel:20, image:'botimage/bot08.png', specialEffect:'breath', foodCategory:'meat' },
+    { name:'毒舌料理人ミスズ',       cost:40, hp:249, atk:62,  def:45,  spd:24, initLevel:20, image:'botimage/bot09.png', specialEffect:'poison', foodCategory:null },
 ];
 
 // フェス専用の敵キャラ（設計書3-3の弱体化版数値）。既存タッグ戦のBotは使い回さない。
@@ -2724,7 +2727,7 @@ const FEST_ALLY_DEFS = [
 const FEST_ZAKO_DEFS = [
     { name:'見習いカレー忍者',   hp:113, atk:30, def:19, spd:34, image:'botimage/bot13.png',
       skill:{ name:'焦げ跡の術', levelReq:3, chance:0.25, type:'poison', desc:'25%で相手を毒状態にする' } },
-    { name:'カレー番犬モグ',     hp:165, atk:38, def:45, spd:15, image:'botimage/bot14.png',
+    { name:'カレー番犬モグ',     hp:165, atk:38, def:45, spd:15, image:'botimage/bot14.png', category:'meat',
       skill:{ name:'がぶ噛み', levelReq:3, chance:0.20, type:'doubleDamage', desc:'20%でダメージ2倍' } },
     { name:'屋台のカレー精霊',   hp:120, atk:45, def:15, spd:38, image:'botimage/bot15.png',
       skill:{ name:'連続突撃', levelReq:3, chance:0.20, type:'extraTurn', desc:'20%でもう一度攻撃' } },
@@ -2732,6 +2735,13 @@ const FEST_ZAKO_DEFS = [
       skill:{ name:'スパイス爆発', levelReq:3, chance:0.20, type:'bonusDamage', desc:'20%でダメージ1.5倍' } },
     { name:'韋駄天ライスくん',   hp:105, atk:26, def:23, spd:41, image:'botimage/bot17.png',
       skill:{ name:'目にも止まらぬ', levelReq:3, chance:1.0, type:'critUp', desc:'常時会心率+15%' } },
+    // 追加雑魚敵3種（ユーザー承認済み）。画像はbotimage/bot21〜23.png・演出はbattle/bt-bot21〜23.png想定（未配置の間は壊れた画像表示のままでOK）
+    { name:'げそまきタコ助',     hp:118, atk:33, def:20, spd:36, image:'botimage/bot21.png', category:'seafood',
+      skill:{ name:'墨吐き幻惑', levelReq:3, chance:0.25, type:'illusion', desc:'25%で相手を幻惑状態にする（攻撃をたまに外すようになる）' } },
+    { name:'陽だまり野菜のご隠居', hp:195, atk:22, def:52, spd:11, image:'botimage/bot22.png', category:'vegetable', meatResistant:true,
+      skill:{ name:'のほほんオーラ', levelReq:3, chance:0.25, type:'atkDown', desc:'25%で相手のATKをこの戦闘中ダウンさせる' } },
+    { name:'種吹きメロンボーイ', hp:110, atk:28, def:18, spd:33, image:'botimage/bot23.png', category:'fruit',
+      skill:{ name:'種連続発射', levelReq:3, chance:0.25, type:'seedAttack', desc:'25%で種を連続発射する（多段攻撃）' } },
 ];
 const FEST_BOSS_DEFS = [
     { name:'カレー審査員長ジャッジ', hp:248, atk:44, def:39, spd:17, image:'botimage/bot18.png',
@@ -2946,8 +2956,11 @@ function declineFestExpSpiceFinal() {
 function confirmFestExpSpiceFinal() {
     const overlay = document.getElementById('festExpSpiceFinalOverlay');
     if(overlay) overlay.style.display = 'none';
-    // 経験値スパイスを全て雇用中の仲間に使う（レベルキャップ50まで。まとめて反映するため個別の演出はなし）
-    const progress = getFestAllyProgress(festHiredAllyName);
+    // 経験値スパイスを全て雇用中の仲間に使う（レベルキャップ50まで）
+    const allyName = festHiredAllyName;
+    const beforeStats = getFestAllyCurrentStats(allyName);
+    const progress = getFestAllyProgress(allyName);
+    const beforeLevel = progress.level;
     let level = progress.level, exp = progress.exp;
     while(festExpSpice > 0 && level < FEST_ALLY_LEVEL_CAP) {
         festExpSpice -= 1;
@@ -2962,11 +2975,16 @@ function confirmFestExpSpiceFinal() {
     if(level >= FEST_ALLY_LEVEL_CAP) { level = FEST_ALLY_LEVEL_CAP; exp = 0; }
     updateStats(function(s) {
         if(!s.festAllyLevels) s.festAllyLevels = {};
-        s.festAllyLevels[festHiredAllyName] = { level: level, exp: exp };
+        s.festAllyLevels[allyName] = { level: level, exp: exp };
     });
     const cb = festExpSpiceFinalCallback;
     festExpSpiceFinalCallback = null;
-    if(cb) cb();
+    if(level > beforeLevel) {
+        const afterStats = getFestAllyCurrentStats(allyName);
+        showCustomAlert('✨ レベルアップ！', allyName + 'は Lv.' + beforeLevel + ' → Lv.' + level + ' になった！' + festStatDiffHtml(beforeStats, afterStats), function() { if(cb) cb(); });
+    } else {
+        if(cb) cb();
+    }
 }
 // 撤退＝その時点でフェスを終える。これまでに確保したG（festAccumulatedReward）をここで受け取る。
 function retreatFromFest() {
@@ -3100,7 +3118,8 @@ function getFestEnemyMultiplier(setIndex) { return 1 + 0.10 * (setIndex - 1); }
 function makeFestEnemyInstance(def, mult, level, isBoss) {
     const maxHp = Math.max(1, Math.round(def.hp * mult));
     return {
-        name: def.name, image: def.image, isBoss: isBoss, level: level,
+        name: def.name, image: def.image, isBoss: isBoss, level: level, category: def.category || null,
+        meatResistant: def.meatResistant || false,
         maxHp: maxHp, curHp: maxHp,
         atk: Math.round(def.atk * mult), def: Math.round(def.def * mult), spd: Math.round(def.spd * mult),
         skill: def.skill, turnsActed: 0, selfHealUsed: false, statusAtkDown: false,
@@ -3246,6 +3265,8 @@ function startFestBattle() {
     festAllyAtkDownActive = false;
     festPlayerPoisoned = false;
     festAllyPoisoned = false;
+    festPlayerIlluded = false;
+    festAllyIlluded = false;
     document.getElementById('festCookPanel').style.display = 'none';
     document.getElementById('festAllyPanel').style.display = 'none';
     document.getElementById('festNavRow').style.display = 'none';
@@ -3477,6 +3498,15 @@ function festPlayerActAttack(unitType, curry, allyStats, callback) {
         if(allyDef && allyDef.specialEffect === 'breath' && Math.random() < 0.25) { festAllyBreathAttack(allyStats, done); return; }
     }
     if(unitType === 'curry') {
+        // ラタトゥイユカレー（isRatatouille）：自分のターンに毎回HPが少し回復する（タッグ戦と同じ）
+        if(curry.isRatatouille && curry.curHp > 0) {
+            const rataHeal = Math.round(curry.hp * 0.10);
+            curry.curHp = Math.min(curry.hp, curry.curHp + rataHeal);
+            festTriggerDamagePop('player', 0, -rataHeal, '#2ecc71');
+            festLogAppend('☀️ 太陽の光を浴びてHP回復: ' + rataHeal);
+            playSoundEffect('taiyou.mp3');
+            festUpdateAllHpDisplays();
+        }
         // 海鮮カレー（isSeafood）：HPが50%以下になった時に1回だけ自動回復する（タッグ戦と同じ。回復後も同ターンで通常攻撃を続ける）
         if(curry.isSeafood && !festCurrySeaHealUsed && curry.curHp <= Math.floor(curry.hp * 0.5)) {
             festCurrySeaHealUsed = true;
@@ -3493,6 +3523,18 @@ function festPlayerActAttack(unitType, curry, allyStats, callback) {
         // 種連続発射カレー（isSeed）：35%で多段攻撃（仲間「種まき婆ちゃん」と同じ計算式・演出）
         if(curry.isSeed && Math.random() < 0.35) { festCurrySeedAttack(curry, done); return; }
     }
+    // 幻惑状態（敵「げそまきタコ助」の墨吐き幻惑で付与）：タッグ戦・敵側と同じミス判定
+    if((unitType === 'curry' && festPlayerIlluded) || (unitType === 'ally' && festAllyIlluded)) {
+        const mySpd = unitType === 'curry' ? festCurryStatWithTableware(curry.spd, 'spd') : allyStats.spd;
+        const aliveEnemySpds = festBattleEnemies.filter(function(e){ return e.curHp > 0; }).map(function(e){ return e.spd; });
+        const avgEnemySpd = aliveEnemySpds.length ? aliveEnemySpds.reduce(function(a,b){ return a+b; },0)/aliveEnemySpds.length : 50;
+        if(Math.random() < getIllusionMissRate(mySpd, avgEnemySpd)) {
+            playSoundEffect('sound/miss.mp3');
+            festLogSet('💨 ' + (unitType === 'curry' ? playerName : festHiredAllyName) + 'は幻惑で攻撃が外れた！');
+            done();
+            return;
+        }
+    }
     const pick = pickLivingFestEnemyWithIdx();
     if(!pick) { done(); return; }
     const target = pick.enemy;
@@ -3507,12 +3549,20 @@ function festPlayerActAttack(unitType, curry, allyStats, callback) {
     const isCrit = Math.random() < getCritRate(spd, target.spd);
     let d = isCrit ? Math.max(8, Math.round(atk)) : Math.max(8, Math.round(atk) - Math.floor(target.def/2));
     d = Math.round(d * (0.9 + Math.random()*0.2));
+    // 陽だまり野菜のご隠居（meatResistant）：肉系カレー／肉系仲間（レオン・ガンコ親父・ドラゴン料理長）からの攻撃を大幅軽減
+    if(target.meatResistant && festIsAttackerMeatBased(unitType, curry)) d = Math.round(d * 0.2);
     target.curHp = Math.max(0, target.curHp - d);
     festTriggerDamagePop('enemy', pick.idx, d, isCrit ? '#ff4500' : '#f1c40f');
     festLogSet((isCrit ? '🌟会心！ ' : '') + name + 'の攻撃！ ' + target.name + 'に' + d + 'ダメージ！');
     playSoundEffect('punch.mp3');
     festUpdateAllHpDisplays();
     done();
+}
+// 攻撃側（自分のカレー or 雇用中の仲間）が肉系かどうかを判定（陽だまり野菜のご隠居のmeatResistant判定で使用）
+function festIsAttackerMeatBased(unitType, curry) {
+    if(unitType === 'curry') return isMeatBasedCurry(curry);
+    const allyDef = getFestAllyDef(festHiredAllyName);
+    return !!(allyDef && allyDef.foodCategory === 'meat');
 }
 // 自分のカレー（isSeed）の特技：種連続発射（タッグ戦の同フラグと同じ計算式・演出。演出はタッグ戦のplayTanemakiAnimationを共用）
 function festCurrySeedAttack(curry, callback) {
@@ -3533,6 +3583,8 @@ function festCurrySeedAttack(curry, callback) {
             let d = Math.max(2, Math.round(atk*0.4 - pick.enemy.def/4));
             d = Math.round(d * (0.9 + Math.random()*0.2));
             if(Math.random() < getCritRate(curSpd, avgEnemySpd)) d = Math.round(d*2);
+            // 陽だまり野菜のご隠居（meatResistant）：肉系カレーからの攻撃を大幅軽減
+            if(pick.enemy.meatResistant && isMeatBasedCurry(curry)) d = Math.round(d * 0.2);
             pick.enemy.curHp = Math.max(0, pick.enemy.curHp - d);
             total += d;
             records.push({ idx: pick.idx, d: d });
@@ -3561,6 +3613,8 @@ function festAllySeedAttack(allyStats, callback) {
             let d = Math.max(2, Math.round(allyStats.atk*0.4 - pick.enemy.def/4));
             d = Math.round(d * (0.9 + Math.random()*0.2));
             if(Math.random() < getCritRate(allyStats.spd, avgEnemySpd)) d = Math.round(d*2);
+            // 陽だまり野菜のご隠居（meatResistant）：肉系仲間からの攻撃を大幅軽減
+            if(pick.enemy.meatResistant && festIsAttackerMeatBased('ally', null)) d = Math.round(d * 0.2);
             pick.enemy.curHp = Math.max(0, pick.enemy.curHp - d);
             total += d;
             records.push({ idx: pick.idx, d: d });
@@ -3581,10 +3635,12 @@ function festAllyBreathAttack(allyStats, callback) {
     playTanemakiAnimation(DRAGON_TAG_ALLY_CONFIG, false, function() {
         festBattleEnemies.forEach(function(e, idx) {
             if(e.curHp <= 0) return;
-            e.curHp = Math.max(0, e.curHp - 40);
-            festTriggerDamagePop('enemy', idx, 40, '#e74c3c');
+            // 陽だまり野菜のご隠居（meatResistant）：肉系仲間（ドラゴン料理長）からの攻撃を大幅軽減
+            const bd = (e.meatResistant && festIsAttackerMeatBased('ally', null)) ? Math.round(40 * 0.2) : 40;
+            e.curHp = Math.max(0, e.curHp - bd);
+            festTriggerDamagePop('enemy', idx, bd, '#e74c3c');
         });
-        festLogSet('🔥 ' + festHiredAllyName + 'の熱々ブレス！敵全体にDEF無視40ダメージ！');
+        festLogSet('🔥 ' + festHiredAllyName + 'の熱々ブレス！敵全体にDEF無視ダメージ！');
         playSoundEffect('breath.mp3');
         festUpdateAllHpDisplays();
         done();
@@ -3602,6 +3658,8 @@ function festEnemyActAttackSimple(e, curry, allyStats) {
     const isCrit = Math.random() < getCritRate(e.spd, targetSpd);
     let d = isCrit ? Math.max(8, e.atk) : Math.max(8, e.atk - Math.floor(targetDef/2));
     d = Math.round(d * (0.9 + Math.random()*0.2));
+    // ラタトゥイユカレー（isRatatouille）：肉系カテゴリの敵からの攻撃を大幅軽減（タッグ戦のisMeatBasedCurryと同じ考え方）
+    if(t.type === 'curry' && curry && curry.isRatatouille && e.category === 'meat') d = Math.round(d * 0.2);
     applyFestDamageToPlayer(t.type, d, curry);
     festTriggerDamagePop('player', t.idx, d, isCrit ? '#ff4500' : '#e74c3c');
     festLogAppend((isCrit ? '🌟会心！ ' : '') + e.name + 'の追撃！ ' + targetName + 'に' + d + 'ダメージ！');
@@ -3648,6 +3706,12 @@ function festEnemyActAttack(e, curry, allyStats, enemyIdx, callback) {
         return;
     }
 
+    // 種吹きメロンボーイ「種連続発射」：通常攻撃の代わりにプレイヤー側へ多段攻撃を放つ（技演出あり）
+    if(unlocked && skill.type === 'seedAttack' && Math.random() < skill.chance) {
+        festEnemySeedAttack(e, curry, allyStats, enemyIdx, done);
+        return;
+    }
+
     const targets = [];
     if(curry && curry.curHp > 0) targets.push({ type:'curry', idx:0 });
     if(allyStats && festAllyHp > 0) targets.push({ type:'ally', idx:1 });
@@ -3673,7 +3737,8 @@ function festEnemyActAttack(e, curry, allyStats, enemyIdx, callback) {
     const poisonProc       = unlocked && skill.type === 'poison'       && Math.random() < skill.chance;
     const atkDownProc      = unlocked && skill.type === 'atkDown'      && Math.random() < skill.chance;
     const extraTurnProc    = unlocked && skill.type === 'extraTurn'    && Math.random() < skill.chance;
-    const anySkillProc = doubleDamageProc || bonusDamageProc || poisonProc || atkDownProc || extraTurnProc || periodicCritProc;
+    const illusionProc     = unlocked && skill.type === 'illusion'     && Math.random() < skill.chance;
+    const anySkillProc = doubleDamageProc || bonusDamageProc || poisonProc || atkDownProc || extraTurnProc || periodicCritProc || illusionProc;
 
     function resolveAttack() {
         let skillMsg = '';
@@ -3694,6 +3759,8 @@ function festEnemyActAttack(e, curry, allyStats, enemyIdx, callback) {
             done();
             return;
         }
+        // ラタトゥイユカレー（isRatatouille）：肉系カテゴリの敵からの攻撃を大幅軽減（タッグ戦のisMeatBasedCurryと同じ考え方）
+        if(t.type === 'curry' && curry && curry.isRatatouille && e.category === 'meat') d = Math.round(d * 0.2);
         applyFestDamageToPlayer(t.type, d, curry);
         festTriggerDamagePop('player', t.idx, d, isCrit ? '#ff4500' : '#e74c3c');
         festLogSet((isCrit ? '🌟会心！ ' : '') + e.name + 'の攻撃！ ' + targetName + 'に' + d + 'ダメージ！' + (skillMsg ? '（' + skillMsg + '）' : ''));
@@ -3709,6 +3776,11 @@ function festEnemyActAttack(e, curry, allyStats, enemyIdx, callback) {
             if(t.type === 'curry') festPlayerAtkDownActive = true; else festAllyAtkDownActive = true;
             festLogAppend('📉 ' + targetName + 'は「' + skill.name + '」でATKがダウンした！');
         }
+        if(illusionProc) {
+            if(t.type === 'curry') festPlayerIlluded = true; else festAllyIlluded = true;
+            festLogAppend('🌀 ' + targetName + 'は「' + skill.name + '」で幻惑状態になった！');
+            playSoundEffect('sound/miss.mp3');
+        }
         if(extraTurnProc) {
             festLogAppend('💨 ' + e.name + 'は「' + skill.name + '」でもう一度攻撃する！');
             if(!checkFestBattleEndSilent()) festEnemyActAttackSimple(e, curry, allyStats);
@@ -3721,6 +3793,40 @@ function festEnemyActAttack(e, curry, allyStats, enemyIdx, callback) {
     } else {
         resolveAttack();
     }
+}
+// 種吹きメロンボーイの特技：種連続発射（プレイヤー側を対象にした多段攻撃。自分のカレー／仲間の種連続発射と同じ計算式・演出）
+function festEnemySeedAttack(e, curry, allyStats, enemyIdx, callback) {
+    const done = callback || function(){};
+    const targets = [];
+    if(curry && curry.curHp > 0) targets.push({ type:'curry', idx:0 });
+    if(allyStats && festAllyHp > 0) targets.push({ type:'ally', idx:1 });
+    if(targets.length === 0) { done(); return; }
+    playTanemakiAnimation(festEnemySkillAnimConfig(e), false, function() {
+        const targetSpds = targets.map(function(t){ return t.type === 'curry' ? festCurryStatWithTableware(curry.spd, 'spd') : allyStats.spd; });
+        const avgTargetSpd = targetSpds.reduce(function(a,b){ return a+b; },0) / targetSpds.length;
+        const hits = rollSeedHits(e.spd, avgTargetSpd);
+        let total = 0;
+        const records = [];
+        for(let h = 0; h < hits; h++) {
+            const liveTargets = targets.filter(function(t){ return t.type === 'curry' ? (curry && curry.curHp > 0) : (festAllyHp > 0); });
+            if(liveTargets.length === 0) break;
+            const t = liveTargets[Math.floor(Math.random() * liveTargets.length)];
+            const targetDef = t.type === 'curry' ? festCurryStatWithTableware(curry.def, 'def') : allyStats.def;
+            let d = Math.max(2, Math.round(e.atk*0.4 - targetDef/4));
+            d = Math.round(d * (0.9 + Math.random()*0.2));
+            if(Math.random() < getCritRate(e.spd, avgTargetSpd)) d = Math.round(d*2);
+            // ラタトゥイユカレー（isRatatouille）：肉系カテゴリの敵からの攻撃を大幅軽減（種吹きメロンボーイは果物系のため対象外）
+            if(t.type === 'curry' && curry && curry.isRatatouille && e.category === 'meat') d = Math.round(d * 0.2);
+            applyFestDamageToPlayer(t.type, d, curry);
+            total += d;
+            records.push({ idx: t.idx, d: d });
+        }
+        festLogSet('🍈 ' + e.name + 'の種連続発射 ' + hits + '連撃！ 合計' + total + 'ダメージ！');
+        playSoundEffect('machine-gun.mp3');
+        records.forEach(function(r){ festTriggerDamagePop('player', r.idx, r.d, '#e74c3c'); });
+        festUpdateAllHpDisplays();
+        done();
+    });
 }
 // 追撃前チェック用（画面更新・勝敗確定はメインループ側でまとめて行うため、ここでは真偽だけ返す）
 function checkFestBattleEndSilent() {
@@ -3863,6 +3969,7 @@ function festBattleWin() {
     festBattleInProgress = false;
     festSpicyBuffActive = false;
     festPlayerPoisoned = false; festAllyPoisoned = false;
+    festPlayerIlluded = false; festAllyIlluded = false;
     festStopBattleBgm();
     festWinStreak += 1; // 雑魚戦・ボス戦を問わず、1勝ごとに連勝数+1（報酬額の計算は引き続きセット数ベース）
     if(festBattlePhase <= 3) {
@@ -3967,6 +4074,7 @@ function festBattleLoseRun() {
     festBattleInProgress = false;
     festSpicyBuffActive = false;
     festPlayerPoisoned = false; festAllyPoisoned = false;
+    festPlayerIlluded = false; festAllyIlluded = false;
     festStopBattleBgm();
     document.getElementById('festBattleResultArea').style.display = 'none';
     const msg = '💥 出撃できるカレー・仲間が尽きました…\nここまでの記録：' + festWinStreak + '連勝\n確保していたG：' + festAccumulatedReward + 'G';
@@ -4484,11 +4592,22 @@ function useFestHealSpiceOutsideBattle() {
     showCustomAlert('💊 回復スパイス使用', festHiredAllyName + 'のHPが全回復した！');
 }
 // 戦闘外：仲間パネルから経験値スパイスを使って雇用中の仲間に経験値を1付与する（レベルキャップ50まで）
+// Before→Afterのステータス変化を「HP00→00 ATK00→00 DEF00→00 SPD00→00」の形でHTML化する共通ヘルパー
+function festStatDiffHtml(beforeStats, afterStats) {
+    return '<div style="text-align:left;font-size:13px;line-height:1.7;margin-top:6px;">'
+        + 'HP: ' + beforeStats.hp + ' → ' + afterStats.hp + '<br>'
+        + 'ATK: ' + beforeStats.atk + ' → ' + afterStats.atk + '<br>'
+        + 'DEF: ' + beforeStats.def + ' → ' + afterStats.def + '<br>'
+        + 'SPD: ' + beforeStats.spd + ' → ' + afterStats.spd
+        + '</div>';
+}
 function useFestExpSpiceOutsideBattle() {
     if(festExpSpice <= 0) { showCustomAlert('⚠️ 経験値スパイスがありません', 'ボスを撃破すると手に入ります。'); return; }
     if(!festHiredAllyName) { showCustomAlert('⚠️ 仲間が未雇用です', '先に仲間を雇用してください。'); return; }
     const progress = getFestAllyProgress(festHiredAllyName);
     if(progress.level >= FEST_ALLY_LEVEL_CAP) { showCustomAlert('⚠️ レベル上限です', festHiredAllyName + 'は既にカンストしています。'); return; }
+    const beforeStats = getFestAllyCurrentStats(festHiredAllyName);
+    const beforeLevel = progress.level;
     festExpSpice -= 1;
     let level = progress.level, exp = progress.exp + 1;
     let leveledUp = false;
@@ -4509,8 +4628,9 @@ function useFestExpSpiceOutsideBattle() {
     renderFestAllyUI();
     playSoundEffect('sound/pirorin.mp3');
     if(leveledUp) {
+        const afterStats = getFestAllyCurrentStats(festHiredAllyName);
         playWinSound();
-        showCustomAlert('✨ レベルアップ！', festHiredAllyName + 'はLv.' + level + 'になった！');
+        showCustomAlert('✨ レベルアップ！', festHiredAllyName + 'は Lv.' + beforeLevel + ' → Lv.' + level + ' になった！' + festStatDiffHtml(beforeStats, afterStats));
     }
 }
 // 雇用候補は「初級・中級（マハラジャ除く）で討伐済みのbotから抽選した3体」のみ（festHireCandidates、フェス開始時に確定）
