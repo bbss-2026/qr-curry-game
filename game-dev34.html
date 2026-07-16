@@ -1094,7 +1094,6 @@
     <!-- フェスバトル マッチング画面（タッグ戦マッチングと同じ構成） -->
     <div id="festMatchFullscreen" class="tutorial-fullscreen">
         <div class="tutorial-header">
-            <button class="tutorial-close" onclick="closeFestMatchModal()">✕</button>
             <div class="tutorial-page-indicator">フェスバトル マッチング</div>
         </div>
         <div class="tag-match-body">
@@ -1517,6 +1516,17 @@
             <div class="modal-btn-group">
                 <button class="modal-btn modal-btn-ok" onclick="chooseFestHealTarget('curry')">カレー</button>
                 <button class="modal-btn modal-btn-ok" onclick="chooseFestHealTarget('ally')">仲間</button>
+            </div>
+        </div>
+    </div>
+    <!-- フェス終了（敗北／撤退）時：経験値スパイスが残っている場合、雇用中の仲間に全て使うか確認するモーダル -->
+    <div class="modal-overlay fest-theme" id="festExpSpiceFinalOverlay" style="display:none;">
+        <div class="modal-box fest-theme" style="max-width:360px;">
+            <div class="modal-title" style="text-align:center;">🧪 経験値スパイスが残っています</div>
+            <div class="modal-message" id="festExpSpiceFinalMessage"></div>
+            <div class="modal-btn-group">
+                <button class="modal-btn modal-btn-cancel" onclick="declineFestExpSpiceFinal()">使わない</button>
+                <button class="modal-btn modal-btn-ok" onclick="confirmFestExpSpiceFinal()">使う</button>
             </div>
         </div>
     </div>
@@ -2911,22 +2921,71 @@ function startNewFestRun() {
     showFestScreen();
     setTimeout(showFestStarterGrantNotice, 300); // 画面表示後に支給品を通知付きで付与
 }
+// フェスを終える直前に必ず通す関門：経験値スパイスが残っていて仲間が雇用中なら、
+// 「フェスを終了すると経験値スパイスも失われます。全て使いますか？」と確認してから実際の終了処理(proceed)を呼ぶ。
+// 余っていない/仲間がいない場合は確認なしで即座にproceed()する。
+let festExpSpiceFinalCallback = null;
+function maybePromptFestExpSpiceBeforeEnd(proceed) {
+    if(festExpSpice > 0 && festHiredAllyName) {
+        const msgEl = document.getElementById('festExpSpiceFinalMessage');
+        if(msgEl) msgEl.innerText = 'フェスを終了すると経験値スパイスも失われます。' + festHiredAllyName + 'に全て使いますか？（残り' + festExpSpice + '個）';
+        festExpSpiceFinalCallback = proceed;
+        const overlay = document.getElementById('festExpSpiceFinalOverlay');
+        if(overlay) overlay.style.display = 'flex';
+    } else {
+        proceed();
+    }
+}
+function declineFestExpSpiceFinal() {
+    const overlay = document.getElementById('festExpSpiceFinalOverlay');
+    if(overlay) overlay.style.display = 'none';
+    const cb = festExpSpiceFinalCallback;
+    festExpSpiceFinalCallback = null;
+    if(cb) cb();
+}
+function confirmFestExpSpiceFinal() {
+    const overlay = document.getElementById('festExpSpiceFinalOverlay');
+    if(overlay) overlay.style.display = 'none';
+    // 経験値スパイスを全て雇用中の仲間に使う（レベルキャップ50まで。まとめて反映するため個別の演出はなし）
+    const progress = getFestAllyProgress(festHiredAllyName);
+    let level = progress.level, exp = progress.exp;
+    while(festExpSpice > 0 && level < FEST_ALLY_LEVEL_CAP) {
+        festExpSpice -= 1;
+        exp += 1;
+        while(level < FEST_ALLY_LEVEL_CAP) {
+            const need = festExpNeededForLevel(level + 1);
+            if(exp < need) break;
+            exp -= need;
+            level += 1;
+        }
+    }
+    if(level >= FEST_ALLY_LEVEL_CAP) { level = FEST_ALLY_LEVEL_CAP; exp = 0; }
+    updateStats(function(s) {
+        if(!s.festAllyLevels) s.festAllyLevels = {};
+        s.festAllyLevels[festHiredAllyName] = { level: level, exp: exp };
+    });
+    const cb = festExpSpiceFinalCallback;
+    festExpSpiceFinalCallback = null;
+    if(cb) cb();
+}
 // 撤退＝その時点でフェスを終える。これまでに確保したG（festAccumulatedReward）をここで受け取る。
 function retreatFromFest() {
     const msg = festBattleInProgress
         ? 'ここでフェスを終えて対戦タブに戻ります。<br>戦闘中のデータは破棄されますが、これまでに確保した <span style="color:#2ecc71;">' + festAccumulatedReward + ' G</span> は受け取れます。'
         : 'ここでフェスを終えて対戦タブに戻ります。<br>これまでに確保した <span style="color:#2ecc71;">' + festAccumulatedReward + ' G</span> を受け取ります。';
     showCustomConfirm('🚩 撤退', msg, function() {
-        playerG += festAccumulatedReward;
-        saveGame();
-        festActive = false;
-        festBattleInProgress = false;
-        stopBattleBGM();
-        localStorage.removeItem('qr_fest_session');
-        // 調理でセットしていた食材・スパイスは撤退時にクリアし、次回入場時に残らないようにする
-        festCookSelectedIngredients = [];
-        festCookSelectedSpice = "";
-        hideFestScreen();
+        maybePromptFestExpSpiceBeforeEnd(function() {
+            playerG += festAccumulatedReward;
+            saveGame();
+            festActive = false;
+            festBattleInProgress = false;
+            stopBattleBGM();
+            localStorage.removeItem('qr_fest_session');
+            // 調理でセットしていた食材・スパイスは撤退時にクリアし、次回入場時に残らないようにする
+            festCookSelectedIngredients = [];
+            festCookSelectedSpice = "";
+            hideFestScreen();
+        });
     });
 }
 function showFestScreen() {
@@ -3379,9 +3438,11 @@ function festApplyAllySpecialOnBattleStart() {
     });
     festCurrySeaHealUsed = false; // 海鮮カレーの1回きり回復フラグを毎戦闘開始時にリセット
     const curry = festCurryStock[festActiveCurryIdx];
-    if(curry && curry.isPoison) festInflictBattleStartStatus('poison');
-    if(curry && curry.isIllusion) festInflictBattleStartStatus('illusion');
-    const allyDef = festHiredAllyName ? getFestAllyDef(festHiredAllyName) : null;
+    if(curry && curry.curHp > 0 && curry.isPoison) festInflictBattleStartStatus('poison');
+    if(curry && curry.curHp > 0 && curry.isIllusion) festInflictBattleStartStatus('illusion');
+    // 戦闘不能（HP0）の仲間は特技を発動しない（festAllyHpがnullの場合は初期化前＝満タン扱いなので発動対象）
+    const allyAlive = festHiredAllyName && (festAllyHp === null || festAllyHp > 0);
+    const allyDef = allyAlive ? getFestAllyDef(festHiredAllyName) : null;
     if(allyDef && allyDef.specialEffect === 'poison') festInflictBattleStartStatus('poison');
     if(allyDef && allyDef.specialEffect === 'illusion') festInflictBattleStartStatus('illusion');
 }
@@ -3458,7 +3519,8 @@ function festCurrySeedAttack(curry, callback) {
     const done = callback || function(){};
     const aliveEnemies = festBattleEnemies.filter(function(e){ return e.curHp > 0; });
     if(aliveEnemies.length === 0) { done(); return; }
-    playTanemakiAnimation(TANEMAKI_TAG_ENEMY_CONFIG, false, function() {
+    // 自分のカレー本体の種連続発射：婆ちゃんBotとは別イラスト（タッグ戦のSEED_PLAYER_ALLY_CONFIGと同じ）。自分は味方側なのでbgもhomerun_bg.png
+    playTanemakiAnimation(SEED_PLAYER_ALLY_CONFIG, false, function() {
         const avgEnemySpd = aliveEnemies.reduce(function(a,e){ return a + e.spd; }, 0) / aliveEnemies.length;
         const curSpd = festCurryStatWithTableware(curry.spd, 'spd');
         const atk = festCurryStatWithTableware(curry.atk, 'atk') * (festPlayerAtkDownActive ? 0.7 : 1) + (festSpicyBuffActive ? 40 : 0);
@@ -3487,7 +3549,8 @@ function festAllySeedAttack(allyStats, callback) {
     const done = callback || function(){};
     const aliveEnemies = festBattleEnemies.filter(function(e){ return e.curHp > 0; });
     if(aliveEnemies.length === 0) { done(); return; }
-    playTanemakiAnimation(TANEMAKI_TAG_ENEMY_CONFIG, false, function() {
+    // 種まき婆ちゃんは味方（雇用中の仲間）として出るため、タッグ戦のTANEMAKI_TAG_ALLY_CONFIG（bgはhomerun_bg.png）を使う
+    playTanemakiAnimation(TANEMAKI_TAG_ALLY_CONFIG, false, function() {
         const avgEnemySpd = aliveEnemies.reduce(function(a,e){ return a + e.spd; }, 0) / aliveEnemies.length;
         const hits = rollSeedHits(allyStats.spd, avgEnemySpd);
         let total = 0;
@@ -3514,7 +3577,8 @@ function festAllyBreathAttack(allyStats, callback) {
     const done = callback || function(){};
     const aliveEnemies = festBattleEnemies.filter(function(e){ return e.curHp > 0; });
     if(aliveEnemies.length === 0) { done(); return; }
-    playTanemakiAnimation(DRAGON_TAG_ENEMY_CONFIG, false, function() {
+    // ドラゴン料理長は味方（雇用中の仲間）として出るため、タッグ戦のDRAGON_TAG_ALLY_CONFIG（bgはhomerun_bg.png）を使う
+    playTanemakiAnimation(DRAGON_TAG_ALLY_CONFIG, false, function() {
         festBattleEnemies.forEach(function(e, idx) {
             if(e.curHp <= 0) return;
             e.curHp = Math.max(0, e.curHp - 40);
@@ -3546,7 +3610,9 @@ function festEnemyActAttackSimple(e, curry, allyStats) {
 }
 // 敵スキル発動時の技演出設定を作る（タッグ戦のplayTanemakiAnimationを共用。キャラ画像は発動した敵自身の画像を使う）
 function festEnemySkillAnimConfig(e) {
-    return { charaImg: e.image, chara2Img: null, bgImg: 'battle/homerun_bg2.png', charaTop: '55%', charaWidth: '55%', charaMaxScale: 1.2 };
+    // 技演出専用の高解像度イラスト（battle/bt-bot13〜20.png）を使う。カード用アイコン（botimage/botNN.png）と番号が対応。
+    const charaImg = e.image.replace('botimage/bot', 'battle/bt-bot');
+    return { charaImg: charaImg, chara2Img: null, bgImg: 'battle/homerun_bg2.png', charaTop: '55%', charaWidth: '55%', charaMaxScale: 1.2 };
 }
 function festEnemyActAttack(e, curry, allyStats, enemyIdx, callback) {
     const done = callback || function(){};
@@ -3914,16 +3980,18 @@ function festBattleLoseRun() {
     });
 }
 function finishFestByDefeat() {
-    playerG += festAccumulatedReward;
-    saveGame();
-    festActive = false;
-    localStorage.removeItem('qr_fest_session');
-    festCookSelectedIngredients = [];
-    festCookSelectedSpice = "";
-    festBattleInProgress = false;
-    const rewardTotal = festAccumulatedReward;
-    hideFestScreen();
-    showCustomAlert('🏁 フェス終了', '合計 <span style="color:#2ecc71;">' + rewardTotal + ' G</span> を受け取りました！（最高連勝：' + festWinStreak + '連勝）');
+    maybePromptFestExpSpiceBeforeEnd(function() {
+        playerG += festAccumulatedReward;
+        saveGame();
+        festActive = false;
+        localStorage.removeItem('qr_fest_session');
+        festCookSelectedIngredients = [];
+        festCookSelectedSpice = "";
+        festBattleInProgress = false;
+        const rewardTotal = festAccumulatedReward;
+        hideFestScreen();
+        showCustomAlert('🏁 フェス終了', '合計 <span style="color:#2ecc71;">' + rewardTotal + ' G</span> を受け取りました！（最高連勝：' + festWinStreak + '連勝）');
+    });
 }
 
 // ===== フェス専用ショップ（食材くじ／スパイスくじ／10個パックくじ／回復スパイス／辛味スパイス） =====
