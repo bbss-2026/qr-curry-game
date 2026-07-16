@@ -1317,8 +1317,7 @@
                 <div style="flex:1; font-size:11px; font-weight:bold; color:#454545; line-height:1.5; text-shadow:0 0 3px #fff,0 0 3px #fff,0 0 3px #fff;">
                     <span id="festHeaderPlayerName">プレイヤー名</span>｜FP:<span id="festHeaderFP">0</span>｜経験スパイス：<span id="festHeaderExpSpice">0</span><br>
                     回復スパイス：<span id="festHeaderHealSpice">0</span>｜辛味スパイス：<span id="festHeaderSpicySpice">0</span><br>
-                    <span style="color:#ffbbb5;">全プレイヤー最高記録:<span id="festGlobalRecordStreak" style="font-size:18px;">0</span>連勝</span><br>
-                    自己ベスト：<span id="festHeaderBestStreak">0</span>連勝｜参加回数：<span id="festHeaderJoinCount">0</span>回
+                    <span style="color:#ffbbb5;">全プレイヤー最高記録:<span id="festGlobalRecordStreak" style="font-size:18px;">0</span>連勝</span>
                 </div>
                 <button onclick="retreatFromFest()" style="flex:0 0 48px; width:48px; height:48px; border:none; background:none; padding:0; cursor:pointer;">
                     <img src="fest/fest-retreat-btn.png" alt="撤退" style="width:100%; height:100%; object-fit:contain; display:block;">
@@ -1328,10 +1327,10 @@
         <!-- セット内の進行状況インジケーター：銀ポット×3＋金ポット×1を並べ、現在の戦闘に応じてプレイヤーアイコンを該当ポットへ重ねて表示 -->
         <div id="festProgressPotRow" style="position:relative; display:none; align-items:flex-end; justify-content:space-between; padding:8px 20px 4px; box-sizing:border-box;">
             <img id="festProgressPlayerIcon" src="" alt="" style="position:absolute; z-index:1; border-radius:50%; border:2px solid #fff; box-shadow:0 1px 4px rgba(0,0,0,0.3); transition:left 0.3s ease, top 0.3s ease; pointer-events:none; display:none;">
-            <div class="fest-pot-slot" id="festPotSlot0" style="position:relative; z-index:2; width:17%;"><img src="fest/currypot-s.svg" alt="" style="width:100%; display:block;"></div>
-            <div class="fest-pot-slot" id="festPotSlot1" style="position:relative; z-index:2; width:17%;"><img src="fest/currypot-s.svg" alt="" style="width:100%; display:block;"></div>
-            <div class="fest-pot-slot" id="festPotSlot2" style="position:relative; z-index:2; width:17%;"><img src="fest/currypot-s.svg" alt="" style="width:100%; display:block;"></div>
-            <div class="fest-pot-slot" id="festPotSlot3" style="position:relative; z-index:2; width:26%;"><img src="fest/currypot-g.svg" alt="" style="width:100%; display:block;"></div>
+            <div class="fest-pot-slot" id="festPotSlot0" style="position:relative; z-index:2; width:13.6%;"><img src="fest/currypot-s.svg" alt="" style="width:100%; display:block;"></div>
+            <div class="fest-pot-slot" id="festPotSlot1" style="position:relative; z-index:2; width:13.6%;"><img src="fest/currypot-s.svg" alt="" style="width:100%; display:block;"></div>
+            <div class="fest-pot-slot" id="festPotSlot2" style="position:relative; z-index:2; width:13.6%;"><img src="fest/currypot-s.svg" alt="" style="width:100%; display:block;"></div>
+            <div class="fest-pot-slot" id="festPotSlot3" style="position:relative; z-index:2; width:20.8%;"><img src="fest/currypot-g.svg" alt="" style="width:100%; display:block;"></div>
         </div>
         <!-- ナビ行：ショップ／調理／仲間（小さめ・間隔あり）／進む（仲間ボタンと上下センター揃え・やや小さめ） -->
         <div id="festNavRow" style="display:flex; gap:8px; align-items:center; padding:14px 10px 0;">
@@ -3064,8 +3063,6 @@ function festUpdatePersonalBestAndIconUnlock() {
     updateStats(function(s) {
         if(!s.festBestStreak || festWinStreak > s.festBestStreak) s.festBestStreak = festWinStreak;
     });
-    const bestEl = document.getElementById('festHeaderBestStreak');
-    if(bestEl) bestEl.innerText = getStats().festBestStreak || 0;
     if(festWinStreak >= 20) {
         const unlocked = unlockIcon('myimageicon/mayimage11.png');
         if(unlocked) {
@@ -3096,9 +3093,6 @@ function updateFestStatusBar() {
     setEl('festHeaderHealSpice', festHealSpice);
     setEl('festHeaderSpicySpice', festSpicySpice);
     setEl('festHeaderStreak', festWinStreak);
-    const stats = getStats();
-    setEl('festHeaderBestStreak', stats.festBestStreak || 0);
-    setEl('festHeaderJoinCount', stats.festJoinCount || 0);
     updateFestGlobalRecordIfHigher();
     updateFestProgressPotRow();
 }
@@ -3110,7 +3104,8 @@ function updateFestProgressPotRow() {
     const row = document.getElementById('festProgressPotRow');
     const icon = document.getElementById('festProgressPlayerIcon');
     if(!row || !icon) return;
-    if(!festActive) { row.style.display = 'none'; return; }
+    // ポットの進行表示は対戦画面のみに表示する（ショップ／調理／仲間／マッチング画面では非表示）
+    if(!festActive || !festBattleInProgress) { row.style.display = 'none'; return; }
     row.style.display = 'flex';
     icon.src = currentIconFile;
     const activeIdx = Math.min(3, Math.max(0, festBattlePhase - 1));
@@ -3127,7 +3122,7 @@ function updateFestProgressPotRow() {
         icon.style.width = iconWidth + 'px';
         icon.style.height = iconWidth + 'px';
         icon.style.left = Math.round(centerX - iconWidth / 2) + 'px';
-        icon.style.top = Math.round((slotRect.top - rowRect.top) - iconWidth * 0.42) + 'px';
+        icon.style.top = Math.round((slotRect.top - rowRect.top) - iconWidth * 0.72) + 'px';
         icon.style.display = 'block';
     });
 }
@@ -3340,6 +3335,7 @@ function startFestBattle() {
     const title = document.getElementById('festBattleTitle');
     if(title) title.style.display = 'none'; // セット数・雑魚戦の進捗表記は不要
     festInitBattleCards();
+    updateFestProgressPotRow(); // 対戦画面に入ったのでポット進行表示を表示・更新する
     festPlayBattleBgm(festBattlePhase <= 3);
     festLogSet((festBattlePhase <= 3 ? '雑魚' : 'ボス') + 'が現れた！');
     festApplyAllySpecialOnBattleStart();
