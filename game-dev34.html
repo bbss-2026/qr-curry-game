@@ -1553,8 +1553,9 @@
                 <button id="btnTagBattle" class="btn-bot-img" onclick="startTagBattle()"><img src="pssen-03.png" alt="タッグ戦"></button>
                 <button id="btnCurryFes" class="btn-bot-img" onclick="enterCurryFest()"><img src="pssen-04.png" alt="カレーフェス"></button>
             </div>
-            <div style="padding: 6px 0 0 0; display:flex; justify-content:flex-start;">
+            <div style="padding: 6px 0 0 0; display:flex; gap:6px; justify-content:flex-start;">
                 <button id="btnTagBattleInfo" style="flex:0 0 48%;padding:8px;background:transparent;color:#b88742;border:1px solid #b88742;border-radius:4px;font-size:12px;font-weight:bold;cursor:pointer;" onclick="showTagBattleInfo()">タッグ戦とは？</button>
+                <button id="btnFestInfo" style="flex:0 0 48%;padding:8px;background:transparent;color:#b88742;border:1px solid #b88742;border-radius:4px;font-size:12px;font-weight:bold;cursor:pointer;" onclick="showFestInfo()">フェスとは？</button>
             </div>
             <div style="border-top: 1px solid #b88742; margin: 16px 0;"></div>
             <div style="margin-bottom: 12px;">
@@ -3607,7 +3608,7 @@ function festPlayerActAttack(unitType, curry, allyStats, callback) {
     if(target.meatResistant && festIsAttackerMeatBased(unitType, curry)) d = Math.round(d * 0.2);
     target.curHp = Math.max(0, target.curHp - d);
     festTriggerDamagePop('enemy', pick.idx, d, isCrit ? '#ff4500' : '#f1c40f');
-    festLogSet((isCrit ? '🌟会心！ ' : '') + name + 'の攻撃！ ' + target.name + 'に' + d + 'ダメージ！');
+    festLogSet(isCrit ? ('🌶️ ' + name + ' の Spicy Hit!!!! ' + target.name + ' に ' + d + ' ダメージ！') : ('💥 ' + name + 'の攻撃！ ' + target.name + 'に' + d + 'ダメージ！'));
     playSoundEffect('punch.mp3');
     festUpdateAllHpDisplays();
     done();
@@ -3716,7 +3717,7 @@ function festEnemyActAttackSimple(e, curry, allyStats) {
     if(t.type === 'curry' && curry && curry.isRatatouille && e.category === 'meat') d = Math.round(d * 0.2);
     applyFestDamageToPlayer(t.type, d, curry);
     festTriggerDamagePop('player', t.idx, d, isCrit ? '#ff4500' : '#e74c3c');
-    festLogAppend((isCrit ? '🌟会心！ ' : '') + e.name + 'の追撃！ ' + targetName + 'に' + d + 'ダメージ！');
+    festLogAppend(isCrit ? ('🌶️ ' + e.name + ' の Spicy Hit!!!! ' + targetName + ' に ' + d + ' ダメージ！') : ('💥 ' + e.name + 'の追撃！ ' + targetName + 'に' + d + 'ダメージ！'));
     playSoundEffect('punch.mp3');
     festUpdateAllHpDisplays();
 }
@@ -3817,7 +3818,7 @@ function festEnemyActAttack(e, curry, allyStats, enemyIdx, callback) {
         if(t.type === 'curry' && curry && curry.isRatatouille && e.category === 'meat') d = Math.round(d * 0.2);
         applyFestDamageToPlayer(t.type, d, curry);
         festTriggerDamagePop('player', t.idx, d, isCrit ? '#ff4500' : '#e74c3c');
-        festLogSet((isCrit ? '🌟会心！ ' : '') + e.name + 'の攻撃！ ' + targetName + 'に' + d + 'ダメージ！' + (skillMsg ? '（' + skillMsg + '）' : ''));
+        festLogSet((isCrit ? ('🌶️ ' + e.name + ' の Spicy Hit!!!! ' + targetName + ' に ' + d + ' ダメージ！') : ('💥 ' + e.name + 'の攻撃！ ' + targetName + 'に' + d + 'ダメージ！')) + (skillMsg ? '（' + skillMsg + '）' : ''));
         playSoundEffect('punch.mp3');
         festUpdateAllHpDisplays();
 
@@ -5112,6 +5113,14 @@ function proceedGameStart() {
     updateFridgeUI();
     // アクセスカウント（デバッグモード中はカウントしない、同IDの同日重複はカウントしない）
     recordPlayerAccess();
+    // フェス中にトップ画面へ戻っていた場合：タブメニューを隠したままの状態（setFestStatusBarVisible(true)）が
+    // 残るとタブが消えて操作不能になるため、通常タブに切り替えず必ずフェス画面へ復帰させる
+    if(festActive) {
+        showFestScreen();
+        loadNotice();
+        onGameStartShowPost();
+        return;
+    }
     // プレイヤータブをアクティブに（GAME STARTの初期タブ）
     const playerTab = document.querySelector('[onclick*="quest"]');
     const playerPage = document.getElementById("pageQuest");
@@ -5131,6 +5140,7 @@ function goToTop() {
     if(arena && arena.style.display === "block") return;
     const tagArena = document.getElementById("tagBattleArena");
     if(tagArena && tagArena.style.display === "block") return;
+    if(festBattleInProgress) return; // フェスの戦闘中も同様に無効
     // 初期画面を表示
     hideCookStatPreview();
     const pageTop = document.getElementById("pageTop");
@@ -10337,6 +10347,36 @@ function showTagBattleInfo() {
         + '宅配カレーは5回使用されると食べ尽くされちゃうのでまた設定してね！'
         + '</div>';
     showCustomAlert('【タッグ戦・宅配カレーとは？】', msg);
+}
+function showFestInfo() {
+    const msg = '<div style="text-align:left;font-size:13px;line-height:1.8;color:#420000;">'
+        + '※まだまだバランス調整などありますので。突然の仕様変更などもございます。ご了承ください。<br><br>'
+        + '参加料：800G<br><br>'
+        + 'フェス専用の食材・カレーストックを使って連戦に挑むコンテンツです。<br>'
+        + 'フェス内で入手した食材やカレーはフェス終了時に消滅します。<br><br>'
+        + '<b>●フェス開始支給品：80FP、食材3つ、スパイス1つ</b><br>'
+        + 'FPはフェス内での通過です。<br>'
+        + 'FPはボスを倒しても10FP支給されます。<br><br>'
+        + '<b>●ショップ</b><br>'
+        + 'FPを使って食材などアイテムを入手できます。<br><br>'
+        + '<b>●調理</b><br>'
+        + 'フェス内で入手した食材を使って調理ができます。<br><br>'
+        + '<b>●仲間</b><br>'
+        + 'カレーの詳細確認、装備品の変更ができます。<br>'
+        + '「仲間を雇う」で討伐済みのキャラクターを雇うことができます。<br>'
+        + '経験スパイスを使用することで育成も可能です。<br>'
+        + '仲間は1人しか雇えません。<br>'
+        + '新しく仲間を雇った場合は入れ替えとなります。<br><br>'
+        + '<b>●進む</b><br>'
+        + 'バトルに進みます。<br>'
+        + '通常戦3戦→ボス戦→準備画面を繰り返します。<br>'
+        + '連戦が進むにつれ、敵が強くなりますが、報酬も多くなります。<br>'
+        + 'フェスのバトルでは出撃カレーのHPが0になってもストックカレーがある場合は、次のカレーを出撃させることができます。<br><br>'
+        + '<b>●フェス終了</b><br>'
+        + '「撤退」または「敗北」するとフェス終了です。<br>'
+        + '連勝数に応じた報酬が手に入ります。'
+        + '</div>';
+    showCustomAlert('【カレーフェスとは？】', msg);
 }
 
 function playEventMovie(onFinishCallback) {
