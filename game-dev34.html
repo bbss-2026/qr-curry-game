@@ -3423,6 +3423,8 @@ function festUpdateAllHpDisplays() {
     });
 }
 // フェス外のtagTriggerDamagePop()と同じ仕組みのダメージポップ演出（対象カードの位置に数値をポップさせる）
+// Spicy Hit（会心＝color:'#ff4500'）の場合は、PCとの対戦（triggerEffect関数）と同じ
+// 「Spicy Hit!!!!!!!!」文字演出・画面フラッシュ（flash-crit）・専用SE（spicyhit.mp3）を追加する
 function festTriggerDamagePop(side, idx, value, color) {
     const pop = document.getElementById('festDamagePop');
     const stage = document.getElementById('festBattleStage');
@@ -3433,15 +3435,28 @@ function festTriggerDamagePop(side, idx, value, color) {
     const targetRect = targetEl.getBoundingClientRect();
     let topPos = targetRect.top - stageRect.top + 4;
     if(topPos < 50) topPos = 50;
+    const isCrit = (color === '#ff4500');
     pop.style.left = (targetRect.left - stageRect.left + targetRect.width/2 - 20) + 'px';
     pop.style.top = topPos + 'px';
-    pop.innerText = (value > 0 ? '' : '+') + Math.abs(value);
+    pop.className = 'tag-damage-pop';
+    if(isCrit) {
+        pop.innerHTML = '<div class="crit-label">Spicy Hit!!!!!!!!</div><div class="crit-dmg">' + (value > 0 ? '' : '+') + Math.abs(value) + '</div>';
+    } else {
+        pop.innerText = (value > 0 ? '' : '+') + Math.abs(value);
+    }
     pop.style.color = color || '#f1c40f';
     pop.style.display = 'block';
     pop.style.animation = 'none';
     void pop.offsetWidth;
-    pop.style.animation = 'popUp 0.7s forwards';
-    setTimeout(function(){ pop.style.display = 'none'; }, 700);
+    pop.style.animation = isCrit ? 'critPopUp 0.9s forwards' : 'popUp 0.7s forwards';
+    setTimeout(function(){ pop.style.display = 'none'; }, isCrit ? 900 : 700);
+    if(isCrit) {
+        playSoundEffect('spicyhit.mp3');
+        stage.classList.remove('flash-crit');
+        void stage.offsetWidth;
+        stage.classList.add('flash-crit');
+        setTimeout(function(){ stage.classList.remove('flash-crit'); }, 350);
+    }
     targetEl.style.transform = 'translateX(-4px)';
     setTimeout(function(){ targetEl.style.transform = 'translateX(4px)'; }, 60);
     setTimeout(function(){ targetEl.style.transform = ''; }, 120);
@@ -3511,6 +3526,8 @@ function festApplyAllySpecialOnBattleStart() {
     [0,1].forEach(function(i) {
         const el = document.getElementById('festEnemyName' + i);
         if(el) el.classList.remove('name-poisoned', 'name-illuded');
+        const pel = document.getElementById('festPlayerName' + i);
+        if(pel) pel.classList.remove('name-poisoned', 'name-illuded');
     });
     festCurrySeaHealUsed = false; // 海鮮カレーの1回きり回復フラグを毎戦闘開始時にリセット
     const curry = festCurryStock[festActiveCurryIdx];
@@ -3631,24 +3648,40 @@ function festCurrySeedAttack(curry, callback) {
         const atk = festCurryStatWithTableware(curry.atk, 'atk') * (festPlayerAtkDownActive ? 0.7 : 1) + (festSpicyBuffActive ? 40 : 0);
         const hits = rollSeedHits(curSpd, avgEnemySpd);
         let total = 0;
+        let spicyCount = 0;
         const records = [];
         for(let h = 0; h < hits; h++) {
             const pick = pickLivingFestEnemyWithIdx();
             if(!pick) break;
             let d = Math.max(2, Math.round(atk*0.4 - pick.enemy.def/4));
             d = Math.round(d * (0.9 + Math.random()*0.2));
-            if(Math.random() < getCritRate(curSpd, avgEnemySpd)) d = Math.round(d*2);
+            if(Math.random() < getCritRate(curSpd, avgEnemySpd)) { d = Math.round(d*2); spicyCount++; }
             // 陽だまり野菜のご隠居（meatResistant）：肉系カレーからの攻撃を大幅軽減
             if(pick.enemy.meatResistant && isMeatBasedCurry(curry)) d = Math.round(d * 0.2);
             pick.enemy.curHp = Math.max(0, pick.enemy.curHp - d);
             total += d;
-            records.push({ idx: pick.idx, d: d });
+            records.push({ idx: pick.idx, name: pick.enemy.name, d: d });
         }
-        festLogSet('🌱 ' + playerName + 'の種連続発射 ' + hits + '連撃！ 合計' + total + 'ダメージ！');
+        // ダメージポップ・ログの出方はタッグ戦の種連続発射と同じ（1発ずつ220ms間隔でポップ→最後に内訳を集計表示）
+        festLogAppend('🌱 ' + playerName + 'の種連続発射 ' + hits + '連撃！' + (spicyCount > 0 ? (' 🌶️ SpicyHit×' + spicyCount + '！') : ''));
         playSoundEffect('machine-gun.mp3');
-        records.forEach(function(r){ festTriggerDamagePop('enemy', r.idx, r.d, '#f1c40f'); });
-        festUpdateAllHpDisplays();
-        done();
+        records.forEach(function(r, i) {
+            setTimeout(function() {
+                festTriggerDamagePop('enemy', r.idx, r.d, '#f1c40f');
+                festUpdateAllHpDisplays();
+                if(i === records.length - 1) {
+                    const summary = {};
+                    records.forEach(function(rec) {
+                        if(!summary[rec.idx]) summary[rec.idx] = { name: rec.name, count: 0, dmg: 0 };
+                        summary[rec.idx].count++;
+                        summary[rec.idx].dmg += rec.d;
+                    });
+                    const summaryText = Object.keys(summary).map(function(k){ return summary[k].name + 'に' + summary[k].count + '回(' + summary[k].dmg + 'ダメージ)'; }).join(' / ');
+                    festLogAppend(summaryText + ' 合計: ' + total + ' ダメージ！');
+                }
+            }, battleDelay(i * 220));
+        });
+        setTimeout(done, battleDelay(records.length * 220 + 300));
     });
 }
 // 仲間「種まき婆ちゃん」の特技：種連続発射（タッグ戦の同名Botと同じ計算式・演出。演出はタッグ戦のplayTanemakiAnimationを共用）
@@ -3661,24 +3694,39 @@ function festAllySeedAttack(allyStats, callback) {
         const avgEnemySpd = aliveEnemies.reduce(function(a,e){ return a + e.spd; }, 0) / aliveEnemies.length;
         const hits = rollSeedHits(allyStats.spd, avgEnemySpd);
         let total = 0;
+        let spicyCount = 0;
         const records = [];
         for(let h = 0; h < hits; h++) {
             const pick = pickLivingFestEnemyWithIdx();
             if(!pick) break;
             let d = Math.max(2, Math.round(allyStats.atk*0.4 - pick.enemy.def/4));
             d = Math.round(d * (0.9 + Math.random()*0.2));
-            if(Math.random() < getCritRate(allyStats.spd, avgEnemySpd)) d = Math.round(d*2);
+            if(Math.random() < getCritRate(allyStats.spd, avgEnemySpd)) { d = Math.round(d*2); spicyCount++; }
             // 陽だまり野菜のご隠居（meatResistant）：肉系仲間からの攻撃を大幅軽減
             if(pick.enemy.meatResistant && festIsAttackerMeatBased('ally', null)) d = Math.round(d * 0.2);
             pick.enemy.curHp = Math.max(0, pick.enemy.curHp - d);
             total += d;
-            records.push({ idx: pick.idx, d: d });
+            records.push({ idx: pick.idx, name: pick.enemy.name, d: d });
         }
-        festLogSet('🌱 ' + festHiredAllyName + 'の種連続発射 ' + hits + '連撃！ 合計' + total + 'ダメージ！');
+        festLogAppend('🌱 ' + festHiredAllyName + 'の種連続発射 ' + hits + '連撃！' + (spicyCount > 0 ? (' 🌶️ SpicyHit×' + spicyCount + '！') : ''));
         playSoundEffect('machine-gun.mp3');
-        records.forEach(function(r){ festTriggerDamagePop('enemy', r.idx, r.d, '#f1c40f'); });
-        festUpdateAllHpDisplays();
-        done();
+        records.forEach(function(r, i) {
+            setTimeout(function() {
+                festTriggerDamagePop('enemy', r.idx, r.d, '#f1c40f');
+                festUpdateAllHpDisplays();
+                if(i === records.length - 1) {
+                    const summary = {};
+                    records.forEach(function(rec) {
+                        if(!summary[rec.idx]) summary[rec.idx] = { name: rec.name, count: 0, dmg: 0 };
+                        summary[rec.idx].count++;
+                        summary[rec.idx].dmg += rec.d;
+                    });
+                    const summaryText = Object.keys(summary).map(function(k){ return summary[k].name + 'に' + summary[k].count + '回(' + summary[k].dmg + 'ダメージ)'; }).join(' / ');
+                    festLogAppend(summaryText + ' 合計: ' + total + ' ダメージ！');
+                }
+            }, battleDelay(i * 220));
+        });
+        setTimeout(done, battleDelay(records.length * 220 + 300));
     });
 }
 // 仲間「ドラゴン料理長」の特技：熱々ブレス（タッグ戦の同名Botと同じ計算式・演出。敵全体にDEF無視固定ダメージ。演出はタッグ戦のplayTanemakiAnimationを共用）
@@ -3825,6 +3873,8 @@ function festEnemyActAttack(e, curry, allyStats, enemyIdx, callback) {
         if(poisonProc) {
             if(t.type === 'curry') festPlayerPoisoned = true; else festAllyPoisoned = true;
             festLogAppend('☠️ ' + targetName + 'は「' + skill.name + '」で毒状態になった！');
+            const nameEl = document.getElementById('festPlayerName' + t.idx);
+            if(nameEl) nameEl.classList.add('name-poisoned');
             playSoundEffect('poison.mp3');
         }
         if(atkDownProc) {
@@ -3834,6 +3884,8 @@ function festEnemyActAttack(e, curry, allyStats, enemyIdx, callback) {
         if(illusionProc) {
             if(t.type === 'curry') festPlayerIlluded = true; else festAllyIlluded = true;
             festLogAppend('🌀 ' + targetName + 'は「' + skill.name + '」で幻惑状態になった！');
+            const nameEl2 = document.getElementById('festPlayerName' + t.idx);
+            if(nameEl2) nameEl2.classList.add('name-illuded');
             playSoundEffect('sound/miss.mp3');
         }
         if(extraTurnProc) {
@@ -3861,6 +3913,7 @@ function festEnemySeedAttack(e, curry, allyStats, enemyIdx, callback) {
         const avgTargetSpd = targetSpds.reduce(function(a,b){ return a+b; },0) / targetSpds.length;
         const hits = rollSeedHits(e.spd, avgTargetSpd);
         let total = 0;
+        let spicyCount = 0;
         const records = [];
         for(let h = 0; h < hits; h++) {
             const liveTargets = targets.filter(function(t){ return t.type === 'curry' ? (curry && curry.curHp > 0) : (festAllyHp > 0); });
@@ -3869,18 +3922,32 @@ function festEnemySeedAttack(e, curry, allyStats, enemyIdx, callback) {
             const targetDef = t.type === 'curry' ? festCurryStatWithTableware(curry.def, 'def') : allyStats.def;
             let d = Math.max(2, Math.round(e.atk*0.4 - targetDef/4));
             d = Math.round(d * (0.9 + Math.random()*0.2));
-            if(Math.random() < getCritRate(e.spd, avgTargetSpd)) d = Math.round(d*2);
+            if(Math.random() < getCritRate(e.spd, avgTargetSpd)) { d = Math.round(d*2); spicyCount++; }
             // ラタトゥイユカレー（isRatatouille）：肉系カテゴリの敵からの攻撃を大幅軽減（種吹きメロンボーイは果物系のため対象外）
             if(t.type === 'curry' && curry && curry.isRatatouille && e.category === 'meat') d = Math.round(d * 0.2);
             applyFestDamageToPlayer(t.type, d, curry);
             total += d;
-            records.push({ idx: t.idx, d: d });
+            records.push({ idx: t.idx, name: (t.type === 'curry' ? playerName : festHiredAllyName), d: d });
         }
-        festLogSet('🍈 ' + e.name + 'の種連続発射 ' + hits + '連撃！ 合計' + total + 'ダメージ！');
+        festLogAppend('🍈 ' + e.name + 'の種連続発射 ' + hits + '連撃！' + (spicyCount > 0 ? (' 🌶️ SpicyHit×' + spicyCount + '！') : ''));
         playSoundEffect('machine-gun.mp3');
-        records.forEach(function(r){ festTriggerDamagePop('player', r.idx, r.d, '#e74c3c'); });
-        festUpdateAllHpDisplays();
-        done();
+        records.forEach(function(r, i) {
+            setTimeout(function() {
+                festTriggerDamagePop('player', r.idx, r.d, '#e74c3c');
+                festUpdateAllHpDisplays();
+                if(i === records.length - 1) {
+                    const summary = {};
+                    records.forEach(function(rec) {
+                        if(!summary[rec.idx]) summary[rec.idx] = { name: rec.name, count: 0, dmg: 0 };
+                        summary[rec.idx].count++;
+                        summary[rec.idx].dmg += rec.d;
+                    });
+                    const summaryText = Object.keys(summary).map(function(k){ return summary[k].name + 'に' + summary[k].count + '回(' + summary[k].dmg + 'ダメージ)'; }).join(' / ');
+                    festLogAppend(summaryText + ' 合計: ' + total + ' ダメージ！');
+                }
+            }, battleDelay(i * 220));
+        });
+        setTimeout(done, battleDelay(records.length * 220 + 300));
     });
 }
 // 追撃前チェック用（画面更新・勝敗確定はメインループ側でまとめて行うため、ここでは真偽だけ返す）
@@ -10817,25 +10884,43 @@ function scrollResultIntoView(elementId) {
     }, 100);
 }
 
+// Spicy Hit（会心＝color:'#ff4500'）の場合は、PCとの対戦（triggerEffect関数）と同じ
+// 「Spicy Hit!!!!!!!!」文字演出・画面フラッシュ（flash-crit）・専用SE（spicyhit.mp3）を追加する
 function tagTriggerDamagePop(targetSide, targetIdx, value, color) {
     const pop = document.getElementById('tagDamagePop');
     if(!pop) return;
     const targetEl = targetSide === 'enemy' ? document.getElementById('tagEnemyCard' + targetIdx) : document.getElementById('tagPlayerCard' + targetIdx);
     if(!targetEl) return;
-    const stageRect = document.getElementById('tagBattleStage').getBoundingClientRect();
+    const stage = document.getElementById('tagBattleStage');
+    const stageRect = stage.getBoundingClientRect();
     const targetRect = targetEl.getBoundingClientRect();
     // ステージの外にはみ出さないよう、カード内側の上部に表示位置を収める（popUpアニメーションで最大45px上に動くため余裕を持たせる）
     let topPos = targetRect.top - stageRect.top + 4;
     if(topPos < 50) topPos = 50;
+    const isCrit = (color === '#ff4500');
     pop.style.left = (targetRect.left - stageRect.left + targetRect.width/2 - 20) + 'px';
     pop.style.top = topPos + 'px';
-    pop.innerText = (value > 0 ? '' : '+') + Math.abs(value);
+    pop.className = 'tag-damage-pop';
+    if(isCrit) {
+        pop.innerHTML = '<div class="crit-label">Spicy Hit!!!!!!!!</div><div class="crit-dmg">' + (value > 0 ? '' : '+') + Math.abs(value) + '</div>';
+    } else {
+        pop.innerText = (value > 0 ? '' : '+') + Math.abs(value);
+    }
     pop.style.color = color || '#f1c40f';
     pop.style.display = 'block';
     pop.style.animation = 'none';
     void pop.offsetWidth;
-    pop.style.animation = 'popUp 0.7s forwards';
-    setTimeout(() => { pop.style.display = 'none'; }, 700);
+    pop.style.animation = isCrit ? 'critPopUp 0.9s forwards' : 'popUp 0.7s forwards';
+    setTimeout(() => { pop.style.display = 'none'; }, isCrit ? 900 : 700);
+    if(isCrit) {
+        playSoundEffect('spicyhit.mp3');
+        if(stage) {
+            stage.classList.remove('flash-crit');
+            void stage.offsetWidth;
+            stage.classList.add('flash-crit');
+            setTimeout(() => stage.classList.remove('flash-crit'), 350);
+        }
+    }
     targetEl.style.transform = 'translateX(-4px)';
     setTimeout(() => { targetEl.style.transform = 'translateX(4px)'; }, 60);
     setTimeout(() => { targetEl.style.transform = ''; }, 120);
