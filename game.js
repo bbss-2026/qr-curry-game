@@ -3317,6 +3317,45 @@ function renderFestAllyUI() {
             allyBox.innerHTML = '<div style="color:#454545; font-size:12px; padding:8px 0; background:rgba(255,255,255,0.85); border-radius:8px;">仲間は未雇用です</div>';
         }
     }
+    renderFestDebugPanel();
+}
+// デバッグパネル（本人のisDebugModeがtrueの時のみ表示）：経験値スパイスの増減・仲間botのレベル直接設定
+// 経験値スパイス（festExpSpice）はFirebaseに保存されない設計のため、この画面から直接その場で操作する。
+// 仲間botレベル（festAllyLevels）はFirebase同期対象だが、同じ端末・同じセッション内でupdateStats()→saveGame()するため
+// 上書きされる心配はない（保存のたびにstats全体を上書きする仕様と衝突しない）。
+function renderFestDebugPanel() {
+    const panel = document.getElementById('festDebugPanel');
+    if(!panel) return;
+    if(!isDebugMode) { panel.style.display = 'none'; return; }
+    panel.style.display = 'block';
+    const valEl = document.getElementById('festDebugExpSpiceVal');
+    if(valEl) valEl.innerText = festExpSpice;
+    const sel = document.getElementById('festDebugAllySelect');
+    if(sel && sel.options.length === 0) {
+        sel.innerHTML = FEST_ALLY_DEFS.map(function(d){ return '<option value="' + d.name + '">' + d.name + '</option>'; }).join('');
+    }
+}
+function festDebugAdjustExpSpice(delta) {
+    festExpSpice = Math.max(0, festExpSpice + delta);
+    saveFestState();
+    updateFestStatusBar();
+    renderFestDebugPanel();
+}
+function festDebugSetAllyLevel() {
+    const sel = document.getElementById('festDebugAllySelect');
+    const input = document.getElementById('festDebugAllyLevelInput');
+    if(!sel || !input) return;
+    const name = sel.value;
+    let level = parseInt(input.value, 10);
+    if(!name || isNaN(level)) { showCustomAlert('⚠️ 入力エラー', 'レベルを数値で入力してください。'); return; }
+    level = Math.max(1, Math.min(FEST_ALLY_LEVEL_CAP, level));
+    updateStats(function(s) {
+        if(!s.festAllyLevels) s.festAllyLevels = {};
+        s.festAllyLevels[name] = { level: level, exp: 0 };
+    });
+    saveGame(); // 同じセッション内で即クラウドにも反映（stats全体を上書きするため、他端末での古いキャッシュがある場合は競合し得る点は変わらない）
+    renderFestAllyUI();
+    showCustomAlert('🔧 デバッグ設定完了', name + 'のレベルを' + level + 'に設定しました。');
 }
 // 戦闘外：仲間パネルから回復スパイスを使って雇用中の仲間のHPを全回復する
 function useFestHealSpiceOutsideBattle() {
