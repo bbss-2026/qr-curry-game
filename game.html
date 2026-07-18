@@ -1422,8 +1422,9 @@
                 </div>
             </div>
             <h3 style="font-size:14px; margin:0 0 6px; color:#454545;">仲間</h3>
+            <div id="festAllyDisplay" style="margin-bottom:14px;"></div>
             <!-- 仲間bot専用のベース・食器選択（ストックカレー側とは独立。所有物は共通だが選択状態は別管理） -->
-            <div style="display:flex; gap:8px; margin-bottom:10px;">
+            <div style="display:flex; gap:8px; margin-bottom:14px;">
                 <div id="festAllyBaseSelectBox" onclick="showFestAllyBaseSelectModal()" style="flex:1; padding:8px 6px; border:1px solid #99aee3; border-radius:4px; background:#ffffff; text-align:center; cursor:pointer;">
                     <div style="font-size:10px; color:#888;">仲間のベース</div>
                     <div id="festAllyBaseSelectLabel" style="font-size:13px; font-weight:bold; color:#454545;">白米</div>
@@ -1433,7 +1434,6 @@
                     <div id="festAllyTablewareSelectLabel" style="font-size:13px; font-weight:bold; color:#454545;">白い皿</div>
                 </div>
             </div>
-            <div id="festAllyDisplay" style="margin-bottom:14px;"></div>
             <button class="btn btn-battle" style="width:100%;" onclick="openFestHireModal()">仲間を雇う</button>
             <!-- デバッグ専用パネル：players/{自分のID}/debugMode（admin-work.htmlから設定）がtrueの本人にのみ表示。
                  経験値スパイスはFirebase非同期（ローカル専用）のためadmin-work.htmlからは操作できず、ここに用意している。 -->
