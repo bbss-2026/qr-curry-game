@@ -1133,6 +1133,26 @@
         </div>
         <div class="tag-match-body" id="botProgressBody"></div>
     </div>
+    <!-- PC戦：初級／中級の選択（旧・中級ボタンを統合したための選択モーダル） -->
+    <div class="modal-overlay" id="botDifficultyChooserOverlay" style="display:none;">
+        <div class="modal-box" style="max-width:340px;">
+            <div class="modal-title" style="text-align:center;">⚔️ PCと対戦</div>
+            <div class="modal-message" style="text-align:center;">難易度を選んでください。</div>
+            <div style="display:flex; flex-direction:column; gap:8px; margin-top:10px;">
+                <button class="tutorial-nav-btn" style="width:100%;" onclick="closeBotDifficultyChooser(); openBotProgressModal('easy');">初級</button>
+                <button class="tutorial-nav-btn" style="width:100%; background:#c0392b;" onclick="closeBotDifficultyChooser(); openBotProgressModal('hard');">中級</button>
+                <button class="modal-btn modal-btn-cancel" style="width:100%; margin-top:4px;" onclick="closeBotDifficultyChooser();">キャンセル</button>
+            </div>
+        </div>
+    </div>
+    <!-- 日替わりカレー -->
+    <div id="dailyCurryFullscreen" class="tutorial-fullscreen">
+        <div class="tutorial-header">
+            <button class="tutorial-close" onclick="closeDailyCurryModal()">✕</button>
+            <div class="tutorial-page-indicator">日替わりカレー</div>
+        </div>
+        <div class="tag-match-body" id="dailyCurryBody"></div>
+    </div>
     <!-- QRスキャンタブ -->
     <div id="pageScan" class="page" style="text-align:center;">
         <button id="btnQrBingo" class="btn btn-start" onclick="openBingoModal()" style="display:flex;align-items:center;justify-content:center;gap:8px;width:80%;color:#efdeb1;font-size:16px;background:#d35400;margin-bottom:10px;">QR BINGO</button>
@@ -1598,8 +1618,8 @@
             <button id="eventReplayBtn" style="display:none;width:100%;margin-bottom:8px;padding:8px;background:transparent;color:#b88742;border:1px solid #b88742;border-radius:4px;font-size:12px;font-weight:bold;cursor:pointer;" onclick="replayEventMovie()">🎬 オープニングムービーをもう一度見る</button>
             <button id="eventInfoBtn" style="display:none;width:100%;margin-bottom:12px;padding:8px;background:transparent;color:#b88742;border:1px solid #b88742;border-radius:4px;font-size:12px;font-weight:bold;cursor:pointer;" onclick="showEventInfo()">📖 特盛りモンスターについて</button>
             <div style="padding: 16px 0 0 0; display:flex; gap:6px;">
-                <button id="btnBotNormal" class="btn-bot-img" onclick="openBotProgressModal('easy')"><img src="pssen-01.png" alt="PCと対戦する（初級）"></button>
-                <button id="btnBotHard" class="btn-bot-img" onclick="openBotProgressModal('hard')"><img src="pssen-02.png" alt="PCと対戦する（中級）"></button>
+                <button id="btnBotNormal" class="btn-bot-img" onclick="openBotDifficultyChooser()"><img src="pssen-01.png" alt="PCと対戦する"></button>
+                <button id="btnDailyCurry" class="btn-bot-img" onclick="openDailyCurryModal()"><img id="dailyCurryBtnImg" src="images/pssen-sun.png" alt="日替わりカレー"></button>
             </div>
             <div style="padding: 8px 0 0 0; display:flex; gap:6px;">
                 <button id="btnTagBattle" class="btn-bot-img" onclick="startTagBattle()"><img src="pssen-03.png" alt="タッグ戦"></button>
