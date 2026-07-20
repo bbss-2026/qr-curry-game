@@ -1,0 +1,1817 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>管理ツール</title>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app-check.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js" onerror="document.write('<script src=\'https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js\'><\/script>')"></script>
+<style>
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Yu Gothic", sans-serif; background: #efdeb1; color: #420000; }
+    .container { max-width: 600px; margin: 0 auto; padding: 20px 16px 60px; }
+    h1 { font-size: 20px; text-align: center; margin: 10px 0 24px; color: #420000; }
+    .btn-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 20px; }
+    .btn-grid button {
+        padding: 10px 6px; border: none; border-radius: 6px; font-weight: bold;
+        font-size: 12px; cursor: pointer; line-height: 1.3; color: white;
+    }
+    .section { background: #fffdf0; border: 1px solid #b88742; border-radius: 8px; padding: 16px; margin-bottom: 16px; }
+    .section-label { font-weight: bold; color: #555; font-size: 13px; margin-bottom: 10px; }
+    .input-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 8px; }
+    .input-grid label { font-size: 10px; color: #888; display: block; margin-bottom: 2px; }
+    .input-grid input { width: 100%; padding: 6px; border: 1px solid #ccc; border-radius: 4px; font-size: 13px; }
+    .btn-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 8px; }
+    .btn-row button { padding: 8px 6px; border: none; border-radius: 6px; font-weight: bold; font-size: 12px; cursor: pointer; color: white; }
+    textarea { width: 100%; padding: 8px; border: 2px solid #e67e22; border-radius: 6px; font-size: 12px; box-sizing: border-box; resize: vertical; }
+    .save-btn { width: 100%; margin-top: 6px; padding: 8px; background: #2ecc71; color: white; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; }
+    .hint { font-size: 10px; color: #999; line-height: 1.5; margin-top: 8px; }
+    .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(66,0,0,0.5); z-index: 9999; display: none; justify-content: center; align-items: center; }
+    .modal-box { background: #efdeb1; width: 88%; max-width: 420px; max-height: 85vh; overflow-y: auto; padding: 20px; border-radius: 6px; border: 1px solid #b88742; box-sizing: border-box; -webkit-overflow-scrolling: touch; }
+    .modal-title { font-size: 16px; font-weight: bold; margin-bottom: 12px; color: #420000; }
+    .modal-message { font-size: 13px; line-height: 1.6; color: #420000; text-align: left; }
+    .modal-btn-group { margin-top: 16px; display: flex; gap: 8px; justify-content: flex-end; }
+    .modal-btn { padding: 8px 18px; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; }
+    .modal-btn-ok { background: #b88742; color: white; }
+    .modal-btn-cancel { background: #ccc; color: #333; }
+</style>
+</head>
+<body>
+
+<div class="modal-overlay" id="adminLockScreen" style="display:none;z-index:99999;">
+    <div class="modal-box">
+        <div class="modal-title">🔒 管理者専用ツール</div>
+        <div class="modal-message">
+            このツールにアクセスするにはパスワードが必要です。
+            <div style="margin-top:12px;">
+                <input type="password" id="adminLockPasswordInput" placeholder="パスワード" style="width:100%;padding:8px;border:1px solid #b88742;border-radius:4px;font-size:14px;box-sizing:border-box;">
+            </div>
+            <div id="adminLockError" style="display:none;color:#e74c3c;font-size:12px;margin-top:8px;">❌ パスワードが違います。</div>
+        </div>
+        <div class="modal-btn-group">
+            <button class="modal-btn modal-btn-ok" onclick="checkAdminLockPassword()">ログイン</button>
+        </div>
+    </div>
+</div>
+
+<div class="container">
+    <h1>🔧 管理ツール</h1>
+
+    <div class="btn-grid">
+        <button style="background:#e67e22;" onclick="actFullcharge()">✨ アイテム全補充</button>
+        <button style="background:#2c3e50;" onclick="actAnalytics()">📊 アナリティクス</button>
+        <button style="background:#1a6e3c;" onclick="actPlayerProgress()">🗺️ プレイヤー進行度</button>
+        <button id="btnDebugMode" style="background:#7f8c8d;" onclick="actToggleDebugMode()">🐛 デバッグモード: OFF</button>
+        <button id="btnEventToggle" style="background:#7f8c8d;" onclick="actEventToggle()">🐙 特盛りイベント: OFF</button>
+        <button style="background:#8e44ad;" onclick="actEventDamage()">📊 イベント ダメージ集計</button>
+        <button style="background:#16a085;" onclick="actEventSetHp()">🩹 モンスターHP変更</button>
+        <button style="background:#3498db;" onclick="actSetLevel()">🎮 レベル設定</button>
+        <button style="background:#e74c3c;" onclick="actCheckPassword()">🔒 パスワード確認</button>
+        <button id="btnTimeSetting" style="background:#7f8c8d;" onclick="actSetTime()">⏰ 時間設定: OFF</button>
+        <button style="background:#d35400;" onclick="actResetBingo()">QR BINGO リセット</button>
+        <button id="btnQrIgnore" style="background:#27ae60;" onclick="actToggleQrIgnore()">🔓 QR使用済み無視: OFF</button>
+        <button id="btnNewPlayerMode" style="background:#7f8c8d;" onclick="actToggleNewPlayerMode()">🆕 初期プレイヤー化: OFF</button>
+        <button style="background:#2980b9;" onclick="actShowSyncErrors()">🔄 同期エラーログ</button>
+        <button style="background:#922b21;" onclick="actShowFraudAlerts()">🚩 不正検知アラート</button>
+        <button style="background:#7f8c8d;" onclick="actResetSyncSeal()">🔧 syncSeal/scanSealリセット（1人）</button>
+        <button style="background:#6d4c1c;" onclick="actResetFestGlobalRecord()">🏆 全プレイヤー最高連勝記録リセット</button>
+        <button style="background:#c0392b;" onclick="actDebugModeReleaseAll()">🔓 デバッグモード全解除</button>
+        <button style="background:#27ae60;" onclick="actCheckAuthMigrationStatus()">🔑 UID移行状況を確認</button>
+        <button style="background:#16a085;" onclick="actResetPlayerUidClaim()">🔓 UID紐付けをリセット（1人）</button>
+        <button style="background:#c0392b;" onclick="actMigratePasswordSecretsToPlayerSecrets()">🔐 パスワード/secretKeyの移行（全員一括）</button>
+        <button style="background:#8e44ad;" onclick="actAnalyticsIntegrityCheck()">📐 アナリティクス整合性チェック</button>
+        <button style="background:#e67e22;" onclick="actToggleAnalyticsExclusion()">🚫 アナリティクス除外設定</button>
+        <button style="background:#c0392b;" onclick="actExcludeKnownSuspiciousAccounts()">🚫 不正疑い3キャラを除外</button>
+        <button style="background:#7f0000;" onclick="actResetScanCookBattleAnalytics()">🗑️ スキャン/調理/バトルをリセット</button>
+        <button style="background:#2c3e50;" onclick="actMigrateStatsToObject()">🛠️ statsをオブジェクト形式へ移行</button>
+    </div>
+
+    <div class="section">
+        <div class="section-label">🎁 特別ボーナス補充</div>
+        <div class="input-grid">
+            <div><label>ノーマル素材(個)</label><input type="number" id="sbNormalCount" min="0" placeholder="0"></div>
+            <div><label>中級/高級素材(個)</label><input type="number" id="sbMidHighCount" min="0" placeholder="0"></div>
+            <div><label>ノーマルスパイス(個)</label><input type="number" id="sbSpiceCount" min="0" placeholder="0"></div>
+            <div><label>ゴールド(G)</label><input type="number" id="sbGold" min="0" placeholder="0"></div>
+            <div><label>パック券(枚)</label><input type="number" id="sbTicket" min="0" placeholder="0"></div>
+            <div><label>スパイシーコイン(枚)</label><input type="number" id="sbSpicyCoin" min="0" placeholder="0"></div>
+        </div>
+        <div class="btn-row">
+            <button style="background:#d35400;" onclick="actSpecialBonusAll()">🌍 全体補充</button>
+            <button style="background:#c0392b;" onclick="actSpecialBonusIndiv()">👤 個別補充（ID指定）</button>
+        </div>
+        <div class="hint">全体補充: 上記の数値で「特別ボーナス」を更新し、全員の受取状況をリセットします。<br>個別補充: 上記の数値を、入力したIDのプレイヤーに直接プレゼントします（特別ボーナスには影響しません）。</div>
+    </div>
+
+    <div class="section">
+        <div class="section-label">📢 お知らせ設定（全ユーザーに表示）</div>
+        <textarea id="staffNoticeInput" rows="4" placeholder="お知らせ内容（空欄で非表示）"></textarea>
+        <button class="save-btn" onclick="actSetNotice()">💾 お知らせを保存・反映</button>
+    </div>
+
+    <div class="section">
+        <div class="section-label">📋 TOP画面テキスト設定</div>
+        <textarea id="staffTopInfoInput" rows="5" placeholder="TOP画面に表示するテキスト（空欄で非表示）"></textarea>
+        <button class="save-btn" onclick="actSetTopInfo()">💾 TOP画面テキストを保存・反映</button>
+    </div>
+
+    <div class="section">
+        <div class="section-label">🧪 テスト用QR生成（任意の食材）</div>
+        <select id="testQrItemSelect" style="width:100%;padding:8px;border:1px solid #b88742;border-radius:4px;font-size:13px;margin-bottom:8px;"></select>
+        <button class="save-btn" style="background:#3498db;" onclick="actGenerateTestQr()">📱 QRコードを生成</button>
+        <div id="testQrResult" style="text-align:center;margin-top:14px;"></div>
+        <div class="hint">スマホの「カメラを起動する」でこのQRを読み取ると、選んだ食材が手に入ります（1日1回の制限あり、本日使用済みリセットボタンと併用してください）。</div>
+    </div>
+
+    <div class="section">
+        <div class="section-label">🚚 宅配カレー一覧</div>
+        <button class="save-btn" style="background:#2e8b6f;" onclick="actShowDeliveryCurryList()">🔄 最新の状態を表示</button>
+        <div id="deliveryCurryListResult" style="margin-top:14px;"></div>
+    </div>
+
+    <div class="section">
+        <div class="section-label">📮 お知らせ手紙の配信</div>
+        <div style="font-size:12px;color:#888;margin-bottom:8px;">下書きを確認してから「全員に送信」または「個別に送信」を選んでください。</div>
+        <select id="announceTemplateSelect" style="width:100%;padding:8px;border:1px solid #b88742;border-radius:4px;font-size:13px;margin-bottom:8px;" onchange="actLoadAnnounceTemplate()">
+            <option value="">テンプレートを選択...</option>
+            <option value="shop1_intro">カレー店のご紹介（空腹は最高のスパイスカレー）</option>
+        </select>
+        <label style="font-size:12px;color:#555;display:block;margin-bottom:2px;">件名</label>
+        <input type="text" id="announceSubject" style="width:100%;padding:8px;border:1px solid #b88742;border-radius:4px;font-size:13px;margin-bottom:8px;box-sizing:border-box;">
+        <label style="font-size:12px;color:#555;display:block;margin-bottom:2px;">本文</label>
+        <textarea id="announceBody" rows="4" style="width:100%;padding:8px;border:1px solid #b88742;border-radius:4px;font-size:13px;margin-bottom:8px;box-sizing:border-box;"></textarea>
+        <label style="font-size:12px;color:#555;display:block;margin-bottom:2px;">添付画像（上）パス</label>
+        <input type="text" id="announceImage" style="width:100%;padding:8px;border:1px solid #b88742;border-radius:4px;font-size:13px;margin-bottom:8px;box-sizing:border-box;" placeholder="例: shop/shop-1-1.png">
+        <label style="font-size:12px;color:#555;display:block;margin-bottom:2px;">添付画像（下1）パス</label>
+        <input type="text" id="announceImageBottom" style="width:100%;padding:8px;border:1px solid #b88742;border-radius:4px;font-size:13px;margin-bottom:4px;box-sizing:border-box;" placeholder="例: shop/shop-2-1.png">
+        <label style="font-size:12px;color:#555;display:block;margin-bottom:2px;">下1画像のリンクURL（タップで開く・空欄なら画像表示のみ）</label>
+        <input type="text" id="announceImageBottomUrl" style="width:100%;padding:8px;border:1px solid #b88742;border-radius:4px;font-size:13px;margin-bottom:8px;box-sizing:border-box;" placeholder="例: https://www.instagram.com/...">
+        <label style="font-size:12px;color:#555;display:block;margin-bottom:2px;">添付画像（下2）パス ※2枚は横並び表示</label>
+        <input type="text" id="announceImageBottom2" style="width:100%;padding:8px;border:1px solid #b88742;border-radius:4px;font-size:13px;margin-bottom:4px;box-sizing:border-box;" placeholder="例: shop/shop-2-2.png">
+        <label style="font-size:12px;color:#555;display:block;margin-bottom:2px;">下2画像のリンクURL（タップで開く・空欄なら画像表示のみ）</label>
+        <input type="text" id="announceImageBottomUrl2" style="width:100%;padding:8px;border:1px solid #b88742;border-radius:4px;font-size:13px;margin-bottom:12px;box-sizing:border-box;" placeholder="例: https://x.com/...">
+        <label style="font-size:12px;color:#555;display:block;margin-bottom:2px;">開封後に自動で消えるまでの時間（分・空欄なら消えない）</label>
+        <input type="number" id="announceExpireMinutes" style="width:100%;padding:8px;border:1px solid #b88742;border-radius:4px;font-size:13px;margin-bottom:12px;box-sizing:border-box;" placeholder="例: 60（1時間）、1440（24時間）">
+        <div style="margin-top:6px; padding-top:10px; border-top:1px solid #e0d0b0;">
+            <label style="font-size:12px;color:#555;display:block;margin-bottom:6px;font-weight:bold;">🎁 添付アイテム（任意・開封後「受け取る」ボタンで受領）</label>
+            <div class="input-grid">
+                <div><label style="font-size:11px;">ノーマル素材(個)</label><input type="number" id="announceNormalCount" min="0" placeholder="0"></div>
+                <div><label style="font-size:11px;">中級/高級素材(個)</label><input type="number" id="announceMidHighCount" min="0" placeholder="0"></div>
+                <div><label style="font-size:11px;">ノーマルスパイス(個)</label><input type="number" id="announceSpiceCount" min="0" placeholder="0"></div>
+                <div><label style="font-size:11px;">ゴールド(G)</label><input type="number" id="announceGold" min="0" placeholder="0"></div>
+                <div><label style="font-size:11px;">パック券(枚)</label><input type="number" id="announceTicket" min="0" placeholder="0"></div>
+                <div><label style="font-size:11px;">スパイシーコイン(枚)</label><input type="number" id="announceSpicyCoin" min="0" placeholder="0"></div>
+            </div>
+        </div>
+        <div style="display:flex; gap:8px; margin-bottom:8px;">
+            <button class="save-btn" style="background:#9a6e30; flex:1;" onclick="actPreviewAnnounce()">👁️ プレビュー確認</button>
+        </div>
+        <div style="display:flex; gap:8px;">
+            <button class="save-btn" style="background:#e67e22; flex:1;" onclick="actSendAnnounceToAll()">📢 全員に送信</button>
+        </div>
+        <div style="margin-top:10px; padding-top:10px; border-top:1px solid #e0d0b0;">
+            <label style="font-size:12px;color:#555;display:block;margin-bottom:2px;">個別送信先のプレイヤーID</label>
+            <input type="text" id="announceTargetId" style="width:100%;padding:8px;border:1px solid #b88742;border-radius:4px;font-size:13px;margin-bottom:8px;box-sizing:border-box;" placeholder="プレイヤーIDを入力">
+            <button class="save-btn" style="background:#3498db;width:100%;" onclick="actSendAnnounceToOne()">👤 このIDに個別送信</button>
+        </div>
+        <div id="announcePreviewArea" style="margin-top:14px;"></div>
+    </div>
+
+    <div class="section">
+        <div class="section-label">🗑️ 送信済みお知らせの取り消し</div>
+        <div style="font-size:12px;color:#888;margin-bottom:8px;">「全員に送信」したお知らせのうち、まだ取り消していないものを表示します。取り消すと各プレイヤーのポストから自動的に削除されます（リアルタイム反映、未起動の端末は次回起動時に反映）。</div>
+        <button class="save-btn" style="background:#2e8b6f;" onclick="actShowSentAnnouncements()">🔄 送信済み一覧を表示</button>
+        <div id="sentAnnouncementsResult" style="margin-top:14px;"></div>
+    </div>
+</div>
+
+<div class="modal-overlay" id="customModal">
+    <div class="modal-box">
+        <div class="modal-title" id="modalTitle"></div>
+        <div class="modal-message" id="modalMessage"></div>
+        <div class="modal-btn-group" id="modalBtnGroup"></div>
+    </div>
+</div>
+
+<script>
+// ============================================================
+// Firebase接続
+// ============================================================
+const firebaseConfig = {
+    apiKey: "AIzaSyCEbiyOxye1Eo7gzyZBwGxEHcjPX5WommM",
+    authDomain: "curry-battle.firebaseapp.com",
+    databaseURL: "https://curry-battle-default-rtdb.firebaseio.com",
+    projectId: "curry-battle",
+    storageBucket: "curry-battle.firebasestorage.app",
+    messagingSenderId: "14364879746",
+    appId: "1:14364879746:web:b8ad99677e66027b013d9b"
+};
+let database = null;
+if(firebaseConfig.apiKey !== "YOUR_API_KEY") {
+    firebase.initializeApp(firebaseConfig);
+    // App Check: game-dev.html側と同じ設定。管理ツールもこのSDK経由でFirebaseへ書き込むため、
+    // Enforceを有効にする前にここも必ず組み込んでおく（忘れると管理ツールごとブロックされる）。
+    if (typeof firebase.appCheck === 'function') {
+        try {
+            firebase.appCheck().activate('6LcGjE0tAAAAAKpaazekUnb-1SRjYY0cKJ4Aeg-3', true);
+        } catch(e) { console.error('App Check activate failed:', e); }
+    }
+    database = firebase.database();
+}
+
+// ============================================================
+// Firebase匿名認証（セキュリティルール強化対応）
+// game-dev.html側と同じ仕組み：このブラウザのUIDを発行し、
+// 3人の管理者IDのいずれかを所持しているUIDだけが admins/{uid}=true を
+// 自分で書き込める（＝管理者権限を持てる）というルールをサーバー側で強制する。
+// ============================================================
+let currentUid = null;
+let _authReadyPromise = null;
+function ensureFirebaseAuth() {
+    if (_authReadyPromise) return _authReadyPromise;
+    _authReadyPromise = new Promise(function(resolve) {
+        if (!database || typeof firebase === 'undefined' || !firebase.auth) { resolve(null); return; }
+        let resolved = false;
+        firebase.auth().onAuthStateChanged(function(user) {
+            if (user && !resolved) {
+                resolved = true;
+                currentUid = user.uid;
+                resolve(currentUid);
+            }
+        });
+        firebase.auth().signInAnonymously().catch(function() {
+            if (!resolved) { resolved = true; resolve(null); }
+        });
+    });
+    return _authReadyPromise;
+}
+
+// このブラウザのUIDを、自分の管理者プレイヤーIDに紐付ける（admins/{uid}=true の自己登録）。
+// ルール上、players/{その管理者ID}/uid が自分のUIDになっていない限りこの書き込みは失敗するため、
+// 実際にその管理者アカウントでこのブラウザからログイン済みでない限り誰も自称できない。
+function registerAsAdminIfEligible() {
+    const pid = localStorage.getItem('qr_player_id');
+    if (!database || !currentUid || !isAdminSuperId(pid)) return;
+    database.ref('players/' + pid + '/uid').once('value').then(function(snap) {
+        const ownerUid = snap.val();
+        if (!ownerUid) {
+            // このブラウザがまだ所有権を確定していない場合は先に確定させる
+            database.ref('players/' + pid + '/uid').set(currentUid).then(function() {
+                database.ref('admins/' + currentUid).set(true).catch(function(){});
+            }).catch(function(){});
+        } else if (ownerUid === currentUid) {
+            database.ref('admins/' + currentUid).set(true).catch(function(){});
+        }
+    }).catch(function(){});
+}
+
+// ============================================================
+// マスターデータ（アイテム全補充・レベル設定用）
+// ============================================================
+const masterIngredients = {
+    "牛肉": { shop: 0 }, "牛タン": { shop: 1 }, "牛すじ": { shop: 0 }, "チキン": { shop: 0 },
+    "唐揚げ": { shop: 0 }, "トンカツ": { shop: 0 }, "ウインナー": { shop: 0 }, "ナス": { shop: 0 },
+    "トマト": { shop: 0 }, "レンコン": { shop: 0 }, "ジャガイモ": { shop: 0 }, "ピーマン": { shop: 0 },
+    "赤パプリカ": { shop: -1 }, "黄パプリカ": { shop: -1 }, "レーズン": { shop: 0 }, "玉ねぎ": { shop: 0 },
+    "にんじん": { shop: 0 }, "サバ": { shop: 0 }, "オクラ": { shop: 0 }, "大根": { shop: 0 },
+    "マッシュルーム": { shop: 0 }, "ひよこ豆": { shop: 0 }, "金箔": { shop: -2 }, "チーズ": { shop: 0 },
+    "イカ": { shop: 0 }, "小エビ": { shop: 0 }, "ホタテ": { shop: 1 }, "ツナ": { shop: 0 },
+    "合鴨": { shop: 1 }, "牡蠣": { shop: 1 }, "キャビア": { shop: 2 }, "オマール海老": { shop: 2 }, "ズワイガニ": { shop: 2 },
+    "タマゴ": { shop: 0 }, "うずら卵": { shop: 0 }, "りんご": { shop: 0 }, "バナナ": { shop: 0 }, "ハラペーニョ": { shop: 0 }, "パクチー": { shop: 0 },
+    "フォアグラ": { shop: 2 }, "トリュフ": { shop: 2 }, "ココナッツ": { shop: 1 }, "アスパラガス": { shop: 1 }
+};
+const masterSpices = {
+    "ターメリック": {}, "クミン": {}, "コリアンダー": {}, "カルダモン": {}, "シナモン": {},
+    "クローブ": {}, "ブラックペッパー": {}, "チリパウダー": {}, "マンゴーチャツネ": {}, "サフラン": {}
+};
+
+const MAX_LV = 10;
+const CUM_EXP_TABLE = (function(){
+    const table = { 1: 0 };
+    const LV_EXP_TABLE = { 2:50, 3:100, 4:100, 5:150, 6:150, 7:200, 8:200, 9:200, 10:200 };
+    let cum = 0;
+    for (let lv = 2; lv <= MAX_LV; lv++) { cum += LV_EXP_TABLE[lv]; table[lv] = cum; }
+    return table;
+})();
+const LV_UNLOCK_ICONS = { 2: "mayimage04.png", 3: "mayimage05.png", 4: "mayimage06.png", 7: "mayimage08.png", 9: "mayimage09.png" };
+const EVENT_MONSTER_DATA = { hp: 5000, name: "浪花のカレーライスベイビー" };
+
+// ============================================================
+// localStorage操作（このブラウザ自身のセーブデータに対する操作）
+// ============================================================
+function lsGet(key, fallback) { const v = localStorage.getItem(key); return v === null ? fallback : v; }
+function lsGetJSON(key, fallback) { try { const v = localStorage.getItem(key); return v ? JSON.parse(v) : fallback; } catch(e) { return fallback; } }
+
+let isDebugMode = (localStorage.getItem('qr_debug_mode') === '1');
+let eventEnabled = false;
+
+// ============================================================
+// アクセス制御（管理者以外はロック画面を表示し、一切操作させない）
+// ============================================================
+const ADMIN_SUPER_IDS = ['BC-MXB6JXKB', 'BC-ZQ34WFEU', 'BC-GJPGTMTN'];
+function isAdminSuperId(pid) { return !!pid && ADMIN_SUPER_IDS.indexOf(pid) !== -1; }
+function hasAdminAccess() {
+    const pid = localStorage.getItem('qr_player_id');
+    if (isAdminSuperId(pid)) return true;
+    return localStorage.getItem('qr_debug_mode') === '1';
+}
+function enforceAdminAccessGate() {
+    if (hasAdminAccess()) return true;
+    const container = document.querySelector('.container');
+    if (container) container.style.display = 'none';
+    const lock = document.getElementById('adminLockScreen');
+    if (lock) lock.style.display = 'flex';
+    return false;
+}
+function checkAdminLockPassword() {
+    const err = document.getElementById('adminLockError');
+    if (err) err.style.display = 'block';
+}
+
+// ============================================================
+// 共通モーダル
+// ============================================================
+function showCustomAlert(title, message, onOk) {
+    document.getElementById("modalTitle").innerHTML = title;
+    document.getElementById("modalMessage").innerHTML = message || '';
+    const btnGroup = document.getElementById("modalBtnGroup");
+    btnGroup.innerHTML = '';
+    const okBtn = document.createElement("button");
+    okBtn.className = "modal-btn modal-btn-ok";
+    okBtn.innerText = "OK";
+    okBtn.onclick = function() { document.getElementById("customModal").style.display = "none"; if(onOk) onOk(); };
+    btnGroup.appendChild(okBtn);
+    document.getElementById("customModal").style.display = "flex";
+}
+
+function showCustomConfirm(title, message, onConfirm, onCancel, okLabel) {
+    document.getElementById("modalTitle").innerHTML = title;
+    document.getElementById("modalMessage").innerHTML = message || '';
+    const btnGroup = document.getElementById("modalBtnGroup");
+    btnGroup.innerHTML = '';
+    const cancelBtn = document.createElement("button");
+    cancelBtn.className = "modal-btn modal-btn-cancel";
+    cancelBtn.innerText = "キャンセル";
+    cancelBtn.onclick = function() { document.getElementById("customModal").style.display = "none"; if(onCancel) onCancel(); };
+    btnGroup.appendChild(cancelBtn);
+    const okBtn = document.createElement("button");
+    okBtn.className = "modal-btn modal-btn-ok";
+    okBtn.innerText = okLabel || "確定する";
+    okBtn.onclick = function() { document.getElementById("customModal").style.display = "none"; if(onConfirm) onConfirm(); };
+    btnGroup.appendChild(okBtn);
+    document.getElementById("customModal").style.display = "flex";
+}
+
+// ============================================================
+// 時間関連ヘルパー
+// ============================================================
+function getJSTDateString(baseDate) {
+    const now = baseDate || new Date();
+    const jstMs = now.getTime() + 9 * 60 * 60000;
+    const jst = new Date(jstMs);
+    const y = jst.getUTCFullYear();
+    const m = String(jst.getUTCMonth() + 1).padStart(2, '0');
+    const d = String(jst.getUTCDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+}
+
+// jstYear/jstMonth(1-12)/jstDayを省略した場合は今日の日付（日本時間）を使う（従来通り時刻のみの変更）。
+function setDebugTimeOverride(jstHour, jstMinute, jstYear, jstMonth, jstDay) {
+    let y = jstYear, mo = jstMonth, d = jstDay;
+    if(y == null || mo == null || d == null) {
+        const now = new Date();
+        const jstDateNow = new Date(now.getTime() + 9 * 60 * 60000);
+        y = jstDateNow.getUTCFullYear(); mo = jstDateNow.getUTCMonth() + 1; d = jstDateNow.getUTCDate();
+    }
+    const jstTargetMs = Date.UTC(y, mo - 1, d, jstHour, jstMinute, 0, 0);
+    const actualUtcMs = jstTargetMs - 9 * 60 * 60000;
+    localStorage.setItem('qr_debug_time_override', new Date(actualUtcMs).toISOString());
+}
+function clearDebugTimeOverride() { localStorage.removeItem('qr_debug_time_override'); }
+
+// ============================================================
+// 各種アクション
+// ============================================================
+function actFullcharge() {
+    const inventory = lsGetJSON('qr_curry_inv', {});
+    const discoveredItems = lsGetJSON('qr_curry_discovered', {});
+    Object.keys(masterIngredients).forEach(k => { inventory[k] = 99; discoveredItems[k] = true; });
+    Object.keys(masterSpices).forEach(k => { inventory[k] = 99; discoveredItems[k] = true; });
+    localStorage.setItem('qr_curry_inv', JSON.stringify(inventory));
+    localStorage.setItem('qr_curry_discovered', JSON.stringify(discoveredItems));
+    localStorage.setItem('qr_curry_g', '9999');
+    localStorage.setItem('qr_curry_ticket', '10');
+    showCustomAlert("✨ アイテム全補充完了！", "このブラウザのゲームデータを更新しました。<br>ゲーム画面をリロードしてください。");
+}
+
+function actSetLevel() {
+    const curExp = parseInt(lsGet('qr_curry_exp', '0'), 10) || 0;
+    let curLv = 1;
+    for (let l = MAX_LV; l >= 1; l--) { if (curExp >= CUM_EXP_TABLE[l]) { curLv = l; break; } }
+    const lvInput = prompt("🎮 レベル設定 (1〜" + MAX_LV + "):\n現在: Lv." + curLv);
+    if (lvInput === null) return;
+    const targetLv = parseInt(lvInput, 10);
+    if (isNaN(targetLv) || targetLv < 1 || targetLv > MAX_LV) { showCustomAlert("❌ 入力エラー", "1〜" + MAX_LV + " の数字を入力してください。"); return; }
+    localStorage.setItem('qr_curry_exp', String(CUM_EXP_TABLE[targetLv]));
+    let newUnlocked = ["mayimage01.png","mayimage02.png","mayimage03.png"];
+    Object.keys(LV_UNLOCK_ICONS).forEach(function(lvKey) { if(parseInt(lvKey) <= targetLv) newUnlocked.push(LV_UNLOCK_ICONS[lvKey]); });
+    localStorage.setItem('qr_unlocked_icons', JSON.stringify(newUnlocked));
+    if(targetLv >= 5) localStorage.setItem('qr_curry_stock_limit','8');
+    else localStorage.removeItem('qr_curry_stock_limit');
+    if(targetLv >= 10) localStorage.setItem('qr_curry_stock_limit','10');
+    showCustomAlert("✅ レベル設定完了", "Lv." + targetLv + " に設定しました！<br>ゲーム画面をリロードしてください。");
+}
+
+function actToggleDebugMode() {
+    isDebugMode = !isDebugMode;
+    localStorage.setItem('qr_debug_mode', isDebugMode ? '1' : '0');
+    updateButtonLabels();
+    const pid = localStorage.getItem('qr_player_id');
+    if (database && pid) {
+        database.ref('players/' + pid + '/debugMode').set(isDebugMode).catch(function(){});
+    }
+    showCustomAlert("✅ 設定完了", "デバッグモードを " + (isDebugMode ? "ON" : "OFF") + " にしました。");
+}
+
+// 現在デバッグモードがONになっている全プレイヤー（管理者を除く）を一覧表示し、確認の上で一括OFFにする。
+// 3人の管理者ID以外がこのボタンを押した場合は、実行させずゲームのTOPへ移動させる。
+function actDebugModeReleaseAll() {
+    const pid = localStorage.getItem('qr_player_id');
+    if (!isAdminSuperId(pid)) {
+        window.location.href = 'https://bbss-2026.github.io/qr-curry-game/game.html';
+        return;
+    }
+    if (!database) { showCustomAlert("❌ エラー", "通信に問題があります。"); return; }
+    showCustomAlert("🔓 読み込み中...", "デバッグモード中のプレイヤーを確認しています。");
+    database.ref('players').once('value').then(function(snap) {
+        const players = snap.val() || {};
+        const targets = Object.keys(players).filter(function(id) {
+            return players[id] && players[id].debugMode === true && !isAdminSuperId(id);
+        });
+        if (targets.length === 0) {
+            showCustomAlert('🔓 デバッグモード全解除', '現在デバッグモードがONになっているプレイヤー（管理者を除く）はいません。');
+            return;
+        }
+        const listHtml = targets.map(function(id) {
+            const name = (players[id] && players[id].name) ? players[id].name : '名無し';
+            return '<div style="padding:4px 0;border-bottom:1px solid #eee;font-size:12px;">' + name + ' <span style="color:#999;">(' + id + ')</span></div>';
+        }).join('');
+        const msg = '<div style="font-size:12px;color:#420000;margin-bottom:8px;">以下の ' + targets.length + ' 人のデバッグモードがONです。</div>'
+            + '<div style="text-align:left;max-height:40vh;overflow-y:auto;margin-bottom:10px;">' + listHtml + '</div>'
+            + '<div style="font-size:13px;color:#420000;font-weight:bold;">解除しますか？</div>';
+        showCustomConfirm('🔓 デバッグモード全解除', msg, function() {
+            const updates = {};
+            targets.forEach(function(id) { updates['players/' + id + '/debugMode'] = false; });
+            database.ref().update(updates).then(function() {
+                showCustomAlert('✅ 解除完了', targets.length + '人のデバッグモードをOFFにしました。');
+            }).catch(function(e) {
+                showCustomAlert('❌ エラー', '解除に失敗しました: ' + e.message);
+            });
+        }, null, '解除');
+    }).catch(function(e) {
+        showCustomAlert("❌ エラー", "取得に失敗しました: " + e.message);
+    });
+}
+
+// ===== 同期エラーログの自動判定 =====
+// 「どれが無視していいのか毎回わからない」問題を解消するため、各エントリにその場で
+// 目安（無視してOK／様子見／環境要因／要確認）を自動で付与する。あくまで目安であり
+// 絶対の判定ではないが、ここで判断がつけばいちいち確認する必要がなくなる。
+const SYNC_KNOWN_ADMIN_IDS = ['BC-MXB6JXKB', 'BC-ZQ34WFEU', 'BC-GJPGTMTN'];
+const SYNC_LEVEL_STYLE = {
+    ok:     { color: '#27ae60', bg: '#f2fbf5', label: '🟢 無視してOK' },
+    info:   { color: '#7f8c8d', bg: '#fbfbfb', label: '🟡 単発・様子見でOK' },
+    warn:   { color: '#e67e22', bg: '#fff8ee', label: '🟠 環境要因の可能性' },
+    danger: { color: '#c0392b', bg: '#fdecea', label: '🔴 要確認' }
+};
+function classifySyncEntry(e, siblings) {
+    const isAdminId = SYNC_KNOWN_ADMIN_IDS.indexOf(e.playerId) !== -1;
+    if (e.context === 'remoteUpdateApplied') {
+        if (isAdminId) return { level: 'ok', reason: '管理者用IDです。複数端末・複数セッションで使うため通常発生します。' };
+        const hasNearbyFailure = siblings.some(function(s) {
+            return s !== e && s.context !== 'remoteUpdateApplied' && Math.abs((s.timestamp || 0) - (e.timestamp || 0)) <= 30 * 60 * 1000;
+        });
+        if (hasNearbyFailure) return { level: 'warn', reason: '前後30分以内に同じIDで失敗ログもあります。念のため他のログも確認してください。' };
+        return { level: 'ok', reason: 'クラウド側が新しいデータを正しく読み込んだだけの正常動作です。' };
+    }
+    if (e.context === 'syncSaveDataToCloud_write_failed' || e.context === 'checkCloudSyncOnLoad_read_failed') {
+        if (e.isIframe) return { level: 'warn', reason: '外部サイトへのiframe埋め込み経由です。サードパーティのストレージ制限が原因のことが多く、公式ページで開き直せば解消します。' };
+        const sameContextCount = siblings.filter(function(s) { return s.context === e.context; }).length;
+        if (sameContextCount >= 3) return { level: 'danger', reason: '同じIDで同種の失敗が繰り返されています。UID紐付けの不整合が疑われるので「UID紐付けをリセット」の使用を検討してください。' };
+        return { level: 'info', reason: '単発の失敗です。一時的な通信不良の可能性が高く、繰り返さなければ様子見でOKです。' };
+    }
+    if (e.context === 'authTimeout') {
+        return { level: 'info', reason: '認証処理が一時的にタイムアウトしただけの可能性が高いです。頻発しなければ様子見でOKです。' };
+    }
+    if (e.context === 'authSignInFailed') {
+        return { level: 'warn', reason: 'プライベートブラウズやアプリ内ブラウザなど、認証情報を保存できない環境の可能性があります。' };
+    }
+    return { level: 'info', reason: '' };
+}
+
+// 同期エラーログの確認（game-dev.html側のlogSyncEvent()が記録したエラーを新しい順に表示する）
+function actShowSyncErrors() {
+    if (!database) { showCustomAlert("❌ エラー", "通信に問題があります。"); return; }
+    showCustomAlert("🔄 読み込み中...", "同期エラーログを取得しています。");
+    database.ref('syncErrors').limitToLast(100).once('value').then(function(snap) {
+        const data = snap.val() || {};
+        const entries = Object.keys(data).map(function(k) { const v = data[k] || {}; v._key = k; return v; });
+        entries.sort(function(a, b) { return (b.timestamp || 0) - (a.timestamp || 0); });
+        if (entries.length === 0) {
+            showCustomAlert('🔄 同期エラーログ', '記録されているエラーはありません。');
+            return;
+        }
+        // 自動判定は同じIDのエントリ同士を突き合わせて行うため、IDごとにグループ化しておく
+        const byId = {};
+        entries.forEach(function(e) {
+            const pid = e.playerId || '(unknown)';
+            if (!byId[pid]) byId[pid] = [];
+            byId[pid].push(e);
+        });
+        const legend = '<div style="font-size:10px;color:#555;margin-bottom:8px;line-height:1.8;padding:6px 8px;background:#f5f5f5;border-radius:6px;">'
+            + '🟢 無視してOK　🟡 単発・様子見でOK　🟠 環境要因の可能性（対応不要なことが多い）　🔴 要確認'
+            + '<br>※あくまで目安の自動判定です。'
+            + '</div>';
+        let rows = '';
+        entries.forEach(function(e) {
+            const siblings = byId[e.playerId || '(unknown)'];
+            const cls = classifySyncEntry(e, siblings);
+            const style = SYNC_LEVEL_STYLE[cls.level] || SYNC_LEVEL_STYLE.info;
+            const dateStr = e.timestamp ? new Date(e.timestamp).toLocaleString('ja-JP') : '不明';
+            const isIframeFlag = e.isIframe ? '<span style="color:#e74c3c;font-weight:bold;"> [iframe埋め込み]</span>' : '';
+            rows += '<div style="border:1px solid ' + style.color + ';border-left:5px solid ' + style.color + ';border-radius:6px;padding:8px;margin-bottom:6px;background:' + style.bg + ';">'
+                + '<div style="font-size:11px;font-weight:bold;color:' + style.color + ';margin-bottom:4px;">' + style.label + (cls.reason ? ' - ' + cls.reason : '') + '</div>'
+                + '<div style="font-size:12px;font-weight:bold;color:#420000;">' + (e.context || '(不明なcontext)') + isIframeFlag + '</div>'
+                + '<div style="font-size:11px;color:#555;margin-top:2px;">ID: ' + (e.playerId || '(unknown)') + '</div>'
+                + (e.detail ? '<div style="font-size:11px;color:#888;margin-top:2px;word-break:break-all;">' + e.detail + '</div>' : '')
+                + '<div style="font-size:10px;color:#999;margin-top:2px;">' + dateStr + '</div>'
+                + (e.referrer ? '<div style="font-size:10px;color:#999;">referrer: ' + e.referrer + '</div>' : '')
+                + '</div>';
+        });
+        showCustomAlert('🔄 同期エラーログ（新しい順・最大100件）', '<div style="text-align:left;max-height:65vh;overflow-y:auto;">' + legend + rows + '</div>');
+    }).catch(function(e) {
+        showCustomAlert("❌ エラー", "取得に失敗しました: " + e.message);
+    });
+}
+
+// セキュリティルール強化（UIDによる所有権チェック）への移行状況を確認する。
+// 「players/{ID}/uid」が設定済み＝そのプレイヤーは新しいコードで一度アクセス済み（所有権確定済み）を意味する。
+// 未設定のまま残っているプレイヤーは、新しいgame-dev.html/admin.htmlを読み込むまで
+// クラウド同期の書き込みが失敗する可能性がある（ローカルのプレイ自体はできる）。
+// 3人の管理者IDが未確定のままだと、ルール適用直後は一度admin.htmlを開き直すまで管理者権限が使えないので、
+// ここが✅になっているかを必ず確認してからルールを適用すること。
+function actCheckAuthMigrationStatus() {
+    if (!database) { showCustomAlert("❌ エラー", "通信に問題があります。"); return; }
+    showCustomAlert("🔑 読み込み中...", "UID移行状況を確認しています。");
+    database.ref('players').once('value').then(function(snap) {
+        const players = snap.val() || {};
+        const ids = Object.keys(players);
+        let claimed = 0, unclaimed = 0;
+        const unclaimedList = [];
+        ids.forEach(function(pid) {
+            if (players[pid] && players[pid].uid) claimed++;
+            else { unclaimed++; unclaimedList.push(pid); }
+        });
+        let adminRows = '';
+        ADMIN_SUPER_IDS.forEach(function(pid) {
+            const ok = !!(players[pid] && players[pid].uid);
+            adminRows += '<div style="padding:3px 0;font-size:12px;">'
+                + (ok ? '✅' : '❌') + ' ' + pid + (ok ? ' （claim済み）' : ' （未claim・要ログイン）')
+                + '</div>';
+        });
+        const pct = ids.length > 0 ? Math.round(claimed / ids.length * 100) : 100;
+        const readyForRules = ADMIN_SUPER_IDS.every(function(pid) { return !!(players[pid] && players[pid].uid); });
+        const html = '<div style="text-align:left;max-height:65vh;overflow-y:auto;">'
+            + '<div style="font-size:13px;font-weight:bold;margin-bottom:8px;">全プレイヤー: ' + ids.length + '人 中 ' + claimed + '人がclaim済み（' + pct + '%）</div>'
+            + '<div style="font-size:13px;font-weight:bold;margin:10px 0 4px;">管理者3IDのclaim状況（これが全部✅ならルール適用OK）</div>'
+            + adminRows
+            + (readyForRules
+                ? '<div style="margin-top:12px;padding:8px;background:#eafaf1;border-radius:6px;color:#1a6e3c;font-size:12px;font-weight:bold;">✅ 管理者3人はclaim済みです。ルールを適用しても管理者ツールがロックされることはありません。</div>'
+                : '<div style="margin-top:12px;padding:8px;background:#fdecea;border-radius:6px;color:#c0392b;font-size:12px;font-weight:bold;">⚠️ まだclaimしていない管理者IDがあります。該当の管理者がこのadmin.html（新しい方）を一度開いてから、ルールを適用してください。</div>')
+            + '<div style="margin-top:10px;font-size:11px;color:#888;">※一般プレイヤーは未claimでも問題ありません。新しいgame-dev.htmlを開いた時点で自動的にclaimされます（ルール適用前でも後でも可）。未claimのまま残るのは、まだ新しいコードを一度も読み込んでいない端末です。</div>'
+            + '</div>';
+        showCustomAlert('🔑 UID移行状況', html);
+    }).catch(function(e) {
+        showCustomAlert("❌ エラー", "取得に失敗しました: " + e.message);
+    });
+}
+
+// 不正検知アラート（囮フィールド syncSeal の確認）
+// game-dev.html側は、playerG/playerEXP/packTicket/spicyCoinから決まる値を毎回savedata.syncSealに書き込んでいる。
+// ゲームクライアントを経由せず直接savedataを書き換えた場合、この値まで正しく再現するのは難しいため、
+// 数値の組み合わせとsyncSealが食い違っていればfraudAlertsに記録される。本人には一切通知していない。
+function actShowFraudAlerts() {
+    if (!database) { showCustomAlert("❌ エラー", "通信に問題があります。"); return; }
+    showCustomAlert("🔄 読み込み中...", "不正検知アラートを取得しています。");
+    database.ref('fraudAlerts').once('value').then(function(snap) {
+        const data = snap.val() || {};
+        const entries = [];
+        Object.keys(data).forEach(function(pid) {
+            const perPlayer = data[pid] || {};
+            Object.keys(perPlayer).forEach(function(msgId) {
+                const v = perPlayer[msgId] || {};
+                entries.push({ playerId: pid, name: v.name || '', detectedAt: v.detectedAt || 0, reason: v.reason || 'economy' });
+            });
+        });
+        entries.sort(function(a, b) { return b.detectedAt - a.detectedAt; });
+        if (entries.length === 0) {
+            showCustomAlert('🚩 不正検知アラート', '記録されているアラートはありません。');
+            return;
+        }
+        // reasonは'economy'/'scanHistory'/'fest'をカンマ区切りで組み合わせた文字列（例:'economy,fest'）。
+        // 過去に書き込まれた古い形式（'both'）とも互換性を持たせて表示する。
+        const reasonLabel = { economy: '💰 経済値(syncSeal)', scanHistory: '📷 スキャン履歴(scanSeal)', fest: '🏆 フェス自己ベスト(festSeal)', both: '💰📷 経済値+スキャン履歴' };
+        let rows = '';
+        entries.slice(0, 100).forEach(function(e) {
+            const dateStr = e.detectedAt ? new Date(e.detectedAt).toLocaleString('ja-JP') : '不明';
+            const reasonText = String(e.reason || 'economy').split(',').map(function(r) { return reasonLabel[r] || r; }).join(' + ');
+            rows += '<div style="border:1px solid #922b21;border-radius:6px;padding:8px;margin-bottom:6px;background:#fff5f5;">'
+                + '<div style="font-size:12px;font-weight:bold;color:#922b21;">ID: ' + e.playerId + '</div>'
+                + '<div style="font-size:12px;color:#420000;margin-top:2px;">名前: ' + (e.name || '(不明)') + '</div>'
+                + '<div style="font-size:11px;color:#7d1f1f;margin-top:2px;">検知理由: ' + reasonText + '</div>'
+                + '<div style="font-size:10px;color:#999;margin-top:2px;">' + dateStr + '</div>'
+                + '</div>';
+        });
+        showCustomAlert('🚩 不正検知アラート（新しい順・最大100件）', '<div style="text-align:left;max-height:65vh;overflow-y:auto;">' + rows + '</div>');
+    }).catch(function(e) {
+        showCustomAlert("❌ エラー", "取得に失敗しました: " + e.message);
+    });
+}
+
+// syncSeal / scanSeal / festSealのリセット（安全弁）
+// 管理者がFirebase Console等からG/EXP/パック券/スパイシーコイン（syncSeal対象）や
+// scanHistory・stats.scanTotal（scanSeal対象）、フェス自己ベスト・参加回数（festSeal対象）を
+// 直接書き換えた場合、該当のsealが実際の値と食い違い、本人が誤って不正検知の対象になってしまう（誤検知）。
+// そのような操作をした後は、書き換えた方のsealだけ削除しておくと、次回の正規同期まで
+// チェック対象から外れる（sealが存在しない間はチェックされない仕様のため安全）。
+function actResetSyncSeal() {
+    if (!database) { showCustomAlert("❌ エラー", "通信に問題があります。"); return; }
+    const targetId = prompt("🔧 sealをリセットするプレイヤーのIDを入力してください（例: BC-XXXXXXXX）\n\n※管理ツール以外（Firebase Console等）から直接編集した後、誤検知を防ぐために使ってください。");
+    if (!targetId) return;
+    const which = prompt("どちらをリセットしますか？（カンマ区切りで複数選択可、例: 1,3）\n1: syncSeal（G/EXP/パック券/スパイシーコイン）\n2: scanSeal（スキャン履歴・スキャン総数）\n3: festSeal（フェス自己ベスト・参加回数）\n4: すべて\n\n番号を入力してください", "1");
+    if (!which) return;
+    const fieldMap = { '1': 'syncSeal', '2': 'scanSeal', '3': 'festSeal' };
+    let targets = [];
+    const sel = which.split(',').map(function(s) { return s.trim(); });
+    if (sel.indexOf('4') !== -1) {
+        targets = ['syncSeal', 'scanSeal', 'festSeal'];
+    } else {
+        sel.forEach(function(s) { if (fieldMap[s] && targets.indexOf(fieldMap[s]) === -1) targets.push(fieldMap[s]); });
+    }
+    if (targets.length === 0) { showCustomAlert("❌ エラー", "1〜4のいずれかを入力してください。"); return; }
+    database.ref('players/' + targetId + '/savedata').once('value').then(function(snap) {
+        if (!snap.exists()) { showCustomAlert("❌ エラー", "そのIDのsavedataは見つかりません。"); return; }
+        const removals = targets.map(function(field) {
+            return database.ref('players/' + targetId + '/savedata/' + field).remove();
+        });
+        Promise.all(removals).then(function() {
+            showCustomAlert('✅ リセット完了', 'ID: ' + targetId + ' の ' + targets.join(' / ') + ' をリセットしました。<br>次回の正規同期時に新しい値が書き込まれます。');
+        }).catch(function(e) {
+            showCustomAlert('❌ エラー', 'リセットに失敗しました: ' + e.message);
+        });
+    }).catch(function(e) {
+        showCustomAlert("❌ エラー", "取得に失敗しました: " + e.message);
+    });
+}
+
+// 全プレイヤー最高連勝記録（festGlobalRecord/maxStreak）のリセット。
+// 個々のプレイヤーの記録（savedata.stats.festBestStreak等）には一切触れない。
+// リセット後、次に誰かがフェスで1勝でもすれば、その時点の連勝数がそのまま新しい全体記録として書き込まれる。
+function actResetFestGlobalRecord() {
+    if (!database) { showCustomAlert("❌ エラー", "通信に問題があります。"); return; }
+    if (!confirm("⚠️ 全プレイヤー最高連勝記録（フェス）をリセットします。\n個々のプレイヤーの記録は消えません。\nよろしいですか？")) return;
+    database.ref('festGlobalRecord/maxStreak').remove().then(function() {
+        showCustomAlert('✅ リセット完了', '全プレイヤー最高連勝記録をリセットしました。<br>個々のプレイヤーの記録には影響ありません。');
+    }).catch(function(e) {
+        showCustomAlert('❌ エラー', 'リセットに失敗しました: ' + e.message);
+    });
+}
+
+// ブラウザのプライベートブラウズ・ストレージ削除・アプリ内ブラウザ等が原因で、
+// 認証状態が引き継がれず「uidが紐付いているのに現在のセッションのUIDと一致しない」ために
+// クラウド同期（savedataの書き込み）が失敗し続けているプレイヤーを救済する。
+// uidフィールドを削除し「未claim」状態に戻すことで、次回そのIDでアクセスした端末が
+// （新しいUIDのまま）改めて所有権を確定でき、以降は正常に同期できるようになる。
+function actResetPlayerUidClaim() {
+    if (!database) { showCustomAlert("❌ エラー", "通信に問題があります。"); return; }
+    const targetId = prompt("🔓 UID紐付けをリセットするプレイヤーのIDを入力してください（例: BC-XXXXXXXX）\n\n※本人が今使っている端末で該当ゲーム画面を開き直すと、そのタイミングで自動的に再紐付けされます。");
+    if (!targetId) return;
+    database.ref('players/' + targetId).once('value').then(function(snap) {
+        if (!snap.exists()) { showCustomAlert("❌ エラー", "そのIDのプレイヤーは見つかりません。"); return; }
+        const data = snap.val();
+        const name = data.name || '名無し';
+        const hasSavedata = !!data.savedata;
+        showCustomConfirm(
+            '🔓 UID紐付けをリセット',
+            'ID: ' + targetId + '（' + name + '）<br>savedata: ' + (hasSavedata ? 'あり' : '❌ なし（今回の症状に一致）') + '<br><br>このIDのUID紐付けを解除します。<br>本人が次にゲーム画面を開いたときに、そのセッションのUIDで自動的に再紐付けされ、以降クラウド同期できるようになります。<br><br>よろしいですか？',
+            function() {
+                database.ref('players/' + targetId + '/uid').remove().then(function() {
+                    showCustomAlert('✅ 解除完了', 'ID: ' + targetId + ' のUID紐付けを解除しました。<br>本人にゲーム画面を開き直してもらってください。');
+                }).catch(function(e) {
+                    showCustomAlert('❌ エラー', '解除に失敗しました: ' + e.message);
+                });
+            },
+            null,
+            '解除する'
+        );
+    }).catch(function(e) {
+        showCustomAlert("❌ エラー", "取得に失敗しました: " + e.message);
+    });
+}
+
+// アナリティクスの全体カウンター（scan.total / cook.total）は、各プレイヤーのstats.scanTotal / stats.cookTotalと
+// 「本来のプレイで増えるときは必ず同時に+1される」実装になっている（incrementGlobalStat）。
+// そのため、全プレイヤーのstats合計と全体カウンターを突き合わせれば、
+// 直接Firebaseに書き込むタイプの不正（今回のイベントダメージ改ざんと同じ手口）があったかどうかを検出できる。
+// ※battleカウンターは敗北も数えるため、totalWins（勝利数のみ）との単純比較はできない。参考値として表示するのみ。
+function actAnalyticsIntegrityCheck() {
+    if (!database) { showCustomAlert("❌ エラー", "通信に問題があります。"); return; }
+    showCustomAlert("📐 読み込み中...", "全プレイヤーのデータを集計しています。");
+    Promise.all([
+        database.ref('players').once('value'),
+        database.ref('analytics').once('value')
+    ]).then(function(results) {
+        const players = results[0].val() || {};
+        const analytics = results[1].val() || {};
+        let sumScan = 0, sumCook = 0, sumWins = 0, playerCount = 0;
+        const outliers = [];
+        Object.keys(players).forEach(function(pid) {
+            // 管理者アカウントはテスト操作（アイテム全補充・QR生成テスト等）で個人統計だけが伸びやすく、
+            // かつデバッグモード中は全体カウンターに反映されない仕様のため、集計・突出検出の対象から除外する。
+            if (isAdminSuperId(pid)) return;
+            const sd = players[pid] && players[pid].savedata;
+            if (!sd) return;
+            let stats = {};
+            try { stats = typeof sd.stats === 'string' ? JSON.parse(sd.stats) : (sd.stats || {}); } catch(e) {}
+            const scanTotal = stats.scanTotal || 0;
+            const cookTotal = stats.cookTotal || 0;
+            playerCount++;
+            sumScan += scanTotal;
+            sumCook += cookTotal;
+            sumWins += (stats.totalWins || 0);
+            // 突出して多いプレイヤー（不正の疑いがある個別アカウント）を検出する目安として表示
+            if (scanTotal >= 300 || cookTotal >= 300) {
+                outliers.push({ pid: pid, name: (players[pid].name || '名無し'), scanTotal: scanTotal, cookTotal: cookTotal });
+            }
+        });
+        const scanG = (analytics.scan && analytics.scan.total) || 0;
+        const cookG = (analytics.cook && analytics.cook.total) || 0;
+        const battleG = ((analytics.battle && analytics.battle.bot) || 0) + ((analytics.battle && analytics.battle.hard) || 0) + ((analytics.battle && analytics.battle.tag) || 0) + ((analytics.battle && analytics.battle.room) || 0);
+
+        function diffRow(label, sumVal, globalVal) {
+            const diff = globalVal - sumVal;
+            const suspicious = globalVal > 0 && diff > Math.max(10, globalVal * 0.1);
+            return '<div style="padding:6px 0;border-bottom:1px solid #eee;font-size:12px;">'
+                + '<div style="font-weight:bold;color:#420000;">' + label + '</div>'
+                + '<div>全プレイヤーstats合計: <b>' + sumVal + '</b> ／ 全体カウンター: <b>' + globalVal + '</b></div>'
+                + '<div style="' + (suspicious ? 'color:#c0392b;font-weight:bold;' : 'color:#2e8b6f;') + '">差分: ' + diff + (suspicious ? '　⚠️ 直接改ざんの疑いあり' : '　（誤差範囲）') + '</div>'
+                + '</div>';
+        }
+
+        let outlierHtml = '';
+        if (outliers.length > 0) {
+            outliers.sort(function(a,b){ return (b.scanTotal + b.cookTotal) - (a.scanTotal + a.cookTotal); });
+            outlierHtml = '<div style="font-size:13px;font-weight:bold;margin:12px 0 4px;">突出して多い個別プレイヤー（scan/cookが300以上）</div>'
+                + outliers.map(function(o) {
+                    return '<div style="padding:3px 0;font-size:12px;">' + o.name + ' <span style="color:#999;">(' + o.pid + ')</span>　scan:' + o.scanTotal + ' / cook:' + o.cookTotal + '</div>';
+                }).join('');
+        }
+
+        const html = '<div style="text-align:left;max-height:65vh;overflow-y:auto;">'
+            + '<div style="font-size:11px;color:#888;margin-bottom:8px;">対象: ' + playerCount + '人分のセーブデータ</div>'
+            + diffRow('📷 QRスキャン合計', sumScan, scanG)
+            + diffRow('🍛 調理合計', sumCook, cookG)
+            + '<div style="padding:6px 0;border-bottom:1px solid #eee;font-size:12px;">'
+            + '<div style="font-weight:bold;color:#420000;">⚔️ バトル実施数（参考）</div>'
+            + '<div>全プレイヤー勝利数合計: <b>' + sumWins + '</b> ／ バトル実施カウンター(bot+hard+tag+room): <b>' + battleG + '</b></div>'
+            + '<div style="color:#888;">※敗北分も数えるため単純比較はできません。実施数が勝利数より極端に大きい分には正常です。</div>'
+            + '</div>'
+            + outlierHtml
+            + '<div style="margin-top:10px;font-size:11px;color:#888;">⚠️の項目は「全体カウンターが個人の合計より明らかに多い」＝ゲームプレイを経由せず直接Firebaseの数値を書き換えた可能性を示します。修正する場合は下のボタンで、全体カウンターを「全プレイヤーstats合計」の値に置き換えられます。</div>'
+            + '</div>';
+
+        const btnGroup2 = function() {
+            showCustomConfirm('📐 アナリティクス整合性チェック', html, function() {
+                const updates = {};
+                updates['analytics/scan/total'] = sumScan;
+                updates['analytics/cook/total'] = sumCook;
+                database.ref().update(updates).then(function() {
+                    showCustomAlert('✅ 修正完了', 'scan.total を ' + sumScan + '、cook.total を ' + sumCook + ' に修正しました。<br>※normal/bonus/rareなどの内訳は個別データを持たないため修正できません。');
+                }).catch(function(e) {
+                    showCustomAlert('❌ エラー', '修正に失敗しました: ' + e.message);
+                });
+            }, null, '合計値に修正する');
+        };
+        btnGroup2();
+    }).catch(function(e) {
+        showCustomAlert("❌ エラー", "取得に失敗しました: " + e.message);
+    });
+}
+
+// 指定したIDのアナリティクス除外フラグ（players/{id}/analyticsExcluded）をON/OFFする。
+// ONにすると、そのIDは以後どれだけ普通にプレイしても scan/cook/battle の全体カウンターに反映されなくなる。
+// ※IDそのものへの除外なので、同じ人が端末初期化等で新しいIDを取り直した場合は対象外（別IDとして扱われる）。
+function actToggleAnalyticsExclusion() {
+    if (!database) { showCustomAlert("❌ エラー", "通信に問題があります。"); return; }
+    const targetId = prompt("🚫 アナリティクス除外を設定/解除するプレイヤーのIDを入力してください（例: BC-XXXXXXXX）");
+    if (!targetId) return;
+    database.ref('players/' + targetId).once('value').then(function(snap) {
+        if (!snap.exists()) { showCustomAlert("❌ エラー", "そのIDのプレイヤーは見つかりません。"); return; }
+        const data = snap.val();
+        const name = data.name || '名無し';
+        const current = !!data.analyticsExcluded;
+        const next = !current;
+        showCustomConfirm(
+            '🚫 アナリティクス除外設定',
+            'ID: ' + targetId + '（' + name + '）<br>現在: ' + (current ? '除外中' : '通常') + '<br><br>' + (next ? 'このIDを今後アナリティクス集計から除外します。' : 'このIDのアナリティクス除外を解除します。') + '<br>よろしいですか？',
+            function() {
+                database.ref('players/' + targetId + '/analyticsExcluded').set(next).then(function() {
+                    showCustomAlert('✅ 設定完了', 'ID: ' + targetId + ' を' + (next ? '除外に設定' : '通常に戻しました') + '。');
+                }).catch(function(e) {
+                    showCustomAlert('❌ エラー', '設定に失敗しました: ' + e.message);
+                });
+            },
+            null,
+            next ? '除外する' : '解除する'
+        );
+    }).catch(function(e) {
+        showCustomAlert("❌ エラー", "取得に失敗しました: " + e.message);
+    });
+}
+
+// アナリティクスの「QRスキャン」「調理」「バトル」の内訳（合計を含む）をまとめてリセットする。
+// 内訳（通常/ボーナス/レア、カレー種別ごと、バトル種別ごと）は個人データ側に対応する回数が残っておらず、
+// 不正3キャラの寄与分だけを正確に差し引くことも、改ざん前の値に戻すこともできないため、
+// ユーザーの判断で「直近14日アクセス」以外のscan/cook/battleを丸ごと0から再集計する。
+function actResetScanCookBattleAnalytics() {
+    if (!database) { showCustomAlert("❌ エラー", "通信に問題があります。"); return; }
+    showCustomConfirm(
+        '🗑️ スキャン/調理/バトルをリセット',
+        'アナリティクスの「QRスキャン」「調理」「バトル」（内訳・合計とも全項目）を0にリセットします。<br>「直近14日アクセス」は対象外で、そのまま残ります。<br><br>この操作は元に戻せません。よろしいですか？',
+        function() {
+            Promise.all([
+                database.ref('analytics/scan').remove(),
+                database.ref('analytics/cook').remove(),
+                database.ref('analytics/battle').remove()
+            ]).then(function() {
+                showCustomAlert('✅ リセット完了', 'QRスキャン・調理・バトルのアナリティクスをリセットしました。今後の集計は0から再スタートします。');
+            }).catch(function(e) {
+                showCustomAlert('❌ エラー', 'リセットに失敗しました: ' + e.message);
+            });
+        },
+        null,
+        'リセットする'
+    );
+}
+
+// 不正対策の一環：savedata.statsを文字列(JSON)から、Firebaseルールで項目ごとに増加量を検証できる
+// 通常のオブジェクト形式へ、既存プレイヤー全員分まとめて移行する（1回限りの移行用ツール）。
+// これまで players/{id}/password と players/{id}/secretKey は「players」ノード自体が
+// 誰でも認証なしで読み取れる（.read: true）設定だったため、IDさえ分かれば第三者が
+// 平文パスワード・secretKeyを直接読み取れてしまう状態だった（ルールは祖先が許可した読み取りを
+// 子要素側で後から制限できないため、players配下に置く限り保護不可能）。
+// ルールをplayerSecrets/{id}という別ノードに移し、本人（uid一致）または管理者のみ読み取り可能に
+// 変更したが、これは「今後の新規書き込み」にしか効かないため、既存プレイヤー分は
+// このボタンで一括移行（コピー後、players側の値を削除）する必要がある。
+function actMigratePasswordSecretsToPlayerSecrets() {
+    if (!database) { showCustomAlert("❌ エラー", "通信に問題があります。"); return; }
+    showCustomConfirm(
+        '🔐 パスワード/secretKeyの移行',
+        '全プレイヤーの players/{id}/password と secretKey を、公開読み取りされない playerSecrets/{id} 側へ移行します。<br>移行後、players側からは削除されるため、以後は第三者から読み取れなくなります。<br><br>実行しますか？',
+        function() {
+            showCustomAlert("🔐 移行中...", "プレイヤーデータを取得しています。しばらくお待ちください。");
+            database.ref('players').once('value').then(function(snap) {
+                const players = snap.val() || {};
+                const pids = Object.keys(players);
+                let migrated = 0, skipped = 0, failed = 0;
+                const failedIds = [];
+                const tasks = pids.map(function(pid) {
+                    const p = players[pid] || {};
+                    if (!p.password && !p.secretKey) { skipped++; return Promise.resolve(); }
+                    const updates = {};
+                    if (p.password) { updates['playerSecrets/' + pid + '/password'] = p.password; }
+                    if (p.secretKey) { updates['playerSecrets/' + pid + '/secretKey'] = p.secretKey; }
+                    updates['players/' + pid + '/password'] = null;
+                    updates['players/' + pid + '/secretKey'] = null;
+                    return database.ref().update(updates).then(function() {
+                        migrated++;
+                    }).catch(function(e) {
+                        failed++; failedIds.push(pid + '(' + e.message + ')');
+                    });
+                });
+                Promise.all(tasks).then(function() {
+                    const msg = '移行完了: ' + migrated + '件<br>'
+                        + '対象外（元々無し）: ' + skipped + '件<br>'
+                        + '失敗: ' + failed + '件'
+                        + (failedIds.length ? '<br><span style="color:#e74c3c;font-size:11px;">' + failedIds.join('<br>') + '</span>' : '');
+                    showCustomAlert('✅ 移行結果', msg);
+                });
+            }).catch(function(e) {
+                showCustomAlert("❌ エラー", "取得に失敗しました: " + e.message);
+            });
+        },
+        null,
+        '移行する'
+    );
+}
+
+function actMigrateStatsToObject() {
+    if (!database) { showCustomAlert("❌ エラー", "通信に問題があります。"); return; }
+    showCustomConfirm(
+        '🛠️ stats移行',
+        '全プレイヤーの savedata.stats を文字列形式からオブジェクト形式へ変換します。<br>既にオブジェクト形式の場合はスキップします。<br><br>実行しますか？',
+        function() {
+            showCustomAlert("🛠️ 移行中...", "プレイヤーデータを取得しています。しばらくお待ちください。");
+            database.ref('players').once('value').then(function(snap) {
+                const players = snap.val() || {};
+                const pids = Object.keys(players);
+                let migrated = 0, skippedNoSavedata = 0, alreadyObject = 0, failed = 0;
+                const failedIds = [];
+                const tasks = pids.map(function(pid) {
+                    const sd = players[pid].savedata;
+                    if (!sd) { skippedNoSavedata++; return Promise.resolve(); }
+                    if (typeof sd.stats !== 'string') { alreadyObject++; return Promise.resolve(); }
+                    let parsed;
+                    try { parsed = JSON.parse(sd.stats || '{}'); } catch (e) { parsed = {}; }
+                    return database.ref('players/' + pid + '/savedata/stats').set(parsed).then(function() {
+                        migrated++;
+                    }).catch(function(e) {
+                        failed++; failedIds.push(pid + '(' + e.message + ')');
+                    });
+                });
+                Promise.all(tasks).then(function() {
+                    const msg = '移行完了: ' + migrated + '件<br>'
+                        + '既にオブジェクト形式: ' + alreadyObject + '件<br>'
+                        + 'savedataなし(対象外): ' + skippedNoSavedata + '件<br>'
+                        + '失敗: ' + failed + '件'
+                        + (failedIds.length ? '<br><span style="color:#e74c3c;font-size:11px;">' + failedIds.join('<br>') + '</span>' : '');
+                    showCustomAlert('✅ 移行結果', msg);
+                });
+            }).catch(function(e) {
+                showCustomAlert("❌ エラー", "取得に失敗しました: " + e.message);
+            });
+        },
+        null,
+        '移行する'
+    );
+}
+
+// 特盛りイベントで不正なダメージ改ざんが確認された3アカウントを一括でアナリティクス除外にする。
+// BC-27593C5A / BC-8B38BHYA: イベントダメージ捏造が確定した2件
+// BC-BY47LGR7: 同時期に同じ手口で作成された、同様のパターンを持つ要注意アカウント
+const KNOWN_SUSPICIOUS_IDS = ['BC-27593C5A', 'BC-8B38BHYA', 'BC-BY47LGR7'];
+function actExcludeKnownSuspiciousAccounts() {
+    if (!database) { showCustomAlert("❌ エラー", "通信に問題があります。"); return; }
+    showCustomConfirm(
+        '🚫 不正疑い3キャラを除外',
+        '以下の3IDを一括でアナリティクス除外に設定します。<br><br>' + KNOWN_SUSPICIOUS_IDS.map(function(id){ return '・' + id; }).join('<br>') + '<br><br>今後これらのIDが普通にプレイしても、全体カウンターには反映されなくなります（ゲームプレイ自体は制限しません）。<br>よろしいですか？',
+        function() {
+            const updates = {};
+            KNOWN_SUSPICIOUS_IDS.forEach(function(id) { updates['players/' + id + '/analyticsExcluded'] = true; });
+            database.ref().update(updates).then(function() {
+                showCustomAlert('✅ 設定完了', '3IDをアナリティクス除外に設定しました。');
+            }).catch(function(e) {
+                showCustomAlert('❌ エラー', '設定に失敗しました: ' + e.message + '<br>（該当IDがまだ存在しない場合は失敗することがあります）');
+            });
+        },
+        null,
+        '除外する'
+    );
+}
+
+function actEventToggle() {
+    if(!database) { showCustomAlert("❌ エラー", "通信に問題があります。"); return; }
+    eventEnabled = !eventEnabled;
+    database.ref('events/tokumori001/enabled').set(eventEnabled).then(function(){
+        updateButtonLabels();
+        showCustomAlert("✅ 設定完了", "特盛りイベントを " + (eventEnabled ? "ON" : "OFF") + " にしました。");
+    });
+}
+
+function actSetTime() {
+    const curOverride = localStorage.getItem('qr_debug_time_override');
+    const hint = curOverride ? "\n現在の仮想時刻設定あり: " + getJSTDateString(new Date(curOverride)) + " " + new Date(new Date(curOverride).getTime() + 9*60*60000).toISOString().substr(11,5) : "\n現在は通常時刻（仮想時刻なし）";
+    const input = prompt("⏰ 仮想の日時を設定（日本時間）\n「YYYY-MM-DD HH:MM」（例: 2026-07-24 12:00）\nまたは「HH:MM」のみ（日付は今日のまま、例: 12:00）\n空欄でOFF（通常時刻に戻す）" + hint);
+    if(input === null) return;
+    const trimmed = input.trim();
+    if(trimmed === '') {
+        clearDebugTimeOverride();
+        updateButtonLabels();
+        showCustomAlert("✅ 解除完了", "仮想時刻を解除しました。");
+        return;
+    }
+    const dateTimeMatch = trimmed.match(/^(\d{4})-(\d{1,2})-(\d{1,2})\s+(\d{1,2}):(\d{2})$/);
+    const timeOnlyMatch = trimmed.match(/^(\d{1,2}):(\d{2})$/);
+    let y, mo, d, hh, mm;
+    if(dateTimeMatch) {
+        y = parseInt(dateTimeMatch[1],10); mo = parseInt(dateTimeMatch[2],10); d = parseInt(dateTimeMatch[3],10);
+        hh = parseInt(dateTimeMatch[4],10); mm = parseInt(dateTimeMatch[5],10);
+    } else if(timeOnlyMatch) {
+        hh = parseInt(timeOnlyMatch[1],10); mm = parseInt(timeOnlyMatch[2],10);
+    } else {
+        showCustomAlert("❌ 入力エラー", "「YYYY-MM-DD HH:MM」または「HH:MM」の形式で入力してください（例: 2026-07-24 12:00 / 12:00）");
+        return;
+    }
+    if(hh < 0 || hh > 23 || mm < 0 || mm > 59) { showCustomAlert("❌ 入力エラー", "正しい時刻を入力してください。"); return; }
+    if(dateTimeMatch && (mo < 1 || mo > 12 || d < 1 || d > 31)) { showCustomAlert("❌ 入力エラー", "正しい日付を入力してください。"); return; }
+    if(dateTimeMatch) setDebugTimeOverride(hh, mm, y, mo, d);
+    else setDebugTimeOverride(hh, mm);
+    updateButtonLabels();
+    showCustomAlert("✅ 設定完了", "仮想時刻を " + trimmed + "（日本時間）に設定しました。<br>※デバッグモード中のこのブラウザのみ反映されます。");
+}
+
+function actResetBingo() {
+    showCustomConfirm("QR BINGO リセット", "このブラウザのQR BINGOデータを完全に削除します。<br>次回「QR BINGO」を開いたときは、初回と同じくムービーから始まります。<br><br>本当によろしいですか？", function(){
+        localStorage.removeItem('qr_bingo');
+        showCustomAlert("✅ リセット完了", "QR BINGOデータを削除しました。<br>ゲーム画面をリロードしてください。");
+    });
+}
+
+function actToggleQrIgnore() {
+    const key = 'qr_ignore_scan_history';
+    const current = localStorage.getItem(key) === '1';
+    const next = !current;
+    localStorage.setItem(key, next ? '1' : '0');
+    const btn = document.getElementById('btnQrIgnore');
+    if(next) {
+        btn.style.background = '#e74c3c';
+        btn.innerText = '🔓 QR使用済み無視: ON';
+        showCustomAlert('🔓 QR使用済み無視 ON', '同じQRコードを何度でもスキャンできます。<br>ゲーム画面をリロードしてください。');
+    } else {
+        btn.style.background = '#27ae60';
+        btn.innerText = '🔓 QR使用済み無視: OFF';
+        showCustomAlert('🔒 QR使用済み無視 OFF', '通常通り1日1回のスキャン制限に戻りました。<br>ゲーム画面をリロードしてください。');
+    }
+}
+function initQrIgnoreBtn() {
+    const on = localStorage.getItem('qr_ignore_scan_history') === '1';
+    const btn = document.getElementById('btnQrIgnore');
+    if(!btn) return;
+    btn.style.background = on ? '#e74c3c' : '#27ae60';
+    btn.innerText = on ? '🔓 QR使用済み無視: ON' : '🔓 QR使用済み無視: OFF';
+}
+
+// このブラウザのキャラクターを「初回プレイヤー」として扱うデバッグ用フラグ。
+// ON中はgame-dev.html側で既存プレイヤー判定・チュートリアル完了済み判定を無視し、
+// GAME START後に必ずチュートリアル(tutorial.html)へ進む。実データ（所持品・進行度等）は変更しない。
+function actToggleNewPlayerMode() {
+    const key = 'qr_debug_new_player';
+    const current = localStorage.getItem(key) === '1';
+    const next = !current;
+    localStorage.setItem(key, next ? '1' : '0');
+    const btn = document.getElementById('btnNewPlayerMode');
+    if(next) {
+        btn.style.background = '#e74c3c';
+        btn.innerText = '🆕 初期プレイヤー化: ON';
+        showCustomAlert('🆕 初期プレイヤー化 ON', 'このブラウザは次回「GAME START」を押すと、既存の進行状況に関わらず初回プレイヤーとして扱われ、確認なしでチュートリアルに進みます。<br>※所持品や進行度は変更されません。<br>ゲーム画面をリロードしてください。');
+    } else {
+        btn.style.background = '#7f8c8d';
+        btn.innerText = '🆕 初期プレイヤー化: OFF';
+        showCustomAlert('🆕 初期プレイヤー化 OFF', '通常通りの挙動（既存プレイヤー判定・チュートリアル完了済み判定が有効）に戻りました。<br>ゲーム画面をリロードしてください。');
+    }
+}
+function initNewPlayerModeBtn() {
+    const on = localStorage.getItem('qr_debug_new_player') === '1';
+    const btn = document.getElementById('btnNewPlayerMode');
+    if(!btn) return;
+    btn.style.background = on ? '#e74c3c' : '#7f8c8d';
+    btn.innerText = on ? '🆕 初期プレイヤー化: ON' : '🆕 初期プレイヤー化: OFF';
+}
+
+function actAnalytics() {
+    if(!database) { showCustomAlert("❌ エラー", "通信に問題があります。"); return; }
+    database.ref('analytics').once('value').then(function(snap) {
+        const data = snap.val() || {};
+        const dailyAccessCount = data.dailyAccessCount || {};
+        const scan = data.scan || {};
+        const cook = data.cook || {};
+        const battle = data.battle || {};
+
+        function row(label, val) {
+            return '<div style="display:flex;justify-content:space-between;padding:3px 0;font-size:12px;">'
+                + '<span style="color:#5a3a1a;">' + label + '</span>'
+                + '<span style="color:#420000;font-weight:bold;">' + (val||0) + '</span></div>';
+        }
+        function section(title) {
+            return '<div style="font-size:13px;font-weight:bold;color:#420000;margin:14px 0 6px;border-bottom:1px solid #b88742;padding-bottom:4px;">' + title + '</div>';
+        }
+
+        let dailyRows = '';
+        const days = [];
+        for(let i = 0; i < 14; i++) {
+            const d = new Date(Date.now() + 9*60*60*1000 - i*86400000);
+            days.push(d.toISOString().split('T')[0]);
+        }
+        days.forEach(function(day) {
+            const cnt = dailyAccessCount[day] || 0;
+            const bar = '█'.repeat(Math.min(cnt, 20));
+            dailyRows += '<div onclick="showDailyAccessDetail(\'' + day + '\')" style="display:flex;align-items:center;gap:8px;margin-bottom:4px;font-size:11px;cursor:pointer;padding:2px 0;">'
+                + '<span style="color:#888;min-width:80px;text-decoration:underline dotted;">' + day + '</span>'
+                + '<span style="color:#b88742;">' + bar + '</span>'
+                + '<span style="color:#420000;font-weight:bold;">' + cnt + '</span>'
+                + '</div>';
+        });
+
+        const html = '<div style="text-align:left;max-height:60vh;overflow-y:auto;">'
+            + '<div style="margin-bottom:8px;font-size:12px;color:#888;">※同じキャラクター（ID）の同日アクセスは1回として集計</div>'
+
+            + section('📷 QRスキャン')
+            + row('通常スキャン', scan.normal)
+            + row('ボーナス(3個入手)', scan.bonus)
+            + row('✨ レア食材', scan.rare)
+            + row('合計', scan.total)
+
+            + section('🍛 調理')
+            + row('合計調理回数', cook.total)
+            + row('ノーマル', cook.normal)
+            + row('☠️ 毒', cook.poison)
+            + row('🌀 幻惑', cook.illusion)
+            + row('💚 ネバネバ', cook.sticky)
+            + row('🌱 種連発', cook.seed)
+            + row('🍛 わんぱく', cook.wanpaku)
+            + row('☀️ ラタトゥイユ', cook.ratatouille)
+            + row('🏏 ホームラン', cook.homerun)
+            + row('🍅 マルゲリータ', cook.margherita)
+            + row('🌊 海の幸', cook.seafood)
+            + row('🐷 3匹のわんぱく兄弟', cook.tonton)
+            + row('✨ 金箔', cook.gold)
+            + row('🍎☠️ 毒りんご', cook.poisonapple)
+            + row('🥚 ふわとろオム', cook.fluffyomelette)
+            + row('🟢 激辛グリーン', cook.greencurry)
+            + row('👑 世界三大珍味', cook.tricaviar)
+
+            + section('⚔️ バトル')
+            + row('PC戦（初級）', battle.bot)
+            + row('PC戦（中級）', battle.hard)
+            + row('タッグ戦', battle.tag)
+            + row('ルーム対戦', battle.room)
+            + row('🎪 フェス参加（対戦数ではなく参加回数）', battle.festJoin)
+
+            + section('📅 直近14日アクセス（日本時間・タップで詳細）')
+            + dailyRows
+            + '</div>';
+
+        showCustomAlert('📊 アナリティクス', html);
+    });
+}
+
+function actPlayerProgress() {
+    if(!database) { showCustomAlert("❌ エラー", "通信に問題があります。"); return; }
+    showCustomAlert("🗺️ 読み込み中...", "プレイヤーデータを取得しています。");
+    database.ref('players').once('value').then(function(snap) {
+        const players = snap.val() || {};
+        const easyBots   = ["見習い料理人タカシ", "魔術師レオン", "ガンコ親父", "宮廷カレー長"];
+        const hardBots   = ["イカ星人グニョグニョ", "種まき婆ちゃん", "ドラゴン料理長", "毒舌料理人ミスズ"];
+        const tagBots    = ["カレー天使ぴゃぁ", "悪ガキサタン君", "レンチン玉子"];
+        const easyCount  = {}; easyBots.forEach(function(n){ easyCount[n] = 0; });
+        const hardCount  = {}; hardBots.forEach(function(n){ hardCount[n] = 0; });
+        const tagCount   = {}; tagBots.forEach(function(n){ tagCount[n] = 0; });
+        let totalPlayers = 0;
+        Object.keys(players).forEach(function(pid) {
+            const sd = players[pid].savedata;
+            if(!sd) return;
+            totalPlayers++;
+            let stats = {};
+            try { stats = typeof sd.stats === 'string' ? JSON.parse(sd.stats) : (sd.stats || {}); } catch(e) {}
+            const defeatedBots     = stats.defeatedBots          || [];
+            const defeatedHardBots = stats.defeatedHardBots       || [];
+            const defeatedTagBots  = stats.defeatedTagExtraBots   || [];
+            easyBots.forEach(function(n){ if(defeatedBots.indexOf(n)     >= 0) easyCount[n]++; });
+            hardBots.forEach(function(n){ if(defeatedHardBots.indexOf(n) >= 0) hardCount[n]++; });
+            tagBots.forEach(function(n){  if(defeatedTagBots.indexOf(n)  >= 0) tagCount[n]++; });
+        });
+        function section(title) {
+            return '<div style="font-size:13px;font-weight:bold;color:#420000;margin:14px 0 6px;border-bottom:1px solid #b88742;padding-bottom:4px;">' + title + '</div>';
+        }
+        function row(label, count) {
+            const pct = totalPlayers > 0 ? Math.round(count / totalPlayers * 100) : 0;
+            const bar = '█'.repeat(Math.min(Math.round(pct / 5), 20));
+            return '<div style="padding:5px 0;border-bottom:1px solid #f0e8d0;font-size:12px;">'
+                + '<div style="display:flex;justify-content:space-between;margin-bottom:2px;">'
+                + '<span style="color:#5a3a1a;">' + label + '</span>'
+                + '<span style="font-weight:bold;color:#420000;">' + count + '人 <span style="color:#999;font-weight:normal;">(' + pct + '%)</span></span>'
+                + '</div>'
+                + '<div style="color:#b88742;font-size:10px;letter-spacing:1px;">' + bar + '</div>'
+                + '</div>';
+        }
+        const html = '<div style="text-align:left;max-height:65vh;overflow-y:auto;">'
+            + '<div style="font-size:12px;color:#888;margin-bottom:4px;">集計対象: ' + totalPlayers + '人（デバッグ・未保存プレイヤーを除く）</div>'
+            + section('⚔️ PC戦（初級）')
+            + easyBots.map(function(n){ return row(n, easyCount[n]); }).join('')
+            + section('🔥 PC戦（中級）')
+            + hardBots.map(function(n){ return row(n, hardCount[n]); }).join('')
+            + section('🤝 タッグ戦')
+            + tagBots.map(function(n){ return row(n, tagCount[n]); }).join('')
+            + '</div>';
+        showCustomAlert('🗺️ プレイヤー進行度', html);
+    }).catch(function(e) {
+        showCustomAlert("❌ エラー", "データ取得に失敗しました: " + e.message);
+    });
+}
+
+function showDailyAccessDetail(day) {
+    if(!database) return;
+    database.ref('analytics/dailyAccess/' + day).once('value').then(function(snap){
+        const data = snap.val() || {};
+        const entries = Object.keys(data).map(function(pid){ return { pid: pid, name: data[pid].name || '名無し', ts: data[pid].ts || 0 }; });
+        entries.sort(function(a,b){ return a.ts - b.ts; });
+        let rows = '';
+        if(entries.length === 0) { rows = '<div style="font-size:12px;color:#888;">データがありません。</div>'; }
+        entries.forEach(function(e){
+            rows += '<div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid #eee;font-size:12px;">'
+                + '<span>' + e.name + ' <span style="color:#999;">(' + e.pid + ')</span></span>'
+                + '</div>';
+        });
+        showCustomAlert('📅 ' + day + ' のアクセス（' + entries.length + '人）',
+            '<div style="text-align:left;max-height:55vh;overflow-y:auto;">' + rows + '</div>'
+        );
+    });
+}
+
+function actCheckPassword() {
+    const targetId = prompt("🔒 パスワードを確認するプレイヤーのIDを入力してください（例: BC-XXXXXXXX）");
+    if(!targetId) return;
+    if(!database) { showCustomAlert("❌ エラー", "通信に問題があります。"); return; }
+    database.ref('players/' + targetId).once('value').then(function(snap){
+        if(!snap.exists()) { showCustomAlert("❌ エラー", "そのIDのプレイヤーは見つかりません。"); return; }
+        const data = snap.val();
+        const name = data.name || '名無し';
+        // パスワードは players/{id} 直下ではなく playerSecrets/{id} に保存されている（第三者から
+        // 読めないようにするための変更。管理者は admins フラグにより引き続き読み取り可能）。
+        database.ref('playerSecrets/' + targetId + '/password').once('value').then(function(pwSnap){
+            const pw = pwSnap.val();
+            if(pw) {
+                showCustomAlert("🔒 パスワード確認", "ID: " + targetId + "<br>名前: " + name + "<br>パスワード: <b>" + pw + "</b>");
+            } else {
+                showCustomAlert("🔒 パスワード確認", "ID: " + targetId + "<br>名前: " + name + "<br>このプレイヤーはパスワードを設定していません。");
+            }
+        }).catch(function(){
+            showCustomAlert("❌ エラー", "パスワードの取得に失敗しました。");
+        });
+    });
+}
+
+function actEventSetHp() {
+    if(!database) { showCustomAlert("❌ エラー", "通信に問題があります。"); return; }
+    database.ref('events/tokumori001/currentHp').once('value').then(function(snap){
+        const curHp = snap.val();
+        const input = prompt("🩹 モンスターの現在HPを入力してください（最大: " + EVENT_MONSTER_DATA.hp + "）\n現在値: " + (curHp === null ? "未設定（満タン扱い）" : curHp));
+        if(input === null) return;
+        const newHp = parseInt(input, 10);
+        if(isNaN(newHp) || newHp < 1) { showCustomAlert("❌ 入力エラー", "1以上の数値を入力してください。"); return; }
+        const clamped = Math.min(EVENT_MONSTER_DATA.hp, newHp);
+        database.ref('events/tokumori001/currentHp').set(clamped).then(function(){
+            showCustomAlert("✅ 設定完了", "モンスターHPを " + clamped + " に設定しました。");
+        });
+    });
+}
+
+// 上位ランカーのダメージ値が、その本人のプレイ実績（stats）と矛盾していないかを自動チェックする。
+// 「ダメージがあるのにイベント参加履歴も勝利数も撃破記録も一切ない」場合は、
+// 過去に実際に確認された不正（直接Firebase書き換え）と同じパターンなので警告表示する。
+function isEventDamageSuspicious(stats) {
+    if (!stats) return true; // statsが全く無い＝プレイ記録が一切ない
+    const hasAnyBattleEvidence = !!stats.eventBattleJoined
+        || (stats.totalWins || 0) > 0
+        || (stats.defeatedBots && stats.defeatedBots.length > 0)
+        || (stats.defeatedHardBots && stats.defeatedHardBots.length > 0)
+        || (stats.defeatedTagExtraBots && stats.defeatedTagExtraBots.length > 0)
+        || (stats.scanTotal || 0) > 0
+        || (stats.cookTotal || 0) > 0;
+    return !hasAnyBattleEvidence;
+}
+
+function actEventDamage() {
+    if(!database) { showCustomAlert("❌ エラー", "通信に問題があります。"); return; }
+    database.ref('events/tokumori001/damages').once('value').then(function(snap){
+        const data = snap.val() || {};
+        const entries = Object.keys(data).map(function(pid){ return { pid: pid, dmg: data[pid] }; });
+        entries.sort(function(a,b){ return b.dmg - a.dmg; });
+        const top15 = entries.slice(0, 15);
+        Promise.all([
+            database.ref('events/tokumori001/participants').once('value'),
+            Promise.all(top15.map(function(e){ return database.ref('players/' + e.pid).once('value'); }))
+        ]).then(function(results){
+            const pData = results[0].val() || {};
+            const playerSnaps = results[1];
+            let rows = '';
+            let suspiciousCount = 0;
+            if(top15.length === 0) { rows = '<div style="font-size:12px;color:#888;">まだデータがありません。</div>'; }
+            top15.forEach(function(e, i){
+                try {
+                    const name = (pData[e.pid] && pData[e.pid].name) ? pData[e.pid].name : '名無し';
+                    const safeName = String(name).replace(/'/g, "\\'");
+                    const pRec = playerSnaps[i].val() || {};
+                    const sd = pRec.savedata || {};
+                    let stats = {};
+                    try { stats = typeof sd.stats === 'string' ? JSON.parse(sd.stats) : (sd.stats || {}); } catch(err2) {}
+                    const suspicious = isEventDamageSuspicious(stats);
+                    if (suspicious) suspiciousCount++;
+                    const warnBadge = suspicious ? ' <span style="color:#fff;background:#c0392b;border-radius:3px;padding:1px 5px;font-size:10px;">⚠️不審</span>' : '';
+                    rows += '<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;border-bottom:1px solid #eee;font-size:12px;gap:6px;' + (suspicious ? 'background:#fdecea;' : '') + '">'
+                        + '<span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;">' + (i+1) + '. ' + name + ' <span style="color:#999;">(' + e.pid + ')</span>' + warnBadge + '</span>'
+                        + '<span style="font-weight:bold;color:#420000;flex-shrink:0;">' + e.dmg + '</span>'
+                        + '<button onclick="editEventPlayerDamage(\'' + e.pid + '\',' + e.dmg + ',\'' + safeName + '\')" style="flex-shrink:0;padding:3px 8px;background:#d35400;color:white;border:none;border-radius:4px;font-size:11px;cursor:pointer;">編集</button>'
+                        + '</div>';
+                } catch(err) {
+                    rows += '<div style="font-size:11px;color:#e74c3c;">⚠️ ' + (i+1) + '位のデータでエラー: ' + err.message + '</div>';
+                }
+            });
+            const totalParticipants = Object.keys(pData).length;
+            const warnSummary = suspiciousCount > 0
+                ? '<div style="margin-bottom:8px;padding:8px;background:#fdecea;border-radius:6px;color:#c0392b;font-size:12px;font-weight:bold;">⚠️ ' + suspiciousCount + '件、ダメージがあるのにプレイ実績（イベント参加・勝利・撃破・スキャン・調理いずれも）が確認できないアカウントがあります。過去に確認された不正と同じパターンです。</div>'
+                : '';
+            showCustomAlert('📊 特盛りイベント ダメージ集計',
+                '<div style="margin-bottom:4px;font-size:13px;font-weight:bold;color:#420000;">参加人数: ' + totalParticipants + '人</div>'
+                + '<div style="margin-bottom:10px;font-size:11px;color:#888;">上位15位まで表示</div>'
+                + warnSummary
+                + rows
+            );
+        }).catch(function(e){
+            showCustomAlert("❌ エラー", "取得に失敗しました: " + e.message);
+        });
+    });
+}
+
+function editEventPlayerDamage(pid, currentDmg, name) {
+    document.getElementById("customModal").style.display = "none";
+    setTimeout(function(){
+        const input = prompt("✏️ " + name + " (" + pid + ") の総ダメージを入力してください\n現在値: " + currentDmg);
+        if(input === null) { actEventDamage(); return; }
+        const newDmg = parseInt(input, 10);
+        if(isNaN(newDmg) || newDmg < 0) {
+            showCustomAlert("❌ 入力エラー", "0以上の数値を入力してください。", function(){ actEventDamage(); });
+            return;
+        }
+        database.ref('events/tokumori001/damages/' + pid).set(newDmg).then(function(){
+            showCustomAlert("✅ 設定完了", name + " の総ダメージを " + newDmg + " に設定しました。", function(){ actEventDamage(); });
+        });
+    }, 300);
+}
+
+function actSpecialBonusAll() {
+    if(!database) { showCustomAlert("❌ エラー", "通信に問題があります。"); return; }
+    const normalCount = parseInt(document.getElementById("sbNormalCount").value, 10) || 0;
+    const midHighCount = parseInt(document.getElementById("sbMidHighCount").value, 10) || 0;
+    const spiceCount = parseInt(document.getElementById("sbSpiceCount").value, 10) || 0;
+    const gold = parseInt(document.getElementById("sbGold").value, 10) || 0;
+    const ticket = parseInt(document.getElementById("sbTicket").value, 10) || 0;
+    const spicyCoin = parseInt(document.getElementById("sbSpicyCoin").value, 10) || 0;
+    database.ref('specialBonus').once('value').then(function(snap){
+        const cur = snap.val();
+        const newVersion = (cur && cur.version ? cur.version : 0) + 1;
+        database.ref('specialBonus').set({
+            version: newVersion, normalCount: normalCount, midHighCount: midHighCount,
+            spiceCount: spiceCount, gold: gold, ticket: ticket, spicyCoin: spicyCoin, updatedAt: Date.now()
+        }).then(function(){
+            showCustomAlert("✅ 全体補充完了", "特別ボーナスを更新しました（v" + newVersion + "）。<br>全プレイヤーが再度受け取れます。");
+        });
+    });
+}
+
+function actSpecialBonusIndiv() {
+    if(!database) { showCustomAlert("❌ エラー", "通信に問題があります。"); return; }
+    const normalCount = parseInt(document.getElementById("sbNormalCount").value, 10) || 0;
+    const midHighCount = parseInt(document.getElementById("sbMidHighCount").value, 10) || 0;
+    const spiceCount = parseInt(document.getElementById("sbSpiceCount").value, 10) || 0;
+    const gold = parseInt(document.getElementById("sbGold").value, 10) || 0;
+    const ticket = parseInt(document.getElementById("sbTicket").value, 10) || 0;
+    const spicyCoin = parseInt(document.getElementById("sbSpicyCoin").value, 10) || 0;
+    const targetId = prompt("👤 プレゼントするプレイヤーのIDを入力してください（例: BC-XXXXXXXX）");
+    if(!targetId) return;
+    database.ref('players/' + targetId).once('value').then(function(snap){
+        if(!snap.exists()) { showCustomAlert("❌ エラー", "そのIDのプレイヤーは見つかりません。"); return; }
+        database.ref('giftQueue/' + targetId).push({
+            normalCount: normalCount, midHighCount: midHighCount, spiceCount: spiceCount,
+            gold: gold, ticket: ticket, spicyCoin: spicyCoin, grantedAt: Date.now()
+        }).then(function(){
+            showCustomAlert("✅ 個別補充完了", "ID: " + targetId + " にプレゼントを送りました。<br>次回そのプレイヤーがアクセスした際に反映されます。");
+        });
+    });
+}
+
+function actSetNotice() {
+    if(!database) { showCustomAlert("❌ エラー", "通信に問題があります。"); return; }
+    const text = document.getElementById("staffNoticeInput").value.trim();
+    database.ref('notice').set(text).then(function() {
+        showCustomAlert("✅ お知らせを保存しました！");
+    }).catch(function(e) { showCustomAlert("❌ 保存失敗", e.message); });
+}
+
+function actSetTopInfo() {
+    if(!database) { showCustomAlert("❌ エラー", "通信に問題があります。"); return; }
+    const text = document.getElementById("staffTopInfoInput").value.trim();
+    database.ref('topInfoText').set(text).then(function() {
+        showCustomAlert("✅ TOP画面テキストを保存しました！");
+    }).catch(function(e) { showCustomAlert("❌ 保存失敗", e.message); });
+}
+
+// ============================================================
+// 初期化
+// ============================================================
+function updateButtonLabels() {
+    const btnDebug = document.getElementById('btnDebugMode');
+    btnDebug.innerText = "🐛 デバッグモード: " + (isDebugMode ? "ON" : "OFF");
+    btnDebug.style.background = isDebugMode ? "#e74c3c" : "#7f8c8d";
+
+    const btnEvent = document.getElementById('btnEventToggle');
+    btnEvent.innerText = "🐙 特盛りイベント: " + (eventEnabled ? "ON" : "OFF");
+    btnEvent.style.background = eventEnabled ? "#27ae60" : "#7f8c8d";
+
+    const hasTimeOverride = !!localStorage.getItem('qr_debug_time_override');
+    const btnTime = document.getElementById('btnTimeSetting');
+    btnTime.innerText = "⏰ 時間設定: " + (hasTimeOverride ? "ON" : "OFF");
+    btnTime.style.background = hasTimeOverride ? "#e74c3c" : "#7f8c8d";
+}
+
+function loadInitialData() {
+    if(database) {
+        database.ref('events/tokumori001/enabled').once('value').then(function(snap){
+            eventEnabled = (snap.val() === true);
+            updateButtonLabels();
+        });
+        database.ref('notice').once('value').then(function(snap) {
+            document.getElementById("staffNoticeInput").value = snap.val() || '';
+        });
+        database.ref('topInfoText').once('value').then(function(snap) {
+            document.getElementById("staffTopInfoInput").value = snap.val() || '';
+        });
+    }
+    updateButtonLabels();
+    populateTestQrItemSelect();
+}
+
+// ============================================================
+// テスト用QR生成（game.htmlのprocessQRDataと同じロジックで、任意の食材が出る文字列を逆算）
+// ============================================================
+function populateTestQrItemSelect() {
+    const sel = document.getElementById('testQrItemSelect');
+    if(!sel) return;
+    sel.innerHTML = '';
+    // 通常の抽選対象（game.html側のallItemsと同じ構成）
+    const normalItems = Object.keys(masterIngredients).filter(k => masterIngredients[k].shop === 0);
+    const allItems = [...normalItems, ...Object.keys(masterSpices).filter(k => k !== "マンゴーチャツネ")];
+    allItems.forEach(name => {
+        const opt = document.createElement('option');
+        opt.value = name; opt.innerText = name;
+        sel.appendChild(opt);
+    });
+    // 特殊判定の赤・黄パプリカも選べるようにする
+    ["赤パプリカ（特殊）", "黄パプリカ（特殊）"].forEach(label => {
+        const opt = document.createElement('option');
+        opt.value = label; opt.innerText = label;
+        sel.appendChild(opt);
+    });
+}
+
+function findQrTextForItem(targetName) {
+    const normalItems = Object.keys(masterIngredients).filter(k => masterIngredients[k].shop === 0);
+    const allItems = [...normalItems, ...Object.keys(masterSpices).filter(k => k !== "マンゴーチャツネ")];
+    const targetIdx = allItems.indexOf(targetName);
+    if(targetIdx === -1) return null;
+    // ランダムな文字列を生成し、文字コード合計が目的の食材になるものを探す（ブルートフォース）
+    for(let attempt = 0; attempt < 5000; attempt++) {
+        const candidate = 'TEST-' + Math.random().toString(36).slice(2, 10) + '-' + attempt;
+        let sum = 0;
+        for(let i = 0; i < candidate.length; i++) sum += candidate.charCodeAt(i);
+        if(sum % allItems.length === targetIdx) return candidate;
+    }
+    return null;
+}
+
+function actGenerateTestQr() {
+    const sel = document.getElementById('testQrItemSelect');
+    const resultDiv = document.getElementById('testQrResult');
+    if(!sel || !resultDiv) return;
+    const selected = sel.value;
+    if(!selected) return;
+
+    let qrText;
+    let displayName = selected;
+    if(selected === "赤パプリカ（特殊）") {
+        qrText = 'TEST-pepper-red-' + Math.random().toString(36).slice(2, 8);
+        displayName = "赤パプリカ";
+    } else if(selected === "黄パプリカ（特殊）") {
+        qrText = 'TEST-pepper-yellow-' + Math.random().toString(36).slice(2, 8);
+        displayName = "黄パプリカ";
+    } else {
+        qrText = findQrTextForItem(selected);
+        if(!qrText) {
+            resultDiv.innerHTML = '<div style="color:#e74c3c;font-size:13px;">⚠️ QR文字列の生成に失敗しました。もう一度お試しください。</div>';
+            return;
+        }
+    }
+
+    if(typeof QRCode === 'undefined') {
+        resultDiv.innerHTML = '<div style="color:#e74c3c;font-size:13px;">⚠️ QRライブラリの読み込みに失敗しました。<br>ページを再読み込みしてもう一度お試しください。<br>（通信環境によりCDNが読み込めない場合があります）</div>';
+        return;
+    }
+
+    resultDiv.innerHTML = '<div id="testQrCanvas" style="display:inline-block;"></div><div style="margin-top:8px;font-size:13px;color:#420000;font-weight:bold;">' + displayName + '</div><div style="font-size:10px;color:#999;word-break:break-all;">' + qrText + '</div>';
+
+    try {
+        new QRCode(document.getElementById('testQrCanvas'), {
+            text: qrText,
+            width: 220,
+            height: 220,
+            correctLevel: QRCode.CorrectLevel.M
+        });
+    } catch(e) {
+        console.error('QR generation exception:', e);
+        resultDiv.innerHTML = '<div style="color:#e74c3c;font-size:13px;">⚠️ QRコードの生成中にエラーが発生しました。<br>' + e.message + '</div>';
+    }
+}
+
+// 宅配カレー一覧（Firebase上のdeliveryCurriesを全件表示し、登録漏れや内容の異常を確認する）
+function actShowDeliveryCurryList() {
+    const resultDiv = document.getElementById('deliveryCurryListResult');
+    if(!resultDiv) return;
+    if(!database) { resultDiv.innerHTML = '<div style="color:#e74c3c;font-size:13px;">⚠️ 通信に問題があります。</div>'; return; }
+    resultDiv.innerHTML = '<div style="color:#888;font-size:12px;">読み込み中...</div>';
+    database.ref('deliveryCurries').once('value').then(function(snap){
+        const data = snap.val() || {};
+        const playerIds = Object.keys(data);
+        if(playerIds.length === 0) {
+            resultDiv.innerHTML = '<div style="color:#888;font-size:12px;">現在、登録されている宅配カレーはありません。</div>';
+            return;
+        }
+        let html = '<div style="font-size:12px;color:#420000;font-weight:bold;margin-bottom:8px;">登録件数: ' + playerIds.length + ' 件</div>';
+        playerIds.forEach(function(pid){
+            const d = data[pid];
+            const curry = d.curry || {};
+            const createdAtStr = d.createdAt ? new Date(d.createdAt).toLocaleString('ja-JP') : '不明';
+            let issues = [];
+            if(!d.playerName) issues.push('プレイヤー名が空');
+            if(!curry.name) issues.push('カレー名が空');
+            if(!curry.hp || !curry.atk || !curry.def || !curry.spd) issues.push('ステータス不正');
+            if(curry.isDelivering !== true) issues.push('isDeliveringフラグがtrueでない');
+            if((d.usedCount || 0) >= 5) issues.push('使用回数が5以上なのに削除されていない（本来は食べ尽くされているはず）');
+            const issueHtml = issues.length > 0
+                ? '<div style="color:#e74c3c;font-size:11px;margin-top:4px;">⚠️ ' + issues.join(' / ') + '</div>'
+                : '<div style="color:#2e8b6f;font-size:11px;margin-top:4px;">✅ 正常</div>';
+            html += '<div style="border:1px solid #b88742;border-radius:6px;padding:10px;margin-bottom:8px;background:#fffdf0;">'
+                + '<div style="font-size:13px;font-weight:bold;color:#420000;">' + (d.playerName || '(名前なし)') + ' <span style="color:#999;font-size:10px;">(' + pid + ')</span></div>'
+                + '<div style="font-size:12px;color:#d35400;font-weight:bold;margin-top:2px;">' + (curry.name || '(カレー名なし)') + '</div>'
+                + '<div style="font-size:11px;color:#555;margin-top:2px;">HP:' + (curry.hp ?? '-') + ' ATK:' + (curry.atk ?? '-') + ' DEF:' + (curry.def ?? '-') + ' SPD:' + (curry.spd ?? '-') + '</div>'
+                + '<div style="font-size:10px;color:#888;margin-top:2px;">使用回数: ' + (d.usedCount || 0) + ' / 勝利回数: ' + (d.winCount || 0) + ' / 登録日時: ' + createdAtStr + '</div>'
+                + issueHtml
+                + '<button onclick="actDeleteDeliveryCurry(\'' + pid + '\')" style="margin-top:6px;padding:4px 10px;font-size:11px;background:#e74c3c;color:#fff;border:none;border-radius:4px;cursor:pointer;">🗑️ このデータを削除</button>'
+                + '<button onclick="actForceRemoveDeliveryCurry(\'' + pid + '\')" style="margin-top:6px;margin-left:6px;padding:4px 10px;font-size:11px;background:#8e44ad;color:#fff;border:none;border-radius:4px;cursor:pointer;">🔕 通知なしで強制削除</button>'
+                + '</div>';
+        });
+        resultDiv.innerHTML = html;
+    }).catch(function(e){
+        resultDiv.innerHTML = '<div style="color:#e74c3c;font-size:13px;">⚠️ 取得に失敗しました。' + e.message + '</div>';
+    });
+}
+
+// 不整合な宅配カレーデータを手動で削除する（食べ尽くされたはずなのに残っていた等の修正用）
+// 注意：これは公開データ(deliveryCurries)だけを消す。プレイヤー本人の冷蔵庫にはisDeliveringフラグ付きで残るため、
+// 次回そのプレイヤーがログインすると自動で再公開される（意図的な一時的削除向け）。
+function actDeleteDeliveryCurry(pid) {
+    if(!database) return;
+    showCustomConfirm("🗑️ データ削除", "ID: " + pid + " の宅配カレーデータを削除します。<br>本人が次回ログインすると自動で再公開されます。<br>本当によろしいですか？", function(){
+        database.ref('deliveryCurries/' + pid).remove().then(function(){
+            showCustomAlert("✅ 削除完了", "削除しました。", function(){ actShowDeliveryCurryList(); });
+        }).catch(function(e){
+            showCustomAlert("❌ エラー", "削除に失敗しました。" + e.message);
+        });
+    });
+}
+
+// 公開データ削除に加えて、プレイヤー本人の冷蔵庫からも通知なしで完全に消す（次回そのプレイヤーがアプリを開いたタイミングで実行される）
+function actForceRemoveDeliveryCurry(pid) {
+    if(!database) return;
+    showCustomConfirm(
+        "🔕 通知なしで強制削除",
+        "ID: " + pid + " の宅配カレーを、公開データごと削除し、次回本人がアプリを開いた際に手紙などの通知を出さずに冷蔵庫からも削除します。<br>本当によろしいですか？",
+        function(){
+            Promise.all([
+                database.ref('deliveryCurries/' + pid).remove(),
+                database.ref('players/' + pid + '/forceRemoveDelivering').set(true)
+            ]).then(function(){
+                showCustomAlert("✅ 設定完了", "次回本人がアプリを開いたタイミングで、通知なしで削除されます。", function(){ actShowDeliveryCurryList(); });
+            }).catch(function(e){
+                showCustomAlert("❌ エラー", "処理に失敗しました。" + e.message);
+            });
+        },
+        null,
+        "強制削除する"
+    );
+}
+
+// ===== お知らせ手紙の配信 =====
+const ANNOUNCE_TEMPLATES = {
+    shop1_intro: {
+        subject: 'カレー店のご紹介',
+        body: '兵庫県西宮にある「空腹は最高のスパイスカレー」さんがバトルカレーのQRカードお店に置いてくださいました！\nお店の公式InstagramのQRをスキャンした方にはスパイシーコインを1枚プレゼントしますので、ぜひフォローしてください！',
+        image: 'shop/shop-1-1.png',
+        imageBottom: 'shop/shop-1-1.png',
+        imageBottomUrl: 'https://www.instagram.com/hunger_is_the_best_spice_curry/',
+        imageBottom2: null,
+        imageBottomUrl2: null
+    }
+};
+function actLoadAnnounceTemplate() {
+    const key = document.getElementById('announceTemplateSelect').value;
+    if(!key || !ANNOUNCE_TEMPLATES[key]) return;
+    const t = ANNOUNCE_TEMPLATES[key];
+    document.getElementById('announceSubject').value = t.subject || '';
+    document.getElementById('announceBody').value = t.body || '';
+    document.getElementById('announceImage').value = t.image || '';
+    document.getElementById('announceImageBottom').value = t.imageBottom || '';
+    document.getElementById('announceImageBottomUrl').value = t.imageBottomUrl || '';
+    document.getElementById('announceImageBottom2').value = t.imageBottom2 || '';
+    document.getElementById('announceImageBottomUrl2').value = t.imageBottomUrl2 || '';
+    document.getElementById('announceExpireMinutes').value = t.expireMinutesAfterRead || '';
+}
+// 現在入力中の内容からお知らせデータを組み立てる
+function buildAnnounceDataFromForm() {
+    const expireVal = document.getElementById('announceExpireMinutes').value.trim();
+    return {
+        subject: document.getElementById('announceSubject').value.trim(),
+        body: document.getElementById('announceBody').value,
+        image: document.getElementById('announceImage').value.trim() || null,
+        imageBottom: document.getElementById('announceImageBottom').value.trim() || null,
+        imageBottomUrl: document.getElementById('announceImageBottomUrl').value.trim() || null,
+        imageBottom2: document.getElementById('announceImageBottom2').value.trim() || null,
+        imageBottomUrl2: document.getElementById('announceImageBottomUrl2').value.trim() || null,
+        expireMinutesAfterRead: expireVal ? parseInt(expireVal, 10) : null,
+        normalCount: parseInt(document.getElementById('announceNormalCount').value, 10) || 0,
+        midHighCount: parseInt(document.getElementById('announceMidHighCount').value, 10) || 0,
+        spiceCount: parseInt(document.getElementById('announceSpiceCount').value, 10) || 0,
+        gold: parseInt(document.getElementById('announceGold').value, 10) || 0,
+        ticket: parseInt(document.getElementById('announceTicket').value, 10) || 0,
+        spicyCoin: parseInt(document.getElementById('announceSpicyCoin').value, 10) || 0,
+        createdAt: Date.now()
+    };
+}
+function actPreviewAnnounce() {
+    const a = buildAnnounceDataFromForm();
+    if(!a.subject) { showCustomAlert('⚠️ 件名が空です', '件名を入力してください。'); return; }
+    const area = document.getElementById('announcePreviewArea');
+    let html = '<div style="border:1px solid #b88742;border-radius:8px;padding:14px;background:#fffdf0;max-width:380px;margin:0 auto;">';
+    html += '<div style="font-weight:bold;font-size:16px;text-align:center;color:#420000;margin-bottom:8px;">' + a.subject + '</div>';
+    if(a.image) html += '<div style="text-align:center;margin-bottom:8px;"><img src="' + a.image + '" style="max-width:160px;max-height:160px;object-fit:contain;"></div>';
+    html += '<div style="font-size:13px;color:#420000;line-height:1.7;white-space:pre-wrap;margin-bottom:8px;">' + a.body + '</div>';
+    if(a.imageBottom || a.imageBottom2) {
+        html += '<div style="display:flex;gap:8px;justify-content:center;margin-bottom:8px;">';
+        if(a.imageBottom) {
+            const style = 'max-width:160px;max-height:160px;object-fit:contain;' + (a.imageBottomUrl ? 'cursor:pointer;' : '');
+            html += (a.imageBottomUrl ? '<a href="' + a.imageBottomUrl + '" target="_blank">' : '') + '<img src="' + a.imageBottom + '" style="' + style + '">' + (a.imageBottomUrl ? '</a>' : '');
+        }
+        if(a.imageBottom2) {
+            const style2 = 'max-width:160px;max-height:160px;object-fit:contain;' + (a.imageBottomUrl2 ? 'cursor:pointer;' : '');
+            html += (a.imageBottomUrl2 ? '<a href="' + a.imageBottomUrl2 + '" target="_blank">' : '') + '<img src="' + a.imageBottom2 + '" style="' + style2 + '">' + (a.imageBottomUrl2 ? '</a>' : '');
+        }
+        html += '</div>';
+    }
+    const itemParts = [];
+    if(a.normalCount) itemParts.push('ノーマル素材×' + a.normalCount);
+    if(a.midHighCount) itemParts.push('中級/高級素材×' + a.midHighCount);
+    if(a.spiceCount) itemParts.push('ノーマルスパイス×' + a.spiceCount);
+    if(a.gold) itemParts.push('💰' + a.gold + 'G');
+    if(a.ticket) itemParts.push('パック券×' + a.ticket);
+    if(a.spicyCoin) itemParts.push('🌶️' + a.spicyCoin + '枚');
+    if(itemParts.length > 0) {
+        html += '<div style="font-size:12px;color:#9a6e30;font-weight:bold;border-top:1px dashed #b88742;padding-top:8px;margin-top:4px;">🎁 添付: ' + itemParts.join('　') + '</div>';
+    }
+    html += '</div>';
+    area.innerHTML = html;
+}
+// 個数指定からアイテムをランダム抽選し、手紙データにrewardGold/rewardItems等として確定する
+function resolveAnnounceItemRewards(a) {
+    const normalPool = Object.keys(masterIngredients).filter(k => masterIngredients[k].shop === 0);
+    const midHighPool = Object.keys(masterIngredients).filter(k => masterIngredients[k].shop === 1 || masterIngredients[k].shop === 2);
+    const spicePool = Object.keys(masterSpices).filter(k => k !== 'マンゴーチャツネ' && k !== 'サフラン');
+    let rewardItems = [];
+    for(let i = 0; i < (a.normalCount || 0); i++) { rewardItems.push(normalPool[Math.floor(Math.random() * normalPool.length)]); }
+    for(let i = 0; i < (a.midHighCount || 0); i++) { if(midHighPool.length === 0) break; rewardItems.push(midHighPool[Math.floor(Math.random() * midHighPool.length)]); }
+    for(let i = 0; i < (a.spiceCount || 0); i++) { rewardItems.push(spicePool[Math.floor(Math.random() * spicePool.length)]); }
+    const result = {
+        subject: a.subject || '',
+        body: a.body || '',
+        image: a.image || null,
+        imageBottom: a.imageBottom || null,
+        imageBottomUrl: a.imageBottomUrl || null,
+        imageBottom2: a.imageBottom2 || null,
+        imageBottomUrl2: a.imageBottomUrl2 || null,
+        expireMinutesAfterRead: a.expireMinutesAfterRead || null,
+        rewardGold: a.gold || 0,
+        rewardPack: a.ticket || 0,
+        rewardSpicyCoin: a.spicyCoin || 0,
+        rewardItems: rewardItems,
+        createdAt: a.createdAt || Date.now()
+    };
+    return result;
+}
+// 送信完了後、誤って同じ内容を再送信しないようフォーム全体をクリアする
+function clearAnnounceForm() {
+    document.getElementById('announceTemplateSelect').value = '';
+    document.getElementById('announceSubject').value = '';
+    document.getElementById('announceBody').value = '';
+    document.getElementById('announceImage').value = '';
+    document.getElementById('announceImageBottom').value = '';
+    document.getElementById('announceImageBottomUrl').value = '';
+    document.getElementById('announceImageBottom2').value = '';
+    document.getElementById('announceImageBottomUrl2').value = '';
+    document.getElementById('announceExpireMinutes').value = '';
+    document.getElementById('announceNormalCount').value = '';
+    document.getElementById('announceMidHighCount').value = '';
+    document.getElementById('announceSpiceCount').value = '';
+    document.getElementById('announceGold').value = '';
+    document.getElementById('announceTicket').value = '';
+    document.getElementById('announceSpicyCoin').value = '';
+    document.getElementById('announceTargetId').value = '';
+    document.getElementById('announcePreviewArea').innerHTML = '';
+}
+function actSendAnnounceToAll() {
+    if(!database) return;
+    const a = buildAnnounceDataFromForm();
+    if(!a.subject) { showCustomAlert('⚠️ 件名が空です', '件名を入力してください。'); return; }
+    showCustomConfirm('📢 全員に送信', '入力中の内容を、全プレイヤーにお知らせ手紙として送信します。<br>プレビューで内容を確認しましたか？<br><br>本当によろしいですか？', function(){
+        const finalData = resolveAnnounceItemRewards(a);
+        database.ref('globalAnnouncements').push(finalData).then(function(){
+            showCustomAlert('✅ 送信完了', '全員宛に送信しました。');
+            clearAnnounceForm();
+        }).catch(function(e){
+            showCustomAlert('❌ エラー', '送信に失敗しました。' + e.message);
+        });
+    });
+}
+function actSendAnnounceToOne() {
+    if(!database) return;
+    const targetId = document.getElementById('announceTargetId').value.trim();
+    if(!targetId) { showCustomAlert('⚠️ IDが空です', '送信先のプレイヤーIDを入力してください。'); return; }
+    const a = buildAnnounceDataFromForm();
+    if(!a.subject) { showCustomAlert('⚠️ 件名が空です', '件名を入力してください。'); return; }
+    showCustomConfirm('👤 個別送信', 'ID: ' + targetId + ' にお知らせ手紙を送信します。<br><br>本当によろしいですか？', function(){
+        const finalData = resolveAnnounceItemRewards(a);
+        database.ref('announceQueue/' + targetId).push(finalData).then(function(){
+            showCustomAlert('✅ 送信完了', 'ID: ' + targetId + ' に送信しました。');
+            clearAnnounceForm();
+        }).catch(function(e){
+            showCustomAlert('❌ エラー', '送信に失敗しました。' + e.message);
+        });
+    });
+}
+
+// ===== 送信済みお知らせ（全員宛）の一覧表示・取り消し =====
+function actShowSentAnnouncements() {
+    if(!database) return;
+    const area = document.getElementById('sentAnnouncementsResult');
+    area.innerHTML = '<div style="color:#888;font-size:12px;">読み込み中...</div>';
+    Promise.all([
+        database.ref('globalAnnouncements').once('value'),
+        database.ref('revokedAnnouncements').once('value')
+    ]).then(function(results){
+        const items = results[0].val() || {};
+        const revoked = results[1].val() || {};
+        const keys = Object.keys(items).sort().reverse(); // 新しい順
+        if(keys.length === 0) {
+            area.innerHTML = '<div style="color:#888;font-size:12px;">送信済みのお知らせ（全員宛）はありません。</div>';
+            return;
+        }
+        let html = '';
+        keys.forEach(function(key){
+            const a = items[key];
+            const isRevoked = !!revoked[key];
+            const dateStr = a.createdAt ? new Date(a.createdAt).toLocaleString('ja-JP') : '不明';
+            html += '<div style="border:1px solid #b88742;border-radius:6px;padding:10px;margin-bottom:8px;background:' + (isRevoked ? '#f0f0f0' : '#fffdf0') + ';">'
+                + '<div style="font-size:13px;font-weight:bold;color:#420000;">' + (a.subject || '(件名なし)') + (isRevoked ? ' <span style="color:#e74c3c;font-size:11px;">【取り消し済み】</span>' : '') + '</div>'
+                + '<div style="font-size:11px;color:#888;margin-top:2px;">送信日時: ' + dateStr + '</div>'
+                + (isRevoked ? '' : '<button onclick="actRevokeAnnouncement(\'' + key + '\')" style="margin-top:6px;padding:4px 12px;font-size:11px;background:#e74c3c;color:#fff;border:none;border-radius:4px;cursor:pointer;">🗑️ このお知らせを取り消す</button>')
+                + '</div>';
+        });
+        area.innerHTML = html;
+    }).catch(function(e){
+        area.innerHTML = '<div style="color:#e74c3c;font-size:13px;">⚠️ 取得に失敗しました。' + e.message + '</div>';
+    });
+}
+function actRevokeAnnouncement(key) {
+    if(!database) return;
+    showCustomConfirm('🗑️ お知らせの取り消し', 'このお知らせを取り消します。各プレイヤーのポストから自動的に削除されます。<br><br>本当によろしいですか？', function(){
+        database.ref('revokedAnnouncements/' + key).set(true).then(function(){
+            showCustomAlert('✅ 取り消し完了', '取り消しました。', function(){ actShowSentAnnouncements(); });
+        }).catch(function(e){
+            showCustomAlert('❌ エラー', '取り消しに失敗しました。' + e.message);
+        });
+    });
+}
+
+window.onload = function() {
+    if (!enforceAdminAccessGate()) return;
+    loadInitialData();
+    initQrIgnoreBtn();
+    initNewPlayerModeBtn();
+    if (database) {
+        ensureFirebaseAuth().then(function() { registerAsAdminIfEligible(); });
+    }
+};
+</script>
+
+</body>
+</html>
