@@ -378,14 +378,15 @@ function getJSTDateString(baseDate) {
     return `${y}-${m}-${d}`;
 }
 
-function setDebugTimeOverride(jstHour, jstMinute) {
-    const now = new Date();
-    const jstMsNow = now.getTime() + 9 * 60 * 60000;
-    const jstDateNow = new Date(jstMsNow);
-    const jstTargetMs = Date.UTC(
-        jstDateNow.getUTCFullYear(), jstDateNow.getUTCMonth(), jstDateNow.getUTCDate(),
-        jstHour, jstMinute, 0, 0
-    );
+// jstYear/jstMonth(1-12)/jstDayを省略した場合は今日の日付（日本時間）を使う（従来通り時刻のみの変更）。
+function setDebugTimeOverride(jstHour, jstMinute, jstYear, jstMonth, jstDay) {
+    let y = jstYear, mo = jstMonth, d = jstDay;
+    if(y == null || mo == null || d == null) {
+        const now = new Date();
+        const jstDateNow = new Date(now.getTime() + 9 * 60 * 60000);
+        y = jstDateNow.getUTCFullYear(); mo = jstDateNow.getUTCMonth() + 1; d = jstDateNow.getUTCDate();
+    }
+    const jstTargetMs = Date.UTC(y, mo - 1, d, jstHour, jstMinute, 0, 0);
     const actualUtcMs = jstTargetMs - 9 * 60 * 60000;
     localStorage.setItem('qr_debug_time_override', new Date(actualUtcMs).toISOString());
 }
@@ -992,8 +993,8 @@ function actEventToggle() {
 
 function actSetTime() {
     const curOverride = localStorage.getItem('qr_debug_time_override');
-    const hint = curOverride ? "\n現在の仮想時刻設定あり" : "\n現在は通常時刻（仮想時刻なし）";
-    const input = prompt("⏰ 仮想時刻を設定（日本時間 HH:MM）\n例: 12:00\n空欄でOFF（通常時刻に戻す）" + hint);
+    const hint = curOverride ? "\n現在の仮想時刻設定あり: " + getJSTDateString(new Date(curOverride)) + " " + new Date(new Date(curOverride).getTime() + 9*60*60000).toISOString().substr(11,5) : "\n現在は通常時刻（仮想時刻なし）";
+    const input = prompt("⏰ 仮想の日時を設定（日本時間）\n「YYYY-MM-DD HH:MM」（例: 2026-07-24 12:00）\nまたは「HH:MM」のみ（日付は今日のまま、例: 12:00）\n空欄でOFF（通常時刻に戻す）" + hint);
     if(input === null) return;
     const trimmed = input.trim();
     if(trimmed === '') {
@@ -1002,11 +1003,22 @@ function actSetTime() {
         showCustomAlert("✅ 解除完了", "仮想時刻を解除しました。");
         return;
     }
-    const match = trimmed.match(/^(\d{1,2}):(\d{2})$/);
-    if(!match) { showCustomAlert("❌ 入力エラー", "HH:MM の形式で入力してください（例: 12:00）"); return; }
-    const hh = parseInt(match[1], 10), mm = parseInt(match[2], 10);
+    const dateTimeMatch = trimmed.match(/^(\d{4})-(\d{1,2})-(\d{1,2})\s+(\d{1,2}):(\d{2})$/);
+    const timeOnlyMatch = trimmed.match(/^(\d{1,2}):(\d{2})$/);
+    let y, mo, d, hh, mm;
+    if(dateTimeMatch) {
+        y = parseInt(dateTimeMatch[1],10); mo = parseInt(dateTimeMatch[2],10); d = parseInt(dateTimeMatch[3],10);
+        hh = parseInt(dateTimeMatch[4],10); mm = parseInt(dateTimeMatch[5],10);
+    } else if(timeOnlyMatch) {
+        hh = parseInt(timeOnlyMatch[1],10); mm = parseInt(timeOnlyMatch[2],10);
+    } else {
+        showCustomAlert("❌ 入力エラー", "「YYYY-MM-DD HH:MM」または「HH:MM」の形式で入力してください（例: 2026-07-24 12:00 / 12:00）");
+        return;
+    }
     if(hh < 0 || hh > 23 || mm < 0 || mm > 59) { showCustomAlert("❌ 入力エラー", "正しい時刻を入力してください。"); return; }
-    setDebugTimeOverride(hh, mm);
+    if(dateTimeMatch && (mo < 1 || mo > 12 || d < 1 || d > 31)) { showCustomAlert("❌ 入力エラー", "正しい日付を入力してください。"); return; }
+    if(dateTimeMatch) setDebugTimeOverride(hh, mm, y, mo, d);
+    else setDebugTimeOverride(hh, mm);
     updateButtonLabels();
     showCustomAlert("✅ 設定完了", "仮想時刻を " + trimmed + "（日本時間）に設定しました。<br>※デバッグモード中のこのブラウザのみ反映されます。");
 }
