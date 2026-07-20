@@ -394,13 +394,20 @@ function festClampAllyHpToMax() {
 // バトル用のカレーオブジェクトに食器補正を適用したコピーを返す（元のcurryStockオブジェクトは変更しない）
 function applyTablewareModifiers(curry) {
     if (!curry) return curry;
-    const info = TABLEWARE_LIST[selectedTableware];
-    if (!info) return curry;
+    const info = TABLEWARE_LIST[selectedTableware] || {};
+    // ベース（BASE_LIST[selectedBase]）：以前はフェス仲間にしか適用されておらず、
+    // ストックカレー側のバトルでは選択していても一切効果が無かった（「ナン」のHP+20等が機能しない）。
+    // ここで食器と同様に反映する。illusionAvoid/poisonAvoid/statDownAvoidは数値補正ではなく、
+    // 該当ステータス異常を受ける瞬間に判定するためのフラグとして、そのままcurryに引き継ぐ。
+    const baseInfo = BASE_LIST[selectedBase] || {};
     const modified = Object.assign({}, curry);
-    modified.hp  = Math.max(1, (modified.hp  || 0) + (info.hp  || 0));
-    modified.atk = Math.max(0, (modified.atk || 0) + (info.atk || 0));
-    modified.def = Math.max(0, (modified.def || 0) + (info.def || 0));
-    modified.spd = Math.max(0, (modified.spd || 0) + (info.spd || 0));
+    modified.hp  = Math.max(1, (modified.hp  || 0) + (info.hp  || 0) + (baseInfo.hp  || 0));
+    modified.atk = Math.max(0, (modified.atk || 0) + (info.atk || 0) + (baseInfo.atk || 0));
+    modified.def = Math.max(0, (modified.def || 0) + (info.def || 0) + (baseInfo.def || 0));
+    modified.spd = Math.max(0, (modified.spd || 0) + (info.spd || 0) + (baseInfo.spd || 0));
+    modified.hasIllusionAvoid = !!baseInfo.illusionAvoid;
+    modified.hasPoisonAvoid = !!baseInfo.poisonAvoid;
+    modified.hasStatDownAvoid = !!baseInfo.statDownAvoid;
     return modified;
 }
 
@@ -739,9 +746,10 @@ function play開運Sound() { playTone(880, 'square', 0.1); setTimeout(() => play
 function playGoldSound() { playTone(987.77, 'sine', 0.1); setTimeout(() => playTone(1318.51, 'sine', 0.1), 50); setTimeout(() => playTone(1975.53, 'sine', 0.4), 100); }
 function playCriticalSound() { playTone(880, 'square', 0.1); setTimeout(() => playTone(1320, 'square', 0.1), 60); setTimeout(() => playTone(1760, 'square', 0.3), 120); }
 // ===== Lv機能 =====
-const MAX_LV = 10;
-// 各レベルに上がるために必要な経験値（Lv1→2, Lv2→3, ... Lv9→10）
-const LV_EXP_TABLE = { 2:50, 3:100, 4:100, 5:150, 6:150, 7:200, 8:200, 9:200, 10:200 };
+const MAX_LV = 20;
+// 各レベルに上がるために必要な経験値（Lv1→2, Lv2→3, ... Lv19→20）
+const LV_EXP_TABLE = { 2:50, 3:100, 4:100, 5:150, 6:150, 7:200, 8:200, 9:200, 10:200,
+    11:250, 12:250, 13:250, 14:300, 15:300, 16:300, 17:350, 18:350, 19:350, 20:400 };
 
 // 累計EXPからレベルを算出するための累計テーブルを構築
 function buildCumulativeExpTable() {
@@ -797,11 +805,24 @@ function updateLvDisplay() {
 // Lvごとの解放アイコン定義
 const LV_UNLOCK_ICONS = { 2: "myimageicon/mayimage04.png", 3: "myimageicon/mayimage05.png", 4: "myimageicon/mayimage06.png", 7: "myimageicon/mayimage08.png", 9: "myimageicon/mayimage09.png" };
 
+// ベース名→解放フラグ名の対応（ショップ購入時の食器解放と同じ考え方）
+const BASE_UNLOCK_FLAG_MAP = { '玄米': 'unlockGenmaiBase', 'サフランライス': 'unlockSaffronRiceBase', 'ジャスミンライス': 'unlockJasmineRiceBase', 'ナン': 'unlockNanBase' };
 function getLvUpReward(lv) {
-    if (lv === 5) return { type: 'stock', limit: 8 };
-    if (lv === 10) return { type: 'stock', limit: 10 };
-    if (lv >= 6 && lv <= 9) return { type: 'ticket' };
-    if (lv >= 2 && lv <= 4) return { type: 'items' };
+    // Lv11以降は複数要素を同時に返せるようオブジェクトを組み合わせる形式にした（以前は単一typeのみだったため）。
+    if (lv === 5) return { stockLimit: 8 };
+    if (lv === 10) return { stockLimit: 10 };
+    if (lv === 11) return { ticket: 1, baseUnlock: '玄米' };
+    if (lv === 12) return { ticket: 1 };
+    if (lv === 13) return { ticket: 1, baseUnlock: 'サフランライス' };
+    if (lv === 14) return { ticket: 1 };
+    if (lv === 15) return { stockLimit: 12 };
+    if (lv === 16) return { ticket: 1, baseUnlock: 'ジャスミンライス' };
+    if (lv === 17) return { ticket: 1 };
+    if (lv === 18) return { ticket: 1, baseUnlock: 'ナン' };
+    if (lv === 19) return { ticket: 1 };
+    if (lv === 20) return { stockLimit: 14 };
+    if (lv >= 6 && lv <= 9) return { ticket: 1 };
+    if (lv >= 2 && lv <= 4) return { items: true };
     return null;
 }
 
@@ -809,15 +830,23 @@ function grantLvUpReward(lv) {
     const reward = getLvUpReward(lv);
     let resultLines = [];
 
-    if (reward && reward.type === 'stock') {
-        localStorage.setItem('qr_curry_stock_limit', String(reward.limit));
-        resultLines.push(`🍛 カレーストック上限が<b>${reward.limit}個</b>に拡張されました！`);
+    if (reward && reward.stockLimit) {
+        localStorage.setItem('qr_curry_stock_limit', String(reward.stockLimit));
+        resultLines.push(`🍛 カレーストック上限が<b>${reward.stockLimit}個</b>に拡張されました！`);
     }
-    if (reward && reward.type === 'ticket') {
-        packTicket = (packTicket || 0) + 1;
-        resultLines.push('🎟️ パック券を<b>1枚</b>入手しました！');
+    if (reward && reward.ticket) {
+        packTicket = (packTicket || 0) + reward.ticket;
+        resultLines.push(`🎟️ パック券を<b>${reward.ticket}枚</b>入手しました！`);
     }
-    if (reward && reward.type === 'items') {
+    if (reward && reward.baseUnlock) {
+        const flagName = BASE_UNLOCK_FLAG_MAP[reward.baseUnlock];
+        if (flagName === 'unlockGenmaiBase') unlockGenmaiBase = true;
+        else if (flagName === 'unlockSaffronRiceBase') unlockSaffronRiceBase = true;
+        else if (flagName === 'unlockJasmineRiceBase') unlockJasmineRiceBase = true;
+        else if (flagName === 'unlockNanBase') unlockNanBase = true;
+        resultLines.push(`🍚 新しいベース「<b>${reward.baseUnlock}</b>」が解放されました！`);
+    }
+    if (reward && reward.items) {
         const ingPool = Object.keys(masterIngredients).filter(k => !["金箔","赤パプリカ","黄パプリカ"].includes(k) && isIngredientAvailable(k));
         const spcPool = Object.keys(masterSpices).filter(k => k !== "マンゴーチャツネ" && k !== "サフラン" && isIngredientAvailable(k));
         const allPool = [...ingPool, ...spcPool];
@@ -1039,7 +1068,7 @@ const tagBattleBotPool = [...botOpponents, ...hardBotOpponents, ...tagBattleExtr
 const DAILY_CURRY_TIER_NAMES = ['甘口', '中辛', '辛口'];
 const DAILY_CURRY_DEFS = [
     { // 0:日曜日
-        name: '日曜日の経験', curryName: '🍥🍥💨高速休日カレー', foodCategory: null, emoji: '🌀',
+        name: '日曜日の経験', curryName: '高速休日カレー', emoji: '🍥🍥💨', foodCategory: null,
         icon: 'botimage/bot-sun.png', anim: 'battle/bt-bot-sun.png', btnImg: 'images/pssen-sun.png',
         desc: '回避率が高く、通常攻撃が当たりにくい。',
         tiers: [
@@ -1050,7 +1079,7 @@ const DAILY_CURRY_DEFS = [
         reward: { type:'exp', values:[30,50,100] }
     },
     { // 1:月曜日
-        name: '月曜日の憂鬱', curryName: '🌶️🫚🍃ごちゃ混ぜスパイスカレー', foodCategory: null, emoji: '🌫️',
+        name: '月曜日の憂鬱', curryName: 'ごちゃ混ぜスパイスカレー', emoji: '🌶️🫚🍃', foodCategory: null,
         icon: 'botimage/bot-mon.png', anim: 'battle/bt-bot-mon.png', btnImg: 'images/pssen-mon.png',
         desc: '憂鬱な靄：戦闘開始時に幻惑を撒き散らす（イカ星人と同じ効果）。',
         tiers: [
@@ -1061,7 +1090,7 @@ const DAILY_CURRY_DEFS = [
         reward: { type:'items', category:'spice', normal:[6,10,14], bonusMidOrHigh:[0,0,1] }
     },
     { // 2:火曜日
-        name: '火曜日の衝撃', curryName: '🍔🍗🍕わんぱくルンルンカレー', foodCategory: 'meat', emoji: '💥',
+        name: '火曜日の衝撃', curryName: 'わんぱくルンルンカレー', emoji: '🍔🍗🍕', foodCategory: 'meat',
         icon: 'botimage/bot-tue.png', anim: 'battle/bt-bot-tue.png', btnImg: 'images/pssen-tue.png',
         desc: 'わんぱく：攻撃がミスすることがある（甘口35%／中辛25%／辛口15%）。',
         tiers: [
@@ -1072,7 +1101,7 @@ const DAILY_CURRY_DEFS = [
         reward: { type:'items', category:'meat', normal:[6,9,13], mid:[0,1,2] }
     },
     { // 3:水曜日
-        name: '水曜日の妄想', curryName: '🐟🦑🐙すいすい海鮮カレー', foodCategory: 'seafood', emoji: '💭',
+        name: '水曜日の妄想', curryName: 'すいすい海鮮カレー', emoji: '🐟🦑🐙', foodCategory: 'seafood',
         icon: 'botimage/bot-wed.png', anim: 'battle/bt-bot-wed.png', btnImg: 'images/pssen-wed.png',
         desc: '妄想リフレッシュ：HPが半分以下になると1回だけ自動回復する（海鮮カレーと同じ効果）。',
         tiers: [
@@ -1083,7 +1112,7 @@ const DAILY_CURRY_DEFS = [
         reward: { type:'items', category:'seafood', normal:[6,9,13], mid:[0,1,1], high:[0,0,1] }
     },
     { // 4:木曜日
-        name: '木曜日の禁断', curryName: '🍑☠️🍋やみつき禁断カレー', foodCategory: 'fruit', emoji: '☠️',
+        name: '木曜日の禁断', curryName: 'やみつき禁断カレー', emoji: '🍑☠️🍋', foodCategory: 'fruit',
         icon: 'botimage/bot-thu.png', anim: 'battle/bt-bot-thu.png', btnImg: 'images/pssen-thu.png',
         desc: '禁断の毒：戦闘開始時に毒を撒き散らす。辛口のみ、通常攻撃ヒット時50%で追加の毒（毒りんごと同じ効果）。',
         tiers: [
@@ -1094,7 +1123,7 @@ const DAILY_CURRY_DEFS = [
         reward: { type:'items', category:'fruitOrOther', normal:[6,10,14], bonusMidOrHigh:[0,0,1] }
     },
     { // 5:金曜日
-        name: '金曜日の欲望', curryName: '✨✨✨黄金きらりんカレー', foodCategory: null, emoji: '💰',
+        name: '金曜日の欲望', curryName: '黄金きらりんカレー', emoji: '✨✨✨', foodCategory: null,
         icon: 'botimage/bot-fri.png', anim: 'battle/bt-bot-fri.png', btnImg: 'images/pssen-fri.png',
         desc: 'DEFが非常に高い。',
         tiers: [
@@ -1105,7 +1134,7 @@ const DAILY_CURRY_DEFS = [
         reward: { type:'gold', values:[100,500,1000] }
     },
     { // 6:土曜日
-        name: '土曜日の束縛', curryName: '🫛🫘🫛ツル縛りえんどう豆カレー', foodCategory: 'vegetable', emoji: '⛓️',
+        name: '土曜日の束縛', curryName: 'ツル縛りえんどう豆カレー', emoji: '🫛🫘🫛', foodCategory: 'vegetable',
         icon: 'botimage/bot-sat.png', anim: 'battle/bt-bot-sat.png', btnImg: 'images/pssen-sat.png',
         desc: '種連続発射：一定確率で連続攻撃を放つ（種まき婆ちゃんと同じ効果、行動確率30%）。',
         tiers: [
@@ -1319,6 +1348,9 @@ function getFestAllyCurrentStats(name) {
         atk: Math.max(0, raw.atk + (twInfo.atk || 0) + (bsInfo.atk || 0)),
         def: Math.max(0, raw.def + (twInfo.def || 0) + (bsInfo.def || 0)),
         spd: Math.max(0, raw.spd + (twInfo.spd || 0) + (bsInfo.spd || 0)),
+        hasIllusionAvoid: !!bsInfo.illusionAvoid,
+        hasPoisonAvoid: !!bsInfo.poisonAvoid,
+        hasStatDownAvoid: !!bsInfo.statDownAvoid,
     };
 }
 // ストックカレーのstatDisplayWithTablewareと同じ考え方：仲間の素ステータスに、食器補正を色付きで併記する（例："50" → "50+20"(青字)）
@@ -1690,11 +1722,19 @@ function ensureFestCurryHp() {
         if(typeof c.curHp !== 'number') c.curHp = c.hp;
     });
 }
-// フェスの自分のカレーにも、フェス外で選択中の食器（selectedTableware）の補正をそのまま適用する（ベースは現状効果なし）
+// フェスの自分のカレーにも、フェス外で選択中の食器（selectedTableware）の補正をそのまま適用する
 function festCurryStatWithTableware(baseVal, statKey) {
     const info = TABLEWARE_LIST[selectedTableware];
     const mod = info ? (info[statKey] || 0) : 0;
     return Math.max(0, baseVal + mod);
+}
+// フェスの自分のカレーの「最大HP」＝カレー本来のhp＋食器・ベースのhp補正（例：ターリー皿HP+20／ナンHP+20）。
+// stockデータのcurry.hp自体は書き換えない（食器・ベースは戦闘外でいつでも変更できるため、都度この関数で計算する）。
+function festCurryMaxHp(curry) {
+    if (!curry) return 0;
+    const twInfo = TABLEWARE_LIST[selectedTableware] || {};
+    const bsInfo = BASE_LIST[selectedBase] || {};
+    return Math.max(1, curry.hp + (twInfo.hp || 0) + (bsInfo.hp || 0));
 }
 function getFestEnemyMultiplier(setIndex) { return 1 + 0.10 * (setIndex - 1); }
 function makeFestEnemyInstance(def, mult, level, isBoss) {
@@ -1805,7 +1845,7 @@ function updateFestMatchPreview() {
     const curry = festCurryStock[idx];
     if(curry) {
         statusBox.style.display = 'grid';
-        statusBox.innerHTML = '<div>HP: ' + curry.curHp + '/' + curry.hp + '</div><div>ATK: ' + curry.atk + '</div><div>DEF: ' + curry.def + '</div><div>SPD: ' + curry.spd + '</div>';
+        statusBox.innerHTML = '<div>HP: ' + curry.curHp + '/' + festCurryMaxHp(curry) + '</div><div>ATK: ' + curry.atk + '</div><div>DEF: ' + curry.def + '</div><div>SPD: ' + curry.spd + '</div>';
     } else {
         statusBox.style.display = 'none';
     }
@@ -1932,12 +1972,13 @@ function festInitBattleCards() {
 function festUpdateAllHpDisplays() {
     const curry = festCurryStock[festActiveCurryIdx];
     if(curry) {
-        const pct = Math.max(0, curry.curHp / curry.hp * 100);
+        const curryMaxHp = festCurryMaxHp(curry);
+        const pct = Math.max(0, curry.curHp / curryMaxHp * 100);
         const bar = document.getElementById('festPlayerHpBar0');
         const text = document.getElementById('festPlayerHpText0');
         const card = document.getElementById('festPlayerCard0');
         if(bar) { bar.style.width = pct + '%'; bar.classList.toggle('danger', pct <= 30); }
-        if(text) text.innerText = 'HP: ' + Math.max(0, curry.curHp) + '/' + curry.hp;
+        if(text) text.innerText = 'HP: ' + Math.max(0, curry.curHp) + '/' + curryMaxHp;
         if(card) card.classList.toggle('ko', curry.curHp <= 0);
     }
     if(festHiredAllyName) {
@@ -2157,21 +2198,21 @@ function festPlayerActAttack(unitType, curry, allyStats, callback) {
     if(unitType === 'curry') {
         // ラタトゥイユカレー（isRatatouille）：自分のターンに毎回HPが少し回復する（タッグ戦と同じ）
         if(curry.isRatatouille && curry.curHp > 0) {
-            const rataHeal = Math.round(curry.hp * 0.10);
-            curry.curHp = Math.min(curry.hp, curry.curHp + rataHeal);
+            const rataHeal = Math.round(festCurryMaxHp(curry) * 0.10);
+            curry.curHp = Math.min(festCurryMaxHp(curry), curry.curHp + rataHeal);
             festTriggerDamagePop('player', 0, -rataHeal, '#2ecc71');
             festLogAppend('☀️ 太陽の光を浴びてHP回復: ' + rataHeal);
             playSoundEffect('taiyou.mp3');
             festUpdateAllHpDisplays();
         }
         // 海鮮カレー（isSeafood）：HPが50%以下になった時に1回だけ自動回復する（タッグ戦と同じ。回復後も同ターンで通常攻撃を続ける）
-        if(curry.isSeafood && !festCurrySeaHealUsed && curry.curHp <= Math.floor(curry.hp * 0.5)) {
+        if(curry.isSeafood && !festCurrySeaHealUsed && curry.curHp <= Math.floor(festCurryMaxHp(curry) * 0.5)) {
             festCurrySeaHealUsed = true;
             const curSpd = festCurryStatWithTableware(curry.spd, 'spd');
             const aliveEnemySpd = festBattleEnemies.filter(function(e){ return e.curHp > 0; }).map(function(e){ return e.spd; });
             const avgEnemySpd = aliveEnemySpd.length ? aliveEnemySpd.reduce(function(a,b){ return a+b; },0)/aliveEnemySpd.length : 50;
-            const healAmt = Math.round(curry.hp * (curSpd >= avgEnemySpd ? 0.4 : 0.3));
-            curry.curHp = Math.min(curry.hp, curry.curHp + healAmt);
+            const healAmt = Math.round(festCurryMaxHp(curry) * (curSpd >= avgEnemySpd ? 0.4 : 0.3));
+            curry.curHp = Math.min(festCurryMaxHp(curry), curry.curHp + healAmt);
             festTriggerDamagePop('player', 0, -healAmt, '#2ecc71');
             festLogAppend('🌊 ' + playerName + 'は波の音に癒された。HP回復+' + healAmt);
             playSoundEffect('healing.mp3');
@@ -2252,7 +2293,7 @@ function festCurryGreenAttack(curry, callback) {
     if(aliveEnemies.length === 0) { done(); return; }
     playSoundEffect('hirihiri.mp3');
     const atk = festCurryStatWithTableware(curry.atk, 'atk') * ((festPlayerAtkDownActive || festPlayerAtkDownTurns > 0) ? 0.7 : 1) + (festSpicyBuffActive ? 40 : 0);
-    const selfDmg = Math.round(curry.hp * 0.10);
+    const selfDmg = Math.round(festCurryMaxHp(curry) * 0.10);
     const hitTexts = [];
     const records = [];
     aliveEnemies.forEach(function(target) {
@@ -2413,7 +2454,7 @@ function festAllySkillConditionMet(allyDef) {
     if(allyDef.skill.type === 'healLowestHp') {
         // タカシ「栄養満点ベジスープ」：自分（プレイヤーのカレー）or味方（仲間本人）でHPが75%以下のキャラがいる時のみ発動抽選の対象にする
         const curry = festCurryStock[festActiveCurryIdx];
-        const curryPct = (curry && curry.hp > 0) ? curry.curHp / curry.hp : 1;
+        const curryPct = (curry && festCurryMaxHp(curry) > 0) ? curry.curHp / festCurryMaxHp(curry) : 1;
         const allyMaxHp = getFestAllyCurrentStats(festHiredAllyName).hp;
         const allyHp = (festAllyHp === null) ? allyMaxHp : festAllyHp;
         const allyPct = allyMaxHp > 0 ? allyHp / allyMaxHp : 1;
@@ -2437,14 +2478,14 @@ function festAllyUseNamedSkill(allyDef, allyStats, callback) {
             let healToAlly;
             if(curryAlive && allyAlive) healToAlly = allyHp < curry.curHp;
             else healToAlly = allyAlive;
-            const targetMaxHp = healToAlly ? allyMaxHp : (curry ? curry.hp : 0);
+            const targetMaxHp = healToAlly ? allyMaxHp : (curry ? festCurryMaxHp(curry) : 0);
             const healAmt = Math.round(targetMaxHp * 0.20) + 100;
             if(healToAlly) {
                 festAllyHp = Math.min(allyMaxHp, allyHp + healAmt);
                 festTriggerDamagePop('player', 1, -healAmt, '#2ecc71');
                 festLogSet('🍲 ' + allyDef.name + 'の' + skill.name + '！ ' + festHiredAllyName + 'のHPが' + healAmt + '回復！');
             } else if(curry) {
-                curry.curHp = Math.min(curry.hp, curry.curHp + healAmt);
+                curry.curHp = Math.min(festCurryMaxHp(curry), curry.curHp + healAmt);
                 festTriggerDamagePop('player', 0, -healAmt, '#2ecc71');
                 festLogSet('🍲 ' + allyDef.name + 'の' + skill.name + '！ ' + playerName + 'のHPが' + healAmt + '回復！');
             }
@@ -2647,15 +2688,23 @@ function festEnemyActAttack(e, curry, allyStats, enemyIdx, callback) {
         playSoundEffect('punch.mp3');
         festUpdateAllHpDisplays();
 
+        // 対象（プレイヤー自身のカレー／仲間bot）が装備しているベースアイテムの状態異常回避効果を判定する
+        const targetBaseInfo = BASE_LIST[t.type === 'curry' ? selectedBase : festAllySelectedBase] || {};
         if(poisonProc) {
-            if(t.type === 'curry') festPlayerPoisoned = true; else festAllyPoisoned = true;
-            festLogAppend('☠️ ' + targetName + 'は「' + skill.name + '」で毒状態になった！');
-            const nameEl = document.getElementById('festPlayerName' + t.idx);
-            if(nameEl) nameEl.classList.add('name-poisoned');
-            playSoundEffect('poison.mp3');
+            if(targetBaseInfo.poisonAvoid && Math.random() < 0.30) {
+                festLogAppend('🍚 ' + targetName + 'はサフランライスの効果で毒を回避した！');
+            } else {
+                if(t.type === 'curry') festPlayerPoisoned = true; else festAllyPoisoned = true;
+                festLogAppend('☠️ ' + targetName + 'は「' + skill.name + '」で毒状態になった！');
+                const nameEl = document.getElementById('festPlayerName' + t.idx);
+                if(nameEl) nameEl.classList.add('name-poisoned');
+                playSoundEffect('poison.mp3');
+            }
         }
         if(atkDownProc) {
-            if(skill.duration) {
+            if(targetBaseInfo.statDownAvoid && Math.random() < 0.30) {
+                festLogAppend('🍚 ' + targetName + 'はジャスミンライスの効果でATKダウンを回避した！');
+            } else if(skill.duration) {
                 // 時限式ATKダウン（のほほんオーラ等）：重ねがけしても延長・重複はせず、残りターン数を常にskill.durationへ上書きするだけ
                 if(t.type === 'curry') festPlayerAtkDownTurns = skill.duration; else festAllyAtkDownTurns = skill.duration;
                 festLogAppend('📉 ' + targetName + 'は「' + skill.name + '」でATKが' + skill.duration + 'ターンダウンした！');
@@ -2665,11 +2714,15 @@ function festEnemyActAttack(e, curry, allyStats, enemyIdx, callback) {
             }
         }
         if(illusionProc) {
-            if(t.type === 'curry') festPlayerIlluded = true; else festAllyIlluded = true;
-            festLogAppend('🌀 ' + targetName + 'は「' + skill.name + '」で幻惑状態になった！');
-            const nameEl2 = document.getElementById('festPlayerName' + t.idx);
-            if(nameEl2) nameEl2.classList.add('name-illuded');
-            playSoundEffect('sound/miss.mp3');
+            if(targetBaseInfo.illusionAvoid && Math.random() < 0.30) {
+                festLogAppend('🍚 ' + targetName + 'は玄米の効果で幻惑を回避した！');
+            } else {
+                if(t.type === 'curry') festPlayerIlluded = true; else festAllyIlluded = true;
+                festLogAppend('🌀 ' + targetName + 'は「' + skill.name + '」で幻惑状態になった！');
+                const nameEl2 = document.getElementById('festPlayerName' + t.idx);
+                if(nameEl2) nameEl2.classList.add('name-illuded');
+                playSoundEffect('sound/miss.mp3');
+            }
         }
         if(extraTurnProc) {
             festLogAppend('💨 ' + e.name + 'は「' + skill.name + '」でもう一度攻撃する！');
@@ -2951,7 +3004,7 @@ function applyFestHealSpice(type) {
     const allyStats = festHiredAllyName ? getFestAllyCurrentStats(festHiredAllyName) : null;
     festHealSpice -= 1;
     if(type === 'curry' && curry) {
-        curry.curHp = curry.hp;
+        curry.curHp = festCurryMaxHp(curry);
         festLogAppend('💊 回復スパイス使用：' + playerName + 'のHPが全回復した！');
     } else if(type === 'ally' && allyStats) {
         festAllyHp = allyStats.hp;
@@ -3734,14 +3787,17 @@ function dailyCurryLootHtml(gotList) {
     }).join(' / ');
 }
 // 日替わりカレー勝利時の報酬付与本体。{ expGain, goldGain, lootHtml } を返す（呼び出し側でplayerG/playerEXPへ加算する）。
+// 曜日・報酬種類を問わず、全ての日替わりカレーに一律で加算する基礎EXP（甘口+5／中辛+10／辛口+20）
+const DAILY_CURRY_BASE_EXP = [5, 10, 20];
 function grantDailyCurryReward(weekdayIdx, tier) {
     const def = getDailyCurryDef(weekdayIdx);
     const r = def.reward;
+    const baseExp = DAILY_CURRY_BASE_EXP[tier] || 0;
     if(r.type === 'exp') {
-        return { expGain: r.values[tier] || 0, goldGain: 0, lootHtml: '' };
+        return { expGain: (r.values[tier] || 0) + baseExp, goldGain: 0, lootHtml: '' };
     }
     if(r.type === 'gold') {
-        return { expGain: 0, goldGain: r.values[tier] || 0, lootHtml: '' };
+        return { expGain: baseExp, goldGain: r.values[tier] || 0, lootHtml: '' };
     }
     // items型
     const isSpice = r.category === 'spice';
@@ -3768,7 +3824,7 @@ function grantDailyCurryReward(weekdayIdx, tier) {
         const highPool = isSpice ? getDailyCurrySpicePool(2) : getDailyCurryIngredientPool(r.category, 2);
         got = got.concat(grantRandomFromPool([...midPool, ...highPool], bonusCount));
     }
-    return { expGain: 0, goldGain: 0, lootHtml: dailyCurryLootHtml(got) };
+    return { expGain: baseExp, goldGain: 0, lootHtml: dailyCurryLootHtml(got) };
 }
 // カレーの食材リストに、指定した系統（meat/seafood/vegetable/fruit）の食材が1つでも含まれているか
 // Bot（curry.foodCategoryが直接設定されている場合）はそちらを優先的に参照する
@@ -3825,7 +3881,11 @@ function unlockBossIngredients(bossKey) {
 let curryStock = []; let selectedCurryIndex = -1;
 // ===== ベース・食器（バトル用の装備枠。食器はステータス補正あり） =====
 const BASE_LIST = {
-    '白米': { hp: 0, atk: 0, def: 0, spd: 0, desc: '特に効果なし' }
+    '白米':         { hp: 0,  atk: 0, def: 0, spd: 0, desc: '特に効果なし' },
+    '玄米':         { hp: 0,  atk: 0, def: 0, spd: 0, desc: '幻惑にかかりにくくなる。', illusionAvoid: true },
+    'サフランライス': { hp: 0,  atk: 0, def: 0, spd: 0, desc: '毒にかかりにくくなる。', poisonAvoid: true },
+    'ジャスミンライス': { hp: 0,  atk: 0, def: 0, spd: 0, desc: 'ステータスダウンをたまに防ぐ。', statDownAvoid: true },
+    'ナン':         { hp: 20, atk: 0, def: 0, spd: 0, desc: 'HPが少し上がる。おかわり自由らしい。' }
 };
 const TABLEWARE_LIST = {
     '白い皿':       { hp: 0,  atk: 0,   def: 0,   spd: 0,  desc: '特に効果なし' },
@@ -3854,6 +3914,10 @@ let unlockAlumiteTableware = false;
 let unlockWoodTableware = false;
 let unlockOvalTableware = false;
 let unlockThaliTableware = false;
+let unlockGenmaiBase = false;
+let unlockSaffronRiceBase = false;
+let unlockJasmineRiceBase = false;
+let unlockNanBase = false;
 // 所持している食器名の一覧（先頭はデフォルトの「白い皿」で常に所持）
 function getUnlockedTableware() {
     const list = ['白い皿'];
@@ -3864,7 +3928,12 @@ function getUnlockedTableware() {
     return list;
 }
 function getUnlockedBase() {
-    return ['白米']; // 現状ベースは1種類のみ（将来の追加に備えて関数化）
+    const list = ['白米'];
+    if (unlockGenmaiBase) list.push('玄米');
+    if (unlockSaffronRiceBase) list.push('サフランライス');
+    if (unlockJasmineRiceBase) list.push('ジャスミンライス');
+    if (unlockNanBase) list.push('ナン');
+    return list;
 }
 let playerName = "名無しの料理人";
 let recipeBook = {}; let myRoomRef = null; let currentRoomId = null;
@@ -4861,6 +4930,10 @@ function saveGame() {
     localStorage.setItem('qr_unlock_wood_tableware', unlockWoodTableware ? '1' : '0');
     localStorage.setItem('qr_unlock_oval_tableware', unlockOvalTableware ? '1' : '0');
     localStorage.setItem('qr_unlock_thali_tableware', unlockThaliTableware ? '1' : '0');
+    localStorage.setItem('qr_unlock_genmai_base', unlockGenmaiBase ? '1' : '0');
+    localStorage.setItem('qr_unlock_saffron_rice_base', unlockSaffronRiceBase ? '1' : '0');
+    localStorage.setItem('qr_unlock_jasmine_rice_base', unlockJasmineRiceBase ? '1' : '0');
+    localStorage.setItem('qr_unlock_nan_base', unlockNanBase ? '1' : '0');
     document.getElementById("globalG").innerText = playerG;
     document.getElementById("globalTicket").innerText = packTicket;
     document.getElementById("globalSpicyCoin").innerText = spicyCoin;
@@ -5064,6 +5137,10 @@ function saveGameLocalOnly() {
     localStorage.setItem('qr_unlock_wood_tableware', unlockWoodTableware ? '1' : '0');
     localStorage.setItem('qr_unlock_oval_tableware', unlockOvalTableware ? '1' : '0');
     localStorage.setItem('qr_unlock_thali_tableware', unlockThaliTableware ? '1' : '0');
+    localStorage.setItem('qr_unlock_genmai_base', unlockGenmaiBase ? '1' : '0');
+    localStorage.setItem('qr_unlock_saffron_rice_base', unlockSaffronRiceBase ? '1' : '0');
+    localStorage.setItem('qr_unlock_jasmine_rice_base', unlockJasmineRiceBase ? '1' : '0');
+    localStorage.setItem('qr_unlock_nan_base', unlockNanBase ? '1' : '0');
     document.getElementById("globalG").innerText = playerG;
     document.getElementById("globalTicket").innerText = packTicket;
     document.getElementById("globalSpicyCoin").innerText = spicyCoin;
@@ -5465,6 +5542,10 @@ function loadGame() {
     unlockWoodTableware = localStorage.getItem('qr_unlock_wood_tableware') === '1';
     unlockOvalTableware = localStorage.getItem('qr_unlock_oval_tableware') === '1';
     unlockThaliTableware = localStorage.getItem('qr_unlock_thali_tableware') === '1';
+    unlockGenmaiBase = localStorage.getItem('qr_unlock_genmai_base') === '1';
+    unlockSaffronRiceBase = localStorage.getItem('qr_unlock_saffron_rice_base') === '1';
+    unlockJasmineRiceBase = localStorage.getItem('qr_unlock_jasmine_rice_base') === '1';
+    unlockNanBase = localStorage.getItem('qr_unlock_nan_base') === '1';
     const savedPost = localStorage.getItem('qr_post_messages');
     if(savedPost) {
         postMessages = JSON.parse(savedPost);
@@ -6364,6 +6445,7 @@ function buildSaveDataObject() {
         inventory, scanHistory: safeScanHistory, playerG, playerEXP, packTicket, spicyCoin,
         playerName, curryStock, recipeBook, discoveredItems, lockedItems,
         selectedBase, selectedTableware, unlockAlumiteTableware, unlockWoodTableware, unlockOvalTableware, unlockThaliTableware,
+        unlockGenmaiBase, unlockSaffronRiceBase, unlockJasmineRiceBase, unlockNanBase,
         festAllySelectedBase, festAllySelectedTableware,
         dailyCurryLastWinDate,
         selectedIcon: currentIconFile,
@@ -6407,6 +6489,10 @@ function applySaveDataObject(decoded) {
     festAllySelectedTableware = decoded.festAllySelectedTableware || '白い皿';
     dailyCurryLastWinDate = decoded.dailyCurryLastWinDate || '';
     unlockAlumiteTableware = !!decoded.unlockAlumiteTableware;
+    unlockGenmaiBase = !!decoded.unlockGenmaiBase;
+    unlockSaffronRiceBase = !!decoded.unlockSaffronRiceBase;
+    unlockJasmineRiceBase = !!decoded.unlockJasmineRiceBase;
+    unlockNanBase = !!decoded.unlockNanBase;
     unlockWoodTableware = !!decoded.unlockWoodTableware;
     unlockOvalTableware = !!decoded.unlockOvalTableware;
     unlockThaliTableware = !!decoded.unlockThaliTableware;
@@ -11323,6 +11409,10 @@ function isWanpakuMiss(rate) { return Math.random() < (typeof rate === 'number' 
 // 日替わりカレー「日曜日の経験」専用：回避率が高く、相手（プレイヤー）の通常攻撃がそのまま外れる。
 // 既存のisWanpaku等とは独立した新規の仕組み（自分の攻撃が外れるのではなく、相手の攻撃を無効化する点が異なる）。
 function isDailyCurryEvaded(evasionRate) { return typeof evasionRate === 'number' && Math.random() < evasionRate; }
+// ベース「ジャスミンライス」：ATK/DEF/SPDダウン系の技を受ける瞬間に呼び出すと30%で無効化できる。
+// 現時点（通常バトル）ではプレイヤーを対象にしたステータスダウン技が存在しないため、まだどこからも
+// 呼び出されていない（将来そのような技を実装する際に、対象がプレイヤーのカレーであればこの関数で判定する）。
+function rollStatDownAvoided(curry) { return !!(curry && curry.hasStatDownAvoid && Math.random() < 0.30); }
 
 // ラタトゥイユカレー：肉系食材を使ったカレーからの通常攻撃を80%軽減（=ダメージ0.2倍）
 const RATATOUILLE_GUARD_LIST = ["牛肉","牛タン","牛すじ","チキン","唐揚げ","トンカツ","ウインナー","合鴨"];
@@ -12177,7 +12267,7 @@ function startBattleScene(oppN, oppC, myC) {
     stopBattleBGM();
     if(myC.isTriCaviar || oppC.isTriCaviar) setTimeout(()=>playBattleBGM("Specialdinner.mp3"),300);
     else if(myC.isMargherita || oppC.isMargherita) setTimeout(()=>playBattleBGM("Guardare_il_cielo.mp3"),300);
-    else if(myC.isSeafood || oppC.isSeafood) setTimeout(()=>playBattleBGM("wave.mp3"),300);
+    else if(myC.isSeafood || (oppC.isSeafood && !oppC.isDailyCurry)) setTimeout(()=>playBattleBGM("wave.mp3"),300); // 日替わりカレー「水曜日の妄想」は自動回復を流用するだけなのでBGMは通常のまま
     else if(isBotMatch) setTimeout(()=>playBattleBGM("Revenger.mp3"),300);
 
     // バトル背景（PC戦のみ。初級/中級で背景画像を切り替える）
@@ -12267,11 +12357,20 @@ function startBattleScene(oppN, oppC, myC) {
 
     // Bot戦：リアルタイムstep
     let isOP=!!myC.isPoison && !myC.isPoisonApple, isPP=!!oppC.isPoison && !oppC.isPoisonApple;
-    let poisonLevelO = isOP ? 1 : 0; // oppC(相手)の毒レベル
-    let poisonLevelP = isPP ? 1 : 0; // myC(自分)の毒レベル
     let myIsIlluded=!!oppC.isIllusion, oppIsIlluded=!!myC.isIllusion;
     // 👑世界三大珍味：戦闘開始時の幻惑・毒（毒りんごは除く）を無効化する
     let triCaviarBonusLogs = [];
+    // ベース「サフランライス」／「玄米」：戦闘開始時に毒・幻惑にかかる場合、30%で回避できる
+    if(isPP && myC.hasPoisonAvoid && Math.random() < 0.30) {
+        isPP = false;
+        triCaviarBonusLogs.push(`🍚 サフランライスの効果で毒を回避した！`);
+    }
+    if(myIsIlluded && myC.hasIllusionAvoid && Math.random() < 0.30) {
+        myIsIlluded = false;
+        triCaviarBonusLogs.push(`🍚 玄米の効果で幻惑を回避した！`);
+    }
+    let poisonLevelO = isOP ? 1 : 0; // oppC(相手)の毒レベル
+    let poisonLevelP = isPP ? 1 : 0; // myC(自分)の毒レベル
     if(myC.isTriCaviar) {
         if(isPP) { isPP = false; poisonLevelP = 0; triCaviarBonusLogs.push(`👑 更に毒も効きませんのよ！`); }
         if(myIsIlluded) { myIsIlluded = false; triCaviarBonusLogs.push(`👑 更に幻惑も効きませんのよ！`); }
