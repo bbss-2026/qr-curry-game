@@ -1366,10 +1366,11 @@ function getFestAllyCurrentStats(name) {
         hasStatDownAvoid: !!bsInfo.statDownAvoid,
     };
 }
-// ストックカレーのstatDisplayWithTablewareと同じ考え方：仲間の素ステータスに、食器補正を色付きで併記する（例："50" → "50+20"(青字)）
+// ストックカレーのstatDisplayWithTablewareと同じ考え方：仲間の素ステータスに、食器＋ベースの補正を合算して色付きで併記する（例："50" → "50+40"(青字)）
 function festAllyStatDisplayWithTableware(statKey, baseVal) {
     const info = TABLEWARE_LIST[festAllySelectedTableware];
-    const mod = info ? (info[statKey] || 0) : 0;
+    const bsInfo = BASE_LIST[festAllySelectedBase];
+    const mod = (info ? (info[statKey] || 0) : 0) + (bsInfo ? (bsInfo[statKey] || 0) : 0);
     if (!mod) return String(baseVal);
     const color = mod > 0 ? '#2980b9' : '#e74c3c';
     const sign = mod > 0 ? '+' : '';
@@ -1735,10 +1736,11 @@ function ensureFestCurryHp() {
         if(typeof c.curHp !== 'number') c.curHp = c.hp;
     });
 }
-// フェスの自分のカレーにも、フェス外で選択中の食器（selectedTableware）の補正をそのまま適用する
+// フェスの自分のカレーにも、フェス外で選択中の食器・ベース（selectedTableware/selectedBase）の補正をそのまま適用する
 function festCurryStatWithTableware(baseVal, statKey) {
     const info = TABLEWARE_LIST[selectedTableware];
-    const mod = info ? (info[statKey] || 0) : 0;
+    const bsInfo = BASE_LIST[selectedBase];
+    const mod = (info ? (info[statKey] || 0) : 0) + (bsInfo ? (bsInfo[statKey] || 0) : 0);
     return Math.max(0, baseVal + mod);
 }
 // フェスの自分のカレーの「最大HP」＝カレー本来のhp＋食器・ベースのhp補正（例：ターリー皿HP+20／ナンHP+20）。
@@ -3907,11 +3909,13 @@ const TABLEWARE_LIST = {
     'オーバルプレート': { hp: 0,  atk: 15,  def: -15, spd: 0,  desc: 'ATK+15 / DEF-15' },
     'ターリー皿':     { hp: 20, atk: -5,  def: -5,  spd: 0,  desc: 'HP+20 / ATK-5 / DEF-5' }
 };
-// ステータス表示に、装備中食器の補正を色付きで併記するヘルパー（例: "50" → "50+20"(青字)）。
+// ステータス表示に、装備中食器＋ベースの補正を「合算した1つの数値」で色付き併記するヘルパー（例: 食器+20・ベース+20 → "50+40"(青字)）。
+// 個別に+20+20と両方表示するのではなく、必ず合計してから1回だけ表示する。
 // 補正が0の場合は数値のみを返す。宅配カレー・対戦相手のカレー等「自分の食器補正をかけるべきでない」表示には使わないこと。
 function statDisplayWithTableware(statKey, baseVal) {
     const info = TABLEWARE_LIST[selectedTableware];
-    const mod = info ? (info[statKey] || 0) : 0;
+    const bsInfo = BASE_LIST[selectedBase];
+    const mod = (info ? (info[statKey] || 0) : 0) + (bsInfo ? (bsInfo[statKey] || 0) : 0);
     if (!mod) return String(baseVal);
     const color = mod > 0 ? '#2980b9' : '#e74c3c';
     const sign = mod > 0 ? '+' : '';
@@ -12373,16 +12377,20 @@ function startBattleScene(oppN, oppC, myC) {
     // Bot戦：リアルタイムstep
     let isOP=!!myC.isPoison && !myC.isPoisonApple, isPP=!!oppC.isPoison && !oppC.isPoisonApple;
     let myIsIlluded=!!oppC.isIllusion, oppIsIlluded=!!myC.isIllusion;
+    // 回避演出用：ベース効果で無効化される前の「そもそも仕掛けられたか」を別途保持しておく
+    const ppAttempted = isPP;
+    const illusionAttempted = myIsIlluded;
+    let ppAvoidedByBase = false, illusionAvoidedByBase = false;
     // 👑世界三大珍味：戦闘開始時の幻惑・毒（毒りんごは除く）を無効化する
     let triCaviarBonusLogs = [];
     // ベース「サフランライス」／「玄米」：戦闘開始時に毒・幻惑にかかる場合、30%で回避できる
     if(isPP && myC.hasPoisonAvoid && Math.random() < 0.30) {
         isPP = false;
-        triCaviarBonusLogs.push(`🍚 サフランライスの効果で毒を回避した！`);
+        ppAvoidedByBase = true;
     }
     if(myIsIlluded && myC.hasIllusionAvoid && Math.random() < 0.30) {
         myIsIlluded = false;
-        triCaviarBonusLogs.push(`🍚 玄米の効果で幻惑を回避した！`);
+        illusionAvoidedByBase = true;
     }
     let poisonLevelO = isOP ? 1 : 0; // oppC(相手)の毒レベル
     let poisonLevelP = isPP ? 1 : 0; // myC(自分)の毒レベル
@@ -12414,14 +12422,24 @@ function startBattleScene(oppN, oppC, myC) {
         setTimeout(()=>{ playSoundEffect('poison.mp3'); playStatusFlash('poison'); document.getElementById('oppOwnerText').classList.add('name-poisoned'); }, battleStartDelay);
         battleStartDelay += 2200;
     }
-    if(isPP){
-        log.innerHTML+=`\n☠️ ${playerName} は毒にかかった！毎ターン毒ダメージ！`;
-        setTimeout(()=>{ playSoundEffect('poison.mp3'); playStatusFlash('poison'); document.getElementById('pOwnerText').classList.add('name-poisoned'); }, battleStartDelay);
+    if(ppAttempted){
+        if(isPP){
+            log.innerHTML+=`\n☠️ ${playerName} は毒にかかった！毎ターン毒ダメージ！`;
+            setTimeout(()=>{ playSoundEffect('poison.mp3'); playStatusFlash('poison'); document.getElementById('pOwnerText').classList.add('name-poisoned'); }, battleStartDelay);
+        } else if(ppAvoidedByBase) {
+            log.innerHTML+=`\n☠️ ${playerName} は毒を仕掛けられた！\n🍚 サフランライスの効果で毒を回避した！`;
+            setTimeout(()=>{ playSoundEffect('poison.mp3'); playStatusFlash('poison'); }, battleStartDelay);
+        }
         battleStartDelay += 2200;
     }
-    if(myIsIlluded){
-        log.innerHTML+=`\n🌀 ${playerName} は幻惑にかかった！攻撃命中率ダウン！`;
-        setTimeout(()=>{ playSoundEffect('genwaku.mp3'); playStatusFlash('illusion'); document.getElementById('pOwnerText').classList.add('name-illuded'); }, battleStartDelay);
+    if(illusionAttempted){
+        if(myIsIlluded){
+            log.innerHTML+=`\n🌀 ${playerName} は幻惑にかかった！攻撃命中率ダウン！`;
+            setTimeout(()=>{ playSoundEffect('genwaku.mp3'); playStatusFlash('illusion'); document.getElementById('pOwnerText').classList.add('name-illuded'); }, battleStartDelay);
+        } else if(illusionAvoidedByBase) {
+            log.innerHTML+=`\n🌀 ${playerName} は幻惑を仕掛けられた！\n🍚 玄米の効果で幻惑を回避した！`;
+            setTimeout(()=>{ playSoundEffect('genwaku.mp3'); playStatusFlash('illusion'); }, battleStartDelay);
+        }
         battleStartDelay += 2200;
     }
     if(oppIsIlluded){
