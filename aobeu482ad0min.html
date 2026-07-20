@@ -81,6 +81,7 @@
         <button style="background:#c0392b;" onclick="actDebugModeReleaseAll()">🔓 デバッグモード全解除</button>
         <button style="background:#27ae60;" onclick="actCheckAuthMigrationStatus()">🔑 UID移行状況を確認</button>
         <button style="background:#16a085;" onclick="actResetPlayerUidClaim()">🔓 UID紐付けをリセット（1人）</button>
+        <button style="background:#c0392b;" onclick="actMigratePasswordSecretsToPlayerSecrets()">🔐 パスワード/secretKeyの移行（全員一括）</button>
         <button style="background:#8e44ad;" onclick="actAnalyticsIntegrityCheck()">📐 アナリティクス整合性チェック</button>
         <button style="background:#e67e22;" onclick="actToggleAnalyticsExclusion()">🚫 アナリティクス除外設定</button>
         <button style="background:#c0392b;" onclick="actExcludeKnownSuspiciousAccounts()">🚫 不正疑い3キャラを除外</button>
@@ -867,6 +868,55 @@ function actResetScanCookBattleAnalytics() {
 
 // 不正対策の一環：savedata.statsを文字列(JSON)から、Firebaseルールで項目ごとに増加量を検証できる
 // 通常のオブジェクト形式へ、既存プレイヤー全員分まとめて移行する（1回限りの移行用ツール）。
+// これまで players/{id}/password と players/{id}/secretKey は「players」ノード自体が
+// 誰でも認証なしで読み取れる（.read: true）設定だったため、IDさえ分かれば第三者が
+// 平文パスワード・secretKeyを直接読み取れてしまう状態だった（ルールは祖先が許可した読み取りを
+// 子要素側で後から制限できないため、players配下に置く限り保護不可能）。
+// ルールをplayerSecrets/{id}という別ノードに移し、本人（uid一致）または管理者のみ読み取り可能に
+// 変更したが、これは「今後の新規書き込み」にしか効かないため、既存プレイヤー分は
+// このボタンで一括移行（コピー後、players側の値を削除）する必要がある。
+function actMigratePasswordSecretsToPlayerSecrets() {
+    if (!database) { showCustomAlert("❌ エラー", "通信に問題があります。"); return; }
+    showCustomConfirm(
+        '🔐 パスワード/secretKeyの移行',
+        '全プレイヤーの players/{id}/password と secretKey を、公開読み取りされない playerSecrets/{id} 側へ移行します。<br>移行後、players側からは削除されるため、以後は第三者から読み取れなくなります。<br><br>実行しますか？',
+        function() {
+            showCustomAlert("🔐 移行中...", "プレイヤーデータを取得しています。しばらくお待ちください。");
+            database.ref('players').once('value').then(function(snap) {
+                const players = snap.val() || {};
+                const pids = Object.keys(players);
+                let migrated = 0, skipped = 0, failed = 0;
+                const failedIds = [];
+                const tasks = pids.map(function(pid) {
+                    const p = players[pid] || {};
+                    if (!p.password && !p.secretKey) { skipped++; return Promise.resolve(); }
+                    const updates = {};
+                    if (p.password) { updates['playerSecrets/' + pid + '/password'] = p.password; }
+                    if (p.secretKey) { updates['playerSecrets/' + pid + '/secretKey'] = p.secretKey; }
+                    updates['players/' + pid + '/password'] = null;
+                    updates['players/' + pid + '/secretKey'] = null;
+                    return database.ref().update(updates).then(function() {
+                        migrated++;
+                    }).catch(function(e) {
+                        failed++; failedIds.push(pid + '(' + e.message + ')');
+                    });
+                });
+                Promise.all(tasks).then(function() {
+                    const msg = '移行完了: ' + migrated + '件<br>'
+                        + '対象外（元々無し）: ' + skipped + '件<br>'
+                        + '失敗: ' + failed + '件'
+                        + (failedIds.length ? '<br><span style="color:#e74c3c;font-size:11px;">' + failedIds.join('<br>') + '</span>' : '');
+                    showCustomAlert('✅ 移行結果', msg);
+                });
+            }).catch(function(e) {
+                showCustomAlert("❌ エラー", "取得に失敗しました: " + e.message);
+            });
+        },
+        null,
+        '移行する'
+    );
+}
+
 function actMigrateStatsToObject() {
     if (!database) { showCustomAlert("❌ エラー", "通信に問題があります。"); return; }
     showCustomConfirm(
@@ -1176,13 +1226,19 @@ function actCheckPassword() {
     database.ref('players/' + targetId).once('value').then(function(snap){
         if(!snap.exists()) { showCustomAlert("❌ エラー", "そのIDのプレイヤーは見つかりません。"); return; }
         const data = snap.val();
-        const pw = data.password;
         const name = data.name || '名無し';
-        if(pw) {
-            showCustomAlert("🔒 パスワード確認", "ID: " + targetId + "<br>名前: " + name + "<br>パスワード: <b>" + pw + "</b>");
-        } else {
-            showCustomAlert("🔒 パスワード確認", "ID: " + targetId + "<br>名前: " + name + "<br>このプレイヤーはパスワードを設定していません。");
-        }
+        // パスワードは players/{id} 直下ではなく playerSecrets/{id} に保存されている（第三者から
+        // 読めないようにするための変更。管理者は admins フラグにより引き続き読み取り可能）。
+        database.ref('playerSecrets/' + targetId + '/password').once('value').then(function(pwSnap){
+            const pw = pwSnap.val();
+            if(pw) {
+                showCustomAlert("🔒 パスワード確認", "ID: " + targetId + "<br>名前: " + name + "<br>パスワード: <b>" + pw + "</b>");
+            } else {
+                showCustomAlert("🔒 パスワード確認", "ID: " + targetId + "<br>名前: " + name + "<br>このプレイヤーはパスワードを設定していません。");
+            }
+        }).catch(function(){
+            showCustomAlert("❌ エラー", "パスワードの取得に失敗しました。");
+        });
     });
 }
 
