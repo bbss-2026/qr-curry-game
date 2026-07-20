@@ -1847,7 +1847,7 @@ function populateFestMatchCurrySelect() {
         if(c.curHp <= 0) return;
         const opt = document.createElement('option');
         opt.value = idx;
-        opt.innerText = c.name + '（HP' + c.curHp + '/' + c.hp + '）';
+        opt.innerText = c.name + '（HP' + c.curHp + '/' + festCurryMaxHp(c) + '）';
         sel.appendChild(opt);
     });
     updateFestMatchPreview();
@@ -2848,7 +2848,7 @@ function festPromptCurrySwap(callback) {
     const list = document.getElementById('festCurrySwapList');
     if(list) {
         list.innerHTML = festCurryStock.map(function(c, idx) {
-            return '<button class="btn-cook-sub" style="width:100%;" onclick="chooseFestCurrySwap(' + idx + ')">' + c.name + '（HP' + c.curHp + '/' + c.hp + '）</button>';
+            return '<button class="btn-cook-sub" style="width:100%;" onclick="chooseFestCurrySwap(' + idx + ')">' + c.name + '（HP' + c.curHp + '/' + statDisplayWithTableware('hp', c.hp) + '）</button>';
         }).join('');
     }
     const overlay = document.getElementById('festCurrySwapOverlay');
@@ -3498,13 +3498,13 @@ function showFestCurryDetail(idx) {
     if(skills.length > 0) {
         skillsHtml = skills.map(function(s){ return '<div style="margin-top:8px;"><b style="color:#ff998b;">' + s.name + '</b><br><span style="font-size:12px;">' + s.desc + '</span></div>'; }).join('');
     }
-    const canHeal = c.curHp < c.hp;
+    const canHeal = c.curHp < festCurryMaxHp(c);
     const healBtnHtml = '<div style="margin-top:10px;"><button class="btn-cook-sub" style="width:100%;' + (canHeal ? '' : ' opacity:0.5; cursor:not-allowed;') + '" ' + (canHeal ? '' : 'disabled') + ' onclick="useFestHealSpiceForCurry(' + idx + ')">回復スパイスを使う（' + festHealSpice + '）</button></div>';
     const html = '<img src="' + typeImg + '" style="width:90px;height:90px;object-fit:contain;display:block;margin:0 auto 10px;">'
         + '<div style="font-weight:bold;color:#ff998b;margin-bottom:4px;">' + typeLabel + '</div>'
         + '<div style="display:flex;justify-content:center;gap:4px;margin-bottom:8px;">' + iconsHtml + '</div>'
         + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:13px;font-weight:bold;color:#454545;margin-bottom:6px;">'
-        + '<div>HP: ' + c.curHp + '/' + c.hp + '</div><div>ATK: ' + statDisplayWithTableware('atk', c.atk) + '</div><div>DEF: ' + statDisplayWithTableware('def', c.def) + '</div><div>SPD: ' + statDisplayWithTableware('spd', c.spd) + '</div>'
+        + '<div>HP: ' + c.curHp + '/' + statDisplayWithTableware('hp', c.hp) + '</div><div>ATK: ' + statDisplayWithTableware('atk', c.atk) + '</div><div>DEF: ' + statDisplayWithTableware('def', c.def) + '</div><div>SPD: ' + statDisplayWithTableware('spd', c.spd) + '</div>'
         + '</div>'
         + skillsHtml
         + healBtnHtml;
@@ -3515,9 +3515,9 @@ function useFestHealSpiceForCurry(idx) {
     if(festHealSpice <= 0) { showCustomAlert('⚠️ 回復スパイスがありません', 'フェスショップで購入してください。'); return; }
     const c = festCurryStock[idx];
     if(!c) return;
-    if(c.curHp >= c.hp) { showCustomAlert('⚠️ HPは満タンです', c.name + 'のHPはすでに満タンです。'); return; }
+    if(c.curHp >= festCurryMaxHp(c)) { showCustomAlert('⚠️ HPは満タンです', c.name + 'のHPはすでに満タンです。'); return; }
     festHealSpice -= 1;
-    c.curHp = c.hp;
+    c.curHp = festCurryMaxHp(c);
     saveFestState();
     updateFestStatusBar();
     playSoundEffect('healing.mp3');
@@ -3542,7 +3542,7 @@ function renderFestAllyUI() {
                 const typeImg = getCurryImage(c);
                 return '<div onclick="showFestCurryDetail(' + idx + ')" style="flex:0 0 30%; background:#ffffff; border:1px solid #99aee3; border-radius:6px; padding:8px; text-align:center; font-size:11px; color:#454545; cursor:pointer;">'
                     + '<img src="' + typeImg + '" style="width:36px;height:36px;object-fit:contain;display:block;margin:0 auto 4px;">' + c.name
-                    + '<div style="font-size:10px;color:#888;margin-top:2px;">HP' + c.curHp + '/' + c.hp + '</div></div>';
+                    + '<div style="font-size:10px;color:#888;margin-top:2px;">HP' + c.curHp + '/' + statDisplayWithTableware('hp', c.hp) + '</div></div>';
             }).join('');
     }
     const allyBox = document.getElementById('festAllyDisplay');
