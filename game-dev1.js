@@ -763,6 +763,19 @@ function buildCumulativeExpTable() {
 }
 const CUM_EXP_TABLE = buildCumulativeExpTable();
 
+// Lv上限を10→20に拡張した際の移行処理：旧仕様（MAX_LV=10）ではLv10到達に必要な累計EXP（CUM_EXP_TABLE[10]）を
+// 超えた分のEXPは表示上まったく意味を持たなかった（calcLvがLv10で頭打ちになっていたため）。
+// そのため、既に眠っていた超過分のEXPが上限拡張と同時に「何も倒さずにLv11〜20へ跳ね上がる」形で
+// 突然反映されてしまう不具合が起きる。これを防ぐため、初回ロード時に一度だけ超過分を切り捨て、
+// 旧仕様で表示されていたLvのまま据え置く（以降は通常のプレイで新たにEXPを稼いでレベルアップしてもらう）。
+function migrateLegacyExpCap() {
+    if (localStorage.getItem('qr_legacy_exp_cap_migrated') === '1') return;
+    if (playerEXP > CUM_EXP_TABLE[10]) {
+        playerEXP = CUM_EXP_TABLE[10];
+    }
+    localStorage.setItem('qr_legacy_exp_cap_migrated', '1');
+}
+
 function calcLv(exp) {
     let lv = 1;
     for (let l = MAX_LV; l >= 1; l--) {
@@ -5562,6 +5575,7 @@ function loadGame() {
     document.getElementById("globalTicket").innerText = packTicket;
     document.getElementById("globalSpicyCoin").innerText = spicyCoin;
     migrateBattleProgressionReset();
+    migrateLegacyExpCap();
     updateBattleModeLocks();
 }
 // PC戦の段階解放システム導入時、既存プレイヤー全員を公平に「初級から順番」に統一するための1回限りのリセット処理
@@ -6516,6 +6530,7 @@ function applySaveDataObject(decoded) {
     if(decoded.stockLimit) localStorage.setItem('qr_curry_stock_limit', decoded.stockLimit);
     else localStorage.removeItem('qr_curry_stock_limit');
     localStorage.setItem('selectedPlayerIcon', currentIconFile);
+    migrateLegacyExpCap();
 }
 
 function generateBackupCode() {
