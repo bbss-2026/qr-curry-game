@@ -1039,7 +1039,7 @@ const tagBattleBotPool = [...botOpponents, ...hardBotOpponents, ...tagBattleExtr
 const DAILY_CURRY_TIER_NAMES = ['甘口', '中辛', '辛口'];
 const DAILY_CURRY_DEFS = [
     { // 0:日曜日
-        name: '日曜日の経験', foodCategory: null, emoji: '🌀',
+        name: '日曜日の経験', curryName: '🍥🍥💨高速休日カレー', foodCategory: null, emoji: '🌀',
         icon: 'botimage/bot-sun.png', anim: 'battle/bt-bot-sun.png', btnImg: 'images/pssen-sun.png',
         desc: '回避率が高く、通常攻撃が当たりにくい。',
         tiers: [
@@ -1050,7 +1050,7 @@ const DAILY_CURRY_DEFS = [
         reward: { type:'exp', values:[30,50,100] }
     },
     { // 1:月曜日
-        name: '月曜日の憂鬱', foodCategory: null, emoji: '🌫️',
+        name: '月曜日の憂鬱', curryName: '🌶️🫚🍃ごちゃ混ぜスパイスカレー', foodCategory: null, emoji: '🌫️',
         icon: 'botimage/bot-mon.png', anim: 'battle/bt-bot-mon.png', btnImg: 'images/pssen-mon.png',
         desc: '憂鬱な靄：戦闘開始時に幻惑を撒き散らす（イカ星人と同じ効果）。',
         tiers: [
@@ -1061,7 +1061,7 @@ const DAILY_CURRY_DEFS = [
         reward: { type:'items', category:'spice', normal:[6,10,14], bonusMidOrHigh:[0,0,1] }
     },
     { // 2:火曜日
-        name: '火曜日の衝撃', foodCategory: 'meat', emoji: '💥',
+        name: '火曜日の衝撃', curryName: '🍔🍗🍕わんぱくルンルンカレー', foodCategory: 'meat', emoji: '💥',
         icon: 'botimage/bot-tue.png', anim: 'battle/bt-bot-tue.png', btnImg: 'images/pssen-tue.png',
         desc: 'わんぱく：攻撃がミスすることがある（甘口35%／中辛25%／辛口15%）。',
         tiers: [
@@ -1072,7 +1072,7 @@ const DAILY_CURRY_DEFS = [
         reward: { type:'items', category:'meat', normal:[6,9,13], mid:[0,1,2] }
     },
     { // 3:水曜日
-        name: '水曜日の妄想', foodCategory: 'seafood', emoji: '💭',
+        name: '水曜日の妄想', curryName: '🐟🦑🐙すいすい海鮮カレー', foodCategory: 'seafood', emoji: '💭',
         icon: 'botimage/bot-wed.png', anim: 'battle/bt-bot-wed.png', btnImg: 'images/pssen-wed.png',
         desc: '妄想リフレッシュ：HPが半分以下になると1回だけ自動回復する（海鮮カレーと同じ効果）。',
         tiers: [
@@ -1083,7 +1083,7 @@ const DAILY_CURRY_DEFS = [
         reward: { type:'items', category:'seafood', normal:[6,9,13], mid:[0,1,1], high:[0,0,1] }
     },
     { // 4:木曜日
-        name: '木曜日の禁断', foodCategory: null, emoji: '☠️',
+        name: '木曜日の禁断', curryName: '🍑☠️🍋やみつき禁断カレー', foodCategory: 'fruit', emoji: '☠️',
         icon: 'botimage/bot-thu.png', anim: 'battle/bt-bot-thu.png', btnImg: 'images/pssen-thu.png',
         desc: '禁断の毒：戦闘開始時に毒を撒き散らす。辛口のみ、通常攻撃ヒット時50%で追加の毒（毒りんごと同じ効果）。',
         tiers: [
@@ -1094,7 +1094,7 @@ const DAILY_CURRY_DEFS = [
         reward: { type:'items', category:'fruitOrOther', normal:[6,10,14], bonusMidOrHigh:[0,0,1] }
     },
     { // 5:金曜日
-        name: '金曜日の欲望', foodCategory: null, emoji: '💰',
+        name: '金曜日の欲望', curryName: '✨✨✨黄金きらりんカレー', foodCategory: null, emoji: '💰',
         icon: 'botimage/bot-fri.png', anim: 'battle/bt-bot-fri.png', btnImg: 'images/pssen-fri.png',
         desc: 'DEFが非常に高い。',
         tiers: [
@@ -1105,7 +1105,7 @@ const DAILY_CURRY_DEFS = [
         reward: { type:'gold', values:[100,500,1000] }
     },
     { // 6:土曜日
-        name: '土曜日の束縛', foodCategory: 'vegetable', emoji: '⛓️',
+        name: '土曜日の束縛', curryName: '🫛🫘🫛ツル縛りえんどう豆カレー', foodCategory: 'vegetable', emoji: '⛓️',
         icon: 'botimage/bot-sat.png', anim: 'battle/bt-bot-sat.png', btnImg: 'images/pssen-sat.png',
         desc: '種連続発射：一定確率で連続攻撃を放つ（種まき婆ちゃんと同じ効果、行動確率30%）。',
         tiers: [
@@ -9814,19 +9814,6 @@ function closeDailyCurryModal() {
     document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
     if(battlePage) battlePage.classList.add('active');
 }
-function dailyCurryRewardPreviewText(weekdayIdx, tier) {
-    const def = getDailyCurryDef(weekdayIdx);
-    const r = def.reward;
-    if(r.type === 'exp') return `✨ Exp+${r.values[tier]}`;
-    if(r.type === 'gold') return `💰 G+${r.values[tier]}`;
-    const parts = [];
-    const catLabel = { spice:'スパイス', meat:'肉系食材', seafood:'海鮮系食材', vegetable:'野菜系食材', fruitOrOther:'果物系orその他系食材' }[r.category] || '食材';
-    if(r.normal && r.normal[tier]) parts.push(`ノーマル${catLabel}${r.normal[tier]}個`);
-    if(r.mid && r.mid[tier]) parts.push(`中級${catLabel}${r.mid[tier]}個`);
-    if(r.high && r.high[tier]) parts.push(`高級${catLabel}${r.high[tier]}個`);
-    if(r.bonusMidOrHigh && r.bonusMidOrHigh[tier]) parts.push(`中級or高級${catLabel}${r.bonusMidOrHigh[tier]}個`);
-    return parts.join(' + ');
-}
 function renderDailyCurryModal() {
     const weekdayIdx = getDailyCurryWeekdayIndex();
     const def = getDailyCurryDef(weekdayIdx);
@@ -9839,16 +9826,13 @@ function renderDailyCurryModal() {
     let html = `<div style="text-align:center; padding:10px;">`;
     html += `<img src="${def.icon}" style="width:120px; height:120px; border-radius:50%; border:3px solid #b88742; object-fit:cover; background:#1a1a1a;">`;
     html += `<div style="font-size:15px; color:#efdeb1; font-weight:bold; margin:10px 0 4px 0;">${def.name}</div>`;
-    html += `<div style="font-size:12px; color:#cbb890; margin-bottom:10px;">${def.desc}</div>`;
     if(wonToday) {
         html += `<div style="font-size:13px; color:#f1c40f; font-weight:bold; padding:10px; border:1px solid #b88742; border-radius:6px;">✅ 本日はもう勝利済みです。<br>また明日挑戦してください！</div>`;
     }
     html += `</div>`;
     html += `<div style="display:flex; flex-direction:column; gap:8px; padding:0 10px;">`;
     DAILY_CURRY_TIER_NAMES.forEach((tierName, tier) => {
-        const reward = dailyCurryRewardPreviewText(weekdayIdx, tier);
-        html += `<button class="tutorial-nav-btn" style="width:100%; ${wonToday ? 'opacity:0.5;' : ''}" ${wonToday ? 'disabled' : ''} onclick="closeDailyCurryModal(); launchDailyCurryBattle(${tier});">`
-            + `${tierName}「${def.name}（${tierName}）」<br><span style="font-size:11px; font-weight:normal;">報酬：${reward}</span></button>`;
+        html += `<button class="tutorial-nav-btn" style="width:100%; ${wonToday ? 'opacity:0.5;' : ''}" ${wonToday ? 'disabled' : ''} onclick="closeDailyCurryModal(); launchDailyCurryBattle(${tier});">${tierName}</button>`;
     });
     html += `</div>`;
     body.innerHTML = html;
@@ -9862,13 +9846,14 @@ function launchDailyCurryBattle(tier) {
     const def = getDailyCurryDef(weekdayIdx);
     const tierName = DAILY_CURRY_TIER_NAMES[tier];
     const tierStats = def.tiers[tier];
+    const enemyName = def.name + '（' + tierName + '）'; // 敵名の後ろに辛さを表示
     const oppCurryData = Object.assign({
-        name: def.name + '（' + tierName + '）', visual: def.icon, emoji: def.emoji || '',
+        name: def.curryName, visual: def.icon, emoji: def.emoji || '', // カレー名は敵名とは別（辛さの表記は付けない）
         isBotImage: true, isHardBot: tier >= 1, isDailyCurry: true, dailyWeekday: weekdayIdx, dailyTier: tier,
         foodCategory: def.foodCategory
     }, tierStats);
-    activeBotData = { name: def.name + '（' + tierName + '）', image: def.icon, expBonus: 0 };
-    launchVsCutIn(def.name + '（' + tierName + '）', def.icon, oppCurryData);
+    activeBotData = { name: enemyName, image: def.icon, expBonus: 0 };
+    launchVsCutIn(enemyName, def.icon, oppCurryData);
 }
 
 // ===== PC戦：初級／中級 選択（旧・中級ボタンをここに統合） =====
