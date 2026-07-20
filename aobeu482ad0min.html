@@ -288,15 +288,18 @@ const masterSpices = {
     "クローブ": {}, "ブラックペッパー": {}, "チリパウダー": {}, "マンゴーチャツネ": {}, "サフラン": {}
 };
 
-const MAX_LV = 10;
+const MAX_LV = 20;
 const CUM_EXP_TABLE = (function(){
     const table = { 1: 0 };
-    const LV_EXP_TABLE = { 2:50, 3:100, 4:100, 5:150, 6:150, 7:200, 8:200, 9:200, 10:200 };
+    const LV_EXP_TABLE = { 2:50, 3:100, 4:100, 5:150, 6:150, 7:200, 8:200, 9:200, 10:200,
+        11:250, 12:250, 13:250, 14:300, 15:300, 16:300, 17:350, 18:350, 19:350, 20:400 };
     let cum = 0;
     for (let lv = 2; lv <= MAX_LV; lv++) { cum += LV_EXP_TABLE[lv]; table[lv] = cum; }
     return table;
 })();
 const LV_UNLOCK_ICONS = { 2: "mayimage04.png", 3: "mayimage05.png", 4: "mayimage06.png", 7: "mayimage08.png", 9: "mayimage09.png" };
+// Lv11〜20で解放されるベースアイテム（game-dev.js側のBASE_UNLOCK_FLAG_MAPと対応）
+const LV_BASE_UNLOCK_MAP = { 11: { flag: 'qr_unlock_genmai_base', name: '玄米' }, 13: { flag: 'qr_unlock_saffron_rice_base', name: 'サフランライス' }, 16: { flag: 'qr_unlock_jasmine_rice_base', name: 'ジャスミンライス' }, 18: { flag: 'qr_unlock_nan_base', name: 'ナン' } };
 const EVENT_MONSTER_DATA = { hp: 5000, name: "浪花のカレーライスベイビー" };
 
 // ============================================================
@@ -416,12 +419,22 @@ function actSetLevel() {
     const targetLv = parseInt(lvInput, 10);
     if (isNaN(targetLv) || targetLv < 1 || targetLv > MAX_LV) { showCustomAlert("❌ 入力エラー", "1〜" + MAX_LV + " の数字を入力してください。"); return; }
     localStorage.setItem('qr_curry_exp', String(CUM_EXP_TABLE[targetLv]));
+    // ゲーム側の「Lv上限拡張に伴う旧EXP頭打ち移行処理」が、ここで直接設定したLvを
+    // 旧仕様のLv10ラインまで巻き戻してしまわないよう、移行済み扱いにしておく
+    localStorage.setItem('qr_legacy_exp_cap_migrated', '1');
     let newUnlocked = ["mayimage01.png","mayimage02.png","mayimage03.png"];
     Object.keys(LV_UNLOCK_ICONS).forEach(function(lvKey) { if(parseInt(lvKey) <= targetLv) newUnlocked.push(LV_UNLOCK_ICONS[lvKey]); });
     localStorage.setItem('qr_unlocked_icons', JSON.stringify(newUnlocked));
     if(targetLv >= 5) localStorage.setItem('qr_curry_stock_limit','8');
     else localStorage.removeItem('qr_curry_stock_limit');
     if(targetLv >= 10) localStorage.setItem('qr_curry_stock_limit','10');
+    if(targetLv >= 15) localStorage.setItem('qr_curry_stock_limit','12');
+    if(targetLv >= 20) localStorage.setItem('qr_curry_stock_limit','14');
+    // Lv11〜20で解放されるベースアイテムを、到達済みのものだけ一括反映
+    Object.keys(LV_BASE_UNLOCK_MAP).forEach(function(lvKey) {
+        const info = LV_BASE_UNLOCK_MAP[lvKey];
+        if(targetLv >= parseInt(lvKey, 10)) localStorage.setItem(info.flag, '1');
+    });
     showCustomAlert("✅ レベル設定完了", "Lv." + targetLv + " に設定しました！<br>ゲーム画面をリロードしてください。");
 }
 
