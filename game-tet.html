@@ -949,18 +949,30 @@
         .tag-enemy-card-bottom { flex-direction: column !important; align-items: center !important; gap: 2px !important; }
 
         /* フェス戦：タッグ戦と同じ並び順（HPバー→敵名→アイコン→カレー名）に */
-        .fest-enemy-card .fest-enemy-info { display: contents; }
+        .fest-enemy-card .fest-enemy-info { display: contents !important; }
         .fest-enemy-card .hp-bar-bg { order: 1; }
         .fest-enemy-card .fest-enemy-name-hp-row { order: 2; }
         .fest-enemy-card .tag-enemy-card-visual { order: 3 !important; }
         .fest-enemy-card .fest-enemy-curry-row { order: 4; flex-direction: column !important; align-items: center !important; gap: 2px !important; }
 
-        /* 敵名：黒カード無し・黒文字・フチ無し／敵カレー名も黒文字・フチ無し */
-        .tag-enemy-card-name, .fest-enemy-card .tag-enemy-card-name {
+        /* タッグ戦：敵名・敵カレー名は白文字＋黒フチ（カード無し） */
+        .tag-enemy-card-name {
+            background: none !important; color: #fff !important;
+            text-shadow: -1.5px -1.5px 0 #000, 1.5px -1.5px 0 #000, -1.5px 1.5px 0 #000, 1.5px 1.5px 0 #000, 0 2px 5px rgba(0,0,0,0.5) !important;
+            font-size: 12px !important; padding: 0 !important;
+        }
+        .tag-enemy-curry-name {
+            color: #fff !important;
+            text-shadow: -1.5px -1.5px 0 #000, 1.5px -1.5px 0 #000, -1.5px 1.5px 0 #000, 1.5px 1.5px 0 #000, 0 2px 5px rgba(0,0,0,0.5) !important;
+            font-size: 10px !important;
+        }
+
+        /* フェス戦：敵名・敵カレー名は黒カード無し・黒文字・フチ無し */
+        .fest-enemy-card .tag-enemy-card-name {
             background: none !important; color: #000 !important; text-shadow: none !important;
             font-size: 12px !important; padding: 0 !important;
         }
-        .tag-enemy-curry-name, .fest-enemy-curry-name {
+        .fest-enemy-curry-name {
             color: #000 !important; text-shadow: none !important; font-size: 10px !important;
         }
     </style>
