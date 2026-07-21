@@ -748,6 +748,30 @@
         .vs-cutin { background: radial-gradient(120% 100% at 50% 20%, #241414 0%, #0d0d0d 75%); }
         .vs-center-badge { text-shadow: 0 0 20px #f1c40f, 0 0 40px rgba(241,196,15,0.6); }
         .vs-interactive-area { box-shadow: 0 10px 30px rgba(0,0,0,0.4); backdrop-filter: blur(2px); }
+
+        /* 調理タブ：おすすめセット／クリアの立体感と高さを「カレーを調理する」に揃える */
+        button[onclick="applyRecommendedSet()"] {
+            background: linear-gradient(180deg, #c99a52 0%, #a9782f 55%, #8f6323 100%) !important;
+            box-shadow: 0 3px 0 #6b4a1c, 0 6px 14px rgba(66,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.35) !important;
+            border: none !important; color: #efdeb1 !important; padding: 12px !important;
+        }
+        button[onclick="festApplyRecommendedSet()"] {
+            background: linear-gradient(180deg, #b9c8ec 0%, #99aee3 55%, #7f97cf 100%) !important;
+            box-shadow: 0 3px 0 #5a6d9e, 0 6px 14px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.35) !important;
+            border: none !important; color: #ffffff !important; padding: 12px !important;
+        }
+        button[onclick="clearCookSelection()"] {
+            padding: 12px !important;
+            box-shadow: 0 3px 0 #6b4a1c, 0 6px 14px rgba(66,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.25) !important;
+        }
+        button[onclick="clearFestCookSelection()"] {
+            padding: 12px !important;
+            box-shadow: 0 3px 0 #b56a5f, 0 6px 14px rgba(0,0,0,0.25), inset 0 1px 0 rgba(255,255,255,0.25) !important;
+        }
+        button[onclick="applyRecommendedSet()"]:active, button[onclick="festApplyRecommendedSet()"]:active,
+        button[onclick="clearCookSelection()"]:active, button[onclick="clearFestCookSelection()"]:active {
+            transform: translateY(2px); box-shadow: 0 1px 0 rgba(0,0,0,0.3) !important;
+        }
     </style>
 </head>
 <body>
