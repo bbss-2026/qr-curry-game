@@ -832,6 +832,35 @@
             background: linear-gradient(180deg, #5a1414, #3a0000) !important;
             box-shadow: 0 6px 20px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.12) !important;
         }
+
+        /* 入力系：フォーカス時のグロー・立体感 */
+        .input-name, select, .room-input, .fav-recipe-select {
+            box-shadow: inset 0 1px 4px rgba(66,0,0,0.15);
+            transition: box-shadow 0.2s, border-color 0.2s;
+        }
+        .input-name:focus, select:focus, .room-input:focus, .fav-recipe-select:focus {
+            outline: none;
+            border-color: #d9a94a !important;
+            box-shadow: inset 0 1px 4px rgba(66,0,0,0.15), 0 0 0 3px rgba(184,135,66,0.3);
+        }
+        .fest-theme select:focus, .fest-theme .room-input:focus {
+            border-color: #99aee3 !important;
+            box-shadow: inset 0 1px 4px rgba(0,0,0,0.1), 0 0 0 3px rgba(153,174,227,0.35);
+        }
+
+        /* タブ：非アクティブのホバーにも質感を */
+        .tab-btn { position: relative; }
+        .tab-btn:hover { background: rgba(184,135,66,0.08); }
+
+        /* 状態フラッシュ：単色→グラデ+グローで迫力アップ */
+        .flash-red { background: radial-gradient(circle, #e05545, #c0392b) !important; box-shadow: inset 0 0 20px rgba(0,0,0,0.3), 0 0 16px rgba(231,76,60,0.6); }
+        .flash-purple { background: radial-gradient(circle, #a664c9, #8e44ad) !important; box-shadow: inset 0 0 20px rgba(0,0,0,0.3), 0 0 16px rgba(142,68,173,0.6); }
+        .flash-gold { background: radial-gradient(circle, #fff3b0, #ffd700) !important; box-shadow: inset 0 0 20px rgba(0,0,0,0.15), 0 0 20px rgba(255,215,0,0.7); }
+        .flash-crit { background: radial-gradient(circle, #ff8a3d, #ff4500) !important; box-shadow: inset 0 0 24px rgba(0,0,0,0.3), 0 0 24px rgba(255,69,0,0.7); }
+
+        /* QR BINGO：セル・トーストの立体感 */
+        .bingo-cell { box-shadow: 0 3px 8px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.06); }
+        .bingo-toast { border: 1px solid rgba(255,255,255,0.25); }
     </style>
 </head>
 <body>
