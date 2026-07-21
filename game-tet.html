@@ -699,11 +699,13 @@
             box-shadow: 0 3px 0 #200000, 0 6px 14px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.12) !important;
         }
         /* 全てのテキストボタン（画像ボタンを除く）に同じ立体感を統一適用 */
-        .btn-shop, .btn-sm, .btn-cook-sub, .tutorial-nav-btn, .tag-speed-btn.active, .modal-btn-ok, .modal-btn-sell, .recipe-star.active {
+        .btn-sm, .btn-cook-sub, .tutorial-nav-btn, .tag-speed-btn.active, .modal-btn-ok, .modal-btn-sell, .recipe-star.active {
             background: linear-gradient(180deg, #c9a05e 0%, #a17638 55%, #8a6329 100%) !important;
             box-shadow: 0 2px 0 #6b4a1c, 0 4px 10px rgba(66,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.3) !important;
             border: none !important;
         }
+        /* ショップ段位ごとの色分けは維持し、立体感のみ付与 */
+        .btn-shop { box-shadow: 0 2px 0 rgba(0,0,0,0.3), 0 4px 10px rgba(66,0,0,0.25), inset 0 1px 0 rgba(255,255,255,0.25) !important; border: none !important; }
         .modal-btn-cancel, .btn-staff-sm { background: linear-gradient(180deg, #5a1414 0%, #3a0000 100%) !important; box-shadow: 0 2px 0 #200000, 0 4px 10px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.1) !important; }
         .btn:active, .btn-gamestart:active, .tutorial-nav-btn:active, .btn-shop:active, .btn-sm:active, .modal-btn:active { transform: translateY(2px); box-shadow: 0 1px 0 rgba(0,0,0,0.3) !important; filter: brightness(0.96); }
         .btn:hover:not(:disabled), .btn-gamestart:hover:not(:disabled), .btn-shop:hover:not(:disabled), .tutorial-nav-btn:hover:not(:disabled) { filter: brightness(1.06); }
@@ -766,8 +768,37 @@
         }
         button[onclick="clearFestCookSelection()"] {
             padding: 12px !important;
-            box-shadow: 0 3px 0 #b56a5f, 0 6px 14px rgba(0,0,0,0.25), inset 0 1px 0 rgba(255,255,255,0.25) !important;
+            box-shadow: 0 3px 0 #b5584d, 0 6px 14px rgba(0,0,0,0.25), inset 0 1px 0 rgba(255,255,255,0.25) !important;
         }
+
+        /* ===== カレーフェス専用パレット（茶色系は使わずこの6色で統一） ===== */
+        .fest-theme .btn-cook, .fest-theme .btn-start, .fest-theme .btn-battle, .fest-theme .btn-bot, .fest-theme .btn-gamestart,
+        .fest-theme .modal-btn-ok, .fest-theme .tag-speed-btn.active {
+            background: linear-gradient(180deg, #b9c8ec 0%, #99aee3 55%, #7f97cf 100%) !important;
+            box-shadow: 0 3px 0 #5a6d9e, 0 6px 14px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.35) !important;
+            color: #ffffff !important;
+        }
+        .fest-theme .btn-cook-sub, .fest-theme .modal-btn-sell {
+            background: linear-gradient(180deg, #ffb3a8 0%, #ff998b 55%, #e07f72 100%) !important;
+            box-shadow: 0 3px 0 #b5584d, 0 6px 14px rgba(0,0,0,0.25), inset 0 1px 0 rgba(255,255,255,0.3) !important;
+            color: #ffffff !important;
+        }
+        .fest-theme .btn-cancel, .fest-theme .modal-btn-cancel, .fest-theme .btn-danger-sm, .fest-theme .btn-staff-sm {
+            background: linear-gradient(180deg, #5a5a5a 0%, #454545 55%, #2e2e2e 100%) !important;
+            box-shadow: 0 3px 0 #1a1a1a, 0 6px 14px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.12) !important;
+            color: #ffffff !important;
+        }
+        .fest-theme .btn-sm, .fest-theme .tutorial-nav-btn, .fest-theme .recipe-star.active {
+            background: linear-gradient(180deg, #bcd8ec 0%, #accced 55%, #8fb3d6 100%) !important;
+            box-shadow: 0 2px 0 #6b8fae, 0 4px 10px rgba(0,0,0,0.25), inset 0 1px 0 rgba(255,255,255,0.3) !important;
+            color: #454545 !important;
+        }
+        .fest-theme .btn-shop-pack {
+            background: linear-gradient(180deg, #f0dca6 0%, #e8cc86 55%, #cdb166 100%) !important;
+            box-shadow: 0 3px 0 #a58a4a, 0 6px 14px rgba(0,0,0,0.25), inset 0 1px 0 rgba(255,255,255,0.3) !important;
+            color: #454545 !important;
+        }
+        .fest-theme .modal-box, .fest-theme.modal-box { box-shadow: 0 20px 60px rgba(0,0,0,0.35), 0 0 0 1px rgba(153,174,227,0.4) !important; }
         button[onclick="applyRecommendedSet()"]:active, button[onclick="festApplyRecommendedSet()"]:active,
         button[onclick="clearCookSelection()"]:active, button[onclick="clearFestCookSelection()"]:active {
             transform: translateY(2px); box-shadow: 0 1px 0 rgba(0,0,0,0.3) !important;
