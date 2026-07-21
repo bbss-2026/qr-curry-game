@@ -885,6 +885,42 @@
         .tag-player-card .hp-bar-bg {
             max-width: 200px;
         }
+
+        /* バトル画面レイアウト刷新：HPバーを上、名前ピレを下、大きなフレームをその下に。敌のHP数値は非表示 */
+        .enemy-upper-row { display: flex !important; flex-direction: column !important; align-items: center !important; gap: 6px !important; grid-template-columns: none !important; }
+        .enemy-visual-box { order: 2; }
+        .hp-container.enemy-hp { order: 1; width: 100%; display: flex !important; flex-direction: column !important; align-items: center !important; }
+        .hp-container.enemy-hp .hp-bar-bg { order: 1; width: 100%; max-width: none !important; }
+        .hp-container.enemy-hp #oppOwnerText {
+            order: 2; background: rgba(0,0,0,0.75) !important; display: inline-block !important;
+            padding: 5px 16px !important; border-radius: 20px !important; margin-top: 6px !important;
+        }
+        #oHpText { display: none !important; }
+        #oVisual { width: 170px !important; height: 170px !important; line-height: 170px !important; font-size: 80px !important; }
+        .enemy-lower-row {
+            display: flex !important; flex-direction: row !important; justify-content: center !important;
+            align-items: center !important; padding-left: 0 !important; margin-top: 8px !important; gap: 6px !important;
+        }
+
+        /* タグ/フェスの敌カードも同様の並べ方に */
+        .tag-enemy-card-hp { display: none !important; }
+        .tag-enemy-card-top { flex-direction: column !important; align-items: center !important; gap: 4px !important; }
+        .tag-enemy-hp-block { order: 1; margin-left: 0 !important; width: 100%; flex: none !important; }
+        .tag-enemy-card-name {
+            order: 2; background: rgba(0,0,0,0.75) !important; padding: 4px 14px !important; border-radius: 16px !important;
+            max-width: 90%; margin-top: 2px; white-space: normal !important;
+        }
+        .tag-enemy-card-visual { width: 120px !important; height: 120px !important; order: 3; }
+        .tag-enemy-card-bottom { justify-content: center !important; padding-left: 0 !important; }
+
+        .fest-enemy-card:not(.fest-boss-card) { flex-direction: column !important; align-items: center !important; }
+        .fest-enemy-card .fest-enemy-info { display: flex !important; flex-direction: column !important; align-items: center !important; width: 100%; }
+        .fest-enemy-card .fest-enemy-name-hp-row { order: 2; justify-content: center !important; margin-top: 4px !important; }
+        .fest-enemy-card .hp-bar-bg { order: 1; width: 100%; }
+        .fest-enemy-card .fest-enemy-curry-row { order: 3; justify-content: center !important; }
+        .fest-enemy-card .tag-enemy-card-visual { order: 0; width: 120px !important; height: 120px !important; }
+        .fest-enemy-card.fest-boss-card .tag-enemy-card-visual { width: 130px !important; height: 130px !important; }
+        .fest-enemy-card .tag-enemy-card-name { background: rgba(0,0,0,0.75) !important; padding: 4px 14px !important; border-radius: 16px !important; text-align: center !important; }
     </style>
 </head>
 <body>
