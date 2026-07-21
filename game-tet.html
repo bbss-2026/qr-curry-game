@@ -803,6 +803,35 @@
         button[onclick="clearCookSelection()"]:active, button[onclick="clearFestCookSelection()"]:active {
             transform: translateY(2px); box-shadow: 0 1px 0 rgba(0,0,0,0.3) !important;
         }
+
+        /* 冷蔵庫・図鑑グリッド：発見済みアイテムに立体感 */
+        .fridge-item.discovered {
+            background: linear-gradient(180deg, #fffaf0, #fff1d6) !important;
+            box-shadow: 0 3px 8px rgba(66,0,0,0.18), inset 0 1px 0 rgba(255,255,255,0.7);
+            border: 1px solid #c9a05e !important;
+            transition: transform 0.15s, box-shadow 0.15s;
+        }
+        .fridge-item.discovered:active { transform: translateY(1px); box-shadow: 0 1px 3px rgba(66,0,0,0.18); }
+        .fridge-item.discovered.zero-count { background: linear-gradient(180deg, #ede0c4, #e3d3ab) !important; box-shadow: inset 0 1px 4px rgba(0,0,0,0.1); }
+        .fridge-item.delivering { box-shadow: 0 3px 10px rgba(46,139,111,0.3), inset 0 1px 0 rgba(255,255,255,0.5) !important; }
+
+        /* 調理結果・入手ボックス */
+        #resultBox, #getBox {
+            background: linear-gradient(180deg, #fffdf5, #fff3d9) !important;
+            border: 1px solid #d9a94a !important;
+            box-shadow: 0 12px 30px rgba(66,0,0,0.18), inset 0 1px 0 rgba(255,255,255,0.8) !important;
+        }
+        #festResultBox {
+            background: linear-gradient(180deg, #ffffff, #eef3fc) !important;
+            border: 1px solid #99aee3 !important;
+            box-shadow: 0 12px 30px rgba(0,0,0,0.15), inset 0 1px 0 rgba(255,255,255,0.9) !important;
+        }
+
+        /* トースト通知 */
+        #postToast {
+            background: linear-gradient(180deg, #5a1414, #3a0000) !important;
+            box-shadow: 0 6px 20px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.12) !important;
+        }
     </style>
 </head>
 <body>
