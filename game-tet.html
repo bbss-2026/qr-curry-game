@@ -356,13 +356,13 @@
         .recipe-row { padding: 8px 4px; border-bottom: 1px solid #d4c09a; font-size: 12px; display: flex; justify-content: space-between; align-items: center; }
         /* バトル関連レイアウト */
         .battle-monitor { background: #111; color: #00ff00; padding: 15px; border-radius: 10px; height: 90px; overflow-y: auto; text-align: left; font-family: monospace; font-size: 13px; margin-top: 15px; line-height: 1.5; border: 2px solid #333; }
-        .battle-stage { position: relative; background: #2c3e50; border: 4px solid #34495e; border-radius: 12px; height: 350px; margin-bottom: 15px; overflow: hidden; display: flex; flex-direction: column; justify-content: space-between; padding: 15px; box-sizing: border-box; }
+        .battle-stage { position: relative; background: #2c3e50; border: 4px solid #34495e; border-radius: 12px; min-height: 300px; margin-bottom: 15px; overflow: hidden; display: flex; flex-direction: column; justify-content: space-between; padding: 15px; box-sizing: border-box; }
         .battle-stage.battle-bg-easy { background-image: url('battlebg_easy.jpg'); background-size: cover; background-position: center; }
         .battle-stage.battle-bg-hard { background-image: url('battlebg_hard.jpg'); background-size: cover; background-position: center; }
         
         .enemy-zone { display: flex; flex-direction: column; gap: 8px; width: 100%; transition: transform 0.1s; }
         .enemy-upper-row { display: grid; grid-template-columns: 120px 1fr; align-items: center; gap: 12px; }
-        .enemy-lower-row { display: flex; flex-direction: column; align-items: flex-start; padding-left: 132px; margin-top: -20px; gap: 2px; }
+        .enemy-lower-row { display: flex; flex-direction: column; align-items: flex-start; padding-left: 132px; margin-top: 4px; gap: 2px; }
         
         .player-zone { display: flex; justify-content: space-between; align-items: center; background: rgba(0,0,0,0.7); padding: 10px; border-radius: 8px; color: white; font-size: 12px; margin-top: auto; }
         
@@ -739,7 +739,19 @@
             box-shadow: 0 4px 14px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.06);
             border: 1px solid rgba(241,196,15,0.15);
         }
-        #oVisual, #vsEnemyVisual, #vsPlayerVisual, .tag-enemy-card-visual, .tag-player-card .char-visual {
+        /* 敌/プレイヤーを色で即判別（敌：赤、自分：金） */
+        .hp-container.enemy-hp, .tag-enemy-card {
+            border-color: rgba(231,76,60,0.4) !important;
+        }
+        .player-zone .hp-container:not(.enemy-hp), .tag-player-card {
+            border-color: rgba(241,196,15,0.4) !important;
+        }
+        #oVisual, #vsEnemyVisual, .tag-enemy-card-visual {
+            border-color: #e74c3c !important;
+            box-shadow: 0 0 18px rgba(231,76,60,0.55), inset 0 0 12px rgba(0,0,0,0.5), 0 4px 10px rgba(0,0,0,0.4) !important;
+        }
+        #vsPlayerVisual, .tag-player-card .char-visual {
+            border-color: #f1c40f !important;
             box-shadow: 0 0 18px rgba(241,196,15,0.55), inset 0 0 12px rgba(0,0,0,0.5), 0 4px 10px rgba(0,0,0,0.4) !important;
         }
         .hp-bar-bg { box-shadow: inset 0 2px 4px rgba(0,0,0,0.6), 0 1px 0 rgba(255,255,255,0.06); border-color: #000; }
@@ -861,6 +873,18 @@
         /* QR BINGO：セル・トーストの立体感 */
         .bingo-cell { box-shadow: 0 3px 8px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.06); }
         .bingo-toast { border: 1px solid rgba(255,255,255,0.25); }
+
+        /* 敵アイコンを拡大 / HPバーを短めに */
+        .enemy-upper-row { grid-template-columns: 140px 1fr !important; }
+        .enemy-lower-row { padding-left: 152px !important; }
+        #oVisual { width: 140px !important; height: 140px !important; line-height: 140px !important; font-size: 68px !important; }
+        .tag-enemy-card-visual { width: 64px !important; height: 64px !important; }
+        .hp-container.enemy-hp .hp-bar-bg,
+        .player-zone .hp-container:not(.enemy-hp) .hp-bar-bg,
+        .tag-enemy-hpbar-bg,
+        .tag-player-card .hp-bar-bg {
+            max-width: 200px;
+        }
     </style>
 </head>
 <body>
