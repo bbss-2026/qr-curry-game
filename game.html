@@ -22,13 +22,16 @@
     <link rel="icon" type="image/png" sizes="32x32" href="fabi/fabi-02.png">
     <link rel="icon" type="image/png" sizes="192x192" href="fabi/fabi-01.png">
     <link rel="apple-touch-icon" sizes="180x180" href="fabi/fabi-04.png">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@600;800&family=Noto+Sans+JP:wght@400;500;700;900&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-check-compat.js"></script>
     <style>        html, body { overflow-x: hidden; width: 100%; max-width: 100%; touch-action: pan-y; }
-        body { font-family: 'Helvetica Neue', Arial, sans-serif; background-color: #b88742; color: #420000; padding: 0; text-align: center; margin: 0; }
+        body { font-family: 'Noto Sans JP', 'Helvetica Neue', Arial, sans-serif; background: radial-gradient(120% 100% at 50% 0%, #d3a668 0%, #a97a3e 45%, #8a5f2e 100%); color: #3a1e08; padding: 0; text-align: center; margin: 0; }
         #gameWrapper { background-color: #efdeb1; max-width: 480px; margin: 0 auto; min-height: 100vh; min-height: 100dvh; overflow-x: hidden; }
         .container { max-width: 500px; margin: 0 auto; background: #efdeb1; padding: 0; box-sizing: border-box; position: relative; min-height: 100vh; min-height: 100dvh; overflow-x: hidden; }
         h1 { display: none; }
@@ -353,13 +356,13 @@
         .recipe-row { padding: 8px 4px; border-bottom: 1px solid #d4c09a; font-size: 12px; display: flex; justify-content: space-between; align-items: center; }
         /* バトル関連レイアウト */
         .battle-monitor { background: #111; color: #00ff00; padding: 15px; border-radius: 10px; height: 90px; overflow-y: auto; text-align: left; font-family: monospace; font-size: 13px; margin-top: 15px; line-height: 1.5; border: 2px solid #333; }
-        .battle-stage { position: relative; background: #2c3e50; border: 4px solid #34495e; border-radius: 12px; height: 350px; margin-bottom: 15px; overflow: hidden; display: flex; flex-direction: column; justify-content: space-between; padding: 15px; box-sizing: border-box; }
+        .battle-stage { position: relative; background: #2c3e50; border: 4px solid #34495e; border-radius: 12px; min-height: 300px; margin-bottom: 15px; overflow: hidden; display: flex; flex-direction: column; justify-content: space-between; padding: 15px; box-sizing: border-box; }
         .battle-stage.battle-bg-easy { background-image: url('battlebg_easy.jpg'); background-size: cover; background-position: center; }
         .battle-stage.battle-bg-hard { background-image: url('battlebg_hard.jpg'); background-size: cover; background-position: center; }
         
         .enemy-zone { display: flex; flex-direction: column; gap: 8px; width: 100%; transition: transform 0.1s; }
         .enemy-upper-row { display: grid; grid-template-columns: 120px 1fr; align-items: center; gap: 12px; }
-        .enemy-lower-row { display: flex; flex-direction: column; align-items: flex-start; padding-left: 132px; margin-top: -20px; gap: 2px; }
+        .enemy-lower-row { display: flex; flex-direction: column; align-items: flex-start; padding-left: 132px; margin-top: 4px; gap: 2px; }
         
         .player-zone { display: flex; justify-content: space-between; align-items: center; background: rgba(0,0,0,0.7); padding: 10px; border-radius: 8px; color: white; font-size: 12px; margin-top: auto; }
         
@@ -666,6 +669,312 @@
         #coinGetOverlay .coin-get-amount { color:#efdeb1; font-size:18px; font-weight:bold; margin-top:6px; animation:iconFadeIn 0.5s 0.6s both; }
         #coinGetOverlay .coin-get-btn { margin-top:28px; padding:12px 32px; background:#b88742; color:#efdeb1; border:none; border-radius:4px; font-size:15px; font-weight:bold; cursor:pointer; animation:iconFadeIn 0.5s 1s both; }
         @keyframes coinShine { 0%,100%{box-shadow:0 0 40px #e67e22,0 0 80px #d35400;} 50%{box-shadow:0 0 60px #e67e22,0 0 120px #d35400,0 0 160px #fff;} }
+        /* ===== 上品な質感への仕上げ（構造・ID・クラスは変更せず見た目のみ強化） ===== */
+        .modal-title, .bingo-title, #tutorialPageIndicator, .vs-cutin h2, .vs-center-badge,
+        #curryName, .icon-get-text, .coin-get-text, h1 { font-family: 'Shippori Mincho', 'Noto Sans JP', serif; }
+
+        #gameWrapper, .container {
+            background: linear-gradient(180deg, #f5e9c8 0%, #eeddaf 100%);
+            box-shadow: 0 0 60px rgba(0,0,0,0.25);
+        }
+        .logo-area img { filter: drop-shadow(0 3px 10px rgba(66,0,0,0.25)); }
+
+        .tab-menu { box-shadow: inset 0 -1px 0 rgba(66,0,0,0.08); }
+        .tab-btn::after { transition: background 0.2s, box-shadow 0.2s; }
+        .tab-btn.active::after { box-shadow: 0 0 8px rgba(184,135,66,0.7); background: linear-gradient(90deg, #8f6a2e, #d4a955, #8f6a2e); height: 2.5px; }
+
+        .status-bar-wrap { background: transparent; }
+        .status-bar { background: linear-gradient(180deg, #ffffff, #fbf3de); box-shadow: 0 2px 10px rgba(66,0,0,0.12), inset 0 1px 0 rgba(255,255,255,0.8); border: 1px solid rgba(184,135,66,0.35); }
+
+        .btn, .btn-gamestart, .btn-shop, .btn-cook-sub, .btn-sm, .tutorial-nav-btn, .fridge-item.discovered {
+            transition: transform 0.15s ease, box-shadow 0.15s ease, filter 0.15s ease;
+        }
+        .btn-start, .btn-cook, .btn-battle, .btn-bot, .btn-gamestart {
+            background: linear-gradient(180deg, #c99a52 0%, #a9782f 55%, #8f6323 100%) !important;
+            box-shadow: 0 3px 0 #6b4a1c, 0 6px 14px rgba(66,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.35) !important;
+            border: none !important;
+        }
+        .btn-cancel, .btn-rand, .btn-danger-sm {
+            background: linear-gradient(180deg, #5a1414 0%, #3a0000 100%) !important;
+            box-shadow: 0 3px 0 #200000, 0 6px 14px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.12) !important;
+        }
+        /* 全てのテキストボタン（画像ボタンを除く）に同じ立体感を統一適用 */
+        .btn-sm, .btn-cook-sub, .tutorial-nav-btn, .tag-speed-btn.active, .modal-btn-ok, .modal-btn-sell, .recipe-star.active {
+            background: linear-gradient(180deg, #c9a05e 0%, #a17638 55%, #8a6329 100%) !important;
+            box-shadow: 0 2px 0 #6b4a1c, 0 4px 10px rgba(66,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.3) !important;
+            border: none !important;
+        }
+        /* ショップ段位ごとの色分けは維持し、立体感のみ付与 */
+        .btn-shop { box-shadow: 0 2px 0 rgba(0,0,0,0.3), 0 4px 10px rgba(66,0,0,0.25), inset 0 1px 0 rgba(255,255,255,0.25) !important; border: none !important; }
+        .modal-btn-cancel, .btn-staff-sm { background: linear-gradient(180deg, #5a1414 0%, #3a0000 100%) !important; box-shadow: 0 2px 0 #200000, 0 4px 10px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.1) !important; }
+        .btn:active, .btn-gamestart:active, .tutorial-nav-btn:active, .btn-shop:active, .btn-sm:active, .modal-btn:active { transform: translateY(2px); box-shadow: 0 1px 0 rgba(0,0,0,0.3) !important; filter: brightness(0.96); }
+        .btn:hover:not(:disabled), .btn-gamestart:hover:not(:disabled), .btn-shop:hover:not(:disabled), .tutorial-nav-btn:hover:not(:disabled) { filter: brightness(1.06); }
+
+        .modal-box {
+            background: linear-gradient(180deg, #f7ecd0, #efdeb1);
+            box-shadow: 0 20px 60px rgba(0,0,0,0.4), 0 0 0 1px rgba(184,135,66,0.25);
+            border: 1px solid rgba(184,135,66,0.6);
+        }
+        .accordion-header { transition: color 0.2s, padding-left 0.2s; }
+        .accordion-header:hover { padding-left: 4px; }
+
+        /* ===== バトル演出：質感アップ ===== */
+        .battle-stage {
+            background: radial-gradient(120% 100% at 50% 0%, #34495e 0%, #202b38 70%, #141b23 100%) !important;
+            border: 1px solid rgba(241,196,15,0.25) !important;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.5), inset 0 0 60px rgba(0,0,0,0.5), inset 0 0 1px rgba(241,196,15,0.4);
+        }
+        .battle-stage.battle-bg-easy {
+            background: linear-gradient(rgba(10,20,30,0.35), rgba(10,15,20,0.55)), url('battlebg_easy.jpg') center/cover !important;
+        }
+        .battle-stage.battle-bg-hard {
+            background: linear-gradient(rgba(10,20,30,0.35), rgba(10,15,20,0.55)), url('battlebg_hard.jpg') center/cover !important;
+        }
+        .tag-battle-stage {
+            border: 1px solid rgba(241,196,15,0.25) !important;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.5), inset 0 0 60px rgba(0,0,0,0.45);
+        }
+        .player-zone, .tag-enemy-card, .tag-player-card, .hp-container.enemy-hp {
+            background: linear-gradient(180deg, rgba(20,20,25,0.85), rgba(0,0,0,0.72)) !important;
+            box-shadow: 0 4px 14px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.06);
+            border: 1px solid rgba(241,196,15,0.15);
+        }
+        /* 敌/プレイヤーを色で即判別（敌：赤、自分：金） */
+        .hp-container.enemy-hp, .tag-enemy-card {
+            border-color: rgba(231,76,60,0.4) !important;
+        }
+        .player-zone .hp-container:not(.enemy-hp), .tag-player-card {
+            border-color: rgba(241,196,15,0.4) !important;
+        }
+        #oVisual, #vsEnemyVisual, .tag-enemy-card-visual {
+            border-color: #e74c3c !important;
+            box-shadow: 0 0 18px rgba(231,76,60,0.55), inset 0 0 12px rgba(0,0,0,0.5), 0 4px 10px rgba(0,0,0,0.4) !important;
+        }
+        #vsPlayerVisual, .tag-player-card .char-visual {
+            border-color: #f1c40f !important;
+            box-shadow: 0 0 18px rgba(241,196,15,0.55), inset 0 0 12px rgba(0,0,0,0.5), 0 4px 10px rgba(0,0,0,0.4) !important;
+        }
+        .hp-bar-bg { box-shadow: inset 0 2px 4px rgba(0,0,0,0.6), 0 1px 0 rgba(255,255,255,0.06); border-color: #000; }
+        .hp-bar { background: linear-gradient(180deg, #4ee08a, #23b567) !important; box-shadow: inset 0 1px 3px rgba(255,255,255,0.35), 0 0 6px rgba(46,204,113,0.5); }
+        .hp-bar.danger, .hp-bar.poisoned-bar { box-shadow: inset 0 1px 3px rgba(255,255,255,0.3), 0 0 8px rgba(231,76,60,0.6); }
+        .damage-pop, .tag-damage-pop { text-shadow: 0 0 14px rgba(241,196,15,0.9), 2px 2px 0 #000; }
+
+        .vs-cutin { background: radial-gradient(120% 100% at 50% 20%, #241414 0%, #0d0d0d 75%); }
+        .vs-center-badge { text-shadow: 0 0 20px #f1c40f, 0 0 40px rgba(241,196,15,0.6); }
+        .vs-interactive-area { box-shadow: 0 10px 30px rgba(0,0,0,0.4); backdrop-filter: blur(2px); }
+
+        /* 調理タブ：おすすめセット／クリアの立体感と高さを「カレーを調理する」に揃える */
+        button[onclick="applyRecommendedSet()"] {
+            background: linear-gradient(180deg, #c99a52 0%, #a9782f 55%, #8f6323 100%) !important;
+            box-shadow: 0 3px 0 #6b4a1c, 0 6px 14px rgba(66,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.35) !important;
+            border: none !important; color: #efdeb1 !important; padding: 12px !important;
+        }
+        button[onclick="festApplyRecommendedSet()"] {
+            background: linear-gradient(180deg, #b9c8ec 0%, #99aee3 55%, #7f97cf 100%) !important;
+            box-shadow: 0 3px 0 #5a6d9e, 0 6px 14px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.35) !important;
+            border: none !important; color: #ffffff !important; padding: 12px !important;
+        }
+        button[onclick="clearCookSelection()"] {
+            padding: 12px !important;
+            box-shadow: 0 3px 0 #6b4a1c, 0 6px 14px rgba(66,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.25) !important;
+        }
+        button[onclick="clearFestCookSelection()"] {
+            padding: 12px !important;
+            box-shadow: 0 3px 0 #b5584d, 0 6px 14px rgba(0,0,0,0.25), inset 0 1px 0 rgba(255,255,255,0.25) !important;
+        }
+
+        /* ===== カレーフェス専用パレット（茶色系は使わずこの6色で統一） ===== */
+        .fest-theme .btn-cook, .fest-theme .btn-start, .fest-theme .btn-battle, .fest-theme .btn-bot, .fest-theme .btn-gamestart,
+        .fest-theme .modal-btn-ok, .fest-theme .tag-speed-btn.active {
+            background: linear-gradient(180deg, #b9c8ec 0%, #99aee3 55%, #7f97cf 100%) !important;
+            box-shadow: 0 3px 0 #5a6d9e, 0 6px 14px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.35) !important;
+            color: #ffffff !important;
+        }
+        .fest-theme .btn-cook-sub, .fest-theme .modal-btn-sell {
+            background: linear-gradient(180deg, #ffb3a8 0%, #ff998b 55%, #e07f72 100%) !important;
+            box-shadow: 0 3px 0 #b5584d, 0 6px 14px rgba(0,0,0,0.25), inset 0 1px 0 rgba(255,255,255,0.3) !important;
+            color: #ffffff !important;
+        }
+        .fest-theme .btn-cancel, .fest-theme .modal-btn-cancel, .fest-theme .btn-danger-sm, .fest-theme .btn-staff-sm {
+            background: linear-gradient(180deg, #5a5a5a 0%, #454545 55%, #2e2e2e 100%) !important;
+            box-shadow: 0 3px 0 #1a1a1a, 0 6px 14px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.12) !important;
+            color: #ffffff !important;
+        }
+        .fest-theme .btn-sm, .fest-theme .tutorial-nav-btn, .fest-theme .recipe-star.active {
+            background: linear-gradient(180deg, #bcd8ec 0%, #accced 55%, #8fb3d6 100%) !important;
+            box-shadow: 0 2px 0 #6b8fae, 0 4px 10px rgba(0,0,0,0.25), inset 0 1px 0 rgba(255,255,255,0.3) !important;
+            color: #454545 !important;
+        }
+        .fest-theme .btn-shop-pack {
+            background: linear-gradient(180deg, #f0dca6 0%, #e8cc86 55%, #cdb166 100%) !important;
+            box-shadow: 0 3px 0 #a58a4a, 0 6px 14px rgba(0,0,0,0.25), inset 0 1px 0 rgba(255,255,255,0.3) !important;
+            color: #454545 !important;
+        }
+        .fest-theme .modal-box, .fest-theme.modal-box { box-shadow: 0 20px 60px rgba(0,0,0,0.35), 0 0 0 1px rgba(153,174,227,0.4) !important; }
+        button[onclick="applyRecommendedSet()"]:active, button[onclick="festApplyRecommendedSet()"]:active,
+        button[onclick="clearCookSelection()"]:active, button[onclick="clearFestCookSelection()"]:active {
+            transform: translateY(2px); box-shadow: 0 1px 0 rgba(0,0,0,0.3) !important;
+        }
+
+        /* 冷蔵庫・図鑑グリッド：発見済みアイテムに立体感 */
+        .fridge-item.discovered {
+            background: linear-gradient(180deg, #fffaf0, #fff1d6) !important;
+            box-shadow: 0 3px 8px rgba(66,0,0,0.18), inset 0 1px 0 rgba(255,255,255,0.7);
+            border: 1px solid #c9a05e !important;
+            transition: transform 0.15s, box-shadow 0.15s;
+        }
+        .fridge-item.discovered:active { transform: translateY(1px); box-shadow: 0 1px 3px rgba(66,0,0,0.18); }
+        .fridge-item.discovered.zero-count { background: linear-gradient(180deg, #ede0c4, #e3d3ab) !important; box-shadow: inset 0 1px 4px rgba(0,0,0,0.1); }
+        .fridge-item.delivering { box-shadow: 0 3px 10px rgba(46,139,111,0.3), inset 0 1px 0 rgba(255,255,255,0.5) !important; }
+
+        /* 調理結果・入手ボックス */
+        #resultBox, #getBox {
+            background: linear-gradient(180deg, #fffdf5, #fff3d9) !important;
+            border: 1px solid #d9a94a !important;
+            box-shadow: 0 12px 30px rgba(66,0,0,0.18), inset 0 1px 0 rgba(255,255,255,0.8) !important;
+        }
+        #festResultBox {
+            background: linear-gradient(180deg, #ffffff, #eef3fc) !important;
+            border: 1px solid #99aee3 !important;
+            box-shadow: 0 12px 30px rgba(0,0,0,0.15), inset 0 1px 0 rgba(255,255,255,0.9) !important;
+        }
+
+        /* トースト通知 */
+        #postToast {
+            background: linear-gradient(180deg, #5a1414, #3a0000) !important;
+            box-shadow: 0 6px 20px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.12) !important;
+        }
+
+        /* 入力系：フォーカス時のグロー・立体感 */
+        .input-name, select, .room-input, .fav-recipe-select {
+            box-shadow: inset 0 1px 4px rgba(66,0,0,0.15);
+            transition: box-shadow 0.2s, border-color 0.2s;
+        }
+        .input-name:focus, select:focus, .room-input:focus, .fav-recipe-select:focus {
+            outline: none;
+            border-color: #d9a94a !important;
+            box-shadow: inset 0 1px 4px rgba(66,0,0,0.15), 0 0 0 3px rgba(184,135,66,0.3);
+        }
+        .fest-theme select:focus, .fest-theme .room-input:focus {
+            border-color: #99aee3 !important;
+            box-shadow: inset 0 1px 4px rgba(0,0,0,0.1), 0 0 0 3px rgba(153,174,227,0.35);
+        }
+
+        /* タブ：非アクティブのホバーにも質感を */
+        .tab-btn { position: relative; }
+        .tab-btn:hover { background: rgba(184,135,66,0.08); }
+
+        /* 状態フラッシュ：単色→グラデ+グローで迫力アップ */
+        .flash-red { background: radial-gradient(circle, #e05545, #c0392b) !important; box-shadow: inset 0 0 20px rgba(0,0,0,0.3), 0 0 16px rgba(231,76,60,0.6); }
+        .flash-purple { background: radial-gradient(circle, #a664c9, #8e44ad) !important; box-shadow: inset 0 0 20px rgba(0,0,0,0.3), 0 0 16px rgba(142,68,173,0.6); }
+        .flash-gold { background: radial-gradient(circle, #fff3b0, #ffd700) !important; box-shadow: inset 0 0 20px rgba(0,0,0,0.15), 0 0 20px rgba(255,215,0,0.7); }
+        .flash-crit { background: radial-gradient(circle, #ff8a3d, #ff4500) !important; box-shadow: inset 0 0 24px rgba(0,0,0,0.3), 0 0 24px rgba(255,69,0,0.7); }
+
+        /* QR BINGO：セル・トーストの立体感 */
+        .bingo-cell { box-shadow: 0 3px 8px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.06); }
+        .bingo-toast { border: 1px solid rgba(255,255,255,0.25); }
+
+        /* 敵アイコンを拡大 / HPバーを短めに */
+        .enemy-upper-row { grid-template-columns: 140px 1fr !important; }
+        .enemy-lower-row { padding-left: 152px !important; }
+        #oVisual { width: 140px !important; height: 140px !important; line-height: 140px !important; font-size: 68px !important; }
+        .tag-enemy-card-visual { width: 64px !important; height: 64px !important; }
+        .hp-container.enemy-hp .hp-bar-bg,
+        .player-zone .hp-container:not(.enemy-hp) .hp-bar-bg,
+        .tag-enemy-hpbar-bg,
+        .tag-player-card .hp-bar-bg {
+            max-width: 200px;
+        }
+
+        /* バトル画面レイアウト刷新：HPバーを上、名前ピレを下、大きなフレームをその下に。敌のHP数値は非表示 */
+        .enemy-upper-row { display: flex !important; flex-direction: column !important; align-items: center !important; gap: 6px !important; grid-template-columns: none !important; }
+        .enemy-visual-box { order: 2; }
+        .hp-container.enemy-hp { order: 1; width: 100%; display: flex !important; flex-direction: column !important; align-items: center !important; }
+        .hp-container.enemy-hp .hp-bar-bg { order: 1; width: 100%; max-width: none !important; }
+        .hp-container.enemy-hp #oppOwnerText {
+            order: 2; background: rgba(0,0,0,0.75) !important; display: inline-block !important;
+            padding: 5px 16px !important; border-radius: 20px !important; margin-top: 6px !important;
+        }
+        #oHpText { display: none !important; }
+        #oVisual { width: 170px !important; height: 170px !important; line-height: 170px !important; font-size: 80px !important; }
+        .enemy-lower-row {
+            display: flex !important; flex-direction: row !important; justify-content: center !important;
+            align-items: center !important; padding-left: 0 !important; margin-top: 8px !important; gap: 6px !important;
+        }
+
+        /* タグ/フェスの敌カードも同様の並べ方に */
+        .tag-enemy-card-hp { display: none !important; }
+        .tag-enemy-card-top { flex-direction: column !important; align-items: center !important; gap: 4px !important; }
+        .tag-enemy-hp-block { order: 1; margin-left: 0 !important; width: 100%; flex: none !important; }
+        .tag-enemy-card-name {
+            order: 2; background: rgba(0,0,0,0.75) !important; padding: 4px 14px !important; border-radius: 16px !important;
+            max-width: 90%; margin-top: 2px; white-space: normal !important;
+        }
+        .tag-enemy-card-visual { width: 120px !important; height: 120px !important; order: 3; }
+        .tag-enemy-card-bottom { justify-content: center !important; padding-left: 0 !important; }
+
+        .fest-enemy-card:not(.fest-boss-card) { flex-direction: column !important; align-items: center !important; }
+        .fest-enemy-card .fest-enemy-info { display: flex !important; flex-direction: column !important; align-items: center !important; width: 100%; }
+        .fest-enemy-card .fest-enemy-name-hp-row { order: 2; justify-content: center !important; margin-top: 4px !important; }
+        .fest-enemy-card .hp-bar-bg { order: 1; width: 100%; }
+        .fest-enemy-card .fest-enemy-curry-row { order: 3; justify-content: center !important; }
+        .fest-enemy-card .tag-enemy-card-visual { order: 0; width: 120px !important; height: 120px !important; }
+        .fest-enemy-card.fest-boss-card .tag-enemy-card-visual { width: 130px !important; height: 130px !important; }
+        .fest-enemy-card .tag-enemy-card-name { background: rgba(0,0,0,0.75) !important; padding: 4px 14px !important; border-radius: 16px !important; text-align: center !important; }
+
+        /* 1vs1 PC対戦：カード無し・白文字黒フチ・HPバー短縮・下との余白 */
+        .hp-container.enemy-hp { background: none !important; padding: 0 !important; box-shadow: none !important; border: none !important; }
+        .hp-container.enemy-hp .hp-bar-bg { width: 170px !important; max-width: 170px !important; }
+        #oppOwnerText {
+            background: none !important; padding: 0 !important; border-radius: 0 !important; color: #fff !important;
+            font-size: 16px !important;
+            text-shadow: -1.5px -1.5px 0 #000, 1.5px -1.5px 0 #000, -1.5px 1.5px 0 #000, 1.5px 1.5px 0 #000, 0 2px 5px rgba(0,0,0,0.5) !important;
+        }
+        #oppCurryNameText {
+            background: none !important; padding: 0 !important;
+            text-shadow: -1.5px -1.5px 0 #000, 1.5px -1.5px 0 #000, -1.5px 1.5px 0 #000, 1.5px 1.5px 0 #000, 0 2px 5px rgba(0,0,0,0.5) !important;
+        }
+        .enemy-zone { margin-bottom: 20px !important; }
+
+        /* タッグ/フェス：敵カードの背景カード無し・敵2人横並び・HPバーはアイコン幅 */
+        .tag-enemy-zone { flex-direction: row !important; justify-content: center !important; flex-wrap: wrap; }
+        .tag-enemy-card, .fest-enemy-card {
+            background: none !important; box-shadow: none !important; border: none !important; padding: 0 !important;
+            flex: 1 1 0; min-width: 140px; max-width: 220px;
+        }
+        .tag-enemy-hpbar-bg { width: 120px !important; max-width: 120px !important; margin: 0 auto; }
+        .fest-enemy-card .hp-bar-bg { width: 120px !important; max-width: 120px !important; margin: 0 auto; }
+        .fest-enemy-card.fest-boss-card .hp-bar-bg { width: 130px !important; max-width: 130px !important; }
+        /* タッグ戦：絵文字＋カレー名を2段・中央揃え */
+        .tag-enemy-card-bottom { flex-direction: column !important; align-items: center !important; gap: 2px !important; }
+
+        /* フェス戦：タッグ戦と同じ並び順（HPバー→敵名→アイコン→カレー名）に */
+        .fest-enemy-card .fest-enemy-info { display: contents !important; }
+        .fest-enemy-card .hp-bar-bg { order: 1; }
+        .fest-enemy-card .fest-enemy-name-hp-row { order: 2; }
+        .fest-enemy-card .tag-enemy-card-visual { order: 3 !important; }
+        .fest-enemy-card .fest-enemy-curry-row { order: 4; flex-direction: column !important; align-items: center !important; gap: 2px !important; }
+
+        /* タッグ戦：敵名・敵カレー名は白文字＋黒フチ（カード無し） */
+        .tag-enemy-card-name {
+            background: none !important; color: #fff !important;
+            text-shadow: -1.5px -1.5px 0 #000, 1.5px -1.5px 0 #000, -1.5px 1.5px 0 #000, 1.5px 1.5px 0 #000, 0 2px 5px rgba(0,0,0,0.5) !important;
+            font-size: 12px !important; padding: 0 !important;
+        }
+        .tag-enemy-curry-name {
+            color: #fff !important;
+            text-shadow: -1.5px -1.5px 0 #000, 1.5px -1.5px 0 #000, -1.5px 1.5px 0 #000, 1.5px 1.5px 0 #000, 0 2px 5px rgba(0,0,0,0.5) !important;
+            font-size: 10px !important;
+        }
+
+        /* フェス戦：敵名・敵カレー名は黒カード無し・黒文字・フチ無し */
+        .fest-enemy-card .tag-enemy-card-name {
+            background: none !important; color: #000 !important; text-shadow: none !important;
+            font-size: 12px !important; padding: 0 !important;
+        }
+        .fest-enemy-curry-name {
+            color: #000 !important; text-shadow: none !important; font-size: 10px !important;
+        }
     </style>
 </head>
 <body>
