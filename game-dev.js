@@ -3704,8 +3704,12 @@ function renderFestToppingEffectBox() {
 // ===== トッピングスロット：実行本体（20連勝・以降10連勝ごとに勝利直後モーダルで表示。画面遷移なし。
 //        自動で回り出すことはなく「スタート」ボタンで開始し、「ストップ」を押すと本物のリールのように
 //        上下がビューポートで見切れながらスクロールし、3秒かけて減速して停止する。抽選券・回す回数の概念は無い） =====
-const TOPPING_SLOT_ITEM_H = 44;                              // リール1コマの高さ(px)。行間を詰めるため短めに設定
-const TOPPING_SLOT_VIEWPORT_H = TOPPING_SLOT_ITEM_H * 3;      // ビューポートは3コマ分。中央のコマが選択中で、上下のコマは半端に見切れる
+const TOPPING_SLOT_ITEM_H = 46;                              // リール1コマの高さ(px)
+// ビューポートはコマ1つ分よりわずかに大きい程度に抑える。これにより静止時・停止時ともに、
+// 中央のコマ以外は上下がビューポートの縁でしっかり見切れた状態にしかならない（3コマぶんの高さを確保して均等割りする方式だと、
+// 静止直後や停止直後に上下のコマがほぼ丸ごと見えてしまい「見切れ感」が出ないため、あえて狭くしている）。
+const TOPPING_SLOT_VIEWPORT_H = Math.round(TOPPING_SLOT_ITEM_H * 1.9);
+const TOPPING_SLOT_CENTER_OFFSET = (TOPPING_SLOT_VIEWPORT_H - TOPPING_SLOT_ITEM_H) / 2; // 中央のコマをビューポート中央に揃えるためのオフセット
 const TOPPING_SLOT_FAST_SPEED = 0.85;                         // 高速回転中のスクロール速度(px/ms)
 const TOPPING_SLOT_DECEL_DURATION = 3000;                     // 減速〜停止までの時間(ms)
 
@@ -3746,10 +3750,12 @@ function closeFestToppingSlot() {
 }
 function resetFestToppingSlotState() {
     _toppingSlotLabels = [];
-    _toppingSlotScrollPx = 0;
     _toppingSlotPhase = 'idle';
     _toppingSlotResultDef = null;
     ensureFestToppingSlotLabels(20); // スタート前の静止表示に十分な分だけ先に用意しておく
+    // 静止時にindex1が中央に来るようscrollPxを設定する（index0が下に、index2が上にそれぞれ半端に見切れて見える状態にするため。
+    // index0を中央にすると「まだ何も通過していない」ため下側に見切れるコマが存在せず、下だけ不自然に空いてしまう）
+    _toppingSlotScrollPx = 1 * TOPPING_SLOT_ITEM_H + TOPPING_SLOT_CENTER_OFFSET;
 }
 function ensureFestToppingSlotLabels(minCount) {
     while(_toppingSlotLabels.length < minCount) {
@@ -3775,10 +3781,10 @@ function renderFestToppingSlotBody() {
     body.innerHTML =
         '<div style="text-align:center; padding:4px 0;">'
         + '<div style="font-size:12px; color:#454545; margin-bottom:12px;">連勝ボーナス！</div>'
-        + '<div style="height:' + TOPPING_SLOT_VIEWPORT_H + 'px; overflow:hidden; position:relative; background:#ffffff; border:2px solid #99aee3; border-radius:8px; margin:0 auto 18px; max-width:260px;">'
+        + '<div style="height:' + TOPPING_SLOT_VIEWPORT_H + 'px; overflow:hidden; position:relative; background:#ffffff; border:2px solid #99aee3; border-radius:8px; margin:0 auto 18px; max-width:230px;">'
         + '<div id="toppingSlotTrack" style="position:absolute; left:0; right:0; top:0;"></div>'
-        + '<div style="position:absolute; left:0; right:0; top:0; height:16px; background:linear-gradient(to bottom, rgba(255,255,255,0.95), rgba(255,255,255,0)); pointer-events:none;"></div>'
-        + '<div style="position:absolute; left:0; right:0; bottom:0; height:16px; background:linear-gradient(to top, rgba(255,255,255,0.95), rgba(255,255,255,0)); pointer-events:none;"></div>'
+        + '<div style="position:absolute; left:0; right:0; top:0; height:14px; background:linear-gradient(to bottom, rgba(255,255,255,0.95), rgba(255,255,255,0)); pointer-events:none;"></div>'
+        + '<div style="position:absolute; left:0; right:0; bottom:0; height:14px; background:linear-gradient(to top, rgba(255,255,255,0.95), rgba(255,255,255,0)); pointer-events:none;"></div>'
         + '</div>'
         + '<button class="btn btn-battle" id="toppingSlotActionBtn" onclick="startFestToppingSlotSpin()">スタート</button>'
         + '<div id="toppingSlotResultArea" style="display:none; margin-top:18px;">'
@@ -3807,8 +3813,8 @@ function toppingSlotFastFrame(now) {
     const dt = now - _toppingSlotLastFrameTime;
     _toppingSlotLastFrameTime = now;
     _toppingSlotScrollPx += TOPPING_SLOT_FAST_SPEED * dt;
-    // コマiが画面に現れるのはscrollPxが概ね(i+1)*ITEM_Hに達した頃なので、常にその少し先まで生成しておく
-    ensureFestToppingSlotLabels(Math.ceil(_toppingSlotScrollPx / TOPPING_SLOT_ITEM_H) + 8);
+    // コマiが中央（またはそれ以降）に到達するのはscrollPxがおおよそi*ITEM_H+CENTER_OFFSETに達した頃なので、常にその少し先まで生成しておく
+    ensureFestToppingSlotLabels(Math.ceil((_toppingSlotScrollPx - TOPPING_SLOT_CENTER_OFFSET) / TOPPING_SLOT_ITEM_H) + 8);
     renderFestToppingSlotTrackDom();
     if(_toppingSlotPhase === 'fast') {
         _toppingSlotRAF = requestAnimationFrame(toppingSlotFastFrame);
@@ -3825,12 +3831,12 @@ function stopFestToppingSlot() {
     if(btn) { btn.disabled = true; btn.style.opacity = '0.5'; }
     playSoundEffect('sound/slot_tomaru.mp3');
     _toppingSlotResultDef = FEST_TOPPING_DEFS[Math.floor(Math.random() * FEST_TOPPING_DEFS.length)];
-    const currentIndex = Math.floor(_toppingSlotScrollPx / TOPPING_SLOT_ITEM_H);
+    const currentIndex = Math.floor((_toppingSlotScrollPx - TOPPING_SLOT_CENTER_OFFSET) / TOPPING_SLOT_ITEM_H);
     const targetIndex = currentIndex + 18; // 停止までにさらに進むコマ数（減速演出に十分な距離を確保）
     ensureFestToppingSlotLabels(targetIndex + 5);
     _toppingSlotLabels[targetIndex] = _toppingSlotResultDef.label; // 中央で止まった時にちょうどこのラベルが見えるようにする
-    // コマiが中央に来る時のスクロール量は (i+1)*ITEM_H（上から下に流れる向きの座標系）
-    _toppingSlotDecelTargetPx = (targetIndex + 1) * TOPPING_SLOT_ITEM_H;
+    // コマiが中央に来る時のスクロール量は i*ITEM_H+CENTER_OFFSET
+    _toppingSlotDecelTargetPx = targetIndex * TOPPING_SLOT_ITEM_H + TOPPING_SLOT_CENTER_OFFSET;
     _toppingSlotDecelStartTime = performance.now();
     _toppingSlotDecelStartPx = _toppingSlotScrollPx;
     _toppingSlotRAF = requestAnimationFrame(toppingSlotDecelFrame);
