@@ -3701,12 +3701,26 @@ function renderFestToppingEffectBox() {
     }).join('');
 }
 
-// ===== トッピングスロット：実行本体（20連勝・以降10連勝ごとに勝利直後その場で自動実行される。抽選券は無い） =====
-let _toppingSlotSpinTimer = null;    // 高速回転中のsetInterval ID
-let _toppingSlotDecelActive = false; // 減速シーケンス中フラグ（ストップ連打防止）
+// ===== トッピングスロット：実行本体（20連勝・以降10連勝ごとに勝利直後モーダルで表示。画面遷移なし。
+//        自動で回り出すことはなく「スタート」ボタンで開始し、「ストップ」を押すと本物のリールのように
+//        上下がビューポートで見切れながらスクロールし、3秒かけて減速して停止する。抽選券・回す回数の概念は無い） =====
+const TOPPING_SLOT_ITEM_H = 54;                              // リール1コマの高さ(px)
+const TOPPING_SLOT_VIEWPORT_H = TOPPING_SLOT_ITEM_H * 3;      // ビューポートは3コマ分。中央のコマが選択中で、上下のコマは半端に見切れる
+const TOPPING_SLOT_FAST_SPEED = 0.9;                          // 高速回転中のスクロール速度(px/ms)
+const TOPPING_SLOT_DECEL_DURATION = 3000;                     // 減速〜停止までの時間(ms)
+
+let _toppingSlotLabels = [];        // これまでにDOMへ積んだリールのラベル配列（スクロールに合わせて随時継ぎ足す）
+let _toppingSlotScrollPx = 0;       // 現在のスクロール量(px)
+let _toppingSlotRAF = null;         // requestAnimationFrameのID
+let _toppingSlotPhase = 'idle';     // 'idle'（スタート待ち）| 'fast'（高速回転中）| 'decel'（減速中）| 'done'（結果確定済み）
+let _toppingSlotLastFrameTime = 0;
+let _toppingSlotDecelStartTime = 0;
+let _toppingSlotDecelStartPx = 0;
+let _toppingSlotDecelTargetPx = 0;
+let _toppingSlotResultDef = null;
 let _toppingSlotOnCloseCallback = null; // このスロットを閉じた後に呼ぶコールバック（複数回分を連続実行する時に使う）
 
-// count回分のスロットを1回ずつ自動実行し、すべて終わったらonAllDoneを呼ぶ（通常は1回勝利=1回だが、万一連勝数が一度に複数の閾値をまたいだ場合に備える）
+// count回分のスロットを1回ずつ順番にモーダル表示し、すべて終わったらonAllDoneを呼ぶ（通常は1回勝利=1回だが、万一連勝数が一度に複数の閾値をまたいだ場合に備える）
 function runFestToppingSlotQueue(count, onAllDone) {
     if(count <= 0) { if(onAllDone) onAllDone(); return; }
     openFestToppingSlotAuto(function() {
@@ -3715,96 +3729,129 @@ function runFestToppingSlotQueue(count, onAllDone) {
 }
 function openFestToppingSlotAuto(onClose) {
     _toppingSlotOnCloseCallback = onClose || null;
-    const el = document.getElementById('toppingSlotFullscreen');
-    if(el) el.classList.add('active');
+    const overlay = document.getElementById('toppingSlotOverlay');
+    if(overlay) overlay.style.display = 'flex';
+    resetFestToppingSlotState();
     renderFestToppingSlotBody();
-    startFestToppingSlotSpin();
 }
 function closeFestToppingSlot() {
-    stopFestToppingSlotSpinTimer();
+    if(_toppingSlotRAF) { cancelAnimationFrame(_toppingSlotRAF); _toppingSlotRAF = null; }
     if(toppingSlotSpinAudio) { toppingSlotSpinAudio.pause(); toppingSlotSpinAudio = null; }
-    _toppingSlotDecelActive = false;
-    const el = document.getElementById('toppingSlotFullscreen');
-    if(el) el.classList.remove('active');
+    const overlay = document.getElementById('toppingSlotOverlay');
+    if(overlay) overlay.style.display = 'none';
     renderFestToppingEffectBox(); // 仲間タブの効果一覧を更新
     const cb = _toppingSlotOnCloseCallback;
     _toppingSlotOnCloseCallback = null;
     if(cb) cb();
 }
+function resetFestToppingSlotState() {
+    _toppingSlotLabels = [];
+    _toppingSlotScrollPx = 0;
+    _toppingSlotPhase = 'idle';
+    _toppingSlotResultDef = null;
+    ensureFestToppingSlotLabels(20); // スタート前の静止表示に十分な分だけ先に用意しておく
+}
+function ensureFestToppingSlotLabels(minCount) {
+    while(_toppingSlotLabels.length < minCount) {
+        _toppingSlotLabels.push(FEST_TOPPING_DEFS[Math.floor(Math.random() * FEST_TOPPING_DEFS.length)].label);
+    }
+}
+function renderFestToppingSlotTrackDom() {
+    const track = document.getElementById('toppingSlotTrack');
+    if(!track) return;
+    track.innerHTML = _toppingSlotLabels.map(function(label){
+        return '<div style="height:' + TOPPING_SLOT_ITEM_H + 'px; display:flex; align-items:center; justify-content:center; font-size:15px; font-weight:bold; color:#454545; padding:0 8px; box-sizing:border-box;">' + label + '</div>';
+    }).join('');
+    track.style.transform = 'translateY(' + (-_toppingSlotScrollPx) + 'px)';
+}
 function renderFestToppingSlotBody() {
     const body = document.getElementById('toppingSlotBody');
     if(!body) return;
     body.innerHTML =
-        '<div style="text-align:center; padding:20px 0;">'
-        + '<div style="font-size:12px; color:#454545; margin-bottom:16px;">連勝ボーナス！</div>'
-        + '<div style="height:60px; overflow:hidden; position:relative; background:#ffffff; border:2px solid #99aee3; border-radius:8px; margin:0 auto 20px; max-width:280px;">'
-        + '<div id="toppingSlotReelText" style="font-size:18px; font-weight:bold; color:#454545; padding:18px 8px;">-</div>'
+        '<div style="text-align:center; padding:4px 0;">'
+        + '<div style="font-size:12px; color:#454545; margin-bottom:12px;">連勝ボーナス！</div>'
+        + '<div style="height:' + TOPPING_SLOT_VIEWPORT_H + 'px; overflow:hidden; position:relative; background:#ffffff; border:2px solid #99aee3; border-radius:8px; margin:0 auto 18px; max-width:260px;">'
+        + '<div id="toppingSlotTrack" style="position:absolute; left:0; right:0; top:0;"></div>'
         + '</div>'
-        + '<button class="btn btn-battle" id="toppingSlotStopBtn" onclick="stopFestToppingSlot()">ストップ</button>'
-        + '<div id="toppingSlotResultArea" style="display:none; margin-top:20px;">'
+        + '<button class="btn btn-battle" id="toppingSlotActionBtn" onclick="startFestToppingSlotSpin()">スタート</button>'
+        + '<div id="toppingSlotResultArea" style="display:none; margin-top:18px;">'
         + '<div id="toppingSlotResultText" style="font-size:16px; font-weight:bold; color:#454545; margin-bottom:14px;"></div>'
         + '<button class="btn btn-battle" onclick="closeFestToppingSlot()">閉じる</button>'
         + '</div>'
         + '</div>';
+    renderFestToppingSlotTrackDom();
 }
-function showRandomToppingSlotLabel() {
-    const el = document.getElementById('toppingSlotReelText');
-    if(!el) return;
-    const def = FEST_TOPPING_DEFS[Math.floor(Math.random() * FEST_TOPPING_DEFS.length)];
-    el.innerText = def.label;
-    el.style.animation = 'none';
-    void el.offsetWidth;
-    el.style.animation = 'toppingSlotTick 0.12s ease-out';
-}
+// 「スタート」押下：ここで初めて高速回転が始まる（自動開始はしない）
 function startFestToppingSlotSpin() {
-    stopFestToppingSlotSpinTimer();
+    if(_toppingSlotPhase !== 'idle') return;
+    _toppingSlotPhase = 'fast';
+    const btn = document.getElementById('toppingSlotActionBtn');
+    if(btn) { btn.innerText = 'ストップ'; btn.onclick = stopFestToppingSlot; }
     if(!isMuted) {
         toppingSlotSpinAudio = new Audio('sound/slot_kaiten.mp3');
         toppingSlotSpinAudio.loop = true;
         toppingSlotSpinAudio.volume = 0.5;
         toppingSlotSpinAudio.play().catch(function(){});
     }
-    _toppingSlotSpinTimer = setInterval(showRandomToppingSlotLabel, 70);
+    _toppingSlotLastFrameTime = performance.now();
+    _toppingSlotRAF = requestAnimationFrame(toppingSlotFastFrame);
 }
-function stopFestToppingSlotSpinTimer() {
-    if(_toppingSlotSpinTimer) { clearInterval(_toppingSlotSpinTimer); _toppingSlotSpinTimer = null; }
-}
-// 「ストップ」押下：目押しは一切効かず、ここから3秒かけて回転間隔を徐々に伸ばして止まったように見せるだけ。
-// 実際に何が当たるかは、演出が終わった瞬間に改めて完全ランダムで抽選する（stopを押すタイミングに一切依存しない）。
-function stopFestToppingSlot() {
-    if(_toppingSlotDecelActive) return; // 連打防止
-    _toppingSlotDecelActive = true;
-    playSoundEffect('sound/slot_botan.mp3');
-    stopFestToppingSlotSpinTimer();
-    if(toppingSlotSpinAudio) { toppingSlotSpinAudio.pause(); toppingSlotSpinAudio = null; }
-    const stopBtn = document.getElementById('toppingSlotStopBtn');
-    if(stopBtn) { stopBtn.disabled = true; stopBtn.style.opacity = '0.5'; }
-    playSoundEffect('sound/slot_tomaru.mp3');
-    const totalDuration = 3000; // 3秒かけて減速
-    const startTime = Date.now();
-    function decelStep() {
-        showRandomToppingSlotLabel();
-        const elapsed = Date.now() - startTime;
-        if(elapsed >= totalDuration) { finalizeFestToppingSlotResult(); return; }
-        const progress = elapsed / totalDuration; // 0→1
-        const nextDelay = 70 + Math.pow(progress, 2) * 400; // イージングアウト：後半ほど間隔が急激に伸びる
-        setTimeout(decelStep, nextDelay);
+function toppingSlotFastFrame(now) {
+    const dt = now - _toppingSlotLastFrameTime;
+    _toppingSlotLastFrameTime = now;
+    _toppingSlotScrollPx += TOPPING_SLOT_FAST_SPEED * dt;
+    ensureFestToppingSlotLabels(Math.ceil((_toppingSlotScrollPx + TOPPING_SLOT_VIEWPORT_H) / TOPPING_SLOT_ITEM_H) + 5);
+    renderFestToppingSlotTrackDom();
+    if(_toppingSlotPhase === 'fast') {
+        _toppingSlotRAF = requestAnimationFrame(toppingSlotFastFrame);
     }
-    decelStep();
+}
+// 「ストップ」押下：目押しは一切効かず、ここから3秒かけてイージングで減速し、視覚的に止まったように見せるだけ。
+// 実際に何が当たるかはこの瞬間に完全ランダムで抽選し、そこからさらに数コマ分先まで回転してから中央で止まる（stopを押すタイミングに一切依存しない）。
+function stopFestToppingSlot() {
+    if(_toppingSlotPhase !== 'fast') return;
+    _toppingSlotPhase = 'decel';
+    playSoundEffect('sound/slot_botan.mp3');
+    if(toppingSlotSpinAudio) { toppingSlotSpinAudio.pause(); toppingSlotSpinAudio = null; }
+    const btn = document.getElementById('toppingSlotActionBtn');
+    if(btn) { btn.disabled = true; btn.style.opacity = '0.5'; }
+    playSoundEffect('sound/slot_tomaru.mp3');
+    _toppingSlotResultDef = FEST_TOPPING_DEFS[Math.floor(Math.random() * FEST_TOPPING_DEFS.length)];
+    const currentIndex = Math.floor(_toppingSlotScrollPx / TOPPING_SLOT_ITEM_H);
+    const targetIndex = currentIndex + 18; // 停止までにさらに進むコマ数（減速演出に十分な距離を確保）
+    ensureFestToppingSlotLabels(targetIndex + 5);
+    _toppingSlotLabels[targetIndex] = _toppingSlotResultDef.label; // 中央で止まった時にちょうどこのラベルが見えるようにする
+    // ビューポートは3コマ分の高さなので、コマiが中央に来る時のスクロール量は (i-1)*ITEM_H
+    _toppingSlotDecelTargetPx = (targetIndex - 1) * TOPPING_SLOT_ITEM_H;
+    _toppingSlotDecelStartTime = performance.now();
+    _toppingSlotDecelStartPx = _toppingSlotScrollPx;
+    _toppingSlotRAF = requestAnimationFrame(toppingSlotDecelFrame);
+}
+function toppingSlotEaseOutQuint(t) { return 1 - Math.pow(1 - t, 5); }
+function toppingSlotDecelFrame(now) {
+    const elapsed = now - _toppingSlotDecelStartTime;
+    const t = Math.min(1, elapsed / TOPPING_SLOT_DECEL_DURATION);
+    const eased = toppingSlotEaseOutQuint(t);
+    _toppingSlotScrollPx = _toppingSlotDecelStartPx + (_toppingSlotDecelTargetPx - _toppingSlotDecelStartPx) * eased;
+    renderFestToppingSlotTrackDom();
+    if(t < 1) {
+        _toppingSlotRAF = requestAnimationFrame(toppingSlotDecelFrame);
+    } else {
+        finalizeFestToppingSlotResult();
+    }
 }
 function finalizeFestToppingSlotResult() {
-    _toppingSlotDecelActive = false;
-    const resultDef = FEST_TOPPING_DEFS[Math.floor(Math.random() * FEST_TOPPING_DEFS.length)];
-    const el = document.getElementById('toppingSlotReelText');
-    if(el) el.innerText = resultDef.label;
+    _toppingSlotPhase = 'done';
     playSoundEffect('sound/slot_kettei.mp3');
-    applyFestToppingResult(resultDef);
+    applyFestToppingResult(_toppingSlotResultDef);
     saveFestState();
     updateFestStatusBar();
     const resultArea = document.getElementById('toppingSlotResultArea');
     const resultText = document.getElementById('toppingSlotResultText');
-    if(resultText) resultText.innerText = resultDef.label + ' を獲得！';
+    if(resultText) resultText.innerText = _toppingSlotResultDef.label + ' を獲得！';
     if(resultArea) resultArea.style.display = 'block';
+    const btn = document.getElementById('toppingSlotActionBtn');
+    if(btn) btn.style.display = 'none';
 }
 // トッピングの効果を実際に反映する。ゴールドはフェス報酬Gへ、スパイス系・FPはその場で所持数に加算（即時効果のため永続一覧には残さない）。
 // それ以外（ステータス・会心率・ガード・ダメージ軽減）はfestActiveToppingsに積み、以後の全戦闘でプレイヤー自身のカレーにのみ常時適用される。
@@ -3834,6 +3881,8 @@ function renderFestDebugPanel() {
     if(sel && sel.options.length === 0) {
         sel.innerHTML = FEST_ALLY_DEFS.map(function(d){ return '<option value="' + d.name + '">' + d.name + '</option>'; }).join('');
     }
+    const streakValEl = document.getElementById('festDebugStreakVal');
+    if(streakValEl) streakValEl.innerText = festWinStreak;
 }
 function festDebugAdjustExpSpice(delta) {
     festExpSpice = Math.max(0, festExpSpice + delta);
@@ -3856,6 +3905,23 @@ function festDebugSetAllyLevel() {
     saveGame(); // 同じセッション内で即クラウドにも反映（stats全体を上書きするため、他端末での古いキャッシュがある場合は競合し得る点は変わらない）
     renderFestAllyUI();
     showCustomAlert('🔧 デバッグ設定完了', name + 'のレベルを' + level + 'に設定しました。');
+}
+// デバッグ用：連勝数を直接設定する。閾値を跨いだ場合はトッピングスロットもその場でテスト起動する。
+function festDebugSetWinStreak() {
+    const input = document.getElementById('festDebugStreakInput');
+    if(!input) return;
+    const val = parseInt(input.value, 10);
+    if(isNaN(val) || val < 0) { showCustomAlert('⚠️ 入力エラー', '連勝数を0以上の数値で入力してください。'); return; }
+    festWinStreak = val;
+    const toppingSlotsGranted = checkFestToppingSlotUnlock();
+    saveFestState();
+    updateFestStatusBar();
+    renderFestDebugPanel();
+    if(toppingSlotsGranted > 0) {
+        runFestToppingSlotQueue(toppingSlotsGranted, function(){});
+    } else {
+        showCustomAlert('🔧 デバッグ設定完了', '連勝数を' + val + 'に設定しました。');
+    }
 }
 // 戦闘外：仲間パネルから回復スパイスを使って雇用中の仲間のHPを全回復する
 function useFestHealSpiceOutsideBattle() {

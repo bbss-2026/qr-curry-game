@@ -188,8 +188,6 @@
             box-shadow:0 0 8px rgba(231,76,60,0.8); animation: bingoMarkPop 0.4s ease-out;
         }
         @keyframes bingoMarkPop { 0%{ transform:scale(0); opacity:0;} 60%{ transform:scale(1.2); opacity:1;} 100%{ transform:scale(1); } }
-        /* トッピングスロット：文字が上から下に流れて止まるような回転演出 */
-        @keyframes toppingSlotTick { 0%{ transform:translateY(-100%); opacity:0; } 100%{ transform:translateY(0); opacity:1; } }
         .bingo-mark-circle.bingo-mark-drop {
             animation: bingoMarkDrop 1.0s cubic-bezier(0.34,1.56,0.64,1) both, bingoMarkShine 0.6s ease-out 1.0s both;
         }
@@ -1464,12 +1462,12 @@
         </div>
         <div class="tag-match-body" id="dailyCurryBody"></div>
     </div>
-    <!-- カレーフェス：トッピングスロット（20連勝・以降10連勝ごとに勝利直後その場で自動実行。結果を受け取るまで閉じられない） -->
-    <div id="toppingSlotFullscreen" class="tutorial-fullscreen fest-theme">
-        <div class="tutorial-header">
-            <div class="tutorial-page-indicator">トッピングスロット</div>
+    <!-- カレーフェス：トッピングスロット（20連勝・以降10連勝ごとに勝利直後モーダルで表示。画面遷移なし。スタートボタンを押すと回転開始） -->
+    <div class="modal-overlay fest-theme" id="toppingSlotOverlay" style="display:none;">
+        <div class="modal-box" style="max-width:300px;">
+            <div class="modal-title" style="text-align:center;">トッピングスロット</div>
+            <div id="toppingSlotBody"></div>
         </div>
-        <div class="tag-match-body" id="toppingSlotBody"></div>
     </div>
     <!-- QRスキャンタブ -->
     <div id="pageScan" class="page" style="text-align:center;">
@@ -1789,6 +1787,11 @@
                     <select id="festDebugAllySelect" style="padding:4px; font-size:12px;"></select>
                     <input id="festDebugAllyLevelInput" type="number" min="1" max="50" style="width:56px; padding:4px; font-size:12px;" placeholder="Lv">
                     <button class="btn-cook-sub" onclick="festDebugSetAllyLevel()">レベル設定</button>
+                </div>
+                <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap; margin-top:10px;">
+                    <span>連勝数: <b id="festDebugStreakVal">0</b></span>
+                    <input id="festDebugStreakInput" type="number" min="0" style="width:56px; padding:4px; font-size:12px;" placeholder="連勝数">
+                    <button class="btn-cook-sub" onclick="festDebugSetWinStreak()">連勝数設定</button>
                 </div>
             </div>
         </div>
