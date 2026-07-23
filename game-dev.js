@@ -3704,9 +3704,9 @@ function renderFestToppingEffectBox() {
 // ===== トッピングスロット：実行本体（20連勝・以降10連勝ごとに勝利直後モーダルで表示。画面遷移なし。
 //        自動で回り出すことはなく「スタート」ボタンで開始し、「ストップ」を押すと本物のリールのように
 //        上下がビューポートで見切れながらスクロールし、3秒かけて減速して停止する。抽選券・回す回数の概念は無い） =====
-const TOPPING_SLOT_ITEM_H = 54;                              // リール1コマの高さ(px)
+const TOPPING_SLOT_ITEM_H = 44;                              // リール1コマの高さ(px)。行間を詰めるため短めに設定
 const TOPPING_SLOT_VIEWPORT_H = TOPPING_SLOT_ITEM_H * 3;      // ビューポートは3コマ分。中央のコマが選択中で、上下のコマは半端に見切れる
-const TOPPING_SLOT_FAST_SPEED = 0.9;                          // 高速回転中のスクロール速度(px/ms)
+const TOPPING_SLOT_FAST_SPEED = 0.85;                         // 高速回転中のスクロール速度(px/ms)
 const TOPPING_SLOT_DECEL_DURATION = 3000;                     // 減速〜停止までの時間(ms)
 
 let _toppingSlotLabels = [];        // これまでにDOMへ積んだリールのラベル配列（スクロールに合わせて随時継ぎ足す）
@@ -3756,13 +3756,18 @@ function ensureFestToppingSlotLabels(minCount) {
         _toppingSlotLabels.push(FEST_TOPPING_DEFS[Math.floor(Math.random() * FEST_TOPPING_DEFS.length)].label);
     }
 }
+// 各コマは position:absolute で「上から下」に流れる向きに配置する。
+// コマiのトラック内Y座標は -i*ITEM_H（indexが増えるほど上に積まれる＝まだ登場していない未来のコマ）とし、
+// トラック全体をtranslateY(+scrollPx)で下方向へ押し出すことで、未来のコマが上から入ってきて下へ抜けていく見た目になる。
+// この配置は各コマ自身のindexだけで決まる絶対位置なので、回転中に新しいコマを配列へ継ぎ足しても既存コマの位置はズレない。
 function renderFestToppingSlotTrackDom() {
     const track = document.getElementById('toppingSlotTrack');
     if(!track) return;
-    track.innerHTML = _toppingSlotLabels.map(function(label){
-        return '<div style="height:' + TOPPING_SLOT_ITEM_H + 'px; display:flex; align-items:center; justify-content:center; font-size:15px; font-weight:bold; color:#454545; padding:0 8px; box-sizing:border-box;">' + label + '</div>';
+    track.innerHTML = _toppingSlotLabels.map(function(label, i){
+        const top = -i * TOPPING_SLOT_ITEM_H;
+        return '<div style="position:absolute; left:0; right:0; top:' + top + 'px; height:' + TOPPING_SLOT_ITEM_H + 'px; display:flex; align-items:center; justify-content:center; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; font-size:14px; line-height:1; font-weight:bold; color:#454545; padding:0 10px; box-sizing:border-box;">' + label + '</div>';
     }).join('');
-    track.style.transform = 'translateY(' + (-_toppingSlotScrollPx) + 'px)';
+    track.style.transform = 'translateY(' + _toppingSlotScrollPx + 'px)';
 }
 function renderFestToppingSlotBody() {
     const body = document.getElementById('toppingSlotBody');
@@ -3772,6 +3777,8 @@ function renderFestToppingSlotBody() {
         + '<div style="font-size:12px; color:#454545; margin-bottom:12px;">連勝ボーナス！</div>'
         + '<div style="height:' + TOPPING_SLOT_VIEWPORT_H + 'px; overflow:hidden; position:relative; background:#ffffff; border:2px solid #99aee3; border-radius:8px; margin:0 auto 18px; max-width:260px;">'
         + '<div id="toppingSlotTrack" style="position:absolute; left:0; right:0; top:0;"></div>'
+        + '<div style="position:absolute; left:0; right:0; top:0; height:16px; background:linear-gradient(to bottom, rgba(255,255,255,0.95), rgba(255,255,255,0)); pointer-events:none;"></div>'
+        + '<div style="position:absolute; left:0; right:0; bottom:0; height:16px; background:linear-gradient(to top, rgba(255,255,255,0.95), rgba(255,255,255,0)); pointer-events:none;"></div>'
         + '</div>'
         + '<button class="btn btn-battle" id="toppingSlotActionBtn" onclick="startFestToppingSlotSpin()">スタート</button>'
         + '<div id="toppingSlotResultArea" style="display:none; margin-top:18px;">'
@@ -3800,7 +3807,8 @@ function toppingSlotFastFrame(now) {
     const dt = now - _toppingSlotLastFrameTime;
     _toppingSlotLastFrameTime = now;
     _toppingSlotScrollPx += TOPPING_SLOT_FAST_SPEED * dt;
-    ensureFestToppingSlotLabels(Math.ceil((_toppingSlotScrollPx + TOPPING_SLOT_VIEWPORT_H) / TOPPING_SLOT_ITEM_H) + 5);
+    // コマiが画面に現れるのはscrollPxが概ね(i+1)*ITEM_Hに達した頃なので、常にその少し先まで生成しておく
+    ensureFestToppingSlotLabels(Math.ceil(_toppingSlotScrollPx / TOPPING_SLOT_ITEM_H) + 8);
     renderFestToppingSlotTrackDom();
     if(_toppingSlotPhase === 'fast') {
         _toppingSlotRAF = requestAnimationFrame(toppingSlotFastFrame);
@@ -3821,8 +3829,8 @@ function stopFestToppingSlot() {
     const targetIndex = currentIndex + 18; // 停止までにさらに進むコマ数（減速演出に十分な距離を確保）
     ensureFestToppingSlotLabels(targetIndex + 5);
     _toppingSlotLabels[targetIndex] = _toppingSlotResultDef.label; // 中央で止まった時にちょうどこのラベルが見えるようにする
-    // ビューポートは3コマ分の高さなので、コマiが中央に来る時のスクロール量は (i-1)*ITEM_H
-    _toppingSlotDecelTargetPx = (targetIndex - 1) * TOPPING_SLOT_ITEM_H;
+    // コマiが中央に来る時のスクロール量は (i+1)*ITEM_H（上から下に流れる向きの座標系）
+    _toppingSlotDecelTargetPx = (targetIndex + 1) * TOPPING_SLOT_ITEM_H;
     _toppingSlotDecelStartTime = performance.now();
     _toppingSlotDecelStartPx = _toppingSlotScrollPx;
     _toppingSlotRAF = requestAnimationFrame(toppingSlotDecelFrame);
