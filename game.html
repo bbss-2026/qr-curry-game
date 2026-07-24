@@ -559,9 +559,13 @@
         .status-flash-overlay { position: fixed; top:0; left:0; width:100%; height:100%; height:100dvh; pointer-events:none; z-index:999; opacity:0; transition: opacity 0.15s; }
         .status-flash-overlay.poison-flash { background: rgba(128,0,128,0.45); }
         .status-flash-overlay.illusion-flash { background: rgba(0,0,0,0.55); }
-        /* 状態異常による名前カラー */
-        .name-poisoned { color: #9b59b6 !important; }
-        .name-illuded { color: #888 !important; }
+        /* 状態異常による名前カラー変更は廃止（アイコン表示に統一）。クラス自体はJS側の判定フックとして残すため、
+           空ルールとして定義だけ残しておく（文字色は一切変えない）。 */
+        .name-poisoned { }
+        .name-illuded { }
+        /* バトル名前横の状態アイコン */
+        .battle-status-icons { display:inline-flex; align-items:center; gap:2px; margin-left:4px; vertical-align:middle; }
+        .battle-status-icon { width:16px; height:16px; vertical-align:middle; }
         .gold-box { animation: goldGlow 1.5s infinite; border: 3px solid #f1c40f !important; }
         @keyframes goldGlow { 0% { box-shadow: 0 0 5px #f1c40f; } 50% { box-shadow: 0 0 20px #ffd700; } 100% { box-shadow: 0 0 5px #f1c40f; } }
         .poison-box { animation: poisonGlow 1.5s infinite; border: 3px dashed #9b59b6 !important; }
@@ -2036,7 +2040,7 @@
             <div id="battleResultBox" style="display:none; background:#fffdf0; padding:15px; border-radius:10px; border:2px dashed #9b59b6; margin-top:15px; text-align:center;">
                 <h2 id="battleVerdict" style="color:#e74c3c;">VICTORY!</h2>
                 <p id="rewardText" style="font-size:14px; font-weight:bold;"></p>
-                <button class="btn btn-start" onclick="endBattleScene()" style="width:100%;">もう一度対戦する</button>
+                <button class="btn btn-start" onclick="endBattleScene()" style="width:100%;">対戦タブに戻る</button>
                 <button class="btn btn-start" onclick="showBattleLogHistory()" style="width:100%;margin-top:8px;background:#7f8c8d;">📜 戦闘ログ</button>
             </div>
         </div>
