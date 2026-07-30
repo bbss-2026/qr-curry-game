@@ -37,20 +37,17 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
     const storyLibraryDevPreview = !STORY_LIBRARY_ENABLED && isStoryLibraryAdminUser();
     if (!STORY_LIBRARY_ENABLED && !storyLibraryDevPreview) return;
 
-    // ===== 咖喱図書館：章データ（仮のプレースホルダー。今後表紙画像・本文などを追加していく） =====
-    // imageUrl を設定すると表紙にその画像を表示する。未設定の間はプレースホルダー表示。
-    const STORY_CHAPTERS = [
-        { title: '第一章 目覚め', imageUrl: null },
-        { title: '第二章 岐路', imageUrl: null },
-        { title: '第三章 迷宮', imageUrl: null },
-        { title: '第四章 契約', imageUrl: null },
-        { title: '第五章 裏切り', imageUrl: null },
-        { title: '第六章 追跡', imageUrl: null },
-        { title: '第七章 真実', imageUrl: null },
-        { title: '第八章 決断', imageUrl: null },
-        { title: '第九章 対峙', imageUrl: null },
-        { title: '終章 帰還', imageUrl: null },
-    ];
+    // ===== 咖喱図書館：章データ =====
+    // 表紙: story/book-01.png〜book-10.png / 裏表紙: story/book2-01.png〜book2-10.png
+    const STORY_CHAPTER_COUNT = 10;
+    const STORY_CHAPTERS = [];
+    for (let i = 1; i <= STORY_CHAPTER_COUNT; i++) {
+        const num = String(i).padStart(2, '0');
+        STORY_CHAPTERS.push({
+            frontImage: 'story/book-' + num + '.png',
+            backImage: 'story/book2-' + num + '.png',
+        });
+    }
     const STORY_FLOAT_INTENSITY = 22;
     const STORY_AUTO_ROTATE_SPEED = 0.045; // 1フレームあたりの回転角度（度）
     const STORY_BGM_SRC = 'story/library-bgm.mp3';
@@ -107,29 +104,27 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
     position:absolute; width:102px; height:144px; transform-style:preserve-3d; cursor:pointer;
 }
 .story-book-front, .story-book-back {
-    position:absolute; inset:0; border-radius:5px; overflow:hidden;
+    position:absolute; inset:0; border-radius:5px; overflow:hidden; background-color:#3a2c1f;
+    background-size:cover; background-position:center;
     box-shadow:0 30px 45px -20px rgba(0,0,0,0.28), 0 4px 10px rgba(0,0,0,0.08);
 }
-.story-book-front {
-    background:linear-gradient(160deg,#8a5a3c,#5c3a24); background-size:cover; background-position:center;
-    display:flex; align-items:center; justify-content:center; text-align:center;
-    color:#fff8ec; font-size:12px; font-weight:bold; padding:8px; box-sizing:border-box; line-height:1.4;
-}
-.story-book-back { background:linear-gradient(135deg,#4a4238,#2e2822); }
 #storyLibraryCloseBtn {
-    position:absolute; top:16px; right:16px; z-index:10; width:36px; height:36px; border-radius:999px;
+    position:absolute; top:16px; left:16px; z-index:10; width:36px; height:36px; border-radius:999px;
     background:rgba(0,0,0,0.45); color:#fff; border:1px solid rgba(255,255,255,0.4); font-size:16px;
     cursor:pointer; display:flex; align-items:center; justify-content:center;
 }
+#storyMuteBtn {
+    position:absolute; top:8px; right:8px; width:32px; height:32px; border:none; background:transparent;
+    cursor:pointer; z-index:10; display:flex; align-items:center; justify-content:center; padding:0;
+}
+#storyMuteBtn img { width:28px; height:28px; }
 #storyBookDetailOverlay {
     position:absolute; inset:0; background:rgba(250,248,244,0.92); backdrop-filter:blur(10px);
     z-index:20; display:flex; align-items:center; justify-content:center;
 }
 .story-book-detail-cover {
-    width:60%; max-width:260px; aspect-ratio:0.72; border-radius:8px;
-    background:linear-gradient(160deg,#8a5a3c,#5c3a24); background-size:cover; background-position:center;
-    color:#fff8ec; display:flex; align-items:center; justify-content:center; text-align:center;
-    font-weight:bold; font-size:16px; padding:16px; box-sizing:border-box;
+    width:60%; max-width:260px; aspect-ratio:0.72; border-radius:8px; background-color:#3a2c1f;
+    background-size:cover; background-position:center;
     box-shadow:0 40px 60px -20px rgba(0,0,0,0.3);
 }
 #storyBookDetailCloseBtn {
@@ -153,6 +148,7 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
             '<div id="storyLibraryStage">'
             + '<div id="storyLibraryPerspective"><div id="storyBooksWrap"></div></div>'
             + '<button id="storyLibraryCloseBtn">✕</button>'
+            + '<button id="storyMuteBtn"><img id="storyMuteIcon" src="sound-on.svg" alt="sound"></button>'
             + '<div id="storyBookDetailOverlay" style="display:none;">'
             + '<button id="storyBookDetailCloseBtn">✕</button>'
             + '<div id="storyBookDetailCard"></div>'
@@ -170,15 +166,11 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
 
             const front = document.createElement('div');
             front.className = 'story-book-front';
-            if (chapter.imageUrl) {
-                front.style.backgroundImage = "url('" + chapter.imageUrl + "')";
-                front.textContent = '';
-            } else {
-                front.textContent = chapter.title;
-            }
+            front.style.backgroundImage = "url('" + chapter.frontImage + "')";
 
             const back = document.createElement('div');
             back.className = 'story-book-back';
+            back.style.backgroundImage = "url('" + chapter.backImage + "')";
 
             inner.appendChild(front);
             inner.appendChild(back);
@@ -200,6 +192,7 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
 
         overlay.querySelector('#storyLibraryCloseBtn').addEventListener('click', closeStoryLibrary);
         overlay.querySelector('#storyBookDetailCloseBtn').addEventListener('click', closeStoryBookDetail);
+        overlay.querySelector('#storyMuteBtn').addEventListener('click', onStoryMuteToggle);
 
         storyLibraryState.rotationY = 0;
         storyLibraryState.dragging = false;
@@ -209,11 +202,26 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
         window.addEventListener('resize', updateStoryLibraryScale);
         window.addEventListener('orientationchange', updateStoryLibraryScale);
 
+        updateStoryMuteIcon();
         if (typeof playBattleBGM === 'function') {
             playBattleBGM(STORY_BGM_SRC);
         }
 
         storyLibraryState.rafId = requestAnimationFrame(storyLibraryTick);
+    }
+
+    // 本体（ゲーム画面）のミュート状態・toggleMute()をそのまま流用する（二重管理しない）。
+    // アイコンだけ咖喱図書館内の専用ボタンにも反映させる。
+    function onStoryMuteToggle() {
+        if (typeof toggleMute === 'function') toggleMute();
+        updateStoryMuteIcon();
+    }
+    function updateStoryMuteIcon() {
+        if (!storyLibraryState.overlayEl) return;
+        const icon = storyLibraryState.overlayEl.querySelector('#storyMuteIcon');
+        if (!icon) return;
+        const muted = (typeof isMuted !== 'undefined') && isMuted;
+        icon.src = muted ? 'sound-off.svg' : 'sound-on.svg';
     }
 
     // スマホ等で画面幅が基準幅(500px)より狭い場合、本棚全体（3D演出ごと）を
@@ -299,13 +307,7 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
         const detailOverlay = storyLibraryState.overlayEl.querySelector('#storyBookDetailOverlay');
         const card = storyLibraryState.overlayEl.querySelector('#storyBookDetailCard');
         card.className = 'story-book-detail-cover';
-        if (chapter.imageUrl) {
-            card.style.backgroundImage = "url('" + chapter.imageUrl + "')";
-            card.textContent = '';
-        } else {
-            card.style.backgroundImage = '';
-            card.textContent = chapter.title;
-        }
+        card.style.backgroundImage = "url('" + chapter.frontImage + "')";
         detailOverlay.style.display = 'flex';
     }
     function closeStoryBookDetail() {
