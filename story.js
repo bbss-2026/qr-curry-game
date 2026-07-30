@@ -14,6 +14,10 @@
 // ・ただし開発中でも管理者アカウント（FEST_ADMIN_EXCLUDED_IDSに含まれるplayerId）だけは
 //   入り口が見え、動作確認のために入れるようにする（下記isStoryLibraryAdminUser参照）。
 // ・このファイルはgame.jsより後に読み込まれる前提（game.html内のscriptタグの順序に依存）。
+// ・「咖喱図書館アンロック済みか」は今のところ端末ローカル（localStorage）のみで管理している
+//   （Firebase・ルールに一切触れない方針を優先したため）。管理者用リセットボタンも同じ理由で
+//   ゲーム内（対戦タブのボタン横）に仮設置している。複数端末をまたいだ管理や、専用の管理ツール
+//   （admin.html等）からのリセットが必要な場合は、別途相談の上でクラウド化する。
 
 const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrueへ変更する
 
@@ -52,6 +56,24 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
     const STORY_AUTO_ROTATE_SPEED = 0.045; // 1フレームあたりの回転角度（度）
     const STORY_BGM_SRC = 'story/library-bgm.mp3';
     const STORY_STAGE_REF_WIDTH = 500; // 本棚の3D演出はこの基準幅で設計されている
+    const STORY_LIBRARYMAN_IMG = 'story/libraryman01.png';
+    const STORY_MESSAGE_SE = 'sound/message.mp3';
+    const STORY_TYPE_INTERVAL_MS = 45;
+    const STORY_UNLOCK_STORAGE_KEY = 'qr_story_library_unlocked';
+    const STORY_BOOK_SPAWN_STAGGER_MS = 90;
+    const STORY_BOOK_SPAWN_DURATION_MS = 550;
+
+    // 初回案内で表示する固定の会話ページ。選択肢を選んだ後の続き（お前が読むべき本は…／そうか、残念だ。）は
+    // onChoiceSelected() でその場でキューに追加する（分岐先を静的配列にせず動的に組み立てる）。
+    const STORY_DIALOGUE_PAGES = [
+        { text: 'よく来たな、待ってたぞ。\nここは咖喱図書館。\n人々のカレーの想いが集う場所だ。' },
+        { text: 'お前も読みたいのか？', choices: [
+            { label: 'はい', value: true },
+            { label: 'いいえ', value: false },
+        ] },
+    ];
+    const STORY_ACCEPT_TEXT = 'お前が読むべき本はこの10冊だ。\n好きな本から読むといい';
+    const STORY_DECLINE_TEXT = 'そうか、残念だ。';
 
     const storyLibraryState = {
         overlayEl: null,
@@ -62,11 +84,24 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
         dragMoved: false,
         startX: 0,
         startRot: 0,
+        mode: 'carousel', // 'carousel' | 'intro_wait_tap' | 'intro_dialogue'
+        unlocked: false,
+        booksRevealed: false,
+        pendingUnlock: false,
+        dialogueQueue: [],
+        dialogueIndex: 0,
+        typingTimer: null,
+        typingText: '',
+        typingIndex: 0,
+        typingDone: true,
+        pendingChoices: null,
+        revealStartTs: 0,
     };
 
     // ===== 初期化 =====
     function initStoryLibrary() {
         injectStoryLibraryStyles();
+        injectStoryLibraryFont();
         injectStoryLibraryEntryButton();
         // 今後、咖喱図書館の初期化処理（セーブデータの読み込み等）をここに追加していく
     }
@@ -84,6 +119,50 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
         btn.innerHTML = '<span style="font-size:13px;">📚 咖喱図書館</span>'
             + (storyLibraryDevPreview ? '<span style="font-size:9px; opacity:0.85;">（開発中・管理者のみ）</span>' : '');
         anchor.parentNode.appendChild(btn);
+
+        // 管理者用：咖喱図書館の進行状況（この端末のみ）をリセットするボタン。
+        // 動作確認のたびに毎回初回案内から見直せるようにするための仮設置。
+        if (storyLibraryDevPreview) {
+            const resetBtn = document.createElement('button');
+            resetBtn.id = 'btnStoryLibraryReset';
+            resetBtn.title = '咖喱図書館リセット（管理者用・この端末のみ）';
+            resetBtn.style.cssText = 'flex:0 0 34px; min-height:40px; display:flex; align-items:center; justify-content:center; background:rgba(0,0,0,0.15); color:#5c3a24; border-radius:6px; font-size:15px; margin-left:2px; border:none; cursor:pointer;';
+            resetBtn.textContent = '🔄';
+            resetBtn.onclick = onStoryLibraryResetClick;
+            anchor.parentNode.appendChild(resetBtn);
+        }
+    }
+
+    function onStoryLibraryResetClick() {
+        const doReset = function() {
+            localStorage.removeItem(STORY_UNLOCK_STORAGE_KEY);
+            if (typeof showCustomAlert === 'function') {
+                showCustomAlert('🔄 咖喱図書館リセット', 'リセットしました。次回入場時に最初から案内が始まります。');
+            }
+        };
+        const msg = '管理者用：この端末の咖喱図書館の進行状況をリセットします。よろしいですか？';
+        if (typeof showCustomConfirm === 'function') {
+            showCustomConfirm('🔄 咖喱図書館リセット', msg, doReset);
+        } else if (confirm(msg)) {
+            doReset();
+        }
+    }
+
+    // 「咖喱」等のCJK漢字が端末フォントによっては表示できない場合があるため、
+    // 収録範囲の広いWebフォント（Noto Sans SC）を咖喱図書館関連の要素にのみ適用する。
+    function injectStoryLibraryFont() {
+        if (document.getElementById('storyLibraryFontLink')) return;
+        const pre1 = document.createElement('link');
+        pre1.rel = 'preconnect'; pre1.href = 'https://fonts.googleapis.com';
+        const pre2 = document.createElement('link');
+        pre2.rel = 'preconnect'; pre2.href = 'https://fonts.gstatic.com'; pre2.crossOrigin = 'anonymous';
+        const link = document.createElement('link');
+        link.id = 'storyLibraryFontLink';
+        link.rel = 'stylesheet';
+        link.href = 'https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;700&display=swap';
+        document.head.appendChild(pre1);
+        document.head.appendChild(pre2);
+        document.head.appendChild(link);
     }
 
     function injectStoryLibraryStyles() {
@@ -91,13 +170,16 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
         const style = document.createElement('style');
         style.id = 'storyLibraryStyles';
         style.textContent = `
+#storyLibraryOverlay, #btnStoryLibrary, #btnStoryLibraryReset {
+    font-family:'Noto Sans SC','Hiragino Kaku Gothic ProN','Noto Sans JP',sans-serif;
+}
 #storyLibraryOverlay { position:fixed; inset:0; z-index:9999; background:#000; }
 #storyLibraryStage {
     position:relative; width:100%; max-width:500px; height:100%; margin:0 auto;
     background-image:url('story/currylibrary_bg2.png'); background-size:cover; background-position:center;
-    overflow:hidden; touch-action:none; user-select:none; cursor:grab; font-family:inherit;
+    overflow:hidden; touch-action:none; user-select:none; cursor:grab;
 }
-#storyLibraryPerspective { position:absolute; inset:0; perspective:1400px; }
+#storyLibraryPerspective { position:absolute; inset:0; perspective:1400px; z-index:1; }
 #storyBooksWrap { position:absolute; top:56%; left:50%; width:0; height:0; transform-style:preserve-3d; }
 .story-book-wrapper { position:absolute; top:0; left:0; width:0; height:0; transform-style:preserve-3d; }
 .story-book-inner {
@@ -109,13 +191,13 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
     box-shadow:0 30px 45px -20px rgba(0,0,0,0.28), 0 4px 10px rgba(0,0,0,0.08);
 }
 #storyLibraryCloseBtn {
-    position:absolute; top:16px; left:16px; z-index:10; width:36px; height:36px; border-radius:999px;
+    position:absolute; top:16px; left:16px; z-index:30; width:36px; height:36px; border-radius:999px;
     background:rgba(0,0,0,0.45); color:#fff; border:1px solid rgba(255,255,255,0.4); font-size:16px;
     cursor:pointer; display:flex; align-items:center; justify-content:center;
 }
 #storyMuteBtn {
     position:absolute; top:8px; right:8px; width:32px; height:32px; border:none; background:transparent;
-    cursor:pointer; z-index:10; display:flex; align-items:center; justify-content:center; padding:0;
+    cursor:pointer; z-index:30; display:flex; align-items:center; justify-content:center; padding:0;
 }
 #storyMuteBtn img { width:28px; height:28px; }
 #storyBookDetailOverlay {
@@ -131,14 +213,52 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
     position:absolute; top:32px; right:24px; background:none; border:1px solid rgba(0,0,0,0.3);
     border-radius:999px; width:40px; height:40px; font-size:16px; color:#3a342c; cursor:pointer;
 }
+
+/* ===== 初回案内（店主との会話） ===== */
+#storyDialogueLayer { position:absolute; inset:0; z-index:14; display:none; }
+.story-libraryman {
+    position:absolute; left:50%; bottom:0; transform:translateX(-50%) scale(0.92); max-height:80%; max-width:88%;
+    opacity:0; transition:opacity 0.4s ease, transform 0.4s ease; z-index:15;
+}
+.story-libraryman.story-man-visible { opacity:1; transform:translateX(-50%) scale(1); }
+#storyMessageBox {
+    position:absolute; left:14px; right:14px; bottom:14px; z-index:16;
+    background:rgba(35,28,18,0.85); color:#fff; border-radius:10px; padding:16px 18px 12px;
+    font-size:15px; line-height:1.8; box-shadow:0 8px 24px rgba(0,0,0,0.35); display:none;
+}
+#storyMessageText { white-space:pre-line; min-height:1.8em; }
+#storyMessageArrow {
+    text-align:right; margin-top:2px; font-size:14px; display:none;
+    animation:storyArrowBlink 1s steps(1) infinite;
+}
+@keyframes storyArrowBlink { 0%, 50% { opacity:1; } 50.01%, 100% { opacity:0; } }
+#storyMessageChoices { display:none; gap:10px; margin-top:12px; justify-content:flex-end; }
+.story-choice-btn {
+    background:rgba(255,255,255,0.12); border:1px solid rgba(255,255,255,0.55); color:#fff;
+    border-radius:6px; padding:8px 22px; font-size:14px; cursor:pointer;
+}
+.story-choice-btn:active { background:rgba(255,255,255,0.3); }
         `;
         document.head.appendChild(style);
     }
 
-    // 咖喱図書館のメイン画面表示（3D回転本棚UI）
+    // 咖喱図書館のメイン画面表示（3D回転本棚UI＋初回案内）
     function openStoryLibrary() {
         if (storyLibraryState.overlayEl) return; // 既に開いている場合は何もしない
         buildStoryLibraryOverlay();
+    }
+
+    function isStoryLibraryUnlocked() {
+        try {
+            return localStorage.getItem(STORY_UNLOCK_STORAGE_KEY) === '1';
+        } catch (e) {
+            return false;
+        }
+    }
+    function setStoryLibraryUnlocked(v) {
+        try {
+            localStorage.setItem(STORY_UNLOCK_STORAGE_KEY, v ? '1' : '0');
+        } catch (e) {}
     }
 
     function buildStoryLibraryOverlay() {
@@ -147,6 +267,14 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
         overlay.innerHTML =
             '<div id="storyLibraryStage">'
             + '<div id="storyLibraryPerspective"><div id="storyBooksWrap"></div></div>'
+            + '<div id="storyDialogueLayer">'
+            + '<img id="storyLibraryman" class="story-libraryman" src="' + STORY_LIBRARYMAN_IMG + '" alt="">'
+            + '<div id="storyMessageBox">'
+            + '<div id="storyMessageText"></div>'
+            + '<div id="storyMessageArrow">▼</div>'
+            + '<div id="storyMessageChoices"></div>'
+            + '</div>'
+            + '</div>'
             + '<button id="storyLibraryCloseBtn">✕</button>'
             + '<button id="storyMuteBtn"><img id="storyMuteIcon" src="sound-on.svg" alt="sound"></button>'
             + '<div id="storyBookDetailOverlay" style="display:none;">'
@@ -159,6 +287,8 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
 
         const booksWrap = overlay.querySelector('#storyBooksWrap');
         STORY_CHAPTERS.forEach(function(chapter) {
+            chapter._spawnDelay = undefined;
+
             const wrapper = document.createElement('div');
             wrapper.className = 'story-book-wrapper';
             const inner = document.createElement('div');
@@ -184,15 +314,36 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
             chapter._backEl = back;
         });
 
+        // ===== 初回案内 or 通常表示の分岐 =====
+        storyLibraryState.unlocked = isStoryLibraryUnlocked();
+        storyLibraryState.mode = storyLibraryState.unlocked ? 'carousel' : 'intro_wait_tap';
+        storyLibraryState.booksRevealed = storyLibraryState.unlocked;
+        storyLibraryState.pendingUnlock = false;
+        storyLibraryState.dialogueQueue = [];
+        storyLibraryState.dialogueIndex = 0;
+
+        const perspective = overlay.querySelector('#storyLibraryPerspective');
+        if (perspective) perspective.style.display = storyLibraryState.unlocked ? '' : 'none';
+
         const stage = overlay.querySelector('#storyLibraryStage');
         stage.addEventListener('pointerdown', onStoryDragStart);
         stage.addEventListener('pointermove', onStoryDragMove);
         stage.addEventListener('pointerup', onStoryDragEnd);
         stage.addEventListener('pointerleave', onStoryDragEnd);
+        stage.addEventListener('click', onStoryStageClick);
 
-        overlay.querySelector('#storyLibraryCloseBtn').addEventListener('click', closeStoryLibrary);
-        overlay.querySelector('#storyBookDetailCloseBtn').addEventListener('click', closeStoryBookDetail);
-        overlay.querySelector('#storyMuteBtn').addEventListener('click', onStoryMuteToggle);
+        overlay.querySelector('#storyLibraryCloseBtn').addEventListener('click', function(e) {
+            e.stopPropagation();
+            closeStoryLibrary();
+        });
+        overlay.querySelector('#storyMuteBtn').addEventListener('click', function(e) {
+            e.stopPropagation();
+            onStoryMuteToggle();
+        });
+        overlay.querySelector('#storyBookDetailCloseBtn').addEventListener('click', function(e) {
+            e.stopPropagation();
+            closeStoryBookDetail();
+        });
 
         storyLibraryState.rotationY = 0;
         storyLibraryState.dragging = false;
@@ -210,20 +361,6 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
         storyLibraryState.rafId = requestAnimationFrame(storyLibraryTick);
     }
 
-    // 本体（ゲーム画面）のミュート状態・toggleMute()をそのまま流用する（二重管理しない）。
-    // アイコンだけ咖喱図書館内の専用ボタンにも反映させる。
-    function onStoryMuteToggle() {
-        if (typeof toggleMute === 'function') toggleMute();
-        updateStoryMuteIcon();
-    }
-    function updateStoryMuteIcon() {
-        if (!storyLibraryState.overlayEl) return;
-        const icon = storyLibraryState.overlayEl.querySelector('#storyMuteIcon');
-        if (!icon) return;
-        const muted = (typeof isMuted !== 'undefined') && isMuted;
-        icon.src = muted ? 'sound-off.svg' : 'sound-on.svg';
-    }
-
     // スマホ等で画面幅が基準幅(500px)より狭い場合、本棚全体（3D演出ごと）を
     // 画面幅にぴったり収まるよう縮小する。本の位置計算(radius等)は基準幅のまま行い、
     // 見た目だけをCSSのtransform:scaleでフィットさせるため、本の配置ロジックはシンプルなまま保てる。
@@ -238,18 +375,32 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
         perspective.style.transformOrigin = '50% 56%';
     }
 
+    // 本体（ゲーム画面）のミュート状態・toggleMute()をそのまま流用する（二重管理しない）。
+    // アイコンだけ咖喱図書館内の専用ボタンにも反映させる。
+    function onStoryMuteToggle() {
+        if (typeof toggleMute === 'function') toggleMute();
+        updateStoryMuteIcon();
+    }
+    function updateStoryMuteIcon() {
+        if (!storyLibraryState.overlayEl) return;
+        const icon = storyLibraryState.overlayEl.querySelector('#storyMuteIcon');
+        if (!icon) return;
+        const muted = (typeof isMuted !== 'undefined') && isMuted;
+        icon.src = muted ? 'sound-off.svg' : 'sound-on.svg';
+    }
+
     function storyLibraryTick(ts) {
         const t = ts / 1000;
         if (!storyLibraryState.dragging) {
             storyLibraryState.rotationY += STORY_AUTO_ROTATE_SPEED;
         }
         storyLibraryState.t = t;
-        renderStoryBooks(t);
+        renderStoryBooks(t, ts);
         storyLibraryState.rafId = requestAnimationFrame(storyLibraryTick);
     }
 
-    function renderStoryBooks(t) {
-        if (!storyLibraryState.overlayEl) return;
+    function renderStoryBooks(t, tsMs) {
+        if (!storyLibraryState.overlayEl || !storyLibraryState.booksRevealed) return;
         const count = STORY_CHAPTERS.length;
         const radius = (150 + count * 8) * 0.85;
         const rotationY = storyLibraryState.rotationY;
@@ -264,9 +415,20 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
             const wobble = Math.sin(t * 0.7 + i * 2.3) * 2.5;
             const breathe = 1 + Math.sin(t * 0.9 + i) * 0.015;
 
+            // 「はい」を選んだ直後、本が上から降ってくるように1冊ずつ時間差で出現する演出。
+            let spawnProgress = 1;
+            if (typeof chapter._spawnDelay === 'number') {
+                const elapsed = tsMs - storyLibraryState.revealStartTs - chapter._spawnDelay;
+                spawnProgress = Math.max(0, Math.min(1, elapsed / STORY_BOOK_SPAWN_DURATION_MS));
+            }
+            const eased = 1 - Math.pow(1 - spawnProgress, 3);
+            const dropOffset = (1 - eased) * 160;
+            const spawnScale = 0.4 + eased * 0.6;
+
             chapter._wrapperEl.style.transform = 'rotateY(' + angle + 'deg) translateZ(' + radius + 'px)';
+            chapter._innerEl.style.opacity = String(eased);
             chapter._innerEl.style.transform =
-                'translate(-50%,-60%) translateY(' + bob + 'px) rotateZ(' + wobble + 'deg) scale(' + breathe + ')';
+                'translate(-50%,-60%) translateY(' + (bob - dropOffset) + 'px) rotateZ(' + wobble + 'deg) scale(' + (breathe * spawnScale) + ')';
 
             const normalizedAngle = ((angle + rotationY) % 360 + 360) % 360;
             const diff = normalizedAngle > 180 ? 360 - normalizedAngle : normalizedAngle;
@@ -277,6 +439,7 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
     }
 
     function onStoryDragStart(e) {
+        if (storyLibraryState.mode !== 'carousel') return;
         storyLibraryState.dragging = true;
         storyLibraryState.dragMoved = false;
         storyLibraryState.startX = e.clientX;
@@ -285,12 +448,14 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
         if (stage) stage.style.cursor = 'grabbing';
     }
     function onStoryDragMove(e) {
+        if (storyLibraryState.mode !== 'carousel') return;
         if (!storyLibraryState.dragging) return;
         const delta = e.clientX - storyLibraryState.startX;
         if (Math.abs(delta) > 5) storyLibraryState.dragMoved = true;
         storyLibraryState.rotationY = storyLibraryState.startRot + delta * 0.35;
     }
     function onStoryDragEnd() {
+        if (!storyLibraryState.dragging) return;
         storyLibraryState.dragging = false;
         if (storyLibraryState.overlayEl) {
             const stage = storyLibraryState.overlayEl.querySelector('#storyLibraryStage');
@@ -299,6 +464,7 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
     }
 
     function onStoryBookClick(chapter) {
+        if (storyLibraryState.mode !== 'carousel') return;
         if (storyLibraryState.dragMoved) return;
         openStoryBookDetail(chapter);
     }
@@ -315,9 +481,178 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
         if (detailOverlay) detailOverlay.style.display = 'none';
     }
 
+    // ===== 店主との会話（初回案内） =====
+
+    function onStoryStageClick() {
+        if (storyLibraryState.mode === 'intro_wait_tap') {
+            startIntroDialogue();
+        } else if (storyLibraryState.mode === 'intro_dialogue') {
+            handleDialogueTap();
+        }
+        // carousel モードでは何もしない（ドラッグ／本のクリックのみ有効）
+    }
+
+    function startIntroDialogue() {
+        storyLibraryState.mode = 'intro_dialogue';
+        storyLibraryState.dialogueQueue = STORY_DIALOGUE_PAGES.slice();
+        storyLibraryState.dialogueIndex = 0;
+
+        const layer = storyLibraryState.overlayEl.querySelector('#storyDialogueLayer');
+        const manImg = storyLibraryState.overlayEl.querySelector('#storyLibraryman');
+        layer.style.display = 'block';
+        manImg.classList.remove('story-man-visible');
+        // 少し間を置いて店主を表示（フェードイン）
+        requestAnimationFrame(function() {
+            manImg.classList.add('story-man-visible');
+        });
+        setTimeout(function() {
+            showCurrentDialoguePage();
+        }, 500);
+    }
+
+    function showCurrentDialoguePage() {
+        const page = storyLibraryState.dialogueQueue[storyLibraryState.dialogueIndex];
+        if (!page) { endDialogueSequence(); return; }
+        if (typeof page.beforeShow === 'function') page.beforeShow();
+        startTypewriter(page.text, page.choices || null);
+    }
+
+    function startTypewriter(text, choices) {
+        clearStoryTypingTimer();
+        const box = storyLibraryState.overlayEl.querySelector('#storyMessageBox');
+        const textEl = storyLibraryState.overlayEl.querySelector('#storyMessageText');
+        const arrow = storyLibraryState.overlayEl.querySelector('#storyMessageArrow');
+        const choicesEl = storyLibraryState.overlayEl.querySelector('#storyMessageChoices');
+        box.style.display = 'block';
+        choicesEl.style.display = 'none';
+        choicesEl.innerHTML = '';
+        arrow.style.display = 'none';
+        textEl.textContent = '';
+
+        storyLibraryState.typingText = text;
+        storyLibraryState.typingIndex = 0;
+        storyLibraryState.typingDone = false;
+        storyLibraryState.pendingChoices = choices;
+
+        storyLibraryState.typingTimer = setInterval(advanceTypewriter, STORY_TYPE_INTERVAL_MS);
+    }
+
+    function advanceTypewriter() {
+        const textEl = storyLibraryState.overlayEl.querySelector('#storyMessageText');
+        const text = storyLibraryState.typingText;
+        if (storyLibraryState.typingIndex >= text.length) {
+            finishTypewriter();
+            return;
+        }
+        const ch = text[storyLibraryState.typingIndex];
+        storyLibraryState.typingIndex++;
+        textEl.textContent = text.slice(0, storyLibraryState.typingIndex);
+        if (ch.trim() !== '' && typeof playSoundEffect === 'function') {
+            playSoundEffect(STORY_MESSAGE_SE);
+        }
+        if (storyLibraryState.typingIndex >= text.length) {
+            finishTypewriter();
+        }
+    }
+
+    function completeTypewriterInstantly() {
+        const textEl = storyLibraryState.overlayEl.querySelector('#storyMessageText');
+        clearStoryTypingTimer();
+        textEl.textContent = storyLibraryState.typingText;
+        storyLibraryState.typingIndex = storyLibraryState.typingText.length;
+        finishTypewriter();
+    }
+
+    function finishTypewriter() {
+        clearStoryTypingTimer();
+        storyLibraryState.typingDone = true;
+        const arrow = storyLibraryState.overlayEl.querySelector('#storyMessageArrow');
+        const choicesEl = storyLibraryState.overlayEl.querySelector('#storyMessageChoices');
+        if (storyLibraryState.pendingChoices) {
+            choicesEl.innerHTML = '';
+            storyLibraryState.pendingChoices.forEach(function(c) {
+                const b = document.createElement('button');
+                b.className = 'story-choice-btn';
+                b.textContent = c.label;
+                b.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    choicesEl.style.display = 'none';
+                    onChoiceSelected(c.value);
+                });
+                choicesEl.appendChild(b);
+            });
+            choicesEl.style.display = 'flex';
+            arrow.style.display = 'none';
+        } else {
+            arrow.style.display = 'block';
+        }
+    }
+
+    function clearStoryTypingTimer() {
+        if (storyLibraryState.typingTimer) {
+            clearInterval(storyLibraryState.typingTimer);
+            storyLibraryState.typingTimer = null;
+        }
+    }
+
+    function handleDialogueTap() {
+        if (!storyLibraryState.typingDone) {
+            completeTypewriterInstantly();
+            return;
+        }
+        const page = storyLibraryState.dialogueQueue[storyLibraryState.dialogueIndex];
+        if (page && page.choices) return; // 選択肢が出ている間はボタン以外での進行を無視
+        storyLibraryState.dialogueIndex++;
+        showCurrentDialoguePage();
+    }
+
+    function onChoiceSelected(value) {
+        storyLibraryState.pendingUnlock = (value === true);
+        if (value === true) {
+            storyLibraryState.dialogueQueue.push({ text: STORY_ACCEPT_TEXT, beforeShow: revealStoryBooks });
+        } else {
+            storyLibraryState.dialogueQueue.push({ text: STORY_DECLINE_TEXT });
+        }
+        storyLibraryState.dialogueIndex++;
+        showCurrentDialoguePage();
+    }
+
+    // 背景レイヤーと店主画像レイヤーの間（本棚レイヤー）に、本を1冊ずつ時間差で降らせるように出現させる。
+    function revealStoryBooks() {
+        if (storyLibraryState.booksRevealed) return;
+        storyLibraryState.booksRevealed = true;
+        storyLibraryState.revealStartTs = performance.now();
+        const perspective = storyLibraryState.overlayEl.querySelector('#storyLibraryPerspective');
+        if (perspective) perspective.style.display = '';
+        STORY_CHAPTERS.forEach(function(chapter, i) {
+            chapter._spawnDelay = i * STORY_BOOK_SPAWN_STAGGER_MS;
+        });
+    }
+
+    function endDialogueSequence() {
+        const layer = storyLibraryState.overlayEl.querySelector('#storyDialogueLayer');
+        const manImg = storyLibraryState.overlayEl.querySelector('#storyLibraryman');
+        const box = storyLibraryState.overlayEl.querySelector('#storyMessageBox');
+        manImg.classList.remove('story-man-visible');
+        if (box) box.style.display = 'none';
+        setTimeout(function() {
+            if (layer) layer.style.display = 'none';
+        }, 400);
+
+        if (storyLibraryState.pendingUnlock) {
+            setStoryLibraryUnlocked(true);
+            storyLibraryState.unlocked = true;
+            storyLibraryState.mode = 'carousel';
+        } else {
+            // 「いいえ」を選んだ場合は本を出さないまま。もう一度タップすれば再度尋ねられる。
+            storyLibraryState.mode = 'intro_wait_tap';
+        }
+    }
+
     function closeStoryLibrary() {
         if (storyLibraryState.rafId) cancelAnimationFrame(storyLibraryState.rafId);
         storyLibraryState.rafId = null;
+        clearStoryTypingTimer();
         window.removeEventListener('resize', updateStoryLibraryScale);
         window.removeEventListener('orientationchange', updateStoryLibraryScale);
         if (typeof stopBattleBGM === 'function') {
@@ -332,6 +667,7 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
             chapter._innerEl = null;
             chapter._frontEl = null;
             chapter._backEl = null;
+            chapter._spawnDelay = undefined;
         });
     }
 
