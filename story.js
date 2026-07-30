@@ -478,7 +478,9 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
 
 /* ===== 初回案内（店主との会話） ===== */
 /* storyBookDetailOverlay(20)より上に、閉じるボタン(30)より下に表示する（本の拡大画面の上にも重ねられるように）。 */
-#storyDialogueLayer { position:absolute; inset:0; z-index:22; display:none; }
+/* pointer-events:noneにして、セリフ表示中でも下にある要素（想いの欠片カウンター等）へのタップを
+   透過させる。実際にタップ操作が必要な子要素（選択肢ボタン等）だけpointer-events:autoで復活させる。 */
+#storyDialogueLayer { position:absolute; inset:0; z-index:22; display:none; pointer-events:none; }
 .story-libraryman {
     position:absolute; left:50%; bottom:0; transform:translateX(-50%) scale(0.92); max-height:80%; max-width:88%;
     opacity:0; transition:opacity 0.4s ease, transform 0.4s ease; z-index:15;
@@ -505,7 +507,7 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
 @keyframes storyArrowBlink { 0%, 50% { opacity:1; } 50.01%, 100% { opacity:0; } }
 /* 選択肢はメッセージウインドウの上に表示する */
 #storyMessageChoices {
-    position:absolute; left:14px; right:14px; bottom:156px; z-index:16;
+    position:absolute; left:14px; right:14px; bottom:156px; z-index:16; pointer-events:auto;
     display:none; gap:12px; justify-content:center;
 }
 .story-choice-btn {
@@ -558,8 +560,8 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
             + '<div id="storyBookDetailOverlay" style="display:none;">'
             + '<button id="storyBookDetailCloseBtn">✕</button>'
             + '<div id="storyBookDetailColumn">'
-            + '<div id="storyBookDetailCard"></div>'
             + '<div id="storyBookDetailKakera">想いの欠片:0個</div>'
+            + '<div id="storyBookDetailCard"></div>'
             + '</div>'
             + '</div>'
             + '<div id="storyKakeraInfoOverlay" style="display:none;">'
@@ -821,7 +823,7 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
     // ===== 想いの欠片：初回チュートリアル一式 =====
 
     // 初めて本の拡大画面に入った時の館長のセリフ（1回だけ）。
-    // まずは表紙の拡大画像だけを2秒ほど見せ、その間は館長は出さない。2秒後に館長が登場してセリフ開始。
+    // まずは表紙の拡大画像だけを2秒ほど見せてからセリフを開始する。本の拡大画面では館長の画像は出さない。
     function maybeStartKakeraBookIntro() {
         if (getKakeraOnboardStage() !== 0) return;
         storyLibraryState.mode = 'intro_dialogue';
@@ -838,8 +840,8 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
             updateKakeraDisplays();
         };
         setTimeout(function() {
-            showStoryLibraryman();
-            scheduleDialogueStart(500);
+            showStoryDialogueLayerOnly();
+            scheduleDialogueStart(300);
         }, 2000);
     }
 
@@ -931,6 +933,13 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
         requestAnimationFrame(function() {
             manImg.classList.add('story-man-visible');
         });
+    }
+
+    // 館長の画像は出さず、会話レイヤー（メッセージウインドウ）だけを表示する。
+    // 本の拡大画面でのセリフ表示用（本の拡大画面では館長の画像は不要なため）。
+    function showStoryDialogueLayerOnly() {
+        const layer = storyLibraryState.overlayEl.querySelector('#storyDialogueLayer');
+        layer.style.display = 'block';
     }
 
     // 指定時間後に最初のセリフ表示を開始する。待っている間にタップされてもページが
