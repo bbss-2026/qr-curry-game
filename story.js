@@ -64,18 +64,33 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
     const STORY_UNLOCK_STORAGE_KEY = 'qr_story_library_unlocked';
     const STORY_BOOK_SPAWN_STAGGER_MS = 90;
     const STORY_BOOK_SPAWN_DURATION_MS = 550;
+    const STORY_BOOK_REVEAL_WAIT_MS = 2000; // 本が降ってくる演出と次のセリフが重ならないよう待つ時間
 
-    // 初回案内で表示する固定の会話ページ。選択肢を選んだ後の続き（お前が読むべき本は…／そうか、残念だ。）は
-    // onChoiceSelected() でその場でキューに追加する（分岐先を静的配列にせず動的に組み立てる）。
-    const STORY_DIALOGUE_PAGES = [
-        { text: 'よく来たな、待ってたぞ。\nここは咖喱図書館。\n人々のカレーの想いが集う場所だ。' },
-        { text: 'お前も読みたいのか？', choices: [
-            { label: 'はい', value: true },
-            { label: 'いいえ', value: false },
-        ] },
-    ];
     const STORY_ACCEPT_TEXT = 'お前が読むべき本はこの10冊だ。\n好きな本から読むといい';
     const STORY_DECLINE_TEXT = 'そうか、残念だ。';
+
+    function getStoryPlayerName() {
+        try {
+            return (typeof playerName === 'string' && playerName) ? playerName : 'プレイヤー';
+        } catch (e) {
+            return 'プレイヤー';
+        }
+    }
+
+    // 初回案内で表示する会話ページ。プレイヤー名を差し込むため、開始時に毎回組み立て直す。
+    // 選択肢を選んだ後の続き（お前が読むべき本は…／そうか、残念だ。）はonChoiceSelected()で
+    // その場でキューに追加する（分岐先を静的配列にせず動的に組み立てる）。
+    function buildStoryIntroPages() {
+        const name = getStoryPlayerName();
+        return [
+            { text: 'よく来たな' + name + '。\n待っていたぞ。' },
+            { text: 'ここか？ ここは咖喱図書館。\n人々の様々なカレーの想いが\nここの本には込められている' },
+            { text: 'どうだ？' + name + 'も読んでみないか？', choices: [
+                { label: 'はい', value: true },
+                { label: 'いいえ', value: false },
+            ] },
+        ];
+    }
 
     const storyLibraryState = {
         overlayEl: null,
@@ -234,23 +249,30 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
     opacity:0; transition:opacity 0.4s ease, transform 0.4s ease; z-index:15;
 }
 .story-libraryman.story-man-visible { opacity:1; transform:translateX(-50%) scale(1); }
+/* 3行想定の固定サイズ角丸ウインドウ。セリフの長さに関わらず高さは変えず、中でテキストが流れていく。 */
 #storyMessageBox {
-    position:absolute; left:14px; right:14px; bottom:14px; z-index:16;
-    background:rgba(35,28,18,0.85); color:#fff; border-radius:10px; padding:16px 18px 12px;
-    font-size:15px; line-height:1.8; box-shadow:0 8px 24px rgba(0,0,0,0.35); display:none;
+    position:absolute; left:14px; right:14px; bottom:14px; z-index:16; height:132px; box-sizing:border-box;
+    background:rgba(35,28,18,0.85); color:#fff; border-radius:16px; padding:14px 18px 10px;
+    font-size:15px; line-height:1.8; box-shadow:0 8px 24px rgba(0,0,0,0.35);
+    display:none; flex-direction:column; justify-content:space-between;
 }
-#storyMessageText { white-space:pre-line; min-height:1.8em; text-align:left; }
+#storyMessageText { white-space:pre-line; text-align:left; overflow:hidden; }
 #storyMessageArrow {
-    text-align:right; margin-top:2px; font-size:14px; display:none;
+    text-align:right; font-size:14px; display:none; flex:none;
     animation:storyArrowBlink 1s steps(1) infinite;
 }
 @keyframes storyArrowBlink { 0%, 50% { opacity:1; } 50.01%, 100% { opacity:0; } }
-#storyMessageChoices { display:none; gap:10px; margin-top:12px; justify-content:flex-end; }
-.story-choice-btn {
-    background:rgba(255,255,255,0.12); border:1px solid rgba(255,255,255,0.55); color:#fff;
-    border-radius:6px; padding:8px 22px; font-size:14px; cursor:pointer;
+/* 選択肢はメッセージウインドウの上に表示する */
+#storyMessageChoices {
+    position:absolute; left:14px; right:14px; bottom:156px; z-index:16;
+    display:none; gap:12px; justify-content:center;
 }
-.story-choice-btn:active { background:rgba(255,255,255,0.3); }
+.story-choice-btn {
+    background:rgba(35,28,18,0.85); border:1px solid rgba(255,255,255,0.55); color:#fff;
+    border-radius:10px; padding:10px 26px; font-size:14px; cursor:pointer;
+    box-shadow:0 8px 20px rgba(0,0,0,0.3);
+}
+.story-choice-btn:active { background:rgba(60,48,32,0.9); }
         `;
         document.head.appendChild(style);
     }
@@ -282,10 +304,10 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
             + '<div id="storyLibraryPerspective"><div id="storyBooksWrap"></div></div>'
             + '<div id="storyDialogueLayer">'
             + '<img id="storyLibraryman" class="story-libraryman" src="' + STORY_LIBRARYMAN_IMG + '" alt="">'
+            + '<div id="storyMessageChoices"></div>'
             + '<div id="storyMessageBox">'
             + '<div id="storyMessageText"></div>'
             + '<div id="storyMessageArrow">▼</div>'
-            + '<div id="storyMessageChoices"></div>'
             + '</div>'
             + '</div>'
             + '<button id="storyLibraryCloseBtn">✕</button>'
@@ -525,7 +547,7 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
 
     function startIntroDialogue() {
         storyLibraryState.mode = 'intro_dialogue';
-        storyLibraryState.dialogueQueue = STORY_DIALOGUE_PAGES.slice();
+        storyLibraryState.dialogueQueue = buildStoryIntroPages();
         storyLibraryState.dialogueIndex = 0;
 
         const layer = storyLibraryState.overlayEl.querySelector('#storyDialogueLayer');
@@ -545,7 +567,21 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
         const page = storyLibraryState.dialogueQueue[storyLibraryState.dialogueIndex];
         if (!page) { endDialogueSequence(); return; }
         if (typeof page.beforeShow === 'function') page.beforeShow();
-        startTypewriter(page.text, page.choices || null);
+        const delay = page.preDelayMs || 0;
+        if (delay > 0) {
+            // 演出（本が降ってくる等）とセリフ表示が重ならないよう、少し待ってから文字送りを始める。
+            // 待っている間にタップされてもページを飛ばさないよう、先にtypingDoneをfalseにしておく。
+            storyLibraryState.typingDone = false;
+            const arrow = storyLibraryState.overlayEl.querySelector('#storyMessageArrow');
+            if (arrow) arrow.style.display = 'none';
+            setTimeout(function() {
+                if (storyLibraryState.dialogueQueue[storyLibraryState.dialogueIndex] === page) {
+                    startTypewriter(page.text, page.choices || null);
+                }
+            }, delay);
+        } else {
+            startTypewriter(page.text, page.choices || null);
+        }
     }
 
     function startTypewriter(text, choices) {
@@ -554,7 +590,7 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
         const textEl = storyLibraryState.overlayEl.querySelector('#storyMessageText');
         const arrow = storyLibraryState.overlayEl.querySelector('#storyMessageArrow');
         const choicesEl = storyLibraryState.overlayEl.querySelector('#storyMessageChoices');
-        box.style.display = 'block';
+        box.style.display = 'flex';
         choicesEl.style.display = 'none';
         choicesEl.innerHTML = '';
         arrow.style.display = 'none';
@@ -641,7 +677,7 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
     function onChoiceSelected(value) {
         storyLibraryState.pendingUnlock = (value === true);
         if (value === true) {
-            storyLibraryState.dialogueQueue.push({ text: STORY_ACCEPT_TEXT, beforeShow: revealStoryBooks });
+            storyLibraryState.dialogueQueue.push({ text: STORY_ACCEPT_TEXT, beforeShow: revealStoryBooks, preDelayMs: STORY_BOOK_REVEAL_WAIT_MS });
         } else {
             storyLibraryState.dialogueQueue.push({ text: STORY_DECLINE_TEXT });
         }
