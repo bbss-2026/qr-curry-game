@@ -53,6 +53,8 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
     ];
     const STORY_FLOAT_INTENSITY = 22;
     const STORY_AUTO_ROTATE_SPEED = 0.045; // 1フレームあたりの回転角度（度）
+    const STORY_BGM_SRC = 'story/library-bgm.mp3';
+    const STORY_STAGE_REF_WIDTH = 500; // 本棚の3D演出はこの基準幅で設計されている
 
     const storyLibraryState = {
         overlayEl: null,
@@ -94,8 +96,8 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
         style.textContent = `
 #storyLibraryOverlay { position:fixed; inset:0; z-index:9999; background:#000; }
 #storyLibraryStage {
-    position:relative; width:500px; max-width:100%; height:100%; margin:0 auto;
-    background-image:url('story/bg.png'); background-size:cover; background-position:center;
+    position:relative; width:100%; max-width:500px; height:100%; margin:0 auto;
+    background-image:url('story/currylibrary_bg2.png'); background-size:cover; background-position:center;
     overflow:hidden; touch-action:none; user-select:none; cursor:grab; font-family:inherit;
 }
 #storyLibraryPerspective { position:absolute; inset:0; perspective:1400px; }
@@ -106,7 +108,6 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
 }
 .story-book-front, .story-book-back {
     position:absolute; inset:0; border-radius:5px; overflow:hidden;
-    backface-visibility:hidden; -webkit-backface-visibility:hidden;
     box-shadow:0 30px 45px -20px rgba(0,0,0,0.28), 0 4px 10px rgba(0,0,0,0.08);
 }
 .story-book-front {
@@ -203,7 +204,30 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
         storyLibraryState.rotationY = 0;
         storyLibraryState.dragging = false;
         storyLibraryState.dragMoved = false;
+
+        updateStoryLibraryScale();
+        window.addEventListener('resize', updateStoryLibraryScale);
+        window.addEventListener('orientationchange', updateStoryLibraryScale);
+
+        if (typeof playBattleBGM === 'function') {
+            playBattleBGM(STORY_BGM_SRC);
+        }
+
         storyLibraryState.rafId = requestAnimationFrame(storyLibraryTick);
+    }
+
+    // スマホ等で画面幅が基準幅(500px)より狭い場合、本棚全体（3D演出ごと）を
+    // 画面幅にぴったり収まるよう縮小する。本の位置計算(radius等)は基準幅のまま行い、
+    // 見た目だけをCSSのtransform:scaleでフィットさせるため、本の配置ロジックはシンプルなまま保てる。
+    function updateStoryLibraryScale() {
+        if (!storyLibraryState.overlayEl) return;
+        const stage = storyLibraryState.overlayEl.querySelector('#storyLibraryStage');
+        const perspective = storyLibraryState.overlayEl.querySelector('#storyLibraryPerspective');
+        if (!stage || !perspective) return;
+        const w = stage.clientWidth || STORY_STAGE_REF_WIDTH;
+        const scale = Math.min(1, w / STORY_STAGE_REF_WIDTH);
+        perspective.style.transform = 'scale(' + scale + ')';
+        perspective.style.transformOrigin = '50% 56%';
     }
 
     function storyLibraryTick(ts) {
@@ -292,6 +316,11 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
     function closeStoryLibrary() {
         if (storyLibraryState.rafId) cancelAnimationFrame(storyLibraryState.rafId);
         storyLibraryState.rafId = null;
+        window.removeEventListener('resize', updateStoryLibraryScale);
+        window.removeEventListener('orientationchange', updateStoryLibraryScale);
+        if (typeof stopBattleBGM === 'function') {
+            stopBattleBGM();
+        }
         if (storyLibraryState.overlayEl) {
             storyLibraryState.overlayEl.remove();
         }
