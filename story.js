@@ -14,10 +14,15 @@
 // ・ただし開発中でも管理者アカウント（FEST_ADMIN_EXCLUDED_IDSに含まれるplayerId）だけは
 //   入り口が見え、動作確認のために入れるようにする（下記isStoryLibraryAdminUser参照）。
 // ・このファイルはgame.jsより後に読み込まれる前提（game.html内のscriptタグの順序に依存）。
-// ・「咖喱図書館アンロック済みか」は今のところ端末ローカル（localStorage）のみで管理している
-//   （Firebase・ルールに一切触れない方針を優先したため）。管理者用リセットボタンも同じ理由で
+// ・「咖喱図書館アンロック済みか」「想いの欠片の所持数」は今のところ端末ローカル（localStorage）のみで
+//   管理している（Firebase・ルールに一切触れない方針を優先したため）。管理者用リセットボタンも同じ理由で
 //   ゲーム内（対戦タブのボタン横）に仮設置している。複数端末をまたいだ管理や、専用の管理ツール
 //   （admin.html等）からのリセットが必要な場合は、別途相談の上でクラウド化する。
+// ・「想いの欠片」の自動付与（QRスキャン・調理・PC戦勝利など）は、game.js本体を一切編集せず、
+//   game.js側の既存グローバル関数を「後からラップ（monkey patch）」する形で実現している
+//   （installStoryKakeraHooks参照）。game.jsはトップレベルのfunction宣言＝window直下の
+//   プロパティなので、story.js側からwindow.関数名を差し替えても、game.js内部からの
+//   呼び出しは新しい（ラップ後の）関数を使うようになる。
 
 const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrueへ変更する
 
@@ -65,9 +70,10 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
     const STORY_BOOK_SPAWN_STAGGER_MS = 90;
     const STORY_BOOK_SPAWN_DURATION_MS = 550;
     const STORY_BOOK_REVEAL_WAIT_MS = 2000; // 本が降ってくる演出と次のセリフが重ならないよう待つ時間
+    const STORY_SPEAKER_NAME = '館長';
 
-    const STORY_ACCEPT_TEXT = 'お前が読むべき本はこの10冊だ。\n好きな本から読むといい';
-    const STORY_DECLINE_TEXT = 'そうか、残念だ。';
+    const STORY_ACCEPT_TEXT = '「お前が読むべき本はこの10冊だ。\n好きな本から読むといい」';
+    const STORY_DECLINE_TEXT = '「そうか、残念だ」';
 
     function getStoryPlayerName() {
         try {
@@ -83,13 +89,210 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
     function buildStoryIntroPages() {
         const name = getStoryPlayerName();
         return [
-            { text: 'よく来たな' + name + '。\n待っていたぞ。' },
-            { text: 'ここか？ ここは咖喱図書館。\n人々の様々なカレーの想いが\nここの本には込められている' },
-            { text: 'どうだ？' + name + 'も読んでみないか？', choices: [
+            { text: '「よく来たな' + name + '。\n待っていたぞ」' },
+            { text: '「ここか？ ここは咖喱図書館。\n人々の様々なカレーの想いが\nここの本には込められている」' },
+            { text: '「どうだ？' + name + 'も読んでみないか？」', choices: [
                 { label: 'はい', value: true },
                 { label: 'いいえ', value: false },
             ] },
         ];
+    }
+
+    // ===== 想いの欠片 =====
+    const STORY_KAKERA_STORAGE_KEY = 'qr_story_kakera_count';
+    const STORY_KAKERA_MAX = 100;
+    // 0=未開始 / 1=本の拡大画面での説明済み（本棚に戻るのを待っている）/
+    // 2=本棚での説明済み（想いの欠片タップ待ち）/ 3=一覧を見た後、最後のセリフ再生中 / 4=完了
+    const STORY_KAKERA_ONBOARD_KEY = 'qr_story_kakera_onboard_stage';
+
+    const STORY_KAKERA_SOURCES = [
+        ['QRスキャン', '1個'],
+        ['調理', '1個'],
+        ['ログインボーナス', '3個'],
+        ['QRビンゴ1列', '5個'],
+        ['PC戦(初級)勝利', '3個'],
+        ['PC戦(中級)勝利', '5個'],
+        ['タッグ戦勝利', '5個'],
+        ['ルーム戦勝利', '5個'],
+        ['カレーフェス10連勝ごと', '5個'],
+        ['宅配カレー使用される', '1個'],
+        ['宅配カレー完食される', '10個'],
+    ];
+
+    function getStoryKakera() {
+        try {
+            const v = parseInt(localStorage.getItem(STORY_KAKERA_STORAGE_KEY), 10);
+            return isNaN(v) ? 0 : v;
+        } catch (e) {
+            return 0;
+        }
+    }
+    function setStoryKakera(v) {
+        const clamped = Math.max(0, Math.min(STORY_KAKERA_MAX, v));
+        try { localStorage.setItem(STORY_KAKERA_STORAGE_KEY, String(clamped)); } catch (e) {}
+        updateKakeraDisplays();
+        return clamped;
+    }
+    // 今後の自動付与（QRスキャン・調理等）はここを通す。表記や通知は出さず、ひっそり増やすだけ。
+    function addStoryKakera(n) {
+        if (!n) return;
+        setStoryKakera(getStoryKakera() + n);
+    }
+    // 咖喱図書館側の演出として明示的に付与する場合（初回30個プレゼント等）は通知付き。
+    function addStoryKakeraWithNotice(n) {
+        const before = getStoryKakera();
+        const after = setStoryKakera(before + n);
+        const gained = after - before;
+        if (gained > 0 && typeof showCustomAlert === 'function') {
+            showCustomAlert('💭 想いの欠片', '想いの欠片を' + gained + '個入手しました！');
+        }
+    }
+
+    function getKakeraOnboardStage() {
+        try {
+            const v = parseInt(localStorage.getItem(STORY_KAKERA_ONBOARD_KEY), 10);
+            return isNaN(v) ? 0 : v;
+        } catch (e) {
+            return 0;
+        }
+    }
+    function setKakeraOnboardStage(v) {
+        try { localStorage.setItem(STORY_KAKERA_ONBOARD_KEY, String(v)); } catch (e) {}
+    }
+
+    // game.js本体には一切手を加えず、既存のグローバル関数を後から差し替えて（monkey patch）
+    // 「その関数が呼ばれたタイミングで想いの欠片を加算する」ためのユーティリティ。
+    // game.js側のfunction宣言はwindow直下のプロパティになるため、window.<name>を差し替えるだけで
+    // game.js内部からの呼び出しも新しい関数に差し替わる（呼び出し側のコードは一切変更不要）。
+    function wrapGlobalFn(name, makeWrapped) {
+        try {
+            const orig = window[name];
+            if (typeof orig !== 'function' || orig.__storyWrapped) return;
+            const wrapped = makeWrapped(orig);
+            wrapped.__storyWrapped = true;
+            window[name] = wrapped;
+        } catch (e) {}
+    }
+
+    function installStoryKakeraHooks() {
+        if (window.__storyKakeraHooksInstalled) return;
+        window.__storyKakeraHooksInstalled = true;
+
+        // QRスキャン成功：+1
+        wrapGlobalFn('onQRScanned', function(orig) {
+            return function() {
+                const r = orig.apply(this, arguments);
+                addStoryKakera(1);
+                return r;
+            };
+        });
+
+        // 調理：+1
+        wrapGlobalFn('onCookDone', function(orig) {
+            return function() {
+                const r = orig.apply(this, arguments);
+                addStoryKakera(1);
+                return r;
+            };
+        });
+
+        // ログインボーナス：+3（未取得→取得済みに変わった時だけ加算し、二重付与を防ぐ）
+        wrapGlobalFn('claimLoginBonus', function(orig) {
+            return function() {
+                let before = null;
+                try { before = typeof getLoginData === 'function' ? !!getLoginData().claimed : null; } catch (e) {}
+                const r = orig.apply(this, arguments);
+                try {
+                    if (before === false && typeof getLoginData === 'function' && getLoginData().claimed) {
+                        addStoryKakera(3);
+                    }
+                } catch (e) {}
+                return r;
+            };
+        });
+
+        // QRビンゴ1列達成：+5（同時に複数列揃った場合は列数分）
+        wrapGlobalFn('onItemObtainedForBingo', function(orig) {
+            return function() {
+                let beforeLen = 0;
+                try { beforeLen = (typeof getBingoData === 'function' && getBingoData()) ? getBingoData().completedLines.length : 0; } catch (e) {}
+                const r = orig.apply(this, arguments);
+                try {
+                    const afterLen = (typeof getBingoData === 'function' && getBingoData()) ? getBingoData().completedLines.length : beforeLen;
+                    const diff = afterLen - beforeLen;
+                    if (diff > 0) addStoryKakera(diff * 5);
+                } catch (e) {}
+                return r;
+            };
+        });
+
+        // PC戦(初級)勝利：+3 / PC戦(中級)勝利：+5
+        wrapGlobalFn('onBattleWin', function(orig) {
+            return function(kind) {
+                const r = orig.apply(this, arguments);
+                if (kind === 'bot') addStoryKakera(3);
+                else if (kind === 'hard') addStoryKakera(5);
+                return r;
+            };
+        });
+
+        // タッグ戦勝利：+5
+        wrapGlobalFn('tagFinishBattle', function(orig) {
+            return function(result) {
+                const r = orig.apply(this, arguments);
+                if (result === 'win') addStoryKakera(5);
+                return r;
+            };
+        });
+
+        // ルーム戦（対人戦）勝利：+5。bot戦との判定はisBotMatch（game.js側のグローバル変数）で見分ける。
+        wrapGlobalFn('done', function(orig) {
+            return function(pHP, oHP) {
+                let roomWin = false;
+                try {
+                    const isWin = pHP > oHP;
+                    roomWin = isWin && (typeof isBotMatch !== 'undefined') && !isBotMatch;
+                } catch (e) {}
+                const r = orig.apply(this, arguments);
+                if (roomWin) addStoryKakera(5);
+                return r;
+            };
+        });
+
+        // カレーフェス10連勝ごと：+5
+        wrapGlobalFn('festBattleWin', function(orig) {
+            return function() {
+                const r = orig.apply(this, arguments);
+                try {
+                    if (typeof festWinStreak === 'number' && festWinStreak > 0 && festWinStreak % 10 === 0) {
+                        addStoryKakera(5);
+                    }
+                } catch (e) {}
+                return r;
+            };
+        });
+
+        // 宅配カレー使用される：+1（自分の端末がログイン時等に受け取り一覧を処理したタイミングで加算）
+        wrapGlobalFn('processDeliveryRewards', function(orig) {
+            return function(rewards) {
+                try {
+                    if (Array.isArray(rewards)) {
+                        const usedCount = rewards.filter(function(r) { return r && !r.eatenUp; }).length;
+                        if (usedCount > 0) addStoryKakera(usedCount);
+                    }
+                } catch (e) {}
+                return orig.apply(this, arguments);
+            };
+        });
+
+        // 宅配カレー完食される：+10
+        wrapGlobalFn('handleEatenUpEntry', function(orig) {
+            return function() {
+                const r = orig.apply(this, arguments);
+                addStoryKakera(10);
+                return r;
+            };
+        });
     }
 
     const storyLibraryState = {
@@ -107,6 +310,7 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
         pendingUnlock: false,
         dialogueQueue: [],
         dialogueIndex: 0,
+        onDialogueEnd: null,
         typingTimer: null,
         typingText: '',
         typingIndex: 0,
@@ -120,6 +324,7 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
         injectStoryLibraryStyles();
         injectStoryLibraryFont();
         injectStoryLibraryEntryButton();
+        installStoryKakeraHooks();
         // 今後、咖喱図書館の初期化処理（セーブデータの読み込み等）をここに追加していく
     }
 
@@ -153,11 +358,13 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
     function onStoryLibraryResetClick() {
         const doReset = function() {
             localStorage.removeItem(STORY_UNLOCK_STORAGE_KEY);
+            localStorage.removeItem(STORY_KAKERA_STORAGE_KEY);
+            localStorage.removeItem(STORY_KAKERA_ONBOARD_KEY);
             if (typeof showCustomAlert === 'function') {
                 showCustomAlert('🔄 咖喱図書館リセット', 'リセットしました。次回入場時に最初から案内が始まります。');
             }
         };
-        const msg = '管理者用：この端末の咖喱図書館の進行状況をリセットします。よろしいですか？';
+        const msg = '管理者用：この端末の咖喱図書館の進行状況（本棚の解放状況・想いの欠片を含む）をリセットします。よろしいですか？';
         if (typeof showCustomConfirm === 'function') {
             showCustomConfirm('🔄 咖喱図書館リセット', msg, doReset);
         } else if (confirm(msg)) {
@@ -225,10 +432,17 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
     cursor:pointer; z-index:30; display:flex; align-items:center; justify-content:center; padding:0;
 }
 #storyMuteBtn img { width:28px; height:28px; }
+#storyKakeraCounter {
+    position:absolute; top:16px; left:50%; transform:translateX(-50%); z-index:12;
+    background:rgba(0,0,0,0.45); color:#fff; font-size:12px; font-weight:bold;
+    padding:6px 14px; border-radius:999px; cursor:pointer; display:none; white-space:nowrap;
+}
 #storyBookDetailOverlay {
     position:absolute; inset:0; background:rgba(250,248,244,0.92); backdrop-filter:blur(10px);
     z-index:20; display:flex; align-items:center; justify-content:center;
 }
+#storyBookDetailColumn { display:flex; flex-direction:column; align-items:center; gap:18px; }
+#storyBookDetailKakera { color:#3a342c; font-size:14px; font-weight:bold; display:none; }
 .story-book-detail-cover {
     position:relative; width:60%; max-width:260px; aspect-ratio:0.72; border-radius:8px; background-color:#3a2c1f;
     background-size:cover; background-position:center;
@@ -241,9 +455,27 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
     background:rgba(0,0,0,0.45); color:#fff; border:1px solid rgba(255,255,255,0.4); font-size:16px;
     cursor:pointer; display:flex; align-items:center; justify-content:center;
 }
+/* 想いの欠片の入手方法一覧 */
+#storyKakeraInfoOverlay {
+    position:absolute; inset:0; background:rgba(250,248,244,0.94); backdrop-filter:blur(10px);
+    z-index:26; display:flex; align-items:center; justify-content:center; padding:24px; box-sizing:border-box;
+}
+#storyKakeraInfoCard {
+    background:#fff; border-radius:12px; padding:20px 22px; max-width:320px; width:100%;
+    box-shadow:0 20px 40px rgba(0,0,0,0.25); color:#3a2c1f; font-size:13px; line-height:1.6;
+}
+#storyKakeraInfoCard h3 { margin:0 0 12px; font-size:15px; }
+.story-kakera-row { display:flex; justify-content:space-between; padding:4px 0; border-bottom:1px solid rgba(0,0,0,0.08); }
+.story-kakera-row:last-child { border-bottom:none; }
+#storyKakeraInfoCloseBtn {
+    position:absolute; top:16px; left:16px; z-index:30; width:36px; height:36px; border-radius:999px;
+    background:rgba(0,0,0,0.45); color:#fff; border:1px solid rgba(255,255,255,0.4); font-size:16px;
+    cursor:pointer; display:flex; align-items:center; justify-content:center;
+}
 
 /* ===== 初回案内（店主との会話） ===== */
-#storyDialogueLayer { position:absolute; inset:0; z-index:14; display:none; }
+/* storyBookDetailOverlay(20)より上に、閉じるボタン(30)より下に表示する（本の拡大画面の上にも重ねられるように）。 */
+#storyDialogueLayer { position:absolute; inset:0; z-index:22; display:none; }
 .story-libraryman {
     position:absolute; left:50%; bottom:0; transform:translateX(-50%) scale(0.92); max-height:80%; max-width:88%;
     opacity:0; transition:opacity 0.4s ease, transform 0.4s ease; z-index:15;
@@ -252,11 +484,13 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
 /* 3行想定の固定サイズ角丸ウインドウ。セリフの長さに関わらず高さは変えず、中でテキストが流れていく。 */
 #storyMessageBox {
     position:absolute; left:14px; right:14px; bottom:14px; z-index:16; height:132px; box-sizing:border-box;
-    background:rgba(35,28,18,0.85); color:#fff; border-radius:16px; padding:14px 18px 10px;
-    font-size:15px; line-height:1.8; box-shadow:0 8px 24px rgba(0,0,0,0.35);
+    background:rgba(35,28,18,0.85); color:#fff; border-radius:16px; padding:12px 18px 10px;
+    font-size:15px; line-height:1.7; box-shadow:0 8px 24px rgba(0,0,0,0.35);
     display:none; flex-direction:column; justify-content:space-between;
 }
-#storyMessageText { white-space:pre-line; text-align:left; overflow:hidden; }
+#storyMessageTextGroup { flex:1 1 auto; overflow:hidden; }
+#storyMessageName { font-size:12px; font-weight:bold; color:#ffd9a0; margin-bottom:4px; }
+#storyMessageText { white-space:pre-line; text-align:left; }
 #storyMessageArrow {
     text-align:right; font-size:14px; display:none; flex:none;
     animation:storyArrowBlink 1s steps(1) infinite;
@@ -306,15 +540,26 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
             + '<img id="storyLibraryman" class="story-libraryman" src="' + STORY_LIBRARYMAN_IMG + '" alt="">'
             + '<div id="storyMessageChoices"></div>'
             + '<div id="storyMessageBox">'
+            + '<div id="storyMessageTextGroup">'
+            + '<div id="storyMessageName">' + STORY_SPEAKER_NAME + '</div>'
             + '<div id="storyMessageText"></div>'
+            + '</div>'
             + '<div id="storyMessageArrow">▼</div>'
             + '</div>'
             + '</div>'
             + '<button id="storyLibraryCloseBtn">✕</button>'
             + '<button id="storyMuteBtn"><img id="storyMuteIcon" src="sound-on.svg" alt="sound"></button>'
+            + '<div id="storyKakeraCounter">想いの欠片:0個</div>'
             + '<div id="storyBookDetailOverlay" style="display:none;">'
             + '<button id="storyBookDetailCloseBtn">✕</button>'
+            + '<div id="storyBookDetailColumn">'
             + '<div id="storyBookDetailCard"></div>'
+            + '<div id="storyBookDetailKakera">想いの欠片:0個</div>'
+            + '</div>'
+            + '</div>'
+            + '<div id="storyKakeraInfoOverlay" style="display:none;">'
+            + '<button id="storyKakeraInfoCloseBtn">✕</button>'
+            + '<div id="storyKakeraInfoCard"></div>'
             + '</div>'
             + '</div>';
         document.body.appendChild(overlay);
@@ -362,6 +607,7 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
         storyLibraryState.pendingUnlock = false;
         storyLibraryState.dialogueQueue = [];
         storyLibraryState.dialogueIndex = 0;
+        storyLibraryState.onDialogueEnd = null;
 
         const perspective = overlay.querySelector('#storyLibraryPerspective');
         if (perspective) perspective.style.display = storyLibraryState.unlocked ? '' : 'none';
@@ -385,6 +631,14 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
             e.stopPropagation();
             closeStoryBookDetail();
         });
+        overlay.querySelector('#storyKakeraCounter').addEventListener('click', function(e) {
+            e.stopPropagation();
+            openKakeraAcquisitionList();
+        });
+        overlay.querySelector('#storyKakeraInfoCloseBtn').addEventListener('click', function(e) {
+            e.stopPropagation();
+            closeKakeraAcquisitionList();
+        });
 
         storyLibraryState.rotationY = 0;
         storyLibraryState.dragging = false;
@@ -395,6 +649,7 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
         window.addEventListener('orientationchange', updateStoryLibraryScale);
 
         updateStoryMuteIcon();
+        updateKakeraDisplays();
         if (typeof playBattleBGM === 'function') {
             playBattleBGM(STORY_BGM_SRC);
         }
@@ -428,6 +683,25 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
         if (!icon) return;
         const muted = (typeof isMuted !== 'undefined') && isMuted;
         icon.src = muted ? 'sound-off.svg' : 'sound-on.svg';
+    }
+
+    // 本棚画面／本の拡大画面、両方の「想いの欠片:N個」表示を更新する。
+    // オンボーディング（getKakeraOnboardStage）が始まる前（0）は非表示のまま。
+    function updateKakeraDisplays() {
+        if (!storyLibraryState.overlayEl) return;
+        const stage = getKakeraOnboardStage();
+        const count = getStoryKakera();
+        const label = '想いの欠片:' + count + '個';
+        const shelfEl = storyLibraryState.overlayEl.querySelector('#storyKakeraCounter');
+        if (shelfEl) {
+            shelfEl.textContent = label;
+            shelfEl.style.display = stage >= 1 ? 'block' : 'none';
+        }
+        const detailEl = storyLibraryState.overlayEl.querySelector('#storyBookDetailKakera');
+        if (detailEl) {
+            detailEl.textContent = label;
+            detailEl.style.display = stage >= 1 ? 'block' : 'none';
+        }
     }
 
     function storyLibraryTick(ts) {
@@ -526,15 +800,102 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
         // 咖喱図書館から出る×（左上）と本棚に戻る×が同時に出て紛らわしくならないよう、
         // 本の表紙表示中は咖喱図書館から出る×を隠す（本棚に戻る×が同じ位置に表示される）。
         if (libraryCloseBtn) libraryCloseBtn.style.display = 'none';
+
+        updateKakeraDisplays();
+        maybeStartKakeraBookIntro();
     }
     function closeStoryBookDetail() {
         const detailOverlay = storyLibraryState.overlayEl.querySelector('#storyBookDetailOverlay');
         const libraryCloseBtn = storyLibraryState.overlayEl.querySelector('#storyLibraryCloseBtn');
         if (detailOverlay) detailOverlay.style.display = 'none';
         if (libraryCloseBtn) libraryCloseBtn.style.display = 'flex';
+
+        maybeStartKakeraShelfIntro();
     }
 
-    // ===== 店主との会話（初回案内） =====
+    // ===== 想いの欠片：初回チュートリアル一式 =====
+
+    // 初めて本の拡大画面に入った時の館長のセリフ（1回だけ）。
+    function maybeStartKakeraBookIntro() {
+        if (getKakeraOnboardStage() !== 0) return;
+        storyLibraryState.mode = 'intro_dialogue';
+        storyLibraryState.dialogueQueue = [
+            { text: '「人のカレーの想いを知るには\n自らのカレーの想いも必要だ」' },
+            { text: '「まずはカレーの想いの欠片を集めてくるんだ\n想いの欠片が本を解放する」' },
+            { text: '「いったん左上の「×」を押して\n戻ってくるのだ」' },
+        ];
+        storyLibraryState.dialogueIndex = 0;
+        storyLibraryState.onDialogueEnd = function() {
+            setKakeraOnboardStage(1);
+            storyLibraryState.mode = 'carousel';
+            updateKakeraDisplays();
+        };
+        showStoryLibraryman();
+        setTimeout(function() { showCurrentDialoguePage(); }, 500);
+    }
+
+    // 本の拡大画面から本棚に戻った直後（ステージ1の時だけ）の館長のセリフ。
+    function maybeStartKakeraShelfIntro() {
+        if (getKakeraOnboardStage() !== 1) return;
+        storyLibraryState.mode = 'intro_dialogue';
+        storyLibraryState.dialogueQueue = [
+            { text: '「上に「想いの欠片」と表示されてるだろ\nそれをタップしてみな」' },
+        ];
+        storyLibraryState.dialogueIndex = 0;
+        storyLibraryState.onDialogueEnd = function() {
+            setKakeraOnboardStage(2);
+            storyLibraryState.mode = 'carousel';
+        };
+        showStoryLibraryman();
+        setTimeout(function() { showCurrentDialoguePage(); }, 500);
+    }
+
+    // 想いの欠片の入手方法一覧を閉じた直後（ステージ2の時だけ）の締めのセリフ＋30個プレゼント。
+    function maybeStartKakeraFinalGift() {
+        storyLibraryState.mode = 'intro_dialogue';
+        storyLibraryState.dialogueQueue = [
+            { text: '「想いの欠片を30個\n特別にプレゼントしてあげよう」' },
+            { text: '「足りない分は自分で集めるんだ。\n想いの欠片は100個までしか持てないから\n貯め込みすぎないようにな」' },
+        ];
+        storyLibraryState.dialogueIndex = 0;
+        storyLibraryState.onDialogueEnd = function() {
+            setKakeraOnboardStage(4);
+            storyLibraryState.mode = 'carousel';
+            addStoryKakeraWithNotice(30);
+        };
+        showStoryLibraryman();
+        setTimeout(function() { showCurrentDialoguePage(); }, 500);
+    }
+
+    function buildKakeraInfoHtml() {
+        let html = '<h3>💭 想いの欠片の入手方法</h3>';
+        STORY_KAKERA_SOURCES.forEach(function(row) {
+            html += '<div class="story-kakera-row"><span>' + row[0] + '</span><span>' + row[1] + '</span></div>';
+        });
+        return html;
+    }
+
+    function openKakeraAcquisitionList() {
+        const overlay = storyLibraryState.overlayEl.querySelector('#storyKakeraInfoOverlay');
+        const card = storyLibraryState.overlayEl.querySelector('#storyKakeraInfoCard');
+        const libraryCloseBtn = storyLibraryState.overlayEl.querySelector('#storyLibraryCloseBtn');
+        card.innerHTML = buildKakeraInfoHtml();
+        overlay.style.display = 'flex';
+        if (libraryCloseBtn) libraryCloseBtn.style.display = 'none';
+    }
+    function closeKakeraAcquisitionList() {
+        const overlay = storyLibraryState.overlayEl.querySelector('#storyKakeraInfoOverlay');
+        const libraryCloseBtn = storyLibraryState.overlayEl.querySelector('#storyLibraryCloseBtn');
+        if (overlay) overlay.style.display = 'none';
+        if (libraryCloseBtn) libraryCloseBtn.style.display = 'flex';
+
+        if (getKakeraOnboardStage() === 2) {
+            setKakeraOnboardStage(3);
+            maybeStartKakeraFinalGift();
+        }
+    }
+
+    // ===== 店主との会話（共通の会話エンジン） =====
 
     function onStoryStageClick() {
         if (storyLibraryState.mode === 'intro_wait_tap') {
@@ -545,11 +906,7 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
         // carousel モードでは何もしない（ドラッグ／本のクリックのみ有効）
     }
 
-    function startIntroDialogue() {
-        storyLibraryState.mode = 'intro_dialogue';
-        storyLibraryState.dialogueQueue = buildStoryIntroPages();
-        storyLibraryState.dialogueIndex = 0;
-
+    function showStoryLibraryman() {
         const layer = storyLibraryState.overlayEl.querySelector('#storyDialogueLayer');
         const manImg = storyLibraryState.overlayEl.querySelector('#storyLibraryman');
         layer.style.display = 'block';
@@ -558,6 +915,23 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
         requestAnimationFrame(function() {
             manImg.classList.add('story-man-visible');
         });
+    }
+
+    function startIntroDialogue() {
+        storyLibraryState.mode = 'intro_dialogue';
+        storyLibraryState.dialogueQueue = buildStoryIntroPages();
+        storyLibraryState.dialogueIndex = 0;
+        storyLibraryState.onDialogueEnd = function() {
+            if (storyLibraryState.pendingUnlock) {
+                setStoryLibraryUnlocked(true);
+                storyLibraryState.unlocked = true;
+                storyLibraryState.mode = 'carousel';
+            } else {
+                // 「いいえ」を選んだ場合は本を出さないまま。もう一度タップすれば再度尋ねられる。
+                storyLibraryState.mode = 'intro_wait_tap';
+            }
+        };
+        showStoryLibraryman();
         setTimeout(function() {
             showCurrentDialoguePage();
         }, 500);
@@ -587,10 +961,12 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
     function startTypewriter(text, choices) {
         clearStoryTypingTimer();
         const box = storyLibraryState.overlayEl.querySelector('#storyMessageBox');
+        const nameEl = storyLibraryState.overlayEl.querySelector('#storyMessageName');
         const textEl = storyLibraryState.overlayEl.querySelector('#storyMessageText');
         const arrow = storyLibraryState.overlayEl.querySelector('#storyMessageArrow');
         const choicesEl = storyLibraryState.overlayEl.querySelector('#storyMessageChoices');
         box.style.display = 'flex';
+        if (nameEl) nameEl.textContent = STORY_SPEAKER_NAME;
         choicesEl.style.display = 'none';
         choicesEl.innerHTML = '';
         arrow.style.display = 'none';
@@ -710,14 +1086,9 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
             if (layer) layer.style.display = 'none';
         }, 400);
 
-        if (storyLibraryState.pendingUnlock) {
-            setStoryLibraryUnlocked(true);
-            storyLibraryState.unlocked = true;
-            storyLibraryState.mode = 'carousel';
-        } else {
-            // 「いいえ」を選んだ場合は本を出さないまま。もう一度タップすれば再度尋ねられる。
-            storyLibraryState.mode = 'intro_wait_tap';
-        }
+        const cb = storyLibraryState.onDialogueEnd;
+        storyLibraryState.onDialogueEnd = null;
+        if (typeof cb === 'function') cb();
     }
 
     function closeStoryLibrary() {
