@@ -876,7 +876,24 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
         updateStoryBookDetailActionButton(chapter);
         maybeStartKakeraBookIntro();
     }
+    // 初回の本の拡大画面チュートリアル中は、「いったん左上の×を押して戻ってくるのだ」の
+    // セリフに辿り着くまで×を無効にする。
+    function isBookIntroCloseBlocked() {
+        if (getKakeraOnboardStage() !== 0) return false;
+        const page = storyLibraryState.dialogueQueue[storyLibraryState.dialogueIndex];
+        return !(page && page.unlocksClose);
+    }
+
     function closeStoryBookDetail() {
+        if (isBookIntroCloseBlocked()) return; // まだ×を押せるセリフに辿り着いていない
+
+        // 「×を押して戻ってくるのだ」のセリフがまだ表示されたままなら、×を押した時点で
+        // タップして消したのと同じ扱いにしてから閉じる（そのまま「上に〜」の会話に繋げる）。
+        const page = storyLibraryState.dialogueQueue[storyLibraryState.dialogueIndex];
+        if (storyLibraryState.mode === 'intro_dialogue' && page && page.unlocksClose) {
+            endDialogueSequence();
+        }
+
         const detailOverlay = storyLibraryState.overlayEl.querySelector('#storyBookDetailOverlay');
         const libraryCloseBtn = storyLibraryState.overlayEl.querySelector('#storyLibraryCloseBtn');
         if (detailOverlay) detailOverlay.style.display = 'none';
@@ -896,7 +913,7 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
         storyLibraryState.dialogueQueue = [
             { text: '「人のカレーの想いを知るには\n自らのカレーの想いも必要だ」' },
             { text: '「まずはカレーの想いの欠片を集めてくるんだ\n想いの欠片が本を解放する」' },
-            { text: '「いったん左上の「×」を押して\n戻ってくるのだ」' },
+            { text: '「いったん左上の「×」を押して\n戻ってくるのだ」', unlocksClose: true },
         ];
         storyLibraryState.dialogueIndex = 0;
         storyLibraryState.onDialogueEnd = function() {
