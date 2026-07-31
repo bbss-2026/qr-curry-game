@@ -48,14 +48,35 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
 
     // ===== 咖喱図書館：章データ =====
     // 表紙: story/book-01.png〜book-10.png / 裏表紙: story/book2-01.png〜book2-10.png
+    // 個別の解放状態（どの巻を解放済みか）は端末のlocalStorageに永続化する（qr_story_unlocked_chapters）。
+    const STORY_UNLOCKED_CHAPTERS_KEY = 'qr_story_unlocked_chapters';
+    function getUnlockedChapterNumbers() {
+        try {
+            const arr = JSON.parse(localStorage.getItem(STORY_UNLOCKED_CHAPTERS_KEY) || '[]');
+            return Array.isArray(arr) ? arr : [];
+        } catch (e) {
+            return [];
+        }
+    }
+    function markChapterUnlockedPersisted(num) {
+        const arr = getUnlockedChapterNumbers();
+        if (!arr.includes(num)) {
+            arr.push(num);
+            try { localStorage.setItem(STORY_UNLOCKED_CHAPTERS_KEY, JSON.stringify(arr)); } catch (e) {}
+        }
+    }
+
     const STORY_CHAPTER_COUNT = 10;
     const STORY_CHAPTERS = [];
+    const _storyUnlockedNums = getUnlockedChapterNumbers();
     for (let i = 1; i <= STORY_CHAPTER_COUNT; i++) {
         const num = String(i).padStart(2, '0');
         STORY_CHAPTERS.push({
+            num: i,
             frontImage: 'story/book-' + num + '.png',
             backImage: 'story/book2-' + num + '.png',
-            locked: true, // 今はすべてロック中。個別の解除条件が決まったらchapter.lockedをfalseにする
+            locked: !_storyUnlockedNums.includes(i),
+            unlockCost: i <= 8 ? 50 : null, // book-01〜08は想いの欠片50個で解放。09/10は解放条件を後日設定
         });
     }
     const STORY_FLOAT_INTENSITY = 22;
@@ -104,6 +125,8 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
     // 0=未開始 / 1=本の拡大画面での説明済み（本棚に戻るのを待っている）/
     // 2=本棚での説明済み（想いの欠片タップ待ち）/ 3=一覧を見た後、最後のセリフ再生中 / 4=完了
     const STORY_KAKERA_ONBOARD_KEY = 'qr_story_kakera_onboard_stage';
+    // 想いの欠片の入手方法一覧を初めて表示した時だけ、館長の一言セリフを挟むためのフラグ。
+    const STORY_KAKERA_INFO_SEEN_KEY = 'qr_story_kakera_info_seen';
 
     const STORY_KAKERA_SOURCES = [
         ['QRスキャン', '1個'],
@@ -158,6 +181,17 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
     }
     function setKakeraOnboardStage(v) {
         try { localStorage.setItem(STORY_KAKERA_ONBOARD_KEY, String(v)); } catch (e) {}
+    }
+
+    function hasSeenKakeraInfoIntro() {
+        try {
+            return localStorage.getItem(STORY_KAKERA_INFO_SEEN_KEY) === '1';
+        } catch (e) {
+            return false;
+        }
+    }
+    function setKakeraInfoIntroSeen(v) {
+        try { localStorage.setItem(STORY_KAKERA_INFO_SEEN_KEY, v ? '1' : '0'); } catch (e) {}
     }
 
     // game.js本体には一切手を加えず、既存のグローバル関数を後から差し替えて（monkey patch）
@@ -318,6 +352,8 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
         pendingChoices: null,
         revealStartTs: 0,
         dialogueStarting: false, // 館長の登場演出～セリフ開始までの待ち時間中はタップを無視するためのフラグ
+        dialogueSession: 0, // 会話セッションの世代番号（連続して次の会話に繋げた時、古いsetTimeoutが誤って新しい会話を隠さないようにする）
+        currentDetailChapter: null, // 現在、拡大表示中の本（解放／読むボタンの対象）
     };
 
     // ===== 初期化 =====
@@ -361,6 +397,12 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
             localStorage.removeItem(STORY_UNLOCK_STORAGE_KEY);
             localStorage.removeItem(STORY_KAKERA_STORAGE_KEY);
             localStorage.removeItem(STORY_KAKERA_ONBOARD_KEY);
+            localStorage.removeItem(STORY_KAKERA_INFO_SEEN_KEY);
+            localStorage.removeItem(STORY_UNLOCKED_CHAPTERS_KEY);
+            STORY_CHAPTERS.forEach(function(chapter) {
+                chapter.locked = true;
+                if (chapter._lockEl) chapter._lockEl.style.display = '';
+            });
             if (typeof showCustomAlert === 'function') {
                 showCustomAlert('🔄 咖喱図書館リセット', 'リセットしました。次回入場時に最初から案内が始まります。');
             }
@@ -423,6 +465,13 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
     position:absolute; inset:0; z-index:3; border-radius:8px; overflow:hidden;
     background-image:url('story/booklock.png'); background-size:cover; background-position:center;
 }
+/* 解放時：鍵が光ってから消えていく演出 */
+@keyframes storyLockGlow {
+    0% { filter:brightness(1) drop-shadow(0 0 0 rgba(255,240,200,0)); opacity:1; }
+    50% { filter:brightness(2.4) drop-shadow(0 0 16px rgba(255,240,200,0.95)); opacity:1; }
+    100% { filter:brightness(2.6) drop-shadow(0 0 24px rgba(255,240,200,0.95)); opacity:0; }
+}
+.story-book-lock-unlocking { animation:storyLockGlow 0.7s ease-in forwards; }
 #storyLibraryCloseBtn {
     position:absolute; top:16px; left:16px; z-index:30; width:36px; height:36px; border-radius:999px;
     background:rgba(0,0,0,0.45); color:#fff; border:1px solid rgba(255,255,255,0.4); font-size:16px;
@@ -445,12 +494,23 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
 /* width/max-widthはcolumn側に持たせる（cardのwidth:60%がここに対して解決されるようにするため。
    カードに直接持たせると、親（column）が中身に合わせて幅を決める関係で循環し、意図せず縮んでしまう）。 */
 #storyBookDetailColumn { display:flex; flex-direction:column; align-items:center; gap:18px; width:60%; max-width:260px; }
-#storyBookDetailKakera { color:#3a342c; font-size:14px; font-weight:bold; display:none; }
+/* 本棚側の想いの欠片バッジ（storyKakeraCounter）と同じ見た目にする */
+#storyBookDetailKakera {
+    background:rgba(0,0,0,0.45); color:#fff; font-size:12px; font-weight:bold;
+    padding:6px 14px; border-radius:999px; white-space:nowrap; display:none;
+}
 .story-book-detail-cover {
     position:relative; width:100%; aspect-ratio:0.72; border-radius:8px; background-color:#3a2c1f;
     background-size:cover; background-position:center;
     box-shadow:0 40px 60px -20px rgba(0,0,0,0.3);
 }
+#storyBookDetailActionBtn {
+    background:rgba(35,28,18,0.85); color:#fff; border:1px solid rgba(255,255,255,0.4);
+    border-radius:999px; padding:10px 34px; font-size:14px; font-weight:bold; cursor:pointer;
+    box-shadow:0 8px 20px rgba(0,0,0,0.25); display:none;
+}
+#storyBookDetailActionBtn:active { background:rgba(60,48,32,0.9); }
+#storyBookDetailActionBtn.story-book-action-disabled { opacity:0.5; cursor:default; }
 /* 本棚に戻る×。本の表紙表示中は、咖喱図書館から出る×（storyLibraryCloseBtn）と同じ左上の位置に表示し、
    紛らわしい2つの×が同時に出ないようにする（storyLibraryCloseBtn側はopenStoryBookDetail()内で非表示にする）。 */
 #storyBookDetailCloseBtn {
@@ -562,6 +622,7 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
             + '<div id="storyBookDetailColumn">'
             + '<div id="storyBookDetailKakera">想いの欠片:0個</div>'
             + '<div id="storyBookDetailCard"></div>'
+            + '<button id="storyBookDetailActionBtn"></button>'
             + '</div>'
             + '</div>'
             + '<div id="storyKakeraInfoOverlay" style="display:none;">'
@@ -693,7 +754,8 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
     }
 
     // 本棚画面／本の拡大画面、両方の「想いの欠片:N個」表示を更新する。
-    // オンボーディング（getKakeraOnboardStage）が始まる前（0）は非表示のまま。
+    // 本棚側は、オンボーディング（getKakeraOnboardStage）が始まる前（0）は非表示のまま。
+    // 本の拡大画面側は、最初から常に表示する。
     function updateKakeraDisplays() {
         if (!storyLibraryState.overlayEl) return;
         const stage = getKakeraOnboardStage();
@@ -707,7 +769,7 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
         const detailEl = storyLibraryState.overlayEl.querySelector('#storyBookDetailKakera');
         if (detailEl) {
             detailEl.textContent = label;
-            detailEl.style.display = stage >= 1 ? 'block' : 'none';
+            detailEl.style.display = 'block';
         }
     }
 
@@ -795,6 +857,7 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
         const detailOverlay = storyLibraryState.overlayEl.querySelector('#storyBookDetailOverlay');
         const card = storyLibraryState.overlayEl.querySelector('#storyBookDetailCard');
         const libraryCloseBtn = storyLibraryState.overlayEl.querySelector('#storyLibraryCloseBtn');
+        storyLibraryState.currentDetailChapter = chapter;
         card.className = 'story-book-detail-cover';
         card.style.backgroundImage = "url('" + chapter.frontImage + "')";
         card.innerHTML = '';
@@ -809,6 +872,7 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
         if (libraryCloseBtn) libraryCloseBtn.style.display = 'none';
 
         updateKakeraDisplays();
+        updateStoryBookDetailActionButton(chapter);
         maybeStartKakeraBookIntro();
     }
     function closeStoryBookDetail() {
@@ -893,6 +957,30 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
         if (storyLibraryState.mode === 'intro_dialogue' && currentPage && currentPage.waitForExternalTrigger) {
             endDialogueSequence();
         }
+        if (!hasSeenKakeraInfoIntro()) {
+            setKakeraInfoIntroSeen(true);
+            playKakeraInfoIntroLine(); // このセリフが終わったら実際に一覧を開く
+        } else {
+            showKakeraAcquisitionListOverlay();
+        }
+    }
+
+    // 初めて想いの欠片の入手方法一覧を開く直前の館長の一言（館長の画像は不要）。
+    function playKakeraInfoIntroLine() {
+        storyLibraryState.mode = 'intro_dialogue';
+        storyLibraryState.dialogueQueue = [
+            { text: '「カレーに関する様々な方法で\n想いの欠片は入手可能だ」' },
+        ];
+        storyLibraryState.dialogueIndex = 0;
+        storyLibraryState.onDialogueEnd = function() {
+            storyLibraryState.mode = 'carousel';
+            showKakeraAcquisitionListOverlay();
+        };
+        showStoryDialogueLayerOnly();
+        scheduleDialogueStart(200);
+    }
+
+    function showKakeraAcquisitionListOverlay() {
         const overlay = storyLibraryState.overlayEl.querySelector('#storyKakeraInfoOverlay');
         const card = storyLibraryState.overlayEl.querySelector('#storyKakeraInfoCard');
         const libraryCloseBtn = storyLibraryState.overlayEl.querySelector('#storyLibraryCloseBtn');
@@ -912,6 +1000,78 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
         }
     }
 
+    // ===== 本の解放／読む =====
+
+    function updateStoryBookDetailActionButton(chapter) {
+        const btn = storyLibraryState.overlayEl.querySelector('#storyBookDetailActionBtn');
+        if (!btn) return;
+        btn.onclick = null;
+        btn.classList.remove('story-book-action-disabled');
+        if (!chapter.locked) {
+            btn.textContent = '読む';
+            btn.style.display = 'inline-block';
+            btn.onclick = function(e) { e.stopPropagation(); onStoryBookReadClick(chapter); };
+        } else if (typeof chapter.unlockCost === 'number') {
+            btn.textContent = '解放';
+            btn.style.display = 'inline-block';
+            btn.onclick = function(e) { e.stopPropagation(); onStoryBookUnlockClick(chapter); };
+        } else {
+            // book-09/10など、解放条件が未設定の巻
+            btn.textContent = '解放条件は後日公開';
+            btn.style.display = 'inline-block';
+            btn.classList.add('story-book-action-disabled');
+        }
+    }
+
+    function onStoryBookUnlockClick(chapter) {
+        if (!chapter.locked || typeof chapter.unlockCost !== 'number') return;
+        const cost = chapter.unlockCost;
+        if (getStoryKakera() < cost) {
+            if (typeof showCustomAlert === 'function') {
+                showCustomAlert('想いの欠片が足りません', 'この本を解放するには想いの欠片が' + cost + '個必要です。');
+            }
+            return;
+        }
+        const doUnlock = function() {
+            setStoryKakera(getStoryKakera() - cost);
+            unlockStoryChapter(chapter);
+        };
+        const msg = '想いの欠片を' + cost + '個消費してこの本を解放します。よろしいですか？';
+        if (typeof showCustomConfirm === 'function') {
+            showCustomConfirm('本を解放する', msg, doUnlock);
+        } else if (confirm(msg)) {
+            doUnlock();
+        }
+    }
+
+    function unlockStoryChapter(chapter) {
+        chapter.locked = false;
+        markChapterUnlockedPersisted(chapter.num);
+
+        // 本棚側の鍵アイコンは即座に消す
+        if (chapter._lockEl) chapter._lockEl.style.display = 'none';
+
+        // 拡大画面側の鍵は光ってから消える演出
+        const detailLock = storyLibraryState.overlayEl.querySelector('.story-book-detail-lock');
+        if (detailLock) {
+            detailLock.classList.add('story-book-lock-unlocking');
+            setTimeout(function() {
+                if (detailLock.parentNode) detailLock.parentNode.removeChild(detailLock);
+            }, 700);
+        }
+        if (typeof playSoundEffect === 'function') {
+            playSoundEffect('healing.mp3');
+        }
+        updateStoryBookDetailActionButton(chapter);
+    }
+
+    function onStoryBookReadClick(chapter) {
+        // TODO: 各巻の本文（ストーリー本編）を実装したら、ここから該当ストーリーに遷移する。
+        if (typeof showCustomAlert === 'function') {
+            showCustomAlert('準備中', 'このストーリーは準備中です。');
+        }
+    }
+
     // ===== 店主との会話（共通の会話エンジン） =====
 
     function onStoryStageClick() {
@@ -925,6 +1085,7 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
     }
 
     function showStoryLibraryman() {
+        storyLibraryState.dialogueSession++;
         const layer = storyLibraryState.overlayEl.querySelector('#storyDialogueLayer');
         const manImg = storyLibraryState.overlayEl.querySelector('#storyLibraryman');
         layer.style.display = 'block';
@@ -938,6 +1099,7 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
     // 館長の画像は出さず、会話レイヤー（メッセージウインドウ）だけを表示する。
     // 本の拡大画面でのセリフ表示用（本の拡大画面では館長の画像は不要なため）。
     function showStoryDialogueLayerOnly() {
+        storyLibraryState.dialogueSession++;
         const layer = storyLibraryState.overlayEl.querySelector('#storyDialogueLayer');
         layer.style.display = 'block';
     }
@@ -1118,8 +1280,11 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
         manImg.classList.remove('story-man-visible');
         if (box) box.style.display = 'none';
         if (nameEl) nameEl.style.display = 'none';
+        // 直後に次の会話が続けて始まっている場合（dialogueSessionが進んでいる場合）は、
+        // ここで古いタイマーがレイヤーを閉じてしまわないようにする。
+        const mySession = storyLibraryState.dialogueSession;
         setTimeout(function() {
-            if (layer) layer.style.display = 'none';
+            if (layer && storyLibraryState.dialogueSession === mySession) layer.style.display = 'none';
         }, 400);
 
         const cb = storyLibraryState.onDialogueEnd;
