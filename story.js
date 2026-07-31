@@ -591,17 +591,32 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
 #storyReaderBg {
     position:absolute; inset:0; background-size:cover; background-position:center; background-color:#000;
 }
-/* ページの挿絵（正方形1枚、横中央・縦中央よりやや上）。キャラクターシルエット(svg)を
-   同じ枠に表示したい場合も、この要素のsrcを差し替えるだけでよい（絵と同じ扱い）。 */
-#storyReaderImage {
-    position:absolute; left:50%; top:20%; width:78%; aspect-ratio:1/1; transform:translateX(-50%);
-    object-fit:contain; z-index:2; display:none;
+/* 挿絵＋テキストエリアをまとめて縦に並べるコンテナ。flexで上から積む（絶対値のtopを別々に
+   指定しないことで、挿絵の実際の高さに関わらずテキストが必ず挿絵の下に来るようにしている）。 */
+#storyReaderContent {
+    position:absolute; left:0; right:0; top:16%; bottom:14%; z-index:2;
+    display:flex; flex-direction:column; align-items:center;
+    padding:0 11%; box-sizing:border-box;
+}
+/* ページの挿絵（正方形1枚、横中央・縦中央よりやや上）を表示する枠。overflow:hiddenにして
+   あるので、中のシルエット画像を大きく／端に寄せて表示すると自然に見切れる。 */
+#storyReaderImageWrap {
+    position:relative; width:100%; aspect-ratio:1/1; overflow:hidden; flex:none; display:none;
+}
+/* 挿絵本体 */
+#storyReaderImage { position:absolute; inset:0; width:100%; height:100%; object-fit:contain; }
+/* キャラクターシルエット。挿絵を置き換えるのではなく、挿絵の上に重ねて表示するレイヤー。
+   x/y（中心位置）・width（大きさ）はbeatごとに指定でき、枠からはみ出た部分は自動的に見切れる。 */
+#storyReaderSilhouette {
+    position:absolute; left:50%; top:50%; width:70%; height:auto;
+    transform:translate(-50%,-50%); display:none; pointer-events:none;
 }
 /* 挿絵の下の地の文エリア（絵本風）。タイプライターなし・効果音なしで、タップすると
-   表示中の文章が次の文章に置き換わる（切り替え式）。全文を出し切った状態でタップするとページがめくれる。 */
+   表示中の文章が次の文章に置き換わる（切り替え式）。全文を出し切った状態でタップするとページがめくれる。
+   文章が長くページ内に収まらない場合は、このエリア内だけで縦スクロールできるようにしてある。 */
 #storyReaderTextArea {
-    position:absolute; left:9%; right:9%; top:58%; z-index:2; display:none;
-    color:#2a2118; font-size:15px; line-height:1.85; text-align:left; white-space:pre-line;
+    width:100%; margin-top:18px; color:#2a2118; font-size:15px; line-height:1.85; text-align:left;
+    white-space:pre-line; overflow-y:auto; flex:1 1 auto; min-height:0; display:none;
 }
 #storyReaderTextArrow {
     display:inline-block; margin-left:4px; animation:storyArrowBlink 1s steps(1) infinite;
@@ -674,8 +689,13 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
             + '</div>'
             + '<div id="storyReaderOverlay">'
             + '<div id="storyReaderBg"></div>'
+            + '<div id="storyReaderContent">'
+            + '<div id="storyReaderImageWrap">'
             + '<img id="storyReaderImage" alt="">'
+            + '<img id="storyReaderSilhouette" alt="">'
+            + '</div>'
             + '<div id="storyReaderTextArea"></div>'
+            + '</div>'
             + '</div>'
             + '<button id="storyReaderCloseBtn">✕</button>'
             + '<button id="storyReaderPrevBtn">◀</button>'
@@ -1194,11 +1214,16 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
         const bgEl = storyLibraryState.overlayEl.querySelector('#storyReaderBg');
         if (bgEl && page.bg) bgEl.style.backgroundImage = "url('" + page.bg + "')";
 
+        const imgWrap = storyLibraryState.overlayEl.querySelector('#storyReaderImageWrap');
         const imgEl = storyLibraryState.overlayEl.querySelector('#storyReaderImage');
-        if (imgEl) {
-            if (page.image) { imgEl.src = page.image; imgEl.style.display = 'block'; }
-            else { imgEl.style.display = 'none'; imgEl.removeAttribute('src'); }
+        if (imgWrap && imgEl) {
+            if (page.image) { imgEl.src = page.image; imgWrap.style.display = 'block'; }
+            else { imgWrap.style.display = 'none'; imgEl.removeAttribute('src'); }
         }
+        // シルエットはページが変わるたびにいったんリセットする（各ページの先頭beatで
+        // 必要なら改めて表示される。前のページの表示を持ち越さない）。
+        const silEl = storyLibraryState.overlayEl.querySelector('#storyReaderSilhouette');
+        if (silEl) { silEl.style.display = 'none'; silEl.removeAttribute('src'); }
 
         if (page.bgm && page.bgm !== storyLibraryState.readerBgmSrc) {
             storyLibraryState.readerBgmSrc = page.bgm;
@@ -1222,6 +1247,27 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
         const textArea = storyLibraryState.overlayEl.querySelector('#storyReaderTextArea');
         const layer = storyLibraryState.overlayEl.querySelector('#storyDialogueLayer');
         if (!beat) return; // このページのbeatsを表示し終えた状態（advanceStoryReaderがページ送りを担当）
+
+        // シルエットの更新（挿絵を置き換えるのではなく、挿絵の上に重ねて表示する）。
+        // beatにsilhouetteキーが無ければ、前のbeatまでの表示をそのまま維持する。
+        // { silhouette: null } を指定すると、その時点で非表示にできる。
+        if (Object.prototype.hasOwnProperty.call(beat, 'silhouette')) {
+            const silEl = storyLibraryState.overlayEl.querySelector('#storyReaderSilhouette');
+            if (silEl) {
+                const sil = beat.silhouette;
+                if (sil && sil.src) {
+                    silEl.src = sil.src;
+                    silEl.style.left = sil.x || '50%';
+                    silEl.style.top = sil.y || '50%';
+                    silEl.style.width = sil.width || '70%';
+                    const scale = sil.scale;
+                    silEl.style.transform = 'translate(-50%,-50%)' + (scale ? ' scale(' + scale + ')' : '');
+                    silEl.style.display = 'block';
+                } else {
+                    silEl.style.display = 'none';
+                }
+            }
+        }
 
         if (beat.say || beat.narration) {
             // 既存のメッセージウインドウ（タイプライター＋効果音）を流用
@@ -1288,7 +1334,9 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
         const box = storyLibraryState.overlayEl.querySelector('#storyMessageBox');
         const nameEl = storyLibraryState.overlayEl.querySelector('#storyMessageName');
         const textArea = storyLibraryState.overlayEl.querySelector('#storyReaderTextArea');
+        const imgWrap = storyLibraryState.overlayEl.querySelector('#storyReaderImageWrap');
         const imgEl = storyLibraryState.overlayEl.querySelector('#storyReaderImage');
+        const silEl = storyLibraryState.overlayEl.querySelector('#storyReaderSilhouette');
         const readerOverlay = storyLibraryState.overlayEl.querySelector('#storyReaderOverlay');
         const readerCloseBtn = storyLibraryState.overlayEl.querySelector('#storyReaderCloseBtn');
         const prevBtn = storyLibraryState.overlayEl.querySelector('#storyReaderPrevBtn');
@@ -1299,7 +1347,9 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
         if (nameEl) nameEl.style.display = 'none';
         if (layer) layer.style.display = 'none';
         if (textArea) { textArea.style.display = 'none'; textArea.innerHTML = ''; }
-        if (imgEl) { imgEl.style.display = 'none'; imgEl.removeAttribute('src'); }
+        if (imgWrap) imgWrap.style.display = 'none';
+        if (imgEl) imgEl.removeAttribute('src');
+        if (silEl) { silEl.style.display = 'none'; silEl.removeAttribute('src'); }
         if (readerOverlay) readerOverlay.style.display = 'none';
         if (readerCloseBtn) readerCloseBtn.style.display = 'none';
         if (prevBtn) prevBtn.style.display = 'none';
