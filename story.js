@@ -540,7 +540,8 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
 /* storyBookDetailOverlay(20)より上に、閉じるボタン(30)より下に表示する（本の拡大画面の上にも重ねられるように）。 */
 /* pointer-events:noneにして、セリフ表示中でも下にある要素（想いの欠片カウンター等）へのタップを
    透過させる。実際にタップ操作が必要な子要素（選択肢ボタン等）だけpointer-events:autoで復活させる。 */
-#storyDialogueLayer { position:absolute; inset:0; z-index:22; display:none; pointer-events:none; }
+/* z-index:28にして、想いの欠片の入手方法一覧(26)より前面にセリフを重ねられるようにする。 */
+#storyDialogueLayer { position:absolute; inset:0; z-index:28; display:none; pointer-events:none; }
 .story-libraryman {
     position:absolute; left:50%; bottom:0; transform:translateX(-50%) scale(0.92); max-height:80%; max-width:88%;
     opacity:0; transition:opacity 0.4s ease, transform 0.4s ease; z-index:15;
@@ -957,15 +958,16 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
         if (storyLibraryState.mode === 'intro_dialogue' && currentPage && currentPage.waitForExternalTrigger) {
             endDialogueSequence();
         }
+        // まず一覧そのものを表示し、初めての場合はその前面に館長の一言を重ねて表示する。
+        showKakeraAcquisitionListOverlay();
         if (!hasSeenKakeraInfoIntro()) {
             setKakeraInfoIntroSeen(true);
-            playKakeraInfoIntroLine(); // このセリフが終わったら実際に一覧を開く
-        } else {
-            showKakeraAcquisitionListOverlay();
+            playKakeraInfoIntroLine();
         }
     }
 
-    // 初めて想いの欠片の入手方法一覧を開く直前の館長の一言（館長の画像は不要）。
+    // 初めて想いの欠片の入手方法一覧を開いた直後、一覧を表示したままその前面に重ねる館長の一言
+    // （館長の画像は不要。会話レイヤーのz-indexを一覧より高くしてあるので、一覧の上に重なって見える）。
     function playKakeraInfoIntroLine() {
         storyLibraryState.mode = 'intro_dialogue';
         storyLibraryState.dialogueQueue = [
@@ -974,7 +976,6 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
         storyLibraryState.dialogueIndex = 0;
         storyLibraryState.onDialogueEnd = function() {
             storyLibraryState.mode = 'carousel';
-            showKakeraAcquisitionListOverlay();
         };
         showStoryDialogueLayerOnly();
         scheduleDialogueStart(200);
