@@ -354,6 +354,11 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
         dialogueStarting: false, // 館長の登場演出～セリフ開始までの待ち時間中はタップを無視するためのフラグ
         dialogueSession: 0, // 会話セッションの世代番号（連続して次の会話に繋げた時、古いsetTimeoutが誤って新しい会話を隠さないようにする）
         currentDetailChapter: null, // 現在、拡大表示中の本（解放／読むボタンの対象）
+        // ===== 本編（各巻ストーリー）再生用 =====
+        readerScript: [], // 再生中の本のシーンコマンド配列（STORY_BOOK_SCRIPTS[num]）
+        readerIndex: 0, // 現在再生中のコマンドの位置
+        readerChapter: null, // 現在読んでいる本（STORY_CHAPTERSの1件）
+        readerBgmSrc: null, // 本編再生中に鳴っているBGM（同じ曲への再指定で再生し直さないようにするため）
     };
 
     // ===== 初期化 =====
@@ -577,6 +582,24 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
     box-shadow:0 8px 20px rgba(0,0,0,0.3);
 }
 .story-choice-btn:active { background:rgba(60,48,32,0.9); }
+
+/* ===== 本編（各巻ストーリー）再生画面 ===== */
+/* storyLibraryPerspective(本棚,1)より上、storyBookDetailOverlay(20)より下に置く。
+   セリフ表示はstoryDialogueLayer(28)を流用するので、その下にさえあれば十分。 */
+#storyReaderOverlay { position:absolute; inset:0; z-index:8; display:none; background:#000; }
+#storyReaderBg {
+    position:absolute; inset:0; background-size:cover; background-position:center; background-color:#000;
+}
+#storyReaderChar {
+    position:absolute; left:50%; bottom:132px; transform:translateX(-50%);
+    max-height:60%; max-width:80%; display:none;
+}
+/* 本編読書中専用の×（左上）。本棚/本の表紙の×と同じ見た目・位置で、常にどれか1つだけ表示する。 */
+#storyReaderCloseBtn {
+    position:absolute; top:16px; left:16px; z-index:30; width:36px; height:36px; border-radius:999px;
+    background:rgba(0,0,0,0.45); color:#fff; border:1px solid rgba(255,255,255,0.4); font-size:16px;
+    cursor:pointer; display:none; align-items:center; justify-content:center;
+}
         `;
         document.head.appendChild(style);
     }
@@ -630,6 +653,11 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
             + '<button id="storyKakeraInfoCloseBtn">✕</button>'
             + '<div id="storyKakeraInfoCard"></div>'
             + '</div>'
+            + '<div id="storyReaderOverlay">'
+            + '<div id="storyReaderBg"></div>'
+            + '<img id="storyReaderChar" alt="">'
+            + '</div>'
+            + '<button id="storyReaderCloseBtn">✕</button>'
             + '</div>';
         document.body.appendChild(overlay);
         storyLibraryState.overlayEl = overlay;
@@ -707,6 +735,10 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
         overlay.querySelector('#storyKakeraInfoCloseBtn').addEventListener('click', function(e) {
             e.stopPropagation();
             closeKakeraAcquisitionList();
+        });
+        overlay.querySelector('#storyReaderCloseBtn').addEventListener('click', function(e) {
+            e.stopPropagation();
+            endStoryReader();
         });
 
         storyLibraryState.rotationY = 0;
@@ -1084,9 +1116,144 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
     }
 
     function onStoryBookReadClick(chapter) {
-        // TODO: 各巻の本文（ストーリー本編）を実装したら、ここから該当ストーリーに遷移する。
-        if (typeof showCustomAlert === 'function') {
-            showCustomAlert('準備中', 'このストーリーは準備中です。');
+        startStoryReader(chapter);
+    }
+
+    // ===== 本編（各巻ストーリー）再生エンジン =====
+    // 内容データ（STORY_BOOK_SCRIPTS）はstory-scripts.js側で定義する。
+    // ここではエンジン（コマンドの再生方法）だけを扱い、各巻の文章・演出には一切関知しない。
+    //
+    // コマンドの種類は story-scripts-work.js の冒頭コメントを参照。
+
+    function startStoryReader(chapter) {
+        if (!chapter || chapter.locked) return;
+        const script = (typeof STORY_BOOK_SCRIPTS !== 'undefined') ? STORY_BOOK_SCRIPTS[chapter.num] : null;
+        if (!script || !script.length) {
+            if (typeof showCustomAlert === 'function') {
+                showCustomAlert('準備中', 'このストーリーはまだ準備中です。');
+            }
+            return;
+        }
+
+        const detailOverlay = storyLibraryState.overlayEl.querySelector('#storyBookDetailOverlay');
+        const detailCloseBtn = storyLibraryState.overlayEl.querySelector('#storyBookDetailCloseBtn');
+        const readerOverlay = storyLibraryState.overlayEl.querySelector('#storyReaderOverlay');
+        const readerCloseBtn = storyLibraryState.overlayEl.querySelector('#storyReaderCloseBtn');
+        const charEl = storyLibraryState.overlayEl.querySelector('#storyReaderChar');
+
+        if (detailOverlay) detailOverlay.style.display = 'none';
+        if (detailCloseBtn) detailCloseBtn.style.display = 'none';
+        if (readerOverlay) readerOverlay.style.display = 'block';
+        if (readerCloseBtn) readerCloseBtn.style.display = 'flex';
+        if (charEl) { charEl.style.display = 'none'; charEl.removeAttribute('src'); }
+
+        storyLibraryState.mode = 'reader';
+        storyLibraryState.readerScript = script;
+        storyLibraryState.readerIndex = 0;
+        storyLibraryState.readerChapter = chapter;
+        storyLibraryState.readerBgmSrc = null;
+
+        showStoryDialogueLayerOnly(); // セリフウインドウ用のレイヤーだけ表示（館長の画像は出さない）
+        processReaderStep();
+    }
+
+    // 現在の位置(readerIndex)のコマンドを1つ処理する。
+    // セリフ(say/narration)以外は表示・演出だけ行ってすぐ次のコマンドへ自動的に進む。
+    // セリフはタイプライター表示し、タップされるまで待つ（advanceStoryReaderがそこから先に進める）。
+    function processReaderStep() {
+        const script = storyLibraryState.readerScript;
+        const step = script[storyLibraryState.readerIndex];
+        if (!step || step.end) {
+            endStoryReader();
+            return;
+        }
+
+        if (step.bg) {
+            const bgEl = storyLibraryState.overlayEl.querySelector('#storyReaderBg');
+            if (bgEl) bgEl.style.backgroundImage = "url('" + step.bg + "')";
+        }
+        if (Object.prototype.hasOwnProperty.call(step, 'char')) {
+            const charEl = storyLibraryState.overlayEl.querySelector('#storyReaderChar');
+            if (charEl) {
+                if (step.char) {
+                    charEl.src = step.char;
+                    charEl.style.display = 'block';
+                } else {
+                    charEl.style.display = 'none';
+                }
+            }
+        }
+        if (step.bgm && step.bgm !== storyLibraryState.readerBgmSrc) {
+            storyLibraryState.readerBgmSrc = step.bgm;
+            if (typeof playBattleBGM === 'function') playBattleBGM(step.bgm);
+        }
+        if (step.se && typeof playSoundEffect === 'function') {
+            playSoundEffect(step.se);
+        }
+
+        if (step.say || step.narration) {
+            const speaker = step.say ? step.say : '';
+            const text = step.say ? step.text : step.narration;
+            startTypewriter(text, null, speaker);
+            return; // タップ待ち。続きはadvanceStoryReader()から。
+        }
+
+        if (step.wait) {
+            const script2 = storyLibraryState.readerScript;
+            const myIndex = storyLibraryState.readerIndex;
+            setTimeout(function() {
+                // 待っている間に読書が中断されていないか確認してから進める。
+                if (storyLibraryState.mode === 'reader' && storyLibraryState.readerScript === script2 && storyLibraryState.readerIndex === myIndex) {
+                    storyLibraryState.readerIndex++;
+                    processReaderStep();
+                }
+            }, step.wait);
+            return;
+        }
+
+        // bg/char/bgm/se単独指定など、タップ待ちを伴わないコマンドは即座に次へ。
+        storyLibraryState.readerIndex++;
+        processReaderStep();
+    }
+
+    function advanceStoryReader() {
+        if (!storyLibraryState.typingDone) {
+            completeTypewriterInstantly();
+            return;
+        }
+        storyLibraryState.readerIndex++;
+        processReaderStep();
+    }
+
+    function endStoryReader() {
+        clearStoryTypingTimer();
+        const layer = storyLibraryState.overlayEl.querySelector('#storyDialogueLayer');
+        const box = storyLibraryState.overlayEl.querySelector('#storyMessageBox');
+        const nameEl = storyLibraryState.overlayEl.querySelector('#storyMessageName');
+        const readerOverlay = storyLibraryState.overlayEl.querySelector('#storyReaderOverlay');
+        const readerCloseBtn = storyLibraryState.overlayEl.querySelector('#storyReaderCloseBtn');
+        const detailOverlay = storyLibraryState.overlayEl.querySelector('#storyBookDetailOverlay');
+        const detailCloseBtn = storyLibraryState.overlayEl.querySelector('#storyBookDetailCloseBtn');
+
+        if (box) box.style.display = 'none';
+        if (nameEl) nameEl.style.display = 'none';
+        if (layer) layer.style.display = 'none';
+        if (readerOverlay) readerOverlay.style.display = 'none';
+        if (readerCloseBtn) readerCloseBtn.style.display = 'none';
+
+        storyLibraryState.readerScript = [];
+        storyLibraryState.readerIndex = 0;
+        storyLibraryState.readerChapter = null;
+        storyLibraryState.readerBgmSrc = null;
+        storyLibraryState.mode = 'carousel';
+
+        // 呼び出し元（本の拡大画面）に戻す
+        if (detailOverlay) detailOverlay.style.display = 'flex';
+        if (detailCloseBtn) detailCloseBtn.style.display = 'flex';
+
+        // 咖喱図書館のBGMに戻す
+        if (typeof playBattleBGM === 'function') {
+            playBattleBGM(STORY_BGM_SRC);
         }
     }
 
@@ -1098,6 +1265,8 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
         } else if (storyLibraryState.mode === 'intro_dialogue') {
             if (storyLibraryState.dialogueStarting) return; // 登場演出～セリフ開始までの間はタップを無視
             handleDialogueTap();
+        } else if (storyLibraryState.mode === 'reader') {
+            advanceStoryReader();
         }
         // carousel モードでは何もしない（ドラッグ／本のクリックのみ有効）
     }
@@ -1171,7 +1340,9 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
         }
     }
 
-    function startTypewriter(text, choices) {
+    // speaker省略時は従来通り「館長」（咖喱図書館の会話で使用）。
+    // 本編（本の中のストーリー）ではspeakerに話者名を渡すか、ナレーションの場合は空文字''を渡して名前欄を隠す。
+    function startTypewriter(text, choices, speaker) {
         clearStoryTypingTimer();
         const box = storyLibraryState.overlayEl.querySelector('#storyMessageBox');
         const nameEl = storyLibraryState.overlayEl.querySelector('#storyMessageName');
@@ -1179,7 +1350,11 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
         const arrow = storyLibraryState.overlayEl.querySelector('#storyMessageArrow');
         const choicesEl = storyLibraryState.overlayEl.querySelector('#storyMessageChoices');
         box.style.display = 'flex';
-        if (nameEl) { nameEl.textContent = STORY_SPEAKER_NAME; nameEl.style.display = 'block'; }
+        if (speaker === undefined) speaker = STORY_SPEAKER_NAME;
+        if (nameEl) {
+            if (speaker) { nameEl.textContent = speaker; nameEl.style.display = 'block'; }
+            else { nameEl.style.display = 'none'; }
+        }
         choicesEl.style.display = 'none';
         choicesEl.innerHTML = '';
         arrow.style.display = 'none';
