@@ -66,25 +66,34 @@
 // ============================================================
 
 const STORY_BOOK_SCRIPTS = {
-    // ---- book-01（動作確認用の仮サンプル） ----
-    // 実際の挿絵・BGM・本文がまだ無いため、お手持ちの素材（図書館の背景・館長の絵・既存の効果音）を
-    // 一時的に流用したプレースホルダーです。本番の原稿・挿絵・音声が用意でき次第、
-    // 各ページのbg/image/beatsの中身だけを差し替えてください（story.js側の変更は不要）。
+    // ---- book-01（サンプル。指示いただいた画像イメージのファイル名構成で作成） ----
+    // 背景: story/bookstory_bg.png
+    // 挿絵: story/book1_i01.png, story/book1_i02.png（1ページにつき正方形1枚）
+    // キャラクターシルエット: story/manimage01.svg（挿絵と同じ枠にそのまま差し込める）
+    // ※これらの画像ファイルはまだ story/ フォルダに置かれていません。用意でき次第
+    //   アップロードしてください（コード側は既にこのファイル名を参照する形で組んであります）。
     1: [
         {
-            bg: 'story/currylibrary_bg.png',
-            image: 'story/libraryman01.png',
+            bg: 'story/bookstory_bg.png',
+            image: 'story/book1_i01.png',
             beats: [
                 { text: 'その日、駅前から少し離れた場所にある\n小さな洋食屋に初めて入った。' },
-                { text: '（これはページ送りエンジンの動作確認用サンプルです。本番の文章・挿絵に差し替えて使ってください）' },
             ],
         },
         {
-            bg: 'story/currylibrary_bg.png',
-            image: 'story/libraryman01.png',
+            bg: 'story/bookstory_bg.png',
+            image: 'story/book1_i02.png',
+            beats: [
+                { text: '古びた木の扉を開けると、\nスパイスの香りがふわりと鼻をかすめた。' },
+                { text: '（これはページ送りエンジンの動作確認用サンプルです。本番の文章に差し替えて使ってください）' },
+            ],
+        },
+        {
+            bg: 'story/bookstory_bg.png',
+            image: 'story/manimage01.svg',
             se: 'chin.mp3',
             beats: [
-                { text: '厨房に立つ店主は、こちらに気づくと\n静かに笑って鍋を火にかけた。' },
+                { text: 'カウンターの奥に、一人の店主のシルエットが見えた。' },
                 { say: '店主', text: '……ここまで読んでくれたのか。' },
                 { say: '店主', text: '俺のカレーの想いを、少しだけ聞いてくれ。' },
                 { narration: '静かにページがめくれていく――。' },
