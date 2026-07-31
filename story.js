@@ -355,8 +355,9 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
         dialogueSession: 0, // 会話セッションの世代番号（連続して次の会話に繋げた時、古いsetTimeoutが誤って新しい会話を隠さないようにする）
         currentDetailChapter: null, // 現在、拡大表示中の本（解放／読むボタンの対象）
         // ===== 本編（各巻ストーリー）再生用 =====
-        readerScript: [], // 再生中の本のシーンコマンド配列（STORY_BOOK_SCRIPTS[num]）
-        readerIndex: 0, // 現在再生中のコマンドの位置
+        readerPages: [], // 再生中の本のページ配列（STORY_BOOK_SCRIPTS[num]）
+        readerPageIndex: 0, // 現在表示中のページ番号（0始まり）
+        readerBeatIndex: 0, // ページ内、現在表示中のテキスト（挿絵下の文章 or セリフ）の位置
         readerChapter: null, // 現在読んでいる本（STORY_CHAPTERSの1件）
         readerBgmSrc: null, // 本編再生中に鳴っているBGM（同じ曲への再指定で再生し直さないようにするため）
     };
@@ -590,14 +591,32 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
 #storyReaderBg {
     position:absolute; inset:0; background-size:cover; background-position:center; background-color:#000;
 }
-#storyReaderChar {
-    position:absolute; left:50%; bottom:132px; transform:translateX(-50%);
-    max-height:60%; max-width:80%; display:none;
+/* ページの挿絵（正方形1枚、横中央・縦中央よりやや上）。キャラクターシルエット(svg)を
+   同じ枠に表示したい場合も、この要素のsrcを差し替えるだけでよい（絵と同じ扱い）。 */
+#storyReaderImage {
+    position:absolute; left:50%; top:20%; width:78%; aspect-ratio:1/1; transform:translateX(-50%);
+    object-fit:contain; z-index:2; display:none;
+}
+/* 挿絵の下の地の文エリア（絵本風）。タイプライターなし・効果音なしで、タップすると
+   表示中の文章が次の文章に置き換わる（切り替え式）。全文を出し切った状態でタップするとページがめくれる。 */
+#storyReaderTextArea {
+    position:absolute; left:9%; right:9%; top:58%; z-index:2; display:none;
+    color:#2a2118; font-size:15px; line-height:1.85; text-align:left; white-space:pre-line;
+}
+#storyReaderTextArrow {
+    display:inline-block; margin-left:4px; animation:storyArrowBlink 1s steps(1) infinite;
 }
 /* 本編読書中専用の×（左上）。本棚/本の表紙の×と同じ見た目・位置で、常にどれか1つだけ表示する。 */
 #storyReaderCloseBtn {
     position:absolute; top:16px; left:16px; z-index:30; width:36px; height:36px; border-radius:999px;
     background:rgba(0,0,0,0.45); color:#fff; border:1px solid rgba(255,255,255,0.4); font-size:16px;
+    cursor:pointer; display:none; align-items:center; justify-content:center;
+}
+/* 前のページに戻るボタン（画面左端中央に常設）。表紙側の×・館長会話とは独立した本編専用の送り操作。 */
+#storyReaderPrevBtn {
+    position:absolute; left:8px; top:50%; transform:translateY(-50%); z-index:30;
+    width:34px; height:34px; border-radius:999px;
+    background:rgba(0,0,0,0.35); color:#fff; border:1px solid rgba(255,255,255,0.35); font-size:14px;
     cursor:pointer; display:none; align-items:center; justify-content:center;
 }
         `;
@@ -655,9 +674,11 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
             + '</div>'
             + '<div id="storyReaderOverlay">'
             + '<div id="storyReaderBg"></div>'
-            + '<img id="storyReaderChar" alt="">'
+            + '<img id="storyReaderImage" alt="">'
+            + '<div id="storyReaderTextArea"></div>'
             + '</div>'
             + '<button id="storyReaderCloseBtn">✕</button>'
+            + '<button id="storyReaderPrevBtn">◀</button>'
             + '</div>';
         document.body.appendChild(overlay);
         storyLibraryState.overlayEl = overlay;
@@ -739,6 +760,10 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
         overlay.querySelector('#storyReaderCloseBtn').addEventListener('click', function(e) {
             e.stopPropagation();
             endStoryReader();
+        });
+        overlay.querySelector('#storyReaderPrevBtn').addEventListener('click', function(e) {
+            e.stopPropagation();
+            goToPrevReaderPage();
         });
 
         storyLibraryState.rotationY = 0;
@@ -1119,16 +1144,21 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
         startStoryReader(chapter);
     }
 
-    // ===== 本編（各巻ストーリー）再生エンジン =====
+    // ===== 本編（各巻ストーリー）再生エンジン（絵本風ページ送り方式） =====
     // 内容データ（STORY_BOOK_SCRIPTS）はstory-scripts.js側で定義する。
-    // ここではエンジン（コマンドの再生方法）だけを扱い、各巻の文章・演出には一切関知しない。
+    // ここではエンジン（ページ・文章の送り方）だけを扱い、各巻の文章・絵には一切関知しない。
     //
-    // コマンドの種類は story-scripts-work.js の冒頭コメントを参照。
+    // データ構造・コマンドの種類は story-scripts-work.js の冒頭コメントを参照。
+    // 1冊 = ページの配列。1ページ = 背景/挿絵1枚 + 文章（beats）の配列。
+    // beatsは「挿絵下のテキストエリアに即時表示する文章（text）」と
+    // 「既存のメッセージウインドウ（タイプライター＋効果音）で表示するセリフ（say/narration）」を
+    // 自由に混在できる。タップで次のbeatへ、ページの最後のbeatまで表示し終えたら次のページへめくる。
+    // 前のページへは画面左端の戻るボタン（常設）で戻る。
 
     function startStoryReader(chapter) {
         if (!chapter || chapter.locked) return;
-        const script = (typeof STORY_BOOK_SCRIPTS !== 'undefined') ? STORY_BOOK_SCRIPTS[chapter.num] : null;
-        if (!script || !script.length) {
+        const pages = (typeof STORY_BOOK_SCRIPTS !== 'undefined') ? STORY_BOOK_SCRIPTS[chapter.num] : null;
+        if (!pages || !pages.length) {
             if (typeof showCustomAlert === 'function') {
                 showCustomAlert('準備中', 'このストーリーはまだ準備中です。');
             }
@@ -1139,90 +1169,117 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
         const detailCloseBtn = storyLibraryState.overlayEl.querySelector('#storyBookDetailCloseBtn');
         const readerOverlay = storyLibraryState.overlayEl.querySelector('#storyReaderOverlay');
         const readerCloseBtn = storyLibraryState.overlayEl.querySelector('#storyReaderCloseBtn');
-        const charEl = storyLibraryState.overlayEl.querySelector('#storyReaderChar');
 
         if (detailOverlay) detailOverlay.style.display = 'none';
         if (detailCloseBtn) detailCloseBtn.style.display = 'none';
         if (readerOverlay) readerOverlay.style.display = 'block';
         if (readerCloseBtn) readerCloseBtn.style.display = 'flex';
-        if (charEl) { charEl.style.display = 'none'; charEl.removeAttribute('src'); }
 
         storyLibraryState.mode = 'reader';
-        storyLibraryState.readerScript = script;
-        storyLibraryState.readerIndex = 0;
+        storyLibraryState.readerPages = pages;
         storyLibraryState.readerChapter = chapter;
         storyLibraryState.readerBgmSrc = null;
 
-        showStoryDialogueLayerOnly(); // セリフウインドウ用のレイヤーだけ表示（館長の画像は出さない）
-        processReaderStep();
+        showReaderPage(0);
     }
 
-    // 現在の位置(readerIndex)のコマンドを1つ処理する。
-    // セリフ(say/narration)以外は表示・演出だけ行ってすぐ次のコマンドへ自動的に進む。
-    // セリフはタイプライター表示し、タップされるまで待つ（advanceStoryReaderがそこから先に進める）。
-    function processReaderStep() {
-        const script = storyLibraryState.readerScript;
-        const step = script[storyLibraryState.readerIndex];
-        if (!step || step.end) {
-            endStoryReader();
-            return;
+    // 指定ページの背景・挿絵・BGM／効果音を反映し、そのページの先頭のbeatを表示する。
+    function showReaderPage(pageIndex) {
+        clearStoryTypingTimer();
+        const pages = storyLibraryState.readerPages;
+        const page = pages[pageIndex];
+        if (!page) { endStoryReader(); return; }
+        storyLibraryState.readerPageIndex = pageIndex;
+
+        const bgEl = storyLibraryState.overlayEl.querySelector('#storyReaderBg');
+        if (bgEl && page.bg) bgEl.style.backgroundImage = "url('" + page.bg + "')";
+
+        const imgEl = storyLibraryState.overlayEl.querySelector('#storyReaderImage');
+        if (imgEl) {
+            if (page.image) { imgEl.src = page.image; imgEl.style.display = 'block'; }
+            else { imgEl.style.display = 'none'; imgEl.removeAttribute('src'); }
         }
 
-        if (step.bg) {
-            const bgEl = storyLibraryState.overlayEl.querySelector('#storyReaderBg');
-            if (bgEl) bgEl.style.backgroundImage = "url('" + step.bg + "')";
+        if (page.bgm && page.bgm !== storyLibraryState.readerBgmSrc) {
+            storyLibraryState.readerBgmSrc = page.bgm;
+            if (typeof playBattleBGM === 'function') playBattleBGM(page.bgm);
         }
-        if (Object.prototype.hasOwnProperty.call(step, 'char')) {
-            const charEl = storyLibraryState.overlayEl.querySelector('#storyReaderChar');
-            if (charEl) {
-                if (step.char) {
-                    charEl.src = step.char;
-                    charEl.style.display = 'block';
-                } else {
-                    charEl.style.display = 'none';
-                }
+        if (page.se && typeof playSoundEffect === 'function') {
+            playSoundEffect(page.se);
+        }
+
+        const prevBtn = storyLibraryState.overlayEl.querySelector('#storyReaderPrevBtn');
+        if (prevBtn) prevBtn.style.display = pageIndex > 0 ? 'flex' : 'none';
+
+        showReaderBeat(0);
+    }
+
+    // ページ内、指定位置のbeatを表示する（挿絵下テキスト or メッセージウインドウ、どちらか一方）。
+    function showReaderBeat(beatIndex) {
+        const page = storyLibraryState.readerPages[storyLibraryState.readerPageIndex];
+        storyLibraryState.readerBeatIndex = beatIndex;
+        const beat = (page.beats || [])[beatIndex];
+        const textArea = storyLibraryState.overlayEl.querySelector('#storyReaderTextArea');
+        const layer = storyLibraryState.overlayEl.querySelector('#storyDialogueLayer');
+        if (!beat) return; // このページのbeatsを表示し終えた状態（advanceStoryReaderがページ送りを担当）
+
+        if (beat.say || beat.narration) {
+            // 既存のメッセージウインドウ（タイプライター＋効果音）を流用
+            if (textArea) textArea.style.display = 'none';
+            showStoryDialogueLayerOnly(); // 館長の画像は出さず、ウインドウだけ表示
+            const speaker = beat.say ? beat.say : '';
+            const text = beat.say ? beat.text : beat.narration;
+            startTypewriter(text, null, speaker);
+        } else if (beat.text) {
+            // 絵本風のテキストエリアに即時表示（タイプライターなし・効果音なし）
+            if (layer) layer.style.display = 'none';
+            if (textArea) {
+                textArea.innerHTML = '';
+                const span = document.createElement('span');
+                span.textContent = beat.text;
+                textArea.appendChild(span);
+                const arrow = document.createElement('span');
+                arrow.id = 'storyReaderTextArrow';
+                arrow.textContent = '▼';
+                textArea.appendChild(document.createElement('br'));
+                textArea.appendChild(arrow);
+                textArea.style.display = 'block';
             }
         }
-        if (step.bgm && step.bgm !== storyLibraryState.readerBgmSrc) {
-            storyLibraryState.readerBgmSrc = step.bgm;
-            if (typeof playBattleBGM === 'function') playBattleBGM(step.bgm);
-        }
-        if (step.se && typeof playSoundEffect === 'function') {
-            playSoundEffect(step.se);
-        }
-
-        if (step.say || step.narration) {
-            const speaker = step.say ? step.say : '';
-            const text = step.say ? step.text : step.narration;
-            startTypewriter(text, null, speaker);
-            return; // タップ待ち。続きはadvanceStoryReader()から。
-        }
-
-        if (step.wait) {
-            const script2 = storyLibraryState.readerScript;
-            const myIndex = storyLibraryState.readerIndex;
-            setTimeout(function() {
-                // 待っている間に読書が中断されていないか確認してから進める。
-                if (storyLibraryState.mode === 'reader' && storyLibraryState.readerScript === script2 && storyLibraryState.readerIndex === myIndex) {
-                    storyLibraryState.readerIndex++;
-                    processReaderStep();
-                }
-            }, step.wait);
-            return;
-        }
-
-        // bg/char/bgm/se単独指定など、タップ待ちを伴わないコマンドは即座に次へ。
-        storyLibraryState.readerIndex++;
-        processReaderStep();
     }
 
+    // タップ時の進行。メッセージウインドウのbeatが文字送り中なら即完成、
+    // 完成済み（あるいは絵本風テキストのbeat）なら次のbeatへ、ページの最後まで来ていたら次ページへめくる。
     function advanceStoryReader() {
-        if (!storyLibraryState.typingDone) {
+        const page = storyLibraryState.readerPages[storyLibraryState.readerPageIndex];
+        const beat = (page.beats || [])[storyLibraryState.readerBeatIndex];
+        if (beat && (beat.say || beat.narration) && !storyLibraryState.typingDone) {
             completeTypewriterInstantly();
             return;
         }
-        storyLibraryState.readerIndex++;
-        processReaderStep();
+        const nextBeatIndex = storyLibraryState.readerBeatIndex + 1;
+        if (page.beats && nextBeatIndex < page.beats.length) {
+            showReaderBeat(nextBeatIndex);
+        } else {
+            goToNextReaderPage();
+        }
+    }
+
+    function goToNextReaderPage() {
+        const nextIndex = storyLibraryState.readerPageIndex + 1;
+        if (storyLibraryState.readerPages[nextIndex]) {
+            showReaderPage(nextIndex);
+        } else {
+            endStoryReader(); // 最後のページまで読み終えた
+        }
+    }
+
+    function goToPrevReaderPage() {
+        if (storyLibraryState.mode !== 'reader') return;
+        const prevIndex = storyLibraryState.readerPageIndex - 1;
+        if (prevIndex >= 0) {
+            showReaderPage(prevIndex);
+        }
     }
 
     function endStoryReader() {
@@ -1230,19 +1287,26 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
         const layer = storyLibraryState.overlayEl.querySelector('#storyDialogueLayer');
         const box = storyLibraryState.overlayEl.querySelector('#storyMessageBox');
         const nameEl = storyLibraryState.overlayEl.querySelector('#storyMessageName');
+        const textArea = storyLibraryState.overlayEl.querySelector('#storyReaderTextArea');
+        const imgEl = storyLibraryState.overlayEl.querySelector('#storyReaderImage');
         const readerOverlay = storyLibraryState.overlayEl.querySelector('#storyReaderOverlay');
         const readerCloseBtn = storyLibraryState.overlayEl.querySelector('#storyReaderCloseBtn');
+        const prevBtn = storyLibraryState.overlayEl.querySelector('#storyReaderPrevBtn');
         const detailOverlay = storyLibraryState.overlayEl.querySelector('#storyBookDetailOverlay');
         const detailCloseBtn = storyLibraryState.overlayEl.querySelector('#storyBookDetailCloseBtn');
 
         if (box) box.style.display = 'none';
         if (nameEl) nameEl.style.display = 'none';
         if (layer) layer.style.display = 'none';
+        if (textArea) { textArea.style.display = 'none'; textArea.innerHTML = ''; }
+        if (imgEl) { imgEl.style.display = 'none'; imgEl.removeAttribute('src'); }
         if (readerOverlay) readerOverlay.style.display = 'none';
         if (readerCloseBtn) readerCloseBtn.style.display = 'none';
+        if (prevBtn) prevBtn.style.display = 'none';
 
-        storyLibraryState.readerScript = [];
-        storyLibraryState.readerIndex = 0;
+        storyLibraryState.readerPages = [];
+        storyLibraryState.readerPageIndex = 0;
+        storyLibraryState.readerBeatIndex = 0;
         storyLibraryState.readerChapter = null;
         storyLibraryState.readerBgmSrc = null;
         storyLibraryState.mode = 'carousel';
