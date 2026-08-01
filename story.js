@@ -91,7 +91,7 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
     // デバッグ用：読書画面に小さく表示するビルド番号。デプロイのたびに更新し、実機で本当に
     // 最新のstory.jsが読み込まれているか（キャッシュが残っていないか）を目視確認できるようにする。
     // 一般公開（STORY_LIBRARY_ENABLED=true）前には削除すること。
-    const STORY_ENGINE_BUILD = 'b22';
+    const STORY_ENGINE_BUILD = 'b23';
     const STORY_UNLOCK_STORAGE_KEY = 'qr_story_library_unlocked';
     const STORY_BOOK_SPAWN_STAGGER_MS = 90;
     const STORY_BOOK_SPAWN_DURATION_MS = 550;
@@ -666,11 +666,14 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
     background:rgba(0,0,0,0.35); color:#fff; border:1px solid rgba(255,255,255,0.35); font-size:14px;
     cursor:pointer; display:none; align-items:center; justify-content:center;
 }
-/* デバッグ用のビルド番号表示（実機で最新コードが読み込まれているかの目視確認用）。
+/* デバッグ用の状態表示（実機で最新コードが読み込まれているか／今どのページ・beatで
+   止まっているかを目視確認するための行）。画面上部中央に常時表示する。
    一般公開前に削除すること。 */
-#storyReaderBuildBadge {
-    position:absolute; right:6px; bottom:4px; z-index:32; color:rgba(255,255,255,0.55);
-    font-size:9px; pointer-events:none;
+#storyReaderDebugLine {
+    position:absolute; top:4px; left:50%; transform:translateX(-50%); z-index:33;
+    background:rgba(0,0,0,0.6); color:#ffe6a8; font-size:11px; font-family:monospace;
+    padding:2px 10px; border-radius:8px; pointer-events:none; white-space:nowrap; max-width:92%;
+    overflow:hidden; text-overflow:ellipsis;
 }
 /* 表紙拡大画面→本編読書画面の切り替え時のホワイトアウト。全ての要素より前面（closeボタン等の30より上）。 */
 #storyTransitionWhiteout {
@@ -745,7 +748,7 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
             + '</div>'
             + '<button id="storyReaderCloseBtn">✕</button>'
             + '<button id="storyReaderPrevBtn">◀</button>'
-            + '<div id="storyReaderBuildBadge">' + STORY_ENGINE_BUILD + '</div>'
+            + '<div id="storyReaderDebugLine">' + STORY_ENGINE_BUILD + '</div>'
             + '<div id="storyTransitionWhiteout"></div>'
             + '</div>';
         document.body.appendChild(overlay);
@@ -1406,6 +1409,20 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
         }
     }
 
+    // デバッグ用：画面上部に今の内部状態（ページ/beat番号・busy・×無効化フラグ）を表示する。
+    // 「進まなくなった」時に、リロードせずその場でどこで止まっているか報告してもらうための行。
+    // 一般公開前に削除すること。
+    function updateReaderDebugLine(extra) {
+        if (!storyLibraryState.overlayEl) return;
+        const el = storyLibraryState.overlayEl.querySelector('#storyReaderDebugLine');
+        if (!el) return;
+        const p = storyLibraryState.readerPageIndex;
+        const b = storyLibraryState.readerBeatIndex;
+        const busy = storyLibraryState.readerBusy ? 1 : 0;
+        const close = storyLibraryState.readerCloseDisabled ? 1 : 0;
+        el.textContent = STORY_ENGINE_BUILD + ' p' + p + ' b' + b + ' busy' + busy + ' close' + close + (extra ? ' ' + extra : '');
+    }
+
     // 指定ページの背景・挿絵・BGM／環境音／効果音を反映し、1秒待ってからそのページの先頭のbeatを表示する。
     function showReaderPage(pageIndex) {
         clearStoryTypingTimer();
@@ -1414,6 +1431,7 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
         if (!page) { endStoryReader(); return; }
         storyLibraryState.readerPageIndex = pageIndex;
         storyLibraryState.readerBusy = true;
+        updateReaderDebugLine();
 
         const bgEl = storyLibraryState.overlayEl.querySelector('#storyReaderBg');
         if (bgEl && page.bg) bgEl.style.backgroundImage = "url('" + page.bg + "')";
@@ -1460,10 +1478,12 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
         const page = storyLibraryState.readerPages[storyLibraryState.readerPageIndex];
         storyLibraryState.readerBeatIndex = beatIndex;
         const beat = (page.beats || [])[beatIndex];
-        if (!beat) { storyLibraryState.readerBusy = false; return; } // このページを表示し終えた状態（advanceStoryReaderがページ送りを担当）
+        updateReaderDebugLine();
+        if (!beat) { storyLibraryState.readerBusy = false; updateReaderDebugLine(); return; } // このページを表示し終えた状態（advanceStoryReaderがページ送りを担当）
 
         storyLibraryState.readerBusy = true;
         const pageIndex = storyLibraryState.readerPageIndex;
+        updateReaderDebugLine();
 
         // セーフティネット：何らかの理由でこのbeatの自動進行が止まってしまった場合でも、
         // 6秒経ってまだ同じbeatでbusyのままならタップ操作を強制的に復帰させる
@@ -1472,34 +1492,46 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
             if (storyLibraryState.readerBusy) {
                 console.warn('[咖喱図書館] beat', beatIndex, 'で自動進行が止まっていたため復帰しました');
                 storyLibraryState.readerBusy = false;
+                updateReaderDebugLine('SAFETYNET');
             }
         });
 
         const run = function() {
-            applyReaderStageEffects(beat);
+            try {
+                applyReaderStageEffects(beat);
+                updateReaderDebugLine();
 
-            if (beat.centerText !== undefined) {
-                // 暗転画面の中央にフェードイン／アウトしながら表示するテキスト
-                const textArea = storyLibraryState.overlayEl.querySelector('#storyReaderTextArea');
-                const layer = storyLibraryState.overlayEl.querySelector('#storyDialogueLayer');
-                if (textArea) textArea.style.display = 'none';
-                if (layer) layer.style.display = 'none';
-                showReaderCenterText(beat.centerText, function() {
-                    storyLibraryState.readerBusy = false; // フェードインが完了した時点でタップ待ちに
-                });
-            } else if (beat.say || beat.narration || beat.text) {
-                renderReaderBeatText(beat);
-                storyLibraryState.readerBusy = false; // ここでタップ待ちの状態になる
-            } else {
-                // テキストを持たない制御用beat：効果だけ適用して自動的に次のbeatへ進む
-                const nextIndex = beatIndex + 1;
-                if (beat.wait) {
-                    scheduleReaderStep(beat.wait, pageIndex, beatIndex, function() {
-                        showReaderBeat(nextIndex);
+                if (beat.centerText !== undefined) {
+                    // 暗転画面の中央にフェードイン／アウトしながら表示するテキスト
+                    const textArea = storyLibraryState.overlayEl.querySelector('#storyReaderTextArea');
+                    const layer = storyLibraryState.overlayEl.querySelector('#storyDialogueLayer');
+                    if (textArea) textArea.style.display = 'none';
+                    if (layer) layer.style.display = 'none';
+                    showReaderCenterText(beat.centerText, function() {
+                        storyLibraryState.readerBusy = false; // フェードインが完了した時点でタップ待ちに
+                        updateReaderDebugLine();
                     });
+                } else if (beat.say || beat.narration || beat.text) {
+                    renderReaderBeatText(beat);
+                    storyLibraryState.readerBusy = false; // ここでタップ待ちの状態になる
+                    updateReaderDebugLine();
                 } else {
-                    showReaderBeat(nextIndex);
+                    // テキストを持たない制御用beat：効果だけ適用して自動的に次のbeatへ進む
+                    const nextIndex = beatIndex + 1;
+                    if (beat.wait) {
+                        scheduleReaderStep(beat.wait, pageIndex, beatIndex, function() {
+                            showReaderBeat(nextIndex);
+                        });
+                    } else {
+                        showReaderBeat(nextIndex);
+                    }
                 }
+            } catch (err) {
+                // ここで何らかの例外が起きると、以前はbusyがtrueのまま固まって進めなくなっていた。
+                // 例外の中身を画面上に出した上で、tap待ちに復帰させ、致命的な固まりを防ぐ。
+                console.error('[咖喱図書館] showReaderBeat run()で例外', err);
+                storyLibraryState.readerBusy = false;
+                updateReaderDebugLine('ERR:' + (err && err.message ? err.message : String(err)));
             }
         };
 
