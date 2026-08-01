@@ -362,6 +362,7 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
         readerChapter: null, // 現在読んでいる本（STORY_CHAPTERSの1件）
         readerBgmSrc: null, // 本編再生中に鳴っているBGM（同じ曲への再指定で再生し直さないようにするため）
         readerBusy: false, // ページ開始直後の間・演出中のタップ無視フラグ（間/delay/制御用beatの自動進行中はtrue）
+        readerCloseDisabled: false, // trueの間、本編読書中の×・戻るボタンを無効にする（演出上、離脱させたくない場面用）
         ambientAudio: null, // 雨音などの環境音（BGMとは別レイヤーで、重ねてループ再生する用のAudio要素）
     };
 
@@ -625,6 +626,19 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
     position:absolute; inset:0; background:rgba(0,0,0,0.6); display:none; pointer-events:none;
     transition:opacity 0.3s ease;
 }
+/* 画面全体の暗転（エンディング等の演出用）。挿絵の枠だけでなくstoryReaderOverlay全体を覆う。 */
+#storyReaderBlackout {
+    position:absolute; inset:0; z-index:5; background:#000; opacity:0; pointer-events:none;
+    transition:opacity 0.9s ease;
+}
+.story-reader-blackout-visible { opacity:1; }
+/* 暗転時に画面中央へフェード表示するテキスト（挿絵下のテキストエリアとは別の表示方法） */
+#storyReaderCenterText {
+    position:absolute; inset:0; z-index:6; display:flex; align-items:center; justify-content:center;
+    padding:0 12%; text-align:center; color:#fff; font-size:17px; line-height:2;
+    white-space:pre-line; opacity:0; pointer-events:none; transition:opacity 0.6s ease;
+}
+.story-center-text-visible { opacity:1; }
 /* 挿絵の下の地の文エリア（絵本風）。タイプライターなし・効果音なしで、タップすると
    表示中の文章が次の文章に置き換わる（切り替え式）。全文を出し切った状態でタップするとページがめくれる。
    文章が長くページ内に収まらない場合は、このエリア内だけで縦スクロールできるようにしてある。 */
@@ -716,6 +730,8 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
             + '</div>'
             + '<div id="storyReaderTextArea"></div>'
             + '</div>'
+            + '<div id="storyReaderBlackout"></div>'
+            + '<div id="storyReaderCenterText"></div>'
             + '</div>'
             + '<button id="storyReaderCloseBtn">✕</button>'
             + '<button id="storyReaderPrevBtn">◀</button>'
@@ -800,10 +816,12 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
         });
         overlay.querySelector('#storyReaderCloseBtn').addEventListener('click', function(e) {
             e.stopPropagation();
+            if (storyLibraryState.readerCloseDisabled) return; // 演出上、離脱させたくない場面では無効
             endStoryReader();
         });
         overlay.querySelector('#storyReaderPrevBtn').addEventListener('click', function(e) {
             e.stopPropagation();
+            if (storyLibraryState.readerCloseDisabled) return;
             goToPrevReaderPage();
         });
 
@@ -1282,6 +1300,7 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
         storyLibraryState.readerChapter = chapter;
         storyLibraryState.readerBgmSrc = null;
         storyLibraryState.readerBusy = false;
+        storyLibraryState.readerCloseDisabled = false;
         stopStoryAmbient(); // 前回の読書セッションの環境音が万一残っていないよう、念のためリセット
 
         showReaderPage(0);
@@ -1360,6 +1379,17 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
             else stopStoryAmbient();
         }
 
+        // 画面全体の暗転（ゆっくり黒一色になる演出）。CSSのtransitionでフェードする。
+        if (Object.prototype.hasOwnProperty.call(src, 'blackout')) {
+            const blackoutEl = storyLibraryState.overlayEl.querySelector('#storyReaderBlackout');
+            if (blackoutEl) blackoutEl.classList.toggle('story-reader-blackout-visible', !!src.blackout);
+        }
+
+        // ×（本編を閉じるボタン）の有効／無効。演出上、途中で離脱させたくない場面で使う。
+        if (Object.prototype.hasOwnProperty.call(src, 'closeDisabled')) {
+            storyLibraryState.readerCloseDisabled = !!src.closeDisabled;
+        }
+
         if (src.se && typeof playSoundEffect === 'function') {
             playSoundEffect(src.se);
         }
@@ -1377,8 +1407,15 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
         const bgEl = storyLibraryState.overlayEl.querySelector('#storyReaderBg');
         if (bgEl && page.bg) bgEl.style.backgroundImage = "url('" + page.bg + "')";
 
-        // シルエット／オーバーレイは、ページ側で明示的に指定されていない限り、ページが変わる
-        // タイミングでいったんリセットする（前のページの表示を持ち越さない）。
+        // ページが切り替わった瞬間に、前のページの文章は必ず消す（新しい挿絵が出ているのに
+        // 前の文章がまだ見えている、という状態を作らないため）。
+        const textArea = storyLibraryState.overlayEl.querySelector('#storyReaderTextArea');
+        const layer = storyLibraryState.overlayEl.querySelector('#storyDialogueLayer');
+        if (textArea) { textArea.style.display = 'none'; textArea.innerHTML = ''; }
+        if (layer) layer.style.display = 'none';
+
+        // シルエット／オーバーレイ／画面暗転は、ページ側で明示的に指定されていない限り、
+        // ページが変わるタイミングでいったんリセットする（前のページの表示を持ち越さない）。
         if (!Object.prototype.hasOwnProperty.call(page, 'silhouette')) {
             const silEl = storyLibraryState.overlayEl.querySelector('#storyReaderSilhouette');
             if (silEl) { silEl.style.display = 'none'; silEl.removeAttribute('src'); }
@@ -1387,6 +1424,12 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
             const overlayEl = storyLibraryState.overlayEl.querySelector('#storyReaderImageOverlay');
             if (overlayEl) overlayEl.style.display = 'none';
         }
+        if (!Object.prototype.hasOwnProperty.call(page, 'blackout')) {
+            const blackoutEl = storyLibraryState.overlayEl.querySelector('#storyReaderBlackout');
+            if (blackoutEl) blackoutEl.classList.remove('story-reader-blackout-visible');
+        }
+        const centerTextEl = storyLibraryState.overlayEl.querySelector('#storyReaderCenterText');
+        if (centerTextEl) { centerTextEl.classList.remove('story-center-text-visible'); centerTextEl.textContent = ''; }
 
         applyReaderStageEffects(page);
 
@@ -1414,7 +1457,16 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
         const run = function() {
             applyReaderStageEffects(beat);
 
-            if (beat.say || beat.narration || beat.text) {
+            if (beat.centerText !== undefined) {
+                // 暗転画面の中央にフェードイン／アウトしながら表示するテキスト
+                const textArea = storyLibraryState.overlayEl.querySelector('#storyReaderTextArea');
+                const layer = storyLibraryState.overlayEl.querySelector('#storyDialogueLayer');
+                if (textArea) textArea.style.display = 'none';
+                if (layer) layer.style.display = 'none';
+                showReaderCenterText(beat.centerText, function() {
+                    storyLibraryState.readerBusy = false; // フェードインが完了した時点でタップ待ちに
+                });
+            } else if (beat.say || beat.narration || beat.text) {
                 renderReaderBeatText(beat);
                 storyLibraryState.readerBusy = false; // ここでタップ待ちの状態になる
             } else {
@@ -1435,6 +1487,27 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
             scheduleReaderStep(beat.delay, pageIndex, beatIndex, run);
         } else {
             run();
+        }
+    }
+
+    // 画面中央のフェードテキストを更新する。既に何か表示されていれば、いったんフェードアウト
+    // させてから次のテキストをフェードインさせる（クロスフェード）。フェードインが完了したらonDoneを呼ぶ。
+    function showReaderCenterText(text, onDone) {
+        const el = storyLibraryState.overlayEl.querySelector('#storyReaderCenterText');
+        if (!el) { if (onDone) onDone(); return; }
+        const isVisible = el.classList.contains('story-center-text-visible');
+        const setText = function() {
+            el.textContent = text;
+            requestAnimationFrame(function() {
+                el.classList.add('story-center-text-visible');
+                setTimeout(function() { if (onDone) onDone(); }, 600);
+            });
+        };
+        if (isVisible) {
+            el.classList.remove('story-center-text-visible');
+            setTimeout(setText, 650);
+        } else {
+            setText();
         }
     }
 
@@ -1513,6 +1586,8 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
         const imgEl = storyLibraryState.overlayEl.querySelector('#storyReaderImage');
         const silEl = storyLibraryState.overlayEl.querySelector('#storyReaderSilhouette');
         const overlayEl = storyLibraryState.overlayEl.querySelector('#storyReaderImageOverlay');
+        const blackoutEl = storyLibraryState.overlayEl.querySelector('#storyReaderBlackout');
+        const centerTextEl = storyLibraryState.overlayEl.querySelector('#storyReaderCenterText');
         const readerOverlay = storyLibraryState.overlayEl.querySelector('#storyReaderOverlay');
         const readerCloseBtn = storyLibraryState.overlayEl.querySelector('#storyReaderCloseBtn');
         const prevBtn = storyLibraryState.overlayEl.querySelector('#storyReaderPrevBtn');
@@ -1527,6 +1602,8 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
         if (imgEl) imgEl.removeAttribute('src');
         if (silEl) { silEl.style.display = 'none'; silEl.removeAttribute('src'); }
         if (overlayEl) overlayEl.style.display = 'none';
+        if (blackoutEl) blackoutEl.classList.remove('story-reader-blackout-visible');
+        if (centerTextEl) { centerTextEl.classList.remove('story-center-text-visible'); centerTextEl.textContent = ''; }
         if (readerOverlay) readerOverlay.style.display = 'none';
         if (readerCloseBtn) readerCloseBtn.style.display = 'none';
         if (prevBtn) prevBtn.style.display = 'none';
@@ -1538,6 +1615,7 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
         storyLibraryState.readerChapter = null;
         storyLibraryState.readerBgmSrc = null;
         storyLibraryState.readerBusy = false;
+        storyLibraryState.readerCloseDisabled = false;
         storyLibraryState.mode = 'carousel';
 
         // 呼び出し元（本の拡大画面）に戻す
