@@ -87,6 +87,7 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
     const STORY_MESSAGE_SE = 'sound/message.mp3';
     const STORY_BOOK_FALL_SE = 'story/buon.mp3';
     const STORY_TYPE_INTERVAL_MS = 45;
+    const STORY_READER_PAGE_ENTRY_DELAY_MS = 1000; // 本編：各ページ表示後、文章が出るまでの無音の間
     const STORY_UNLOCK_STORAGE_KEY = 'qr_story_library_unlocked';
     const STORY_BOOK_SPAWN_STAGGER_MS = 90;
     const STORY_BOOK_SPAWN_DURATION_MS = 550;
@@ -360,6 +361,8 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
         readerBeatIndex: 0, // ページ内、現在表示中のテキスト（挿絵下の文章 or セリフ）の位置
         readerChapter: null, // 現在読んでいる本（STORY_CHAPTERSの1件）
         readerBgmSrc: null, // 本編再生中に鳴っているBGM（同じ曲への再指定で再生し直さないようにするため）
+        readerBusy: false, // ページ開始直後の間・演出中のタップ無視フラグ（間/delay/制御用beatの自動進行中はtrue）
+        ambientAudio: null, // 雨音などの環境音（BGMとは別レイヤーで、重ねてループ再生する用のAudio要素）
     };
 
     // ===== 初期化 =====
@@ -617,6 +620,11 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
     position:absolute; left:50%; top:50%; width:70%; height:auto;
     transform:translate(-50%,-50%); display:none; pointer-events:none;
 }
+/* 挿絵の上に重ねる黒いオーバーレイ（回想の演出等で使用）。beat.overlayで表示/非表示を切り替える。 */
+#storyReaderImageOverlay {
+    position:absolute; inset:0; background:rgba(0,0,0,0.6); display:none; pointer-events:none;
+    transition:opacity 0.3s ease;
+}
 /* 挿絵の下の地の文エリア（絵本風）。タイプライターなし・効果音なしで、タップすると
    表示中の文章が次の文章に置き換わる（切り替え式）。全文を出し切った状態でタップするとページがめくれる。
    文章が長くページ内に収まらない場合は、このエリア内だけで縦スクロールできるようにしてある。 */
@@ -704,6 +712,7 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
             + '<div id="storyReaderImageWrap">'
             + '<img id="storyReaderImage" alt="">'
             + '<img id="storyReaderSilhouette" alt="">'
+            + '<div id="storyReaderImageOverlay"></div>'
             + '</div>'
             + '<div id="storyReaderTextArea"></div>'
             + '</div>'
@@ -1184,6 +1193,28 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
         startStoryReader(chapter);
     }
 
+    // ===== 環境音（雨音など）専用のオーディオチャンネル =====
+    // playBattleBGM/stopBattleBGM（本体の単一BGMチャンネル）とは別に、雨音などを
+    // BGMに重ねてループ再生するための、本編専用の音声レイヤー。ミュート設定は本体と共通で尊重する。
+    function playStoryAmbient(src) {
+        if (typeof isMuted !== 'undefined' && isMuted) return;
+        if (storyLibraryState.ambientAudio && storyLibraryState.ambientAudio._src === src) return; // 再生中
+        stopStoryAmbient();
+        const audio = new Audio(src);
+        audio.loop = true;
+        audio.volume = 0.35;
+        audio._src = src;
+        audio.play().catch(function() {});
+        storyLibraryState.ambientAudio = audio;
+    }
+    function stopStoryAmbient() {
+        if (storyLibraryState.ambientAudio) {
+            storyLibraryState.ambientAudio.pause();
+            storyLibraryState.ambientAudio.currentTime = 0;
+            storyLibraryState.ambientAudio = null;
+        }
+    }
+
     // ===== 本編（各巻ストーリー）再生エンジン（絵本風ページ送り方式） =====
     // 内容データ（STORY_BOOK_SCRIPTS）はstory-scripts.js側で定義する。
     // ここではエンジン（ページ・文章の送り方）だけを扱い、各巻の文章・絵には一切関知しない。
@@ -1250,69 +1281,61 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
         storyLibraryState.readerPages = pages;
         storyLibraryState.readerChapter = chapter;
         storyLibraryState.readerBgmSrc = null;
+        storyLibraryState.readerBusy = false;
+        stopStoryAmbient(); // 前回の読書セッションの環境音が万一残っていないよう、念のためリセット
 
         showReaderPage(0);
     }
 
-    // 指定ページの背景・挿絵・BGM／効果音を反映し、そのページの先頭のbeatを表示する。
-    function showReaderPage(pageIndex) {
-        clearStoryTypingTimer();
-        const pages = storyLibraryState.readerPages;
-        const page = pages[pageIndex];
-        if (!page) { endStoryReader(); return; }
-        storyLibraryState.readerPageIndex = pageIndex;
-
-        const bgEl = storyLibraryState.overlayEl.querySelector('#storyReaderBg');
-        if (bgEl && page.bg) bgEl.style.backgroundImage = "url('" + page.bg + "')";
-
-        const imgWrap = storyLibraryState.overlayEl.querySelector('#storyReaderImageWrap');
-        const imgEl = storyLibraryState.overlayEl.querySelector('#storyReaderImage');
-        if (imgWrap && imgEl) {
-            if (page.image) { imgEl.src = page.image; imgWrap.style.display = 'block'; }
-            else { imgWrap.style.display = 'none'; imgEl.removeAttribute('src'); }
-        }
-        // シルエットはページが変わるたびにいったんリセットする（各ページの先頭beatで
-        // 必要なら改めて表示される。前のページの表示を持ち越さない）。
-        const silEl = storyLibraryState.overlayEl.querySelector('#storyReaderSilhouette');
-        if (silEl) { silEl.style.display = 'none'; silEl.removeAttribute('src'); }
-
-        if (page.bgm && page.bgm !== storyLibraryState.readerBgmSrc) {
-            storyLibraryState.readerBgmSrc = page.bgm;
-            if (typeof playBattleBGM === 'function') playBattleBGM(page.bgm);
-        }
-        if (page.se && typeof playSoundEffect === 'function') {
-            playSoundEffect(page.se);
-        }
-
-        const prevBtn = storyLibraryState.overlayEl.querySelector('#storyReaderPrevBtn');
-        if (prevBtn) prevBtn.style.display = pageIndex > 0 ? 'flex' : 'none';
-
-        showReaderBeat(0);
+    // スケジュールしたタイマーが発火する頃には、既にページ／beatが切り替わっている場合がある
+    // （× で本編を閉じた、戻るボタンで別のページに移動した等）ため、実行前に現在地と一致するか確認する。
+    // expectedBeatIndexにnullを渡すと、ページが一致していればbeatの位置は問わない
+    // （ページ開始直後の「1秒待つ」演出のように、まだ特定のbeatに紐付いていない場合に使う）。
+    function scheduleReaderStep(delayMs, expectedPageIndex, expectedBeatIndex, cb) {
+        setTimeout(function() {
+            if (storyLibraryState.mode !== 'reader') return;
+            if (storyLibraryState.readerPageIndex !== expectedPageIndex) return;
+            if (expectedBeatIndex !== null && storyLibraryState.readerBeatIndex !== expectedBeatIndex) return;
+            cb();
+        }, delayMs);
     }
 
-    // ページ内、指定位置のbeatを表示する（挿絵下テキスト or メッセージウインドウ、どちらか一方）。
-    function showReaderBeat(beatIndex) {
-        const page = storyLibraryState.readerPages[storyLibraryState.readerPageIndex];
-        storyLibraryState.readerBeatIndex = beatIndex;
-        const beat = (page.beats || [])[beatIndex];
-        const textArea = storyLibraryState.overlayEl.querySelector('#storyReaderTextArea');
-        const layer = storyLibraryState.overlayEl.querySelector('#storyDialogueLayer');
-        if (!beat) return; // このページのbeatsを表示し終えた状態（advanceStoryReaderがページ送りを担当）
+    // ページ／beat共通：image（挿絵の差し替え）／overlay（黒オーバーレイの表示切替）／
+    // silhouette（キャラクターシルエットの表示・位置・大きさ・不透明度）／bgm（メインBGMの切替・停止）／
+    // ambient（雨音などの環境音レイヤーの切替・停止）／se（効果音を1回再生）を、指定されているものだけ反映する。
+    // キー自体が無ければ「前の状態を維持（何もしない）」、値がnull/falseなら「明示的に消す・止める」という扱い。
+    function applyReaderStageEffects(src) {
+        if (!src || !storyLibraryState.overlayEl) return;
 
-        // シルエットの更新（挿絵を置き換えるのではなく、挿絵の上に重ねて表示する）。
-        // beatにsilhouetteキーが無ければ、前のbeatまでの表示をそのまま維持する。
-        // { silhouette: null } を指定すると、その時点で非表示にできる。
-        if (Object.prototype.hasOwnProperty.call(beat, 'silhouette')) {
+        if (Object.prototype.hasOwnProperty.call(src, 'image')) {
+            const imgWrap = storyLibraryState.overlayEl.querySelector('#storyReaderImageWrap');
+            const imgEl = storyLibraryState.overlayEl.querySelector('#storyReaderImage');
+            if (imgWrap && imgEl) {
+                if (src.image) { imgEl.src = src.image; imgWrap.style.display = 'block'; }
+                else { imgWrap.style.display = 'none'; imgEl.removeAttribute('src'); }
+            }
+        }
+
+        if (Object.prototype.hasOwnProperty.call(src, 'overlay')) {
+            const overlayEl = storyLibraryState.overlayEl.querySelector('#storyReaderImageOverlay');
+            if (overlayEl) overlayEl.style.display = src.overlay ? 'block' : 'none';
+        }
+
+        if (Object.prototype.hasOwnProperty.call(src, 'silhouette')) {
             const silEl = storyLibraryState.overlayEl.querySelector('#storyReaderSilhouette');
             if (silEl) {
-                const sil = beat.silhouette;
+                const sil = src.silhouette;
                 if (sil && sil.src) {
                     silEl.src = sil.src;
                     silEl.style.left = sil.x || '50%';
                     silEl.style.top = sil.y || '50%';
-                    silEl.style.width = sil.width || '70%';
+                    // height指定があればheight基準、無ければwidth基準（どちらか一方のみ指定し、
+                    // もう片方はautoにしてアスペクト比を保つ）
+                    if (sil.height) { silEl.style.height = sil.height; silEl.style.width = 'auto'; }
+                    else { silEl.style.width = sil.width || '70%'; silEl.style.height = 'auto'; }
                     const scale = sil.scale;
                     silEl.style.transform = 'translate(-50%,-50%)' + (scale ? ' scale(' + scale + ')' : '');
+                    silEl.style.opacity = (typeof sil.opacity === 'number') ? sil.opacity : 1;
                     silEl.style.display = 'block';
                 } else {
                     silEl.style.display = 'none';
@@ -1320,6 +1343,105 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
             }
         }
 
+        if (Object.prototype.hasOwnProperty.call(src, 'bgm')) {
+            if (src.bgm) {
+                if (src.bgm !== storyLibraryState.readerBgmSrc) {
+                    storyLibraryState.readerBgmSrc = src.bgm;
+                    if (typeof playBattleBGM === 'function') playBattleBGM(src.bgm);
+                }
+            } else {
+                storyLibraryState.readerBgmSrc = null;
+                if (typeof stopBattleBGM === 'function') stopBattleBGM();
+            }
+        }
+
+        if (Object.prototype.hasOwnProperty.call(src, 'ambient')) {
+            if (src.ambient) playStoryAmbient(src.ambient);
+            else stopStoryAmbient();
+        }
+
+        if (src.se && typeof playSoundEffect === 'function') {
+            playSoundEffect(src.se);
+        }
+    }
+
+    // 指定ページの背景・挿絵・BGM／環境音／効果音を反映し、1秒待ってからそのページの先頭のbeatを表示する。
+    function showReaderPage(pageIndex) {
+        clearStoryTypingTimer();
+        const pages = storyLibraryState.readerPages;
+        const page = pages[pageIndex];
+        if (!page) { endStoryReader(); return; }
+        storyLibraryState.readerPageIndex = pageIndex;
+        storyLibraryState.readerBusy = true;
+
+        const bgEl = storyLibraryState.overlayEl.querySelector('#storyReaderBg');
+        if (bgEl && page.bg) bgEl.style.backgroundImage = "url('" + page.bg + "')";
+
+        // シルエット／オーバーレイは、ページ側で明示的に指定されていない限り、ページが変わる
+        // タイミングでいったんリセットする（前のページの表示を持ち越さない）。
+        if (!Object.prototype.hasOwnProperty.call(page, 'silhouette')) {
+            const silEl = storyLibraryState.overlayEl.querySelector('#storyReaderSilhouette');
+            if (silEl) { silEl.style.display = 'none'; silEl.removeAttribute('src'); }
+        }
+        if (!Object.prototype.hasOwnProperty.call(page, 'overlay')) {
+            const overlayEl = storyLibraryState.overlayEl.querySelector('#storyReaderImageOverlay');
+            if (overlayEl) overlayEl.style.display = 'none';
+        }
+
+        applyReaderStageEffects(page);
+
+        const prevBtn = storyLibraryState.overlayEl.querySelector('#storyReaderPrevBtn');
+        if (prevBtn) prevBtn.style.display = pageIndex > 0 ? 'flex' : 'none';
+
+        // 画像表示・音再生が済んだ状態で1秒待ってから、そのページの最初の文章を表示する。
+        scheduleReaderStep(STORY_READER_PAGE_ENTRY_DELAY_MS, pageIndex, null, function() {
+            showReaderBeat(0);
+        });
+    }
+
+    // ページ内、指定位置のbeatを表示する（挿絵下テキスト or メッセージウインドウ、どちらか一方）。
+    // テキストを持たない「制御用beat」（画像切替・BGM停止・シルエット変更などだけのもの）は、
+    // 効果を適用したら自動的に次のbeatへ進む（waitがあれば、その時間だけ待ってから）。
+    function showReaderBeat(beatIndex) {
+        const page = storyLibraryState.readerPages[storyLibraryState.readerPageIndex];
+        storyLibraryState.readerBeatIndex = beatIndex;
+        const beat = (page.beats || [])[beatIndex];
+        if (!beat) { storyLibraryState.readerBusy = false; return; } // このページを表示し終えた状態（advanceStoryReaderがページ送りを担当）
+
+        storyLibraryState.readerBusy = true;
+        const pageIndex = storyLibraryState.readerPageIndex;
+
+        const run = function() {
+            applyReaderStageEffects(beat);
+
+            if (beat.say || beat.narration || beat.text) {
+                renderReaderBeatText(beat);
+                storyLibraryState.readerBusy = false; // ここでタップ待ちの状態になる
+            } else {
+                // テキストを持たない制御用beat：効果だけ適用して自動的に次のbeatへ進む
+                const nextIndex = beatIndex + 1;
+                if (beat.wait) {
+                    scheduleReaderStep(beat.wait, pageIndex, beatIndex, function() {
+                        showReaderBeat(nextIndex);
+                    });
+                } else {
+                    showReaderBeat(nextIndex);
+                }
+            }
+        };
+
+        // delayがあれば、何も表示しないまま指定時間だけ待ってから効果・文章を反映する
+        if (beat.delay) {
+            scheduleReaderStep(beat.delay, pageIndex, beatIndex, run);
+        } else {
+            run();
+        }
+    }
+
+    // beatのテキストを実際に画面に表示する（挿絵下のテキストエリア、またはメッセージウインドウ）。
+    function renderReaderBeatText(beat) {
+        const textArea = storyLibraryState.overlayEl.querySelector('#storyReaderTextArea');
+        const layer = storyLibraryState.overlayEl.querySelector('#storyDialogueLayer');
         if (beat.say || beat.narration) {
             // 既存のメッセージウインドウ（タイプライター＋効果音）を流用
             if (textArea) textArea.style.display = 'none';
@@ -1390,6 +1512,7 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
         const imgWrap = storyLibraryState.overlayEl.querySelector('#storyReaderImageWrap');
         const imgEl = storyLibraryState.overlayEl.querySelector('#storyReaderImage');
         const silEl = storyLibraryState.overlayEl.querySelector('#storyReaderSilhouette');
+        const overlayEl = storyLibraryState.overlayEl.querySelector('#storyReaderImageOverlay');
         const readerOverlay = storyLibraryState.overlayEl.querySelector('#storyReaderOverlay');
         const readerCloseBtn = storyLibraryState.overlayEl.querySelector('#storyReaderCloseBtn');
         const prevBtn = storyLibraryState.overlayEl.querySelector('#storyReaderPrevBtn');
@@ -1403,15 +1526,18 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
         if (imgWrap) imgWrap.style.display = 'none';
         if (imgEl) imgEl.removeAttribute('src');
         if (silEl) { silEl.style.display = 'none'; silEl.removeAttribute('src'); }
+        if (overlayEl) overlayEl.style.display = 'none';
         if (readerOverlay) readerOverlay.style.display = 'none';
         if (readerCloseBtn) readerCloseBtn.style.display = 'none';
         if (prevBtn) prevBtn.style.display = 'none';
+        stopStoryAmbient(); // 環境音（雨音など）も本編を離れるタイミングで必ず止める
 
         storyLibraryState.readerPages = [];
         storyLibraryState.readerPageIndex = 0;
         storyLibraryState.readerBeatIndex = 0;
         storyLibraryState.readerChapter = null;
         storyLibraryState.readerBgmSrc = null;
+        storyLibraryState.readerBusy = false;
         storyLibraryState.mode = 'carousel';
 
         // 呼び出し元（本の拡大画面）に戻す
@@ -1435,6 +1561,7 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
             if (storyLibraryState.dialogueStarting) return; // 登場演出～セリフ開始までの間はタップを無視
             handleDialogueTap();
         } else if (storyLibraryState.mode === 'reader') {
+            if (storyLibraryState.readerBusy) return; // 自動進行中（開始直後の間や、待機演出中）はタップを無視
             advanceStoryReader();
         }
         // carousel モードでは何もしない（ドラッグ／本のクリックのみ有効）
@@ -1661,6 +1788,7 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
         clearStoryTypingTimer();
         window.removeEventListener('resize', updateStoryLibraryScale);
         window.removeEventListener('orientationchange', updateStoryLibraryScale);
+        stopStoryAmbient();
         if (typeof stopBattleBGM === 'function') {
             stopBattleBGM();
         }
