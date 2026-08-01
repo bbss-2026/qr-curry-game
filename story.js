@@ -91,7 +91,7 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
     // デバッグ用：読書画面に小さく表示するビルド番号。デプロイのたびに更新し、実機で本当に
     // 最新のstory.jsが読み込まれているか（キャッシュが残っていないか）を目視確認できるようにする。
     // 一般公開（STORY_LIBRARY_ENABLED=true）前には削除すること。
-    const STORY_ENGINE_BUILD = 'b24';
+    const STORY_ENGINE_BUILD = 'b25';
     const STORY_UNLOCK_STORAGE_KEY = 'qr_story_library_unlocked';
     const STORY_BOOK_SPAWN_STAGGER_MS = 90;
     const STORY_BOOK_SPAWN_DURATION_MS = 550;
@@ -368,6 +368,7 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
         readerBusy: false, // ページ開始直後の間・演出中のタップ無視フラグ（間/delay/制御用beatの自動進行中はtrue）
         readerCloseDisabled: false, // trueの間、本編読書中の×・戻るボタンを無効にする（演出上、離脱させたくない場面用）
         ambientAudio: null, // 雨音などの環境音（BGMとは別レイヤーで、重ねてループ再生する用のAudio要素）
+        activeSeAudios: [], // 本編再生中に鳴らした効果音（Audio要素）。×で閉じた時にまとめて止めるため自前で保持する。
     };
 
     // ===== 初期化 =====
@@ -601,7 +602,7 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
 /* ===== 本編（各巻ストーリー）再生画面 ===== */
 /* storyLibraryPerspective(本棚,1)より上、storyBookDetailOverlay(20)より下に置く。
    セリフ表示はstoryDialogueLayer(28)を流用するので、その下にさえあれば十分。 */
-#storyReaderOverlay { position:absolute; inset:0; z-index:8; display:none; background:#000; }
+#storyReaderOverlay { position:absolute; inset:0; z-index:8; display:none; background:#000; perspective:1200px; }
 #storyReaderBg {
     position:absolute; inset:0; background-size:cover; background-position:center; background-color:#000;
 }
@@ -643,6 +644,31 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
     white-space:pre-line; opacity:0; pointer-events:none; transition:opacity 0.6s ease;
 }
 #storyReaderCenterText.story-center-text-visible { opacity:1; }
+/* ページめくり演出用の紙パネル。普段は非表示で、ページ送り時だけ現れてrotateYで回転し、
+   紙をめくっているように見せる（中身の実際の差し替えは真横を向いた瞬間、裏で行う）。
+   storyReaderContent(2)より上・storyReaderBlackout(5)より下に置く。 */
+#storyPageFlipOverlay {
+    position:absolute; inset:0; z-index:4; display:none; pointer-events:none;
+    background:linear-gradient(120deg, #faf3e2 0%, #f0e4c8 55%, #e4d3a8 100%);
+    box-shadow: 0 0 30px rgba(0,0,0,0.35) inset;
+    backface-visibility:hidden;
+}
+@keyframes storyPageFlipNext {
+    0%   { transform:rotateY(0deg);    opacity:0; }
+    6%   { opacity:1; }
+    50%  { transform:rotateY(-90deg);  opacity:1; }
+    94%  { opacity:1; }
+    100% { transform:rotateY(-180deg); opacity:0; }
+}
+@keyframes storyPageFlipPrev {
+    0%   { transform:rotateY(0deg);   opacity:0; }
+    6%   { opacity:1; }
+    50%  { transform:rotateY(90deg);  opacity:1; }
+    94%  { opacity:1; }
+    100% { transform:rotateY(180deg); opacity:0; }
+}
+.story-page-flip-anim-next { animation:storyPageFlipNext 0.52s ease-in-out; }
+.story-page-flip-anim-prev { animation:storyPageFlipPrev 0.52s ease-in-out; }
 /* 挿絵の下の地の文エリア（絵本風）。タイプライターなし・効果音なしで、タップすると
    表示中の文章が次の文章に置き換わる（切り替え式）。全文を出し切った状態でタップするとページがめくれる。
    文章が長くページ内に収まらない場合は、このエリア内だけで縦スクロールできるようにしてある。 */
@@ -743,6 +769,7 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
             + '</div>'
             + '<div id="storyReaderTextArea"></div>'
             + '</div>'
+            + '<div id="storyPageFlipOverlay"></div>'
             + '<div id="storyReaderBlackout"></div>'
             + '<div id="storyReaderCenterText"></div>'
             + '</div>'
@@ -1247,6 +1274,34 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
         }
     }
 
+    // ===== 本編の効果音（SE）専用チャンネル =====
+    // 本体（game.js）のplaySoundEffectは内部の使い回しAudioプールを直接掴めないため、
+    // 「×で閉じた時に鳴りっぱなしの効果音を確実に止める」ことができない。
+    // そのため本編（開く／ページめくり／beatごとのse）用の効果音だけは、ここで自前のAudio要素を
+    // 作って再生し、参照を保持しておく（再生し終わったものは自動的にリストから外す）。
+    function playStorySE(src) {
+        if (!src) return;
+        if (typeof isMuted !== 'undefined' && isMuted) return;
+        try {
+            const audio = new Audio(src);
+            audio.volume = 0.7;
+            const list = storyLibraryState.activeSeAudios;
+            list.push(audio);
+            audio.addEventListener('ended', function() {
+                const i = list.indexOf(audio);
+                if (i !== -1) list.splice(i, 1);
+            });
+            audio.play().catch(function() {});
+        } catch (e) {}
+    }
+    // 再生中の本編効果音をすべて止める（BGM／環境音は対象外。呼び出し側で個別に止める）。
+    function stopAllStorySE() {
+        storyLibraryState.activeSeAudios.forEach(function(a) {
+            try { a.pause(); a.currentTime = 0; } catch (e) {}
+        });
+        storyLibraryState.activeSeAudios = [];
+    }
+
     // ===== 本編（各巻ストーリー）再生エンジン（絵本風ページ送り方式） =====
     // 内容データ（STORY_BOOK_SCRIPTS）はstory-scripts.js側で定義する。
     // ここではエンジン（ページ・文章の送り方）だけを扱い、各巻の文章・絵には一切関知しない。
@@ -1269,9 +1324,7 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
             return;
         }
 
-        if (typeof playSoundEffect === 'function') {
-            playSoundEffect('story/open_book.mp3');
-        }
+        playStorySE('story/open_book.mp3');
 
         const card = storyLibraryState.overlayEl.querySelector('#storyBookDetailCard');
         if (card) card.classList.add('story-book-opening-glow');
@@ -1404,8 +1457,8 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
             storyLibraryState.readerCloseDisabled = !!src.closeDisabled;
         }
 
-        if (src.se && typeof playSoundEffect === 'function') {
-            playSoundEffect(src.se);
+        if (src.se) {
+            playStorySE(src.se);
         }
     }
 
@@ -1615,8 +1668,9 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
     function goToNextReaderPage() {
         const nextIndex = storyLibraryState.readerPageIndex + 1;
         if (storyLibraryState.readerPages[nextIndex]) {
-            if (typeof playSoundEffect === 'function') playSoundEffect('story/read_book.mp3');
-            showReaderPage(nextIndex);
+            playStorySE('story/read_book.mp3');
+            storyLibraryState.readerBusy = true; // ページがめくれ切るまでタップを無視する
+            playPageFlipTransition('next', function() { showReaderPage(nextIndex); });
         } else {
             endStoryReader(); // 最後のページまで読み終えた
         }
@@ -1626,13 +1680,35 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
         if (storyLibraryState.mode !== 'reader') return;
         const prevIndex = storyLibraryState.readerPageIndex - 1;
         if (prevIndex >= 0) {
-            if (typeof playSoundEffect === 'function') playSoundEffect('story/read_book.mp3');
-            showReaderPage(prevIndex);
+            playStorySE('story/read_book.mp3');
+            storyLibraryState.readerBusy = true;
+            playPageFlipTransition('prev', function() { showReaderPage(prevIndex); });
         }
+    }
+
+    // ページめくり演出：紙のようなパネルを画面に重ねてrotateYでめくり、
+    // ちょうどパネルが真横を向いて画面を覆っている瞬間（アニメーションの中間地点）に
+    // 裏側で実際のページ内容（画像・文章）を差し替える。見た目上「パッと切り替わる」のではなく
+    // 「ページをめくった裏に新しいページがある」ように見せるための、あくまで視覚的な演出。
+    function playPageFlipTransition(direction, onMid) {
+        const el = storyLibraryState.overlayEl && storyLibraryState.overlayEl.querySelector('#storyPageFlipOverlay');
+        if (!el) { onMid(); return; }
+        const animClass = direction === 'prev' ? 'story-page-flip-anim-prev' : 'story-page-flip-anim-next';
+        el.style.transformOrigin = direction === 'prev' ? 'left center' : 'right center';
+        el.classList.remove('story-page-flip-anim-next', 'story-page-flip-anim-prev');
+        el.style.display = 'block';
+        void el.offsetWidth; // reflow（クラス再付与でアニメーションを確実に再生させるため）
+        el.classList.add(animClass);
+        setTimeout(function() { onMid(); }, 260); // アニメーション中間地点（260ms＝全体520msの半分）で中身を差し替え
+        setTimeout(function() {
+            el.style.display = 'none';
+            el.classList.remove(animClass);
+        }, 520);
     }
 
     function endStoryReader() {
         clearStoryTypingTimer();
+        stopAllStorySE(); // 長い効果音が鳴ったままにならないよう、閉じる時に必ず止める（BGM/環境音は対象外）
         const layer = storyLibraryState.overlayEl.querySelector('#storyDialogueLayer');
         const box = storyLibraryState.overlayEl.querySelector('#storyMessageBox');
         const nameEl = storyLibraryState.overlayEl.querySelector('#storyMessageName');
@@ -1643,6 +1719,7 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
         const overlayEl = storyLibraryState.overlayEl.querySelector('#storyReaderImageOverlay');
         const blackoutEl = storyLibraryState.overlayEl.querySelector('#storyReaderBlackout');
         const centerTextEl = storyLibraryState.overlayEl.querySelector('#storyReaderCenterText');
+        const flipEl = storyLibraryState.overlayEl.querySelector('#storyPageFlipOverlay');
         const readerOverlay = storyLibraryState.overlayEl.querySelector('#storyReaderOverlay');
         const readerCloseBtn = storyLibraryState.overlayEl.querySelector('#storyReaderCloseBtn');
         const prevBtn = storyLibraryState.overlayEl.querySelector('#storyReaderPrevBtn');
@@ -1659,6 +1736,8 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
         if (overlayEl) overlayEl.style.display = 'none';
         if (blackoutEl) blackoutEl.classList.remove('story-reader-blackout-visible');
         if (centerTextEl) { centerTextEl.classList.remove('story-center-text-visible'); centerTextEl.textContent = ''; }
+        // ページめくり演出の途中で閉じられた場合に備えて、必ず非表示・アニメーション解除しておく
+        if (flipEl) { flipEl.style.display = 'none'; flipEl.classList.remove('story-page-flip-anim-next', 'story-page-flip-anim-prev'); }
         if (readerOverlay) readerOverlay.style.display = 'none';
         if (readerCloseBtn) readerCloseBtn.style.display = 'none';
         if (prevBtn) prevBtn.style.display = 'none';
