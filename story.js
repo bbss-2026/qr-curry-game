@@ -91,7 +91,7 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
     // デバッグ用：読書画面に小さく表示するビルド番号。デプロイのたびに更新し、実機で本当に
     // 最新のstory.jsが読み込まれているか（キャッシュが残っていないか）を目視確認できるようにする。
     // 一般公開（STORY_LIBRARY_ENABLED=true）前には削除すること。
-    const STORY_ENGINE_BUILD = 'b23';
+    const STORY_ENGINE_BUILD = 'b24';
     const STORY_UNLOCK_STORAGE_KEY = 'qr_story_library_unlocked';
     const STORY_BOOK_SPAWN_STAGGER_MS = 90;
     const STORY_BOOK_SPAWN_DURATION_MS = 550;
@@ -635,14 +635,14 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
     position:absolute; inset:0; z-index:5; background:#000; opacity:0; pointer-events:none;
     transition:opacity 0.6s ease;
 }
-.story-reader-blackout-visible { opacity:1; }
+#storyReaderBlackout.story-reader-blackout-visible { opacity:1; }
 /* 暗転時に画面中央へフェード表示するテキスト（挿絵下のテキストエリアとは別の表示方法） */
 #storyReaderCenterText {
     position:absolute; inset:0; z-index:6; display:flex; align-items:center; justify-content:center;
     padding:0 12%; text-align:center; color:#fff; font-size:17px; line-height:2;
     white-space:pre-line; opacity:0; pointer-events:none; transition:opacity 0.6s ease;
 }
-.story-center-text-visible { opacity:1; }
+#storyReaderCenterText.story-center-text-visible { opacity:1; }
 /* 挿絵の下の地の文エリア（絵本風）。タイプライターなし・効果音なしで、タップすると
    表示中の文章が次の文章に置き換わる（切り替え式）。全文を出し切った状態でタップするとページがめくれる。
    文章が長くページ内に収まらない場合は、このエリア内だけで縦スクロールできるようにしてある。 */
