@@ -510,6 +510,12 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
     background-size:cover; background-position:center;
     box-shadow:0 40px 60px -20px rgba(0,0,0,0.3);
 }
+/* 「読む」を押した瞬間、表紙が光ってから本編にホワイトアウトで切り替わる演出 */
+@keyframes storyBookOpeningGlow {
+    0% { filter:brightness(1) drop-shadow(0 0 0 rgba(255,240,200,0)); }
+    100% { filter:brightness(2.2) drop-shadow(0 0 26px rgba(255,240,200,0.9)); }
+}
+.story-book-opening-glow { animation:storyBookOpeningGlow 0.42s ease-in forwards; }
 #storyBookDetailActionBtn {
     background:rgba(35,28,18,0.85); color:#fff; border:1px solid rgba(255,255,255,0.4);
     border-radius:999px; padding:10px 34px; font-size:14px; font-weight:bold; cursor:pointer;
@@ -634,6 +640,11 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
     background:rgba(0,0,0,0.35); color:#fff; border:1px solid rgba(255,255,255,0.35); font-size:14px;
     cursor:pointer; display:none; align-items:center; justify-content:center;
 }
+/* 表紙拡大画面→本編読書画面の切り替え時のホワイトアウト。全ての要素より前面（closeボタン等の30より上）。 */
+#storyTransitionWhiteout {
+    position:absolute; inset:0; z-index:35; background:#fff; opacity:0;
+    pointer-events:none; transition:opacity 0.25s ease;
+}
         `;
         document.head.appendChild(style);
     }
@@ -699,6 +710,7 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
             + '</div>'
             + '<button id="storyReaderCloseBtn">✕</button>'
             + '<button id="storyReaderPrevBtn">◀</button>'
+            + '<div id="storyTransitionWhiteout"></div>'
             + '</div>';
         document.body.appendChild(overlay);
         storyLibraryState.overlayEl = overlay;
@@ -961,6 +973,14 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
         return !(page && page.unlocksClose);
     }
 
+    // 本棚画面での「上に「想いの欠片」と表示されてるだろ それをタップしてみな」の間は、
+    // 咖喱図書館から出る×を無効にする。必ず想いの欠片カウンターをタップして進めさせるため。
+    function isLibraryCloseBlocked() {
+        if (getKakeraOnboardStage() !== 1) return false;
+        const page = storyLibraryState.dialogueQueue[storyLibraryState.dialogueIndex];
+        return !!(storyLibraryState.mode === 'intro_dialogue' && page && page.waitForExternalTrigger);
+    }
+
     function closeStoryBookDetail() {
         if (isBookIntroCloseBlocked()) return; // まだ×を押せるセリフに辿り着いていない
 
@@ -1175,6 +1195,7 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
     // 自由に混在できる。タップで次のbeatへ、ページの最後のbeatまで表示し終えたら次のページへめくる。
     // 前のページへは画面左端の戻るボタン（常設）で戻る。
 
+    // 「読む」タップ時、効果音→表紙が光る→ホワイトアウトで本編画面に切り替える。
     function startStoryReader(chapter) {
         if (!chapter || chapter.locked) return;
         const pages = (typeof STORY_BOOK_SCRIPTS !== 'undefined') ? STORY_BOOK_SCRIPTS[chapter.num] : null;
@@ -1185,15 +1206,45 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
             return;
         }
 
+        if (typeof playSoundEffect === 'function') {
+            playSoundEffect('story/open_book.mp3');
+        }
+
+        const card = storyLibraryState.overlayEl.querySelector('#storyBookDetailCard');
+        if (card) card.classList.add('story-book-opening-glow');
+        const whiteout = storyLibraryState.overlayEl.querySelector('#storyTransitionWhiteout');
+
+        // 光る演出を少し見せてからホワイトアウトを始める
+        setTimeout(function() {
+            if (whiteout) whiteout.style.opacity = '1';
+            // ホワイトアウトで画面が覆われたタイミングで裏側の画面を切り替える
+            setTimeout(function() {
+                if (card) card.classList.remove('story-book-opening-glow');
+                enterStoryReaderScreen(chapter, pages);
+                if (whiteout) {
+                    requestAnimationFrame(function() {
+                        whiteout.style.opacity = '0';
+                    });
+                }
+            }, 260);
+        }, 220);
+    }
+
+    // ホワイトアウトの裏で行う、実際の画面切り替え（表紙拡大画面→本編読書画面）
+    function enterStoryReaderScreen(chapter, pages) {
         const detailOverlay = storyLibraryState.overlayEl.querySelector('#storyBookDetailOverlay');
         const detailCloseBtn = storyLibraryState.overlayEl.querySelector('#storyBookDetailCloseBtn');
         const readerOverlay = storyLibraryState.overlayEl.querySelector('#storyReaderOverlay');
         const readerCloseBtn = storyLibraryState.overlayEl.querySelector('#storyReaderCloseBtn');
+        // 本棚側の想いの欠片バッジ（z-indexの都合上、本編の上に見えてしまうため）は
+        // 本編を読んでいる間は非表示にする。
+        const shelfKakera = storyLibraryState.overlayEl.querySelector('#storyKakeraCounter');
 
         if (detailOverlay) detailOverlay.style.display = 'none';
         if (detailCloseBtn) detailCloseBtn.style.display = 'none';
         if (readerOverlay) readerOverlay.style.display = 'block';
         if (readerCloseBtn) readerCloseBtn.style.display = 'flex';
+        if (shelfKakera) shelfKakera.style.display = 'none';
 
         storyLibraryState.mode = 'reader';
         storyLibraryState.readerPages = pages;
@@ -1314,6 +1365,7 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
     function goToNextReaderPage() {
         const nextIndex = storyLibraryState.readerPageIndex + 1;
         if (storyLibraryState.readerPages[nextIndex]) {
+            if (typeof playSoundEffect === 'function') playSoundEffect('story/read_book.mp3');
             showReaderPage(nextIndex);
         } else {
             endStoryReader(); // 最後のページまで読み終えた
@@ -1324,6 +1376,7 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
         if (storyLibraryState.mode !== 'reader') return;
         const prevIndex = storyLibraryState.readerPageIndex - 1;
         if (prevIndex >= 0) {
+            if (typeof playSoundEffect === 'function') playSoundEffect('story/read_book.mp3');
             showReaderPage(prevIndex);
         }
     }
@@ -1364,6 +1417,8 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
         // 呼び出し元（本の拡大画面）に戻す
         if (detailOverlay) detailOverlay.style.display = 'flex';
         if (detailCloseBtn) detailCloseBtn.style.display = 'flex';
+        // 本編読書中に隠していた想いの欠片バッジの表示状態を、通常のルールに戻す
+        updateKakeraDisplays();
 
         // 咖喱図書館のBGMに戻す
         if (typeof playBattleBGM === 'function') {
@@ -1600,6 +1655,7 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
     }
 
     function closeStoryLibrary() {
+        if (isLibraryCloseBlocked()) return; // 「想いの欠片をタップしてみな」の間は×を無効にする
         if (storyLibraryState.rafId) cancelAnimationFrame(storyLibraryState.rafId);
         storyLibraryState.rafId = null;
         clearStoryTypingTimer();
