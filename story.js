@@ -88,6 +88,10 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
     const STORY_BOOK_FALL_SE = 'story/buon.mp3';
     const STORY_TYPE_INTERVAL_MS = 45;
     const STORY_READER_PAGE_ENTRY_DELAY_MS = 1000; // 本編：各ページ表示後、文章が出るまでの無音の間
+    // デバッグ用：読書画面に小さく表示するビルド番号。デプロイのたびに更新し、実機で本当に
+    // 最新のstory.jsが読み込まれているか（キャッシュが残っていないか）を目視確認できるようにする。
+    // 一般公開（STORY_LIBRARY_ENABLED=true）前には削除すること。
+    const STORY_ENGINE_BUILD = 'b22';
     const STORY_UNLOCK_STORAGE_KEY = 'qr_story_library_unlocked';
     const STORY_BOOK_SPAWN_STAGGER_MS = 90;
     const STORY_BOOK_SPAWN_DURATION_MS = 550;
@@ -662,6 +666,12 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
     background:rgba(0,0,0,0.35); color:#fff; border:1px solid rgba(255,255,255,0.35); font-size:14px;
     cursor:pointer; display:none; align-items:center; justify-content:center;
 }
+/* デバッグ用のビルド番号表示（実機で最新コードが読み込まれているかの目視確認用）。
+   一般公開前に削除すること。 */
+#storyReaderBuildBadge {
+    position:absolute; right:6px; bottom:4px; z-index:32; color:rgba(255,255,255,0.55);
+    font-size:9px; pointer-events:none;
+}
 /* 表紙拡大画面→本編読書画面の切り替え時のホワイトアウト。全ての要素より前面（closeボタン等の30より上）。 */
 #storyTransitionWhiteout {
     position:absolute; inset:0; z-index:35; background:#fff; opacity:0;
@@ -735,6 +745,7 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
             + '</div>'
             + '<button id="storyReaderCloseBtn">✕</button>'
             + '<button id="storyReaderPrevBtn">◀</button>'
+            + '<div id="storyReaderBuildBadge">' + STORY_ENGINE_BUILD + '</div>'
             + '<div id="storyTransitionWhiteout"></div>'
             + '</div>';
         document.body.appendChild(overlay);
@@ -1454,6 +1465,16 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
         storyLibraryState.readerBusy = true;
         const pageIndex = storyLibraryState.readerPageIndex;
 
+        // セーフティネット：何らかの理由でこのbeatの自動進行が止まってしまった場合でも、
+        // 6秒経ってまだ同じbeatでbusyのままならタップ操作を強制的に復帰させる
+        // （原因が完全には特定できない不具合が起きても、リロードせずに再開できるようにするため）。
+        scheduleReaderStep(6000, pageIndex, beatIndex, function() {
+            if (storyLibraryState.readerBusy) {
+                console.warn('[咖喱図書館] beat', beatIndex, 'で自動進行が止まっていたため復帰しました');
+                storyLibraryState.readerBusy = false;
+            }
+        });
+
         const run = function() {
             applyReaderStageEffects(beat);
 
@@ -1498,10 +1519,12 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
         const isVisible = el.classList.contains('story-center-text-visible');
         const setText = function() {
             el.textContent = text;
-            requestAnimationFrame(function() {
+            // requestAnimationFrameではなくsetTimeout(0)を使う（rAFが何らかの理由で
+            // 呼ばれない環境があっても、こちらは確実にタイマーとして発火する）。
+            setTimeout(function() {
                 el.classList.add('story-center-text-visible');
                 setTimeout(function() { if (onDone) onDone(); }, 600);
-            });
+            }, 0);
         };
         if (isVisible) {
             el.classList.remove('story-center-text-visible');
