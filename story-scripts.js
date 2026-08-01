@@ -141,17 +141,17 @@ const STORY_BOOK_SCRIPTS = {
                 { text: 'その日は雨が降っていた。\n傘を忘れた僕は濡れながら帰っていた。' },
                 {
                     text: '普段なら何も気にせずに通過していたお店\nなぜかその日はとても気になり\n雨も気にせず足を止めてしまった',
-                    silhouette: { src: 'story/manimage02.svg', x: '62%', y: '50%', height: '25%', opacity: 0.8 },
+                    silhouette: { src: 'story/manimage02.svg', x: '65%', y: '57%', height: '30%', opacity: 0.8 },
                 },
                 { text: '無口で怖い店主さんがいると噂のお店だ' },
-                { text: '-カレー美味しそうだな-\nそう思いながら看板を見ていると\n店の中から声をかけられた' },
+                { text: '（カレー美味しそうだな-）\nそう思いながら看板を見ていると\n店の中から声をかけられた' },
                 {
-                    text: '店主「おい」',
                     silhouette: { src: 'story/manimage03.svg', x: '50%', y: '75%', height: '120%', opacity: 0.8 },
+                    text: '店主「おい」',
                 },
-                { text: '-ご、ごめんなさい' },
+                { text: '「ご、ごめんなさい」' },
                 { text: '店主「入れ」' },
-                { text: '-あ、でも' },
+                { text: '「あ、でも」' },
                 { text: '店主「いいから」' },
             ],
         },
@@ -162,13 +162,17 @@ const STORY_BOOK_SCRIPTS = {
             ambient: null, // 雨音は止める
             beats: [
                 { text: '強面で無愛想な店主さんは\n無言でタオルを渡してくれた' },
-                { text: '-ありがとうございます' },
-                { text: '店の中はカレーの良い匂いで満たされていた' },
-                { text: '-え...', se: 'story/put.mp3' },
+                { text: '「ありがとうございます」' },
+                { text: '店の中はカレーの良い匂いで満たされていた', delay: 1000},
+                { tse: 'story/put.mp3', delay: 1000},
+                { text: '「え...」' },
                 { image: 'story/book1_i03.png' }, // 制御用beat：画像だけ差し替えて自動で次へ
                 { text: 'そこには美味しそうな野菜カレーが\n置かれていた' },
-                { text: '-僕、お金持って-' },
+                { text: '「僕、お金持って-」' },
                 { text: '店主「残すなよ」' },
+      　        { text: '「でも」' },
+                { text: '店主「冷める」' },
+                { text: '「いただきます-」' },
                 { text: 'そのカレーは温かく\nそして美味しかった...' },
                 { text: 'ただ、ずっと店主さんが\n睨みつけてきて怖かった...' },
             ],
@@ -180,7 +184,7 @@ const STORY_BOOK_SCRIPTS = {
             beats: [
                 { text: '程なくして僕はまた引越し\nそのお店に行くことはできなかった' },
                 { text: 'ただどうしてもあの日のお代を払いたくて\n僕は10年ぶりに再びここにやってきた' },
-                { text: '-あの頃と変わらないな' },
+                { text: '「あの頃と変わらないな」' },
             ],
         },
         // ---- 5ページ目 ----
@@ -191,24 +195,19 @@ const STORY_BOOK_SCRIPTS = {
             beats: [
                 {
                     text: '女性「いらっしゃいませ」',
-                    silhouette: { src: 'story/manimage04.svg', x: '50%', y: '62%', height: '55%', opacity: 0.8 },
+                    silhouette: { src: 'story/manimage04.svg', x: '50%', y: '80%', height: '150%', opacity: 0.8 },
                 },
-                { text: '-あの、10年前にここでお店の方に\nカレーをご馳走になりまして' },
+                { text: '「あの、10年前にここでお店の方に\nカレーをご馳走になりまして」' },
                 { text: '女性「10年前？ もしかして雨の日の？」' },
-                { text: '-そうです' },
+                { text: '「そうです」' },
                 { text: '女性「私、娘です。あの時の無愛想な人の娘です」' },
-                { text: '-そうでしたか。お父さんは今？' },
+                { text: '「お礼が言いたくて、お父さんは今？」' },
                 { text: '女性「父は----」' },
-                { silhouette: null, bgm: null }, // 制御用beat：シルエットを消し、BGMを止める
-                { overlay: true }, // 制御用beat：挿絵に黒いオーバーレイを重ねる（回想の演出）
+                { blackout: true, closeDisabled: true, delay: 500 },
+                { blackout: false, closeDisabled: false },
+                { text: '「そうでしたか...」' },
                 { text: 'あの時の無愛想な店主さんは\n昨年亡くなられたとのこと' },
                 { text: 'この店は今は娘さん夫婦が引き継がれて\n続けているらしい' },
-                {
-                    // 制御用beat：オーバーレイを解除し、シルエットとBGMを元に戻す
-                    overlay: false,
-                    silhouette: { src: 'story/manimage04.svg', x: '50%', y: '62%', height: '55%', opacity: 0.8 },
-                    bgm: 'story/library-bgm.mp3',
-                },
                 { text: '女性「父は最後まであなたの事を\n気にかけてましたよ」' },
                 { text: 'え、どうして？\nたった一度しか会ったことがないのに' },
             ],
@@ -223,16 +222,16 @@ const STORY_BOOK_SCRIPTS = {
                 { text: '嬉しかった？\n僕はタオルを貸してもらい\nカレーをご馳走になった' },
                 { text: 'なにも喜んでもらうようなことは\nしていない' },
                 { text: '女性「心に響いたそうです。\nあなたが帰り際に笑顔で言った」' },
-                { bgm: null, ambient: null }, // 制御用beat：音を止めて静かにする
-                { delay: 500, se: 'story/s1-voice01.mp3', text: '女性「"ごちそうさま"が」' },
+                { bgm: null, ambient: null, delay: 500 }, // 制御用beat：音を止めて静かにする
+                { delay: 500, se: 'story/s1-voice01.mp3', text: '女性「"ごちそうさまでした"が」' },
             ],
         },
         // ---- 7ページ目 ----
         {
-            image: 'story/book1_i04.png',
+            image: 'story/book1_i02.png',
             bgm: 'story/library-bgm.mp3',
             ambient: null,
-            silhouette: { src: 'story/manimage04.svg', x: '50%', y: '62%', height: '55%', opacity: 0.8 },
+            silhouette: { src: 'story/manimage04.svg', x: '50%', y: '80%', height: '150%', opacity: 0.8 },
             beats: [
                 { text: '女性「本当は父は店を閉めようと\n考えてたみたいなんですけど」' },
                 { text: '女性「あなたの"ごちそうさま"で\nもう少し続けようって思ったみたい」' },
