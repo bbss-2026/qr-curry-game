@@ -629,7 +629,7 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
 /* 画面全体の暗転（エンディング等の演出用）。挿絵の枠だけでなくstoryReaderOverlay全体を覆う。 */
 #storyReaderBlackout {
     position:absolute; inset:0; z-index:5; background:#000; opacity:0; pointer-events:none;
-    transition:opacity 0.9s ease;
+    transition:opacity 0.6s ease;
 }
 .story-reader-blackout-visible { opacity:1; }
 /* 暗転時に画面中央へフェード表示するテキスト（挿絵下のテキストエリアとは別の表示方法） */

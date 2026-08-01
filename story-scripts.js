@@ -243,7 +243,8 @@ const STORY_BOOK_SCRIPTS = {
         // ---- 8ページ目 ----
         {
             image: 'story/book1_i04.png',
-            bgm: 'story/hitosaranokioku.mp3',
+            bgm: null, // BGMなし
+            se: 'story/hitosaranokioku.mp3', // ページ開始時に1回再生
             ambient: null,
             silhouette: null,
             overlay: false,
@@ -252,16 +253,14 @@ const STORY_BOOK_SCRIPTS = {
                 { text: 'その店は駅前商店街から外れた場所にあり\n子供達の中では無口で怖い店主さんがいると\n噂されていたお店' },
                 { text: '残念ながら強面店主さんはもう\nいなくなってしまったけれど' },
                 { text: '味は娘さん夫婦がしっかり受け継いで\n今でもランチどきは列ができている' },
-                // 制御用beat：画面がゆっくり黒一色になり、×・◀を無効化。暗転が終わるまで待つ
-                { blackout: true, closeDisabled: true, wait: 900 },
-                { centerText: '僕もいつか' },
+                // 制御用beat：画面をゆっくり黒一色にし、×・◀を無効化。waitではなく次のbeatのdelayで間を取る
+                { blackout: true, closeDisabled: true },
+                { centerText: '僕もいつか', delay: 650 }, // 暗転が見えてから少し待って最初の文字を出す
                 { centerText: 'いつかきっと' },
                 { centerText: 'たくさんの"ごちそうさま"が\nもらえるような' },
                 { centerText: '美味しいカレーが作れる\n料理人になりたいな' },
-                { wait: 3000 }, // 間3秒
-                { centerText: 'fin' },
-                { wait: 2000 }, // 間2秒
-                { closeDisabled: false }, // ×・◀を再び使用可能に
+                { centerText: 'fin', delay: 3000 }, // 間3秒
+                { closeDisabled: false, delay: 2000 }, // 間2秒後、×・◀を再び使用可能に
             ],
         },
     ],
