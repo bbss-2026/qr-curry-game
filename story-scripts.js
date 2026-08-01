@@ -141,7 +141,7 @@ const STORY_BOOK_SCRIPTS = {
                 { text: 'その日は雨が降っていた。\n傘を忘れた僕は濡れながら帰っていた。' },
                 {
                     text: '普段なら何も気にせずに通過していたお店\nなぜかその日はとても気になり\n雨も気にせず足を止めてしまった',
-                    silhouette: { src: 'story/manimage02.svg', x: '65%', y: '57%', height: '30%', opacity: 0.8 },
+                    silhouette: { src: 'story/manimage02.svg', x: '60%', y: '50%', height: '30%', opacity: 0.8 },
                 },
                 { text: '無口で怖い店主さんがいると噂のお店だ' },
                 { text: '（カレー美味しそうだな-）\nそう思いながら看板を見ていると\n店の中から声をかけられた' },
@@ -203,7 +203,7 @@ const STORY_BOOK_SCRIPTS = {
                 { text: '女性「私、娘です。あの時の無愛想な人の娘です」' },
                 { text: '「お礼が言いたくて、お父さんは今？」' },
                 { text: '女性「父は----」' },
-                { blackout: true, closeDisabled: true, delay: 500 },
+                { blackout: true, closeDisabled: true, delay: 1000 },
                 { blackout: false, closeDisabled: false },
                 { text: '「そうでしたか...」' },
                 { text: 'あの時の無愛想な店主さんは\n昨年亡くなられたとのこと' },
