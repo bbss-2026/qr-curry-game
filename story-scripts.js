@@ -204,7 +204,7 @@ const STORY_BOOK_SCRIPTS = {
                 { text: '「お礼が言いたくて、お父さんは今？」' },
                 { text: '女性「父は----」' },
                 { blackout: true, closeDisabled: true },
-                { delay: 1000 },
+                { delay: 2500 },
                 { blackout: false, closeDisabled: false },
                 { text: '「そうでしたか...」' },
                 { text: 'あの時の無愛想な店主さんは\n昨年亡くなられたとのこと' },
