@@ -291,6 +291,9 @@
         .btn-cook { background: #b88742; color: #efdeb1; width: 100%; }
         .btn-rand { background: #420000; color: #efdeb1; width: 100%; margin-bottom: 15px; }
         .btn-cook-sub { height:44px; background:#9a6e30; color:#efdeb1; border:none; border-radius:4px; font-weight:bold; font-size:13px; cursor:pointer; letter-spacing:0.04em; }
+        /* 咖喱図書館：本のボス戦専用のカレー選択／あきらめるボタン。フェスの配色とは分けて白黒のシンプルな配色にする。 */
+        .book-battle-swap-btn { width:100%; height:auto; min-height:44px; background:#fff; color:#222; border:1px solid #333; border-radius:6px; padding:10px 12px; font-weight:bold; font-size:13px; cursor:pointer; text-align:left; letter-spacing:0.02em; }
+        .book-battle-swap-btn:active { background:#eee; }
         .fest-nav-btn { opacity:0.6; }
         .fest-nav-btn.active { opacity:1; box-shadow: inset 0 -4px 0 rgba(0,0,0,0.25); }
         /* ===== フェス専用配色（フェス外のブラウン系は使わず、#ffbbb5/#ff998b/#accced/#99aee3/#ffe699/#e8cc86/#ffffff/#454545で統一） =====
@@ -1916,6 +1919,15 @@
             <div id="festCurrySwapList" style="margin-top:10px; display:flex; flex-direction:column; gap:8px; max-height:60vh; overflow-y:auto;"></div>
         </div>
     </div>
+    <!-- 咖喱図書館：本のボス戦中、出撃カレーのHPが0になった際、次のカレーを出すかあきらめるかを選ぶモーダル。
+         フェスの配色（オレンジ系）とは分けて、白黒のシンプルな配色にしてある。 -->
+    <div class="modal-overlay" id="bookBattleCurrySwapOverlay" style="display:none; z-index:10200;">
+        <div class="modal-box" style="max-width:420px; background:#fff; color:#222; border:1px solid #333;">
+            <div class="modal-title" style="text-align:center; color:#222;">🍛 次に出すカレーを選んでください</div>
+            <div id="bookBattleCurrySwapList" style="margin-top:10px; display:flex; flex-direction:column; gap:8px; max-height:50vh; overflow-y:auto;"></div>
+            <button class="book-battle-swap-btn" id="bookBattleGiveUpBtn" style="margin-top:14px; background:#222; color:#fff; border:1px solid #222;" onclick="giveUpBookBossBattle()">🏳️ あきらめる（敗北）</button>
+        </div>
+    </div>
     <!-- バトル中：回復スパイスの対象（カレー／仲間）を選ぶモーダル -->
     <div class="modal-overlay fest-theme" id="festHealTargetOverlay" style="display:none;">
         <div class="modal-box fest-theme" style="max-width:360px;">
@@ -2129,7 +2141,7 @@
      この2行以外にgame.html側を触る必要はない（詳細はstory.js冒頭コメント参照）。
      story-scripts.jsは各巻の本文データのみを持つファイル。本文の追加・修正はそちらの中身を
      書き換えるだけでよく、story.js（再生エンジン側）やこのHTMLを触る必要はない。 -->
-<script src="story.js?v=29"></script>
+<script src="story.js?v=30"></script>
 <script src="story-scripts.js?v=10"></script>
 <div style="height:80px;"></div>
 </div><!-- /gameUI -->

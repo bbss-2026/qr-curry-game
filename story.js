@@ -130,7 +130,7 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
     // デバッグ用：読書画面に小さく表示するビルド番号。デプロイのたびに更新し、実機で本当に
     // 最新のstory.jsが読み込まれているか（キャッシュが残っていないか）を目視確認できるようにする。
     // 一般公開（STORY_LIBRARY_ENABLED=true）前には削除すること。
-    const STORY_ENGINE_BUILD = 'b29';
+    const STORY_ENGINE_BUILD = 'b30';
     const STORY_UNLOCK_STORAGE_KEY = 'qr_story_library_unlocked';
     const STORY_BOOK_SPAWN_STAGGER_MS = 90;
     const STORY_BOOK_SPAWN_DURATION_MS = 550;
@@ -1466,18 +1466,18 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
 
     // 本のボス戦の終了処理（結果画面の「戻る」ボタンから呼ばれる）。咖喱図書館の本の拡大画面へ戻す。
     function endBookBossBattle() {
-        try { if (typeof stopBattleBGM === 'function') stopBattleBGM(); } catch (e) {}
-        try { if (typeof endEventMode === 'function') endEventMode(); } catch (e) {}
-        const resultBox = document.getElementById('battleResultBox');
         const overlay = document.getElementById('battleResultOverlay');
         const arena = document.getElementById('battleArena');
-        if (resultBox) resultBox.style.display = 'none';
         if (overlay) overlay.style.display = 'none';
-        if (arena) {
-            arena.style.display = 'none';
-            arena.classList.remove('book-boss-mode');
-        }
+        if (arena) arena.classList.remove('book-boss-mode');
         restoreNormalResultButton();
+
+        // battleSetup/lobbyArea/waitingAreaの表示状態を含め、対戦タブ側を通常のPC戦終了時と
+        // 同じ状態に戻す。ここを自前でやらず既存のendBattleScene()に任せることで、対戦タブを
+        // 開いた時に中身が空になってしまう不具合を防ぐ（内部でstopBattleBGM・endEventMode・
+        // battleResultBox/battleArenaの非表示・showBattleGuideChar等もまとめて行われる）。
+        try { if (typeof endBattleScene === 'function') endBattleScene(); } catch (e) {}
+
         applyBookBattleLift(false);
         storyLibraryState.inBookBossBattle = false;
 
