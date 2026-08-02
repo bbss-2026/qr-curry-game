@@ -130,7 +130,7 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
     // デバッグ用：読書画面に小さく表示するビルド番号。デプロイのたびに更新し、実機で本当に
     // 最新のstory.jsが読み込まれているか（キャッシュが残っていないか）を目視確認できるようにする。
     // 一般公開（STORY_LIBRARY_ENABLED=true）前には削除すること。
-    const STORY_ENGINE_BUILD = 'b27';
+    const STORY_ENGINE_BUILD = 'b28';
     const STORY_UNLOCK_STORAGE_KEY = 'qr_story_library_unlocked';
     const STORY_BOOK_SPAWN_STAGGER_MS = 90;
     const STORY_BOOK_SPAWN_DURATION_MS = 550;
@@ -1081,12 +1081,8 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
             const lock = document.createElement('div');
             lock.className = 'story-book-detail-lock';
             card.appendChild(lock);
-        } else if (hasStoryChapterBeenRead(chapter.num)) {
-            const readOverlay = document.createElement('div');
-            readOverlay.className = 'story-book-read-overlay';
-            readOverlay.innerHTML = '<img src="story/eyes.gif" alt="">';
-            card.appendChild(readOverlay);
         }
+        // 読了オーバーレイ（eyes.gif）はupdateStoryBookDetailActionButton内のupdateStoryBookDetailReadOverlayで反映する
         detailOverlay.style.display = 'flex';
         // 咖喱図書館から出る×（左上）と本棚に戻る×が同時に出て紛らわしくならないよう、
         // 本の表紙表示中は咖喱図書館から出る×を隠す（本棚に戻る×が同じ位置に表示される）。
@@ -1254,7 +1250,29 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
         chapter._readOverlayEl.style.display = (!chapter.locked && hasStoryChapterBeenRead(chapter.num)) ? 'block' : 'none';
     }
 
+    // 拡大表紙画面（#storyBookDetailCard）側の読了オーバーレイの表示切替。
+    // 拡大画面を開いた瞬間だけでなく、本編読了直後・ボス撃破直後など、拡大画面が既に開いた
+    // ままの状態でも呼べるように、画面を開き直さなくても反映できる専用関数にしてある。
+    function updateStoryBookDetailReadOverlay(chapter) {
+        const card = storyLibraryState.overlayEl.querySelector('#storyBookDetailCard');
+        if (!card) return;
+        let overlay = card.querySelector('.story-book-read-overlay');
+        const shouldShow = !chapter.locked && hasStoryChapterBeenRead(chapter.num);
+        if (shouldShow) {
+            if (!overlay) {
+                overlay = document.createElement('div');
+                overlay.className = 'story-book-read-overlay';
+                overlay.innerHTML = '<img src="story/eyes.gif" alt="">';
+                card.appendChild(overlay);
+            }
+            overlay.style.display = 'flex';
+        } else if (overlay) {
+            overlay.style.display = 'none';
+        }
+    }
+
     function updateStoryBookDetailActionButton(chapter) {
+        updateStoryBookDetailReadOverlay(chapter);
         const btn = storyLibraryState.overlayEl.querySelector('#storyBookDetailActionBtn');
         if (!btn) return;
         btn.onclick = null;
@@ -1353,8 +1371,11 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
         }
         try { if (typeof audioCtx !== 'undefined' && audioCtx && audioCtx.state === 'suspended') audioCtx.resume(); } catch (e) {}
 
-        window.isBotMatch = true;
-        window.currentRoomId = null;
+        // isBotMatch/currentRoomIdはgame.js側でlet宣言されたグローバル変数（windowプロパティにはならない）。
+        // 同一ドキュメント内の別scriptタグからでも、識別子を直接代入すれば同じ変数を書き換えられるため、
+        // window.をつけず直接代入する（window経由だと別物のプロパティを作るだけで実際の変数は変わらない）。
+        isBotMatch = true;
+        currentRoomId = null;
 
         const oppCurryData = {
             name: boss.curryName,
@@ -1771,6 +1792,14 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
                 updateReaderDebugLine();
 
                 if (beat.centerText !== undefined) {
+                    // 「fin」が画面に表示される瞬間に読了扱いにする。このあとのdelay（間）や
+                    // 次のbeat（×・◀を再び使えるようにする制御beat）を待たずに閉じる／リロード
+                    // されても、「fin」さえ表示されていれば読了状態が保存されているようにするため。
+                    if (beat.centerText === 'fin' && storyLibraryState.readerChapter) {
+                        markStoryChapterRead(storyLibraryState.readerChapter.num);
+                        updateStoryBookReadVisual(storyLibraryState.readerChapter);
+                        updateStoryBookDetailReadOverlay(storyLibraryState.readerChapter);
+                    }
                     // 暗転画面の中央にフェードイン／アウトしながら表示するテキスト
                     const textArea = storyLibraryState.overlayEl.querySelector('#storyReaderTextArea');
                     const layer = storyLibraryState.overlayEl.querySelector('#storyDialogueLayer');
