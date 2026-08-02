@@ -287,7 +287,8 @@ const STORY_BOOK_BOSSES = {
         image: 'botimage/bot-book01.png',
         curryName: 'あの日のカレー',
         materials: ['レンコン', 'ナス', 'ジャガイモ'],
-        hp: 750, atk: 70, def: 55, spd: 20,
+        hp: 900, atk: 70, def: 55, spd: 20,
+        foodCategory: 'vegetable', // 属性：野菜系統（ふわとろオム／世界三大珍味の軽減対象判定に使用）
         reward: { exp: 50, g: 50, normalIngredients: 3, normalSpice: 1 },
     },
 };

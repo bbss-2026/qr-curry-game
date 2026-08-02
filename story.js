@@ -130,7 +130,7 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
     // デバッグ用：読書画面に小さく表示するビルド番号。デプロイのたびに更新し、実機で本当に
     // 最新のstory.jsが読み込まれているか（キャッシュが残っていないか）を目視確認できるようにする。
     // 一般公開（STORY_LIBRARY_ENABLED=true）前には削除すること。
-    const STORY_ENGINE_BUILD = 'b30';
+    const STORY_ENGINE_BUILD = 'b31';
     const STORY_UNLOCK_STORAGE_KEY = 'qr_story_library_unlocked';
     const STORY_BOOK_SPAWN_STAGGER_MS = 90;
     const STORY_BOOK_SPAWN_DURATION_MS = 550;
@@ -748,9 +748,15 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
 }
 .story-book-read-overlay img { width:100%; height:auto; display:block; }
 /* vsカットイン／バトルアリーナを咖喱図書館の背景（#storyLibraryOverlay z-index:9999）より
-   前面へ持ち上げるための目印クラス。本のボス戦の間だけ付与し、終了時に外す。 */
+   前面へ持ち上げるための目印クラス。本のボス戦の間だけ付与し、終了時に外す。
+   PC（横幅の広いウィンドウ）でinset:0のまま画面幅いっぱいに広げるとUIが崩れるため、
+   #container/#gameWrapperと同じ最大幅500pxに収め、中央寄せする（left:50%+transform）。 */
 #vsCutIn.book-battle-lift, #battleArena.book-battle-lift {
-    position:fixed !important; inset:0 !important; z-index:10050 !important;
+    position:fixed !important;
+    top:0 !important; bottom:0 !important;
+    left:50% !important; transform:translateX(-50%) !important;
+    width:100% !important; max-width:500px !important;
+    z-index:10050 !important;
 }
 /* バトルの全体背景：咖喱図書館の専用バトル背景画像を敷く（.battle-stage.battle-bg-book側は
    透過のままにしてあるので、この画像がバトル画面全体にシームレスに見える）。 */
@@ -1417,6 +1423,7 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
             materials: boss.materials,
             spice: '',
             hp: boss.hp, atk: boss.atk, def: boss.def, spd: boss.spd,
+            foodCategory: boss.foodCategory || null, // 属性（meat/seafood/vegetable/fruit）。ふわとろオム等の軽減判定に使用。
             isBotImage: true,
             isBookBoss: true,
             bookChapterNum: chapter.num,
