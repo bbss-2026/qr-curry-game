@@ -130,7 +130,7 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
     // デバッグ用：読書画面に小さく表示するビルド番号。デプロイのたびに更新し、実機で本当に
     // 最新のstory.jsが読み込まれているか（キャッシュが残っていないか）を目視確認できるようにする。
     // 一般公開（STORY_LIBRARY_ENABLED=true）前には削除すること。
-    const STORY_ENGINE_BUILD = 'b31';
+    const STORY_ENGINE_BUILD = 'b32';
     const STORY_UNLOCK_STORAGE_KEY = 'qr_story_library_unlocked';
     const STORY_BOOK_SPAWN_STAGGER_MS = 90;
     const STORY_BOOK_SPAWN_DURATION_MS = 550;
@@ -1441,11 +1441,33 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
     }
 
     // #vsCutIn・#battleArenaを咖喱図書館の背景（z-index:9999）より前面に持ち上げる／元に戻す。
+    // 通常ヘッダーの#muteBtnもこの間は隠れてしまうため、専用のミュートボタン(#bookBattleMuteBtn)を
+    // 同じタイミングで表示/非表示にする。
     function applyBookBattleLift(on) {
         const vs = document.getElementById('vsCutIn');
         const arena = document.getElementById('battleArena');
+        const muteBtn = document.getElementById('bookBattleMuteBtn');
         if (vs) vs.classList.toggle('book-battle-lift', !!on);
         if (arena) arena.classList.toggle('book-battle-lift', !!on);
+        if (muteBtn) {
+            muteBtn.style.display = on ? 'flex' : 'none';
+            if (on) updateBookBattleMuteIcon();
+        }
+    }
+
+    // 本のボス戦専用ミュートボタン：本体（ゲーム画面）のミュート状態・toggleMute()をそのまま流用する
+    // （onStoryMuteToggle/updateStoryMuteIconと同じ考え方。二重管理はしない、アイコンだけ同期する）。
+    // #bookBattleMuteBtnはgame.html側の静的なinline onclickからwindow.onBookBattleMuteToggleを直接呼ぶため、
+    // （story.jsのIIFE内のただのfunction宣言はwindow直下に出ないので）明示的にwindowへ公開しておく。
+    window.onBookBattleMuteToggle = function() {
+        if (typeof toggleMute === 'function') toggleMute();
+        updateBookBattleMuteIcon();
+    };
+    function updateBookBattleMuteIcon() {
+        const icon = document.getElementById('bookBattleMuteIcon');
+        if (!icon) return;
+        const muted = (typeof isMuted !== 'undefined') && isMuted;
+        icon.src = muted ? 'sound-off.svg' : 'sound-on.svg';
     }
 
     // バトル結果画面の「対戦タブに戻る」ボタンを、本編中に戻れる「戻る」に一時的に差し替える。

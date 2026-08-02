@@ -115,6 +115,9 @@
         .tab-btn.active { color: #b88742; }
         .tab-btn.active::after { background: #b88742; }
         .tab-btn:hover { color: #b88742; }
+        /* 図書館タブ：実装中のため、他のタブより色味を薄くして「準備中」であることが分かるようにする */
+        .tab-btn-dim { opacity: 0.45; }
+        .tab-btn-dim:hover { color: #420000; }
         .status-bar-wrap { padding: 12px 20px 16px; background: #efdeb1; }
         .status-bar { background: white; color: #420000; font-size: 12px; font-weight: bold; padding: 8px 14px; text-align: center; letter-spacing: 0.02em; border-radius: 2px; display: flex; flex-wrap: wrap; justify-content: center; gap: 0 8px; }
         .status-bar .sep { color: #b88742; margin: 0 2px; }
@@ -1144,6 +1147,9 @@
         <button id="postBtn" onclick="openPostScreen()" style="position:absolute;top:6px;left:8px;width:73px;height:34px;border:none;background:transparent;cursor:pointer;z-index:10;display:none;align-items:center;justify-content:center;padding:0;">
             <img id="postIcon" src="letter01.svg" style="width:73px;height:34px;" alt="post">
         </button>
+        <button id="qrShortcutBtn" onclick="switchTab('scan', null)" style="position:absolute;top:44px;left:8px;width:73px;height:34px;border:none;background:transparent;cursor:pointer;z-index:10;display:none;align-items:center;justify-content:center;padding:0;">
+            <img src="QRbutton.svg" style="width:73px;height:34px;" alt="QR">
+        </button>
         <button id="helpBtn" onclick="toggleHelp()" style="position:absolute;top:8px;right:46px;width:32px;height:32px;border:none;background:transparent;cursor:pointer;z-index:10;display:flex;align-items:center;justify-content:center;padding:0;">
             <img src="help.svg" style="width:28px;height:28px;" alt="?">
         </button>
@@ -1219,7 +1225,7 @@
     <div id="gameUI" style="display:none;">
     <div class="tab-menu">
         <button class="tab-btn active" onclick="switchTab('quest', this)">プレイヤー</button>
-        <button class="tab-btn" onclick="switchTab('scan', this)">QR</button>
+        <button class="tab-btn tab-btn-dim" onclick="showCustomAlert('図書館', '開発中です。')">図書館</button>
         <button class="tab-btn" onclick="switchTab('fridge', this)">冷蔵庫</button>
         <button class="tab-btn" onclick="switchTab('cook', this)">調理</button>
         <button class="tab-btn" onclick="switchTab('battle', this)">対戦</button>
@@ -1928,6 +1934,11 @@
             <button class="book-battle-swap-btn" id="bookBattleGiveUpBtn" style="margin-top:14px; background:#222; color:#fff; border:1px solid #222;" onclick="giveUpBookBossBattle()">🏳️ あきらめる（敗北）</button>
         </div>
     </div>
+    <!-- 咖喱図書館：本のボス戦中は#battleArena/#vsCutInが画面を覆い、通常ヘッダーの#muteBtnが隠れてしまうため、
+         専用のミュートボタンを右上に常設する（表示/非表示はstory.js側のapplyBookBattleLift()で切り替える）。 -->
+    <button id="bookBattleMuteBtn" onclick="if(typeof onBookBattleMuteToggle==='function'){onBookBattleMuteToggle();}else if(typeof toggleMute==='function'){toggleMute();}" style="display:none; position:fixed; top:8px; right:8px; width:32px; height:32px; border:none; background:transparent; cursor:pointer; z-index:10060; align-items:center; justify-content:center; padding:0;">
+        <img id="bookBattleMuteIcon" src="sound-on.svg" style="width:28px;height:28px;" alt="sound">
+    </button>
     <!-- バトル中：回復スパイスの対象（カレー／仲間）を選ぶモーダル -->
     <div class="modal-overlay fest-theme" id="festHealTargetOverlay" style="display:none;">
         <div class="modal-box fest-theme" style="max-width:360px;">
@@ -2141,7 +2152,7 @@
      この2行以外にgame.html側を触る必要はない（詳細はstory.js冒頭コメント参照）。
      story-scripts.jsは各巻の本文データのみを持つファイル。本文の追加・修正はそちらの中身を
      書き換えるだけでよく、story.js（再生エンジン側）やこのHTMLを触る必要はない。 -->
-<script src="story.js?v=31"></script>
+<script src="story.js?v=32"></script>
 <script src="story-scripts.js?v=11"></script>
 <div style="height:80px;"></div>
 </div><!-- /gameUI -->
