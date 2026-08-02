@@ -204,7 +204,7 @@ const STORY_BOOK_SCRIPTS = {
                 { text: '「お礼が言いたくて、お父さんは今？」' },
                 { text: '女性「父は----」' },
                 { blackout: true, closeDisabled: true },
-                { delay: 2500 },
+                { delay: 1000 },
                 { blackout: false, closeDisabled: false },
                 { text: '「そうでしたか...」' },
                 { text: 'あの時の無愛想な店主さんは\n昨年亡くなられたとのこと' },
@@ -264,4 +264,30 @@ const STORY_BOOK_SCRIPTS = {
             ],
         },
     ],
+};
+
+// ============================================================
+// 咖喱図書館：本を読み終わった後の「ボス戦」データ
+// ============================================================
+// 章番号 → ボス1体分の定義。この章のキーが無い本は、読み終わっても「読む」のままで
+// ボス戦は発生しない（今後book2以降を追加する際は、ここにキーを増やしていく）。
+//
+//   name        : ボスの名前（バトル画面の相手名表示に使用）
+//   image       : ボスの画像パス（円トリミングせず、そのまま表示される）
+//   curryName   : 敵カレー名（表示テキスト）
+//   materials   : カレー名の前に並べる食材アイコン（masterIngredientsに実在する名前の配列）
+//   hp/atk/def/spd : ステータス
+//   reward      : 勝利報酬 { exp, g, normalIngredients（ノーマル具材の個数）, normalSpice（ノーマルスパイスの個数） }
+//
+// 行動パターン（種連続発射25%／毒攻撃25%／通常攻撃50%）はエンジン側（story.js経由でgame.js本体、
+// oppC.isBookBoss フラグ）で処理するため、ここではデータのみを持つ。
+const STORY_BOOK_BOSSES = {
+    1: {
+        name: 'Memories Book',
+        image: 'botimage/bot-book01.png',
+        curryName: 'あの日のカレー',
+        materials: ['レンコン', 'ナス', 'ジャガイモ'],
+        hp: 550, atk: 70, def: 55, spd: 20,
+        reward: { exp: 50, g: 50, normalIngredients: 3, normalSpice: 1 },
+    },
 };

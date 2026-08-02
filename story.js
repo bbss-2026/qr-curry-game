@@ -66,6 +66,45 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
         }
     }
 
+    // 「最後まで読み終えたか」「本のボスを倒したか」も、解放状態と同じく端末ローカルで永続化する。
+    // 読了で表紙にeyes.gifを重ね、「読む」ボタンは（ボスが設定されている巻に限り）「戦う」に変わる。
+    // ボス撃破後は「再読」に変わる（再読しても報酬は再度もらえない＝done()側は毎回付与するが、
+    // ボタンの見た目上は「読了済みの本を読み返す」体験として扱う）。
+    const STORY_READ_CHAPTERS_KEY = 'qr_story_read_chapters';
+    const STORY_CLEARED_CHAPTERS_KEY = 'qr_story_cleared_chapters';
+    function getReadChapterNumbers() {
+        try {
+            const arr = JSON.parse(localStorage.getItem(STORY_READ_CHAPTERS_KEY) || '[]');
+            return Array.isArray(arr) ? arr : [];
+        } catch (e) { return []; }
+    }
+    function hasStoryChapterBeenRead(num) {
+        return getReadChapterNumbers().includes(num);
+    }
+    function markStoryChapterRead(num) {
+        const arr = getReadChapterNumbers();
+        if (!arr.includes(num)) {
+            arr.push(num);
+            try { localStorage.setItem(STORY_READ_CHAPTERS_KEY, JSON.stringify(arr)); } catch (e) {}
+        }
+    }
+    function getClearedChapterNumbers() {
+        try {
+            const arr = JSON.parse(localStorage.getItem(STORY_CLEARED_CHAPTERS_KEY) || '[]');
+            return Array.isArray(arr) ? arr : [];
+        } catch (e) { return []; }
+    }
+    function hasStoryChapterBeenCleared(num) {
+        return getClearedChapterNumbers().includes(num);
+    }
+    function markStoryChapterCleared(num) {
+        const arr = getClearedChapterNumbers();
+        if (!arr.includes(num)) {
+            arr.push(num);
+            try { localStorage.setItem(STORY_CLEARED_CHAPTERS_KEY, JSON.stringify(arr)); } catch (e) {}
+        }
+    }
+
     const STORY_CHAPTER_COUNT = 10;
     const STORY_CHAPTERS = [];
     const _storyUnlockedNums = getUnlockedChapterNumbers();
@@ -91,7 +130,7 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
     // デバッグ用：読書画面に小さく表示するビルド番号。デプロイのたびに更新し、実機で本当に
     // 最新のstory.jsが読み込まれているか（キャッシュが残っていないか）を目視確認できるようにする。
     // 一般公開（STORY_LIBRARY_ENABLED=true）前には削除すること。
-    const STORY_ENGINE_BUILD = 'b26';
+    const STORY_ENGINE_BUILD = 'b27';
     const STORY_UNLOCK_STORAGE_KEY = 'qr_story_library_unlocked';
     const STORY_BOOK_SPAWN_STAGGER_MS = 90;
     const STORY_BOOK_SPAWN_DURATION_MS = 550;
@@ -369,6 +408,9 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
         readerCloseDisabled: false, // trueの間、本編読書中の×・戻るボタンを無効にする（演出上、離脱させたくない場面用）
         ambientAudio: null, // 雨音などの環境音（BGMとは別レイヤーで、重ねてループ再生する用のAudio要素）
         activeSeAudios: [], // 本編再生中に鳴らした効果音（Audio要素）。×で閉じた時にまとめて止めるため自前で保持する。
+        // ===== 本のボス戦 =====
+        inBookBossBattle: false, // 本のボス戦の準備中（vsカットイン）〜終了までtrue。#vsCutIn/#battleArenaのz-index持ち上げ管理用。
+        bookBossChapter: null, // 現在挑戦中の本（STORY_CHAPTERSの1件）
     };
 
     // ===== 初期化 =====
@@ -377,6 +419,7 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
         injectStoryLibraryFont();
         injectStoryLibraryEntryButton();
         installStoryKakeraHooks();
+        installBookBossHooks();
         // 今後、咖喱図書館の初期化処理（セーブデータの読み込み等）をここに追加していく
     }
 
@@ -414,9 +457,12 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
             localStorage.removeItem(STORY_KAKERA_ONBOARD_KEY);
             localStorage.removeItem(STORY_KAKERA_INFO_SEEN_KEY);
             localStorage.removeItem(STORY_UNLOCKED_CHAPTERS_KEY);
+            localStorage.removeItem(STORY_READ_CHAPTERS_KEY);
+            localStorage.removeItem(STORY_CLEARED_CHAPTERS_KEY);
             STORY_CHAPTERS.forEach(function(chapter) {
                 chapter.locked = true;
                 if (chapter._lockEl) chapter._lockEl.style.display = '';
+                updateStoryBookReadVisual(chapter);
             });
             if (typeof showCustomAlert === 'function') {
                 showCustomAlert('🔄 咖喱図書館リセット', 'リセットしました。次回入場時に最初から案内が始まります。');
@@ -681,6 +727,36 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
     position:absolute; inset:0; z-index:35; background:#fff; opacity:0;
     pointer-events:none; transition:opacity 0.25s ease;
 }
+
+/* ===== 咖喱図書館：本のボス戦 ===== */
+/* 読了済みの本の表紙に重ねる薄暗いオーバーレイ＋eyes.gif（横幅いっぱい・縦センター）。
+   本棚側（.story-book-front直下）／拡大表紙側（#storyBookDetailCard直下）の両方で使う共通クラス。 */
+.story-book-read-overlay {
+    position:absolute; inset:0; z-index:4; display:none;
+    background:rgba(0,0,0,0.55);
+    align-items:center; justify-content:center; pointer-events:none;
+}
+.story-book-read-overlay img { width:100%; height:auto; display:block; }
+/* vsカットイン／バトルアリーナを咖喱図書館の背景（#storyLibraryOverlay z-index:9999）より
+   前面へ持ち上げるための目印クラス。本のボス戦の間だけ付与し、終了時に外す。
+   バトルアリーナ自体の背景は透過のままにし、咖喱図書館の背景がそのまま透けて見えるようにする。 */
+#vsCutIn.book-battle-lift, #battleArena.book-battle-lift {
+    position:fixed !important; inset:0 !important; z-index:10050 !important;
+}
+#battleArena.book-battle-lift {
+    background:transparent !important; overflow-y:auto !important;
+    padding:16px !important; box-sizing:border-box !important;
+}
+/* 本のボス戦：バトルステージ自体の背景画像は無し（他のPC戦用背景は使わない） */
+.battle-stage.battle-bg-book { background:transparent !important; border:none !important; box-shadow:none !important; }
+/* 本のボス戦：敵アイコンの丸トリミング・枠を解除し、画像をそのまま表示する */
+#battleArena.book-boss-mode #oVisual {
+    border-radius:0 !important; border:none !important; box-shadow:none !important;
+    background:transparent !important; overflow:visible !important;
+}
+#battleArena.book-boss-mode #oVisual img {
+    border-radius:0 !important; object-fit:contain !important; width:100% !important; height:100% !important;
+}
         `;
         document.head.appendChild(style);
     }
@@ -768,6 +844,12 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
             front.className = 'story-book-front';
             front.style.backgroundImage = "url('" + chapter.frontImage + "')";
 
+            // 読了済みの本の表紙に重ねる、薄暗いオーバーレイ＋eyes.gif（横幅いっぱい・縦センター）。
+            const readOverlay = document.createElement('div');
+            readOverlay.className = 'story-book-read-overlay';
+            readOverlay.innerHTML = '<img src="story/eyes.gif" alt="">';
+            front.appendChild(readOverlay);
+
             const back = document.createElement('div');
             back.className = 'story-book-back';
             back.style.backgroundImage = "url('" + chapter.backImage + "')";
@@ -788,6 +870,8 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
             chapter._frontEl = front;
             chapter._backEl = back;
             chapter._lockEl = lock;
+            chapter._readOverlayEl = readOverlay;
+            updateStoryBookReadVisual(chapter);
         });
 
         // ===== 初回案内 or 通常表示の分岐 =====
@@ -997,6 +1081,11 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
             const lock = document.createElement('div');
             lock.className = 'story-book-detail-lock';
             card.appendChild(lock);
+        } else if (hasStoryChapterBeenRead(chapter.num)) {
+            const readOverlay = document.createElement('div');
+            readOverlay.className = 'story-book-read-overlay';
+            readOverlay.innerHTML = '<img src="story/eyes.gif" alt="">';
+            card.appendChild(readOverlay);
         }
         detailOverlay.style.display = 'flex';
         // 咖喱図書館から出る×（左上）と本棚に戻る×が同時に出て紛らわしくならないよう、
@@ -1159,12 +1248,29 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
 
     // ===== 本の解放／読む =====
 
+    // 本棚（3D表紙）側の読了オーバーレイ（薄暗い＋eyes.gif）の表示切替。
+    function updateStoryBookReadVisual(chapter) {
+        if (!chapter._readOverlayEl) return;
+        chapter._readOverlayEl.style.display = (!chapter.locked && hasStoryChapterBeenRead(chapter.num)) ? 'block' : 'none';
+    }
+
     function updateStoryBookDetailActionButton(chapter) {
         const btn = storyLibraryState.overlayEl.querySelector('#storyBookDetailActionBtn');
         if (!btn) return;
         btn.onclick = null;
         btn.classList.remove('story-book-action-disabled');
-        if (!chapter.locked) {
+        const hasBoss = (typeof STORY_BOOK_BOSSES !== 'undefined') && STORY_BOOK_BOSSES[chapter.num];
+        if (!chapter.locked && hasBoss && hasStoryChapterBeenRead(chapter.num) && hasStoryChapterBeenCleared(chapter.num)) {
+            // 読了済み・ボスも撃破済み：再読
+            btn.textContent = '再読';
+            btn.style.display = 'inline-block';
+            btn.onclick = function(e) { e.stopPropagation(); onStoryBookReadClick(chapter); };
+        } else if (!chapter.locked && hasBoss && hasStoryChapterBeenRead(chapter.num)) {
+            // 読了済み・ボス未撃破：戦う
+            btn.textContent = '戦う';
+            btn.style.display = 'inline-block';
+            btn.onclick = function(e) { e.stopPropagation(); startBookBossBattle(chapter); };
+        } else if (!chapter.locked) {
             btn.textContent = '読む';
             btn.style.display = 'inline-block';
             btn.onclick = function(e) { e.stopPropagation(); onStoryBookReadClick(chapter); };
@@ -1224,6 +1330,142 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
 
     function onStoryBookReadClick(chapter) {
         startStoryReader(chapter);
+    }
+
+    // ===== 本のボス戦 =====
+    // 「PCと対戦」の戦闘エンジン（launchVsCutIn→confirmVsDeploy→startBattleScene→done）を
+    // そのまま流用する。oppCurryDataにisBookBoss:trueを立てておくと、game.js側
+    // （startBattleScene/step/done、gameのコピーN.js側の対応する分岐）が背景・敵アイコン・
+    // カレー名・BGM・報酬を本のボス戦専用の見た目に切り替える。ここではその起動と後片付け、
+    // および咖喱図書館の背景より前面に見せるためのz-index持ち上げだけを担当する。
+
+    function startBookBossBattle(chapter) {
+        const boss = (typeof STORY_BOOK_BOSSES !== 'undefined') ? STORY_BOOK_BOSSES[chapter.num] : null;
+        if (!boss) {
+            if (typeof showCustomAlert === 'function') {
+                showCustomAlert('準備中', 'この本のボス戦はまだ準備中だ。');
+            }
+            return;
+        }
+        if (typeof hasUsableCurryForBattle === 'function' && !hasUsableCurryForBattle()) {
+            if (typeof alertNoUsableCurry === 'function') alertNoUsableCurry();
+            return;
+        }
+        try { if (typeof audioCtx !== 'undefined' && audioCtx && audioCtx.state === 'suspended') audioCtx.resume(); } catch (e) {}
+
+        window.isBotMatch = true;
+        window.currentRoomId = null;
+
+        const oppCurryData = {
+            name: boss.curryName,
+            visual: boss.image,
+            materials: boss.materials,
+            spice: '',
+            hp: boss.hp, atk: boss.atk, def: boss.def, spd: boss.spd,
+            isBotImage: true,
+            isBookBoss: true,
+            bookChapterNum: chapter.num,
+        };
+
+        storyLibraryState.inBookBossBattle = true;
+        storyLibraryState.bookBossChapter = chapter;
+        applyBookBattleLift(true);
+        prepareBookBossResultButton();
+
+        if (typeof launchVsCutIn === 'function') {
+            launchVsCutIn(boss.name, boss.image, oppCurryData);
+        }
+    }
+
+    // #vsCutIn・#battleArenaを咖喱図書館の背景（z-index:9999）より前面に持ち上げる／元に戻す。
+    function applyBookBattleLift(on) {
+        const vs = document.getElementById('vsCutIn');
+        const arena = document.getElementById('battleArena');
+        if (vs) vs.classList.toggle('book-battle-lift', !!on);
+        if (arena) arena.classList.toggle('book-battle-lift', !!on);
+    }
+
+    // バトル結果画面の「対戦タブに戻る」ボタンを、本編中に戻れる「戻る」に一時的に差し替える。
+    function prepareBookBossResultButton() {
+        const resultBox = document.getElementById('battleResultBox');
+        if (!resultBox) return;
+        const backBtn = resultBox.querySelector('button.btn.btn-start');
+        if (!backBtn) return;
+        if (backBtn.dataset.bookBossOrigText === undefined) {
+            backBtn.dataset.bookBossOrigText = backBtn.textContent;
+        }
+        backBtn.textContent = '戻る';
+        backBtn.onclick = function() { endBookBossBattle(); };
+    }
+
+    // バトル結果画面のボタンを通常仕様（「対戦タブに戻る」＝endBattleScene）に戻す。
+    function restoreNormalResultButton() {
+        const resultBox = document.getElementById('battleResultBox');
+        if (!resultBox) return;
+        const backBtn = resultBox.querySelector('button.btn.btn-start');
+        if (!backBtn) return;
+        backBtn.textContent = (backBtn.dataset.bookBossOrigText !== undefined) ? backBtn.dataset.bookBossOrigText : '対戦タブに戻る';
+        backBtn.onclick = function() { if (typeof endBattleScene === 'function') endBattleScene(); };
+    }
+
+    // 本のボス戦の終了処理（結果画面の「戻る」ボタンから呼ばれる）。咖喱図書館の本の拡大画面へ戻す。
+    function endBookBossBattle() {
+        try { if (typeof stopBattleBGM === 'function') stopBattleBGM(); } catch (e) {}
+        try { if (typeof endEventMode === 'function') endEventMode(); } catch (e) {}
+        const resultBox = document.getElementById('battleResultBox');
+        const overlay = document.getElementById('battleResultOverlay');
+        const arena = document.getElementById('battleArena');
+        if (resultBox) resultBox.style.display = 'none';
+        if (overlay) overlay.style.display = 'none';
+        if (arena) {
+            arena.style.display = 'none';
+            arena.classList.remove('book-boss-mode');
+        }
+        restoreNormalResultButton();
+        applyBookBattleLift(false);
+        storyLibraryState.inBookBossBattle = false;
+
+        // 咖喱図書館のBGMを再開する
+        if (typeof playBattleBGM === 'function') playBattleBGM(STORY_BGM_SRC);
+
+        // 本の拡大画面のボタン状態（クリア済みなら「再読」に）を更新
+        const chapter = storyLibraryState.bookBossChapter || storyLibraryState.currentDetailChapter;
+        if (chapter) updateStoryBookDetailActionButton(chapter);
+        storyLibraryState.bookBossChapter = null;
+    }
+
+    // game.js側のdone()／abortMatchDeployment()を後からラップして、本のボス戦専用のフック・
+    // 後片付けを差し込む（installStoryKakeraHooksと同じmonkey patch方式。game.js自体は無編集）。
+    function installBookBossHooks() {
+        if (window.__storyBookBossHooksInstalled) return;
+        window.__storyBookBossHooksInstalled = true;
+
+        // game.js側のdone()から、本のボスを撃破した瞬間に呼ばれるフック。
+        // クリア状態の記録と、本棚の読了アイコン・拡大画面ボタンの見た目更新を行う。
+        window.onBookBossWin = function(chapterNum) {
+            if (typeof chapterNum !== 'number') return;
+            markStoryChapterCleared(chapterNum);
+            const chapter = STORY_CHAPTERS.find(function(c) { return c.num === chapterNum; });
+            if (!chapter) return;
+            updateStoryBookReadVisual(chapter);
+            if (storyLibraryState.currentDetailChapter === chapter) {
+                updateStoryBookDetailActionButton(chapter);
+            }
+        };
+
+        // vsカットイン画面で「撤退（キャンセル）」を押した場合も、持ち上げたz-indexとボタンを元に戻す。
+        wrapGlobalFn('abortMatchDeployment', function(orig) {
+            return function() {
+                const r = orig.apply(this, arguments);
+                if (storyLibraryState.inBookBossBattle) {
+                    restoreNormalResultButton();
+                    applyBookBattleLift(false);
+                    storyLibraryState.inBookBossBattle = false;
+                    storyLibraryState.bookBossChapter = null;
+                }
+                return r;
+            };
+        });
     }
 
     // ===== 環境音（雨音など）専用のオーディオチャンネル =====
@@ -1644,7 +1886,13 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
         if (storyLibraryState.readerPages[nextIndex]) {
             showReaderPage(nextIndex);
         } else {
-            endStoryReader(); // 最後のページまで読み終えた
+            // 最後のページまで読み終えた：読了状態を記録し、表紙のeyes.gif演出を反映する
+            const chapter = storyLibraryState.readerChapter;
+            if (chapter) {
+                markStoryChapterRead(chapter.num);
+                updateStoryBookReadVisual(chapter);
+            }
+            endStoryReader();
         }
     }
 
@@ -1704,6 +1952,10 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
         if (detailCloseBtn) detailCloseBtn.style.display = 'flex';
         // 本編読書中に隠していた想いの欠片バッジの表示状態を、通常のルールに戻す
         updateKakeraDisplays();
+        // 読了したことで「読む」→「戦う」に変わった可能性があるので、拡大画面のボタンを更新する
+        if (storyLibraryState.currentDetailChapter) {
+            updateStoryBookDetailActionButton(storyLibraryState.currentDetailChapter);
+        }
 
         // 咖喱図書館のBGMに戻す
         if (typeof playBattleBGM === 'function') {
