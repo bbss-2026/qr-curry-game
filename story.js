@@ -130,7 +130,7 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
     // デバッグ用：読書画面に小さく表示するビルド番号。デプロイのたびに更新し、実機で本当に
     // 最新のstory.jsが読み込まれているか（キャッシュが残っていないか）を目視確認できるようにする。
     // 一般公開（STORY_LIBRARY_ENABLED=true）前には削除すること。
-    const STORY_ENGINE_BUILD = 'b28';
+    const STORY_ENGINE_BUILD = 'b29';
     const STORY_UNLOCK_STORAGE_KEY = 'qr_story_library_unlocked';
     const STORY_BOOK_SPAWN_STAGGER_MS = 90;
     const STORY_BOOK_SPAWN_DURATION_MS = 550;
@@ -571,6 +571,9 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
     100% { filter:brightness(2.2) drop-shadow(0 0 26px rgba(255,240,200,0.9)); }
 }
 .story-book-opening-glow { animation:storyBookOpeningGlow 0.42s ease-in forwards; }
+#storyBookDetailActionRow {
+    display:flex; gap:10px; justify-content:center; align-items:center; flex-wrap:wrap;
+}
 #storyBookDetailActionBtn {
     background:rgba(35,28,18,0.85); color:#fff; border:1px solid rgba(255,255,255,0.4);
     border-radius:999px; padding:10px 34px; font-size:14px; font-weight:bold; cursor:pointer;
@@ -578,6 +581,13 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
 }
 #storyBookDetailActionBtn:active { background:rgba(60,48,32,0.9); }
 #storyBookDetailActionBtn.story-book-action-disabled { opacity:0.5; cursor:default; }
+/* 再戦ボタン：撃破済みの本で「再読」の横に並べて表示する（クリア後、何度でも同じボスと再戦できる）。 */
+#storyBookDetailRebattleBtn {
+    background:rgba(140,40,30,0.85); color:#fff; border:1px solid rgba(255,255,255,0.4);
+    border-radius:999px; padding:10px 28px; font-size:14px; font-weight:bold; cursor:pointer;
+    box-shadow:0 8px 20px rgba(0,0,0,0.25); display:none;
+}
+#storyBookDetailRebattleBtn:active { background:rgba(170,50,35,0.9); }
 /* 本棚に戻る×。本の表紙表示中は、咖喱図書館から出る×（storyLibraryCloseBtn）と同じ左上の位置に表示し、
    紛らわしい2つの×が同時に出ないようにする（storyLibraryCloseBtn側はopenStoryBookDetail()内で非表示にする）。 */
 #storyBookDetailCloseBtn {
@@ -738,13 +748,15 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
 }
 .story-book-read-overlay img { width:100%; height:auto; display:block; }
 /* vsカットイン／バトルアリーナを咖喱図書館の背景（#storyLibraryOverlay z-index:9999）より
-   前面へ持ち上げるための目印クラス。本のボス戦の間だけ付与し、終了時に外す。
-   バトルアリーナ自体の背景は透過のままにし、咖喱図書館の背景がそのまま透けて見えるようにする。 */
+   前面へ持ち上げるための目印クラス。本のボス戦の間だけ付与し、終了時に外す。 */
 #vsCutIn.book-battle-lift, #battleArena.book-battle-lift {
     position:fixed !important; inset:0 !important; z-index:10050 !important;
 }
+/* バトルの全体背景：咖喱図書館の専用バトル背景画像を敷く（.battle-stage.battle-bg-book側は
+   透過のままにしてあるので、この画像がバトル画面全体にシームレスに見える）。 */
 #battleArena.book-battle-lift {
-    background:transparent !important; overflow-y:auto !important;
+    background:url('story/currylibrary_bg.png') center/cover !important;
+    overflow-y:auto !important;
     padding:16px !important; box-sizing:border-box !important;
 }
 /* 本のボス戦：バトルステージ自体の背景画像は無し（他のPC戦用背景は使わない） */
@@ -803,7 +815,10 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
             + '<div id="storyBookDetailColumn">'
             + '<div id="storyBookDetailKakera">想いの欠片:0個</div>'
             + '<div id="storyBookDetailCard"></div>'
+            + '<div id="storyBookDetailActionRow">'
             + '<button id="storyBookDetailActionBtn"></button>'
+            + '<button id="storyBookDetailRebattleBtn">再戦</button>'
+            + '</div>'
             + '</div>'
             + '</div>'
             + '<div id="storyKakeraInfoOverlay" style="display:none;">'
@@ -1244,10 +1259,16 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
 
     // ===== 本の解放／読む =====
 
+    // 読了オーバーレイ（薄暗い＋eyes.gif）を表示すべきか：読了済み・かつ、まだそのボスを
+    // 撃破していない間だけ。ボスを撃破した後は、勝利の証として通常の表紙に戻す。
+    function shouldShowStoryBookReadOverlay(chapter) {
+        return !chapter.locked && hasStoryChapterBeenRead(chapter.num) && !hasStoryChapterBeenCleared(chapter.num);
+    }
+
     // 本棚（3D表紙）側の読了オーバーレイ（薄暗い＋eyes.gif）の表示切替。
     function updateStoryBookReadVisual(chapter) {
         if (!chapter._readOverlayEl) return;
-        chapter._readOverlayEl.style.display = (!chapter.locked && hasStoryChapterBeenRead(chapter.num)) ? 'block' : 'none';
+        chapter._readOverlayEl.style.display = shouldShowStoryBookReadOverlay(chapter) ? 'block' : 'none';
     }
 
     // 拡大表紙画面（#storyBookDetailCard）側の読了オーバーレイの表示切替。
@@ -1257,7 +1278,7 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
         const card = storyLibraryState.overlayEl.querySelector('#storyBookDetailCard');
         if (!card) return;
         let overlay = card.querySelector('.story-book-read-overlay');
-        const shouldShow = !chapter.locked && hasStoryChapterBeenRead(chapter.num);
+        const shouldShow = shouldShowStoryBookReadOverlay(chapter);
         if (shouldShow) {
             if (!overlay) {
                 overlay = document.createElement('div');
@@ -1301,6 +1322,19 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
             btn.textContent = '解放条件は後日公開';
             btn.style.display = 'inline-block';
             btn.classList.add('story-book-action-disabled');
+        }
+
+        // 再戦ボタン：ボスを一度でも撃破していれば「再読」の横に並べて表示し、
+        // 何度でも同じボスと戦えるようにする（読了済みは撃破済みなら必ずtrueなので改めて見ない）。
+        const rebattleBtn = storyLibraryState.overlayEl.querySelector('#storyBookDetailRebattleBtn');
+        if (rebattleBtn) {
+            if (!chapter.locked && hasBoss && hasStoryChapterBeenCleared(chapter.num)) {
+                rebattleBtn.style.display = 'inline-block';
+                rebattleBtn.onclick = function(e) { e.stopPropagation(); startBookBossBattle(chapter, true); };
+            } else {
+                rebattleBtn.style.display = 'none';
+                rebattleBtn.onclick = null;
+            }
         }
     }
 
@@ -1357,7 +1391,7 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
     // カレー名・BGM・報酬を本のボス戦専用の見た目に切り替える。ここではその起動と後片付け、
     // および咖喱図書館の背景より前面に見せるためのz-index持ち上げだけを担当する。
 
-    function startBookBossBattle(chapter) {
+    function startBookBossBattle(chapter, isRebattle) {
         const boss = (typeof STORY_BOOK_BOSSES !== 'undefined') ? STORY_BOOK_BOSSES[chapter.num] : null;
         if (!boss) {
             if (typeof showCustomAlert === 'function') {
@@ -1386,6 +1420,7 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
             isBotImage: true,
             isBookBoss: true,
             bookChapterNum: chapter.num,
+            isBookBossRebattle: !!isRebattle, // 再戦（撃破後の周回）かどうか。勝利報酬に想いの欠片+10個を追加する目印。
         };
 
         storyLibraryState.inBookBossBattle = true;
@@ -1462,10 +1497,13 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
         window.__storyBookBossHooksInstalled = true;
 
         // game.js側のdone()から、本のボスを撃破した瞬間に呼ばれるフック。
-        // クリア状態の記録と、本棚の読了アイコン・拡大画面ボタンの見た目更新を行う。
-        window.onBookBossWin = function(chapterNum) {
+        // クリア状態の記録、表紙オーバーレイ（撃破済みなら消す）・拡大画面ボタンの見た目更新、
+        // 再戦（isRebattle）の場合は想いの欠片+10個の付与を行う（テキスト表示自体はgame.js側の
+        // rewardTextに既に「想いの欠片+10個」が含まれている想定＝実際の加算だけをここで行う）。
+        window.onBookBossWin = function(chapterNum, isRebattle) {
             if (typeof chapterNum !== 'number') return;
             markStoryChapterCleared(chapterNum);
+            if (isRebattle) addStoryKakera(10);
             const chapter = STORY_CHAPTERS.find(function(c) { return c.num === chapterNum; });
             if (!chapter) return;
             updateStoryBookReadVisual(chapter);

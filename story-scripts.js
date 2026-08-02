@@ -287,7 +287,7 @@ const STORY_BOOK_BOSSES = {
         image: 'botimage/bot-book01.png',
         curryName: 'あの日のカレー',
         materials: ['レンコン', 'ナス', 'ジャガイモ'],
-        hp: 550, atk: 70, def: 55, spd: 20,
+        hp: 750, atk: 70, def: 55, spd: 20,
         reward: { exp: 50, g: 50, normalIngredients: 3, normalSpice: 1 },
     },
 };
