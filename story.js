@@ -130,7 +130,7 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
     // デバッグ用：読書画面に小さく表示するビルド番号。デプロイのたびに更新し、実機で本当に
     // 最新のstory.jsが読み込まれているか（キャッシュが残っていないか）を目視確認できるようにする。
     // 一般公開（STORY_LIBRARY_ENABLED=true）前には削除すること。
-    const STORY_ENGINE_BUILD = 'b32';
+    const STORY_ENGINE_BUILD = 'b33';
     const STORY_UNLOCK_STORAGE_KEY = 'qr_story_library_unlocked';
     const STORY_BOOK_SPAWN_STAGGER_MS = 90;
     const STORY_BOOK_SPAWN_DURATION_MS = 550;
@@ -1690,6 +1690,36 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
         }, delayMs);
     }
 
+    // シルエット画像を切り替える際、位置・大きさ・画像が同時に切り替わって見えるよう、
+    // 新しい画像の読み込みが完了してからまとめて反映する。
+    // （先にleft/top/height/width等のスタイルだけ反映してからsrcを差し替えると、ブラウザが新しい
+    // 画像を読み込み終えるまでの間、古い画像が新しいサイズ・位置に引き伸ばされて一瞬見えてしまう。
+    // そこで、非表示のImage()で先読みしてから、読み込み完了後に画像・位置・大きさをまとめて
+    // 一度に適用する。読み込みが遅い／失敗した場合の保険として、一定時間で強制的に反映する。）
+    function applySilhouetteWhenReady(silEl, sil) {
+        let done = false;
+        const finish = function() {
+            if (done) return;
+            done = true;
+            silEl.src = sil.src;
+            silEl.style.left = sil.x || '50%';
+            silEl.style.top = sil.y || '50%';
+            // height指定があればheight基準、無ければwidth基準（どちらか一方のみ指定し、
+            // もう片方はautoにしてアスペクト比を保つ）
+            if (sil.height) { silEl.style.height = sil.height; silEl.style.width = 'auto'; }
+            else { silEl.style.width = sil.width || '70%'; silEl.style.height = 'auto'; }
+            const scale = sil.scale;
+            silEl.style.transform = 'translate(-50%,-50%)' + (scale ? ' scale(' + scale + ')' : '');
+            silEl.style.opacity = (typeof sil.opacity === 'number') ? sil.opacity : 1;
+            silEl.style.display = 'block';
+        };
+        const preloadImg = new Image();
+        preloadImg.onload = finish;
+        preloadImg.onerror = finish;
+        preloadImg.src = sil.src;
+        setTimeout(finish, 400); // 読み込みが極端に遅い場合でも、待たせすぎないための保険
+    }
+
     // ページ／beat共通：image（挿絵の差し替え）／overlay（黒オーバーレイの表示切替）／
     // silhouette（キャラクターシルエットの表示・位置・大きさ・不透明度）／bgm（メインBGMの切替・停止）／
     // ambient（雨音などの環境音レイヤーの切替・停止）／se（効果音を1回再生）を、指定されているものだけ反映する。
@@ -1716,17 +1746,7 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
             if (silEl) {
                 const sil = src.silhouette;
                 if (sil && sil.src) {
-                    silEl.src = sil.src;
-                    silEl.style.left = sil.x || '50%';
-                    silEl.style.top = sil.y || '50%';
-                    // height指定があればheight基準、無ければwidth基準（どちらか一方のみ指定し、
-                    // もう片方はautoにしてアスペクト比を保つ）
-                    if (sil.height) { silEl.style.height = sil.height; silEl.style.width = 'auto'; }
-                    else { silEl.style.width = sil.width || '70%'; silEl.style.height = 'auto'; }
-                    const scale = sil.scale;
-                    silEl.style.transform = 'translate(-50%,-50%)' + (scale ? ' scale(' + scale + ')' : '');
-                    silEl.style.opacity = (typeof sil.opacity === 'number') ? sil.opacity : 1;
-                    silEl.style.display = 'block';
+                    applySilhouetteWhenReady(silEl, sil);
                 } else {
                     silEl.style.display = 'none';
                 }
