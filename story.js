@@ -130,7 +130,7 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
     // デバッグ用：読書画面に小さく表示するビルド番号。デプロイのたびに更新し、実機で本当に
     // 最新のstory.jsが読み込まれているか（キャッシュが残っていないか）を目視確認できるようにする。
     // 一般公開（STORY_LIBRARY_ENABLED=true）前には削除すること。
-    const STORY_ENGINE_BUILD = 'b33';
+    const STORY_ENGINE_BUILD = 'b34';
     const STORY_UNLOCK_STORAGE_KEY = 'qr_story_library_unlocked';
     const STORY_BOOK_SPAWN_STAGGER_MS = 90;
     const STORY_BOOK_SPAWN_DURATION_MS = 550;
@@ -236,6 +236,20 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
     }
     function setKakeraInfoIntroSeen(v) {
         try { localStorage.setItem(STORY_KAKERA_INFO_SEEN_KEY, v ? '1' : '0'); } catch (e) {}
+    }
+
+    // 「初めてどれか1冊を読み終え、戦う/eyes.gifが使えるようになった」館長のセリフを
+    // 見せたかどうか（本の番号は問わず、端末で一度だけ）。
+    const STORY_BOOK_BOSS_INTRO_SEEN_KEY = 'qr_story_book_boss_intro_seen';
+    function hasSeenBookBossIntro() {
+        try {
+            return localStorage.getItem(STORY_BOOK_BOSS_INTRO_SEEN_KEY) === '1';
+        } catch (e) {
+            return false;
+        }
+    }
+    function setBookBossIntroSeen(v) {
+        try { localStorage.setItem(STORY_BOOK_BOSS_INTRO_SEEN_KEY, v ? '1' : '0'); } catch (e) {}
     }
 
     // game.js本体には一切手を加えず、既存のグローバル関数を後から差し替えて（monkey patch）
@@ -396,6 +410,7 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
         pendingChoices: null,
         revealStartTs: 0,
         dialogueStarting: false, // 館長の登場演出～セリフ開始までの待ち時間中はタップを無視するためのフラグ
+        bookBossIntroActive: false, // 初めて戦う/eyes.gifが出た時の館長のセリフ中。×・戦うボタンを無効化する
         dialogueSession: 0, // 会話セッションの世代番号（連続して次の会話に繋げた時、古いsetTimeoutが誤って新しい会話を隠さないようにする）
         currentDetailChapter: null, // 現在、拡大表示中の本（解放／読むボタンの対象）
         // ===== 本編（各巻ストーリー）再生用 =====
@@ -459,6 +474,7 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
             localStorage.removeItem(STORY_UNLOCKED_CHAPTERS_KEY);
             localStorage.removeItem(STORY_READ_CHAPTERS_KEY);
             localStorage.removeItem(STORY_CLEARED_CHAPTERS_KEY);
+            localStorage.removeItem(STORY_BOOK_BOSS_INTRO_SEEN_KEY);
             STORY_CHAPTERS.forEach(function(chapter) {
                 chapter.locked = true;
                 if (chapter._lockEl) chapter._lockEl.style.display = '';
@@ -1112,6 +1128,7 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
         updateKakeraDisplays();
         updateStoryBookDetailActionButton(chapter);
         maybeStartKakeraBookIntro();
+        maybeStartBookBossIntro(chapter);
     }
     // 初回の本の拡大画面チュートリアル中は、「いったん左上の×を押して戻ってくるのだ」の
     // セリフに辿り着くまで×を無効にする。
@@ -1131,6 +1148,7 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
 
     function closeStoryBookDetail() {
         if (isBookIntroCloseBlocked()) return; // まだ×を押せるセリフに辿り着いていない
+        if (storyLibraryState.bookBossIntroActive) return; // 初回の「戦う」案内セリフの間は×を無効化
 
         // 「×を押して戻ってくるのだ」のセリフがまだ表示されたままなら、×を押した時点で
         // タップして消したのと同じ扱いにしてから閉じる（そのまま「上に〜」の会話に繋げる）。
@@ -1170,6 +1188,35 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
             showStoryDialogueLayerOnly();
             scheduleDialogueStart(300);
         }, 2000);
+    }
+
+    // 初めてどれか1冊を読み終え、「戦う」ボタン（本のボス戦）とeyes.gifが使えるようになった瞬間に
+    // 一度だけ挟む館長のセリフ（画像は出さない）。book1〜8のどれから読むかはプレイヤー次第なので、
+    // 本の番号は問わず「読了済み・ボス未撃破」の状態を初めて見せた時に発動する（2冊目以降は出ない）。
+    // セリフの間は×（本棚に戻る）・戦うボタンを両方とも無効化し、終わったら元に戻す。
+    function maybeStartBookBossIntro(chapter) {
+        if (!chapter || hasSeenBookBossIntro()) return;
+        if (storyLibraryState.mode === 'intro_dialogue') return; // 他の会話（想いの欠片チュートリアル等）と衝突させない
+        const hasBoss = (typeof STORY_BOOK_BOSSES !== 'undefined') && STORY_BOOK_BOSSES[chapter.num];
+        if (chapter.locked || !hasBoss || !hasStoryChapterBeenRead(chapter.num) || hasStoryChapterBeenCleared(chapter.num)) return;
+
+        setBookBossIntroSeen(true);
+        storyLibraryState.bookBossIntroActive = true;
+        storyLibraryState.mode = 'intro_dialogue';
+        storyLibraryState.dialogueQueue = [
+            { text: '「想いを一つ読み終えたなら\n最後の仕上げだ」' },
+            { text: '「想いの暴走を防ぐために\n想いの書を倒すのだ」' },
+            { text: '「想いの書との戦いでは\nカレーの力が尽きた場合でも」' },
+            { text: '「ストックから次のカレーを\n出撃させることができる」' },
+            { text: '「準備を整えてから挑戦するんだ」' },
+        ];
+        storyLibraryState.dialogueIndex = 0;
+        storyLibraryState.onDialogueEnd = function() {
+            storyLibraryState.bookBossIntroActive = false;
+            storyLibraryState.mode = 'carousel';
+        };
+        showStoryDialogueLayerOnly();
+        scheduleDialogueStart(300);
     }
 
     // 本の拡大画面から本棚に戻った直後（ステージ1の時だけ）の館長のセリフ。
@@ -1398,6 +1445,7 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
     // および咖喱図書館の背景より前面に見せるためのz-index持ち上げだけを担当する。
 
     function startBookBossBattle(chapter, isRebattle) {
+        if (storyLibraryState.bookBossIntroActive) return; // 初回の「戦う」案内セリフの間は戦うボタンを無効化
         const boss = (typeof STORY_BOOK_BOSSES !== 'undefined') ? STORY_BOOK_BOSSES[chapter.num] : null;
         if (!boss) {
             if (typeof showCustomAlert === 'function') {
@@ -2071,6 +2119,7 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
         // 読了したことで「読む」→「戦う」に変わった可能性があるので、拡大画面のボタンを更新する
         if (storyLibraryState.currentDetailChapter) {
             updateStoryBookDetailActionButton(storyLibraryState.currentDetailChapter);
+            maybeStartBookBossIntro(storyLibraryState.currentDetailChapter);
         }
 
         // 咖喱図書館のBGMに戻す
