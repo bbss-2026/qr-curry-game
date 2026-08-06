@@ -130,7 +130,7 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
     // デバッグ用：読書画面に小さく表示するビルド番号。デプロイのたびに更新し、実機で本当に
     // 最新のstory.jsが読み込まれているか（キャッシュが残っていないか）を目視確認できるようにする。
     // 一般公開（STORY_LIBRARY_ENABLED=true）前には削除すること。
-    const STORY_ENGINE_BUILD = 'b34';
+    const STORY_ENGINE_BUILD = 'b35';
     const STORY_UNLOCK_STORAGE_KEY = 'qr_story_library_unlocked';
     const STORY_BOOK_SPAWN_STAGGER_MS = 90;
     const STORY_BOOK_SPAWN_DURATION_MS = 550;
@@ -722,6 +722,10 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
 #storyReaderTextArea {
     width:100%; margin-top:18px; color:#2a2118; font-size:15px; line-height:1.85; text-align:left;
     white-space:pre-line; overflow-y:auto; flex:1 1 auto; min-height:0; display:none;
+    /* #storyReaderBlackout(z-index:5)より前面に出す。blackoutはpointer-events:noneなので
+       常時前面にしても操作の妨げにはならず、暗転中に通常のセリフ表示（textビート）を
+       使いたい場面（例：暗転中に「」で1行だけ見せたい演出）でも文字が隠れずに見えるようにする。 */
+    position:relative; z-index:8;
 }
 #storyReaderTextArrow {
     display:inline-block; margin-left:4px; animation:storyArrowBlink 1s steps(1) infinite;
@@ -1472,6 +1476,7 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
             spice: '',
             hp: boss.hp, atk: boss.atk, def: boss.def, spd: boss.spd,
             foodCategory: boss.foodCategory || null, // 属性（meat/seafood/vegetable/fruit）。ふわとろオム等の軽減判定に使用。
+            isHomerun: !!boss.isHomerun, // 特技「ホームラン」：プレイヤーの技を確率で打ち返して無効化（既存のisHomerun反射ロジックをそのまま流用）
             isBotImage: true,
             isBookBoss: true,
             bookChapterNum: chapter.num,

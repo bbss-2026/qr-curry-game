@@ -402,8 +402,13 @@ const STORY_BOOK_SCRIPTS = {
 //   hp/atk/def/spd : ステータス
 //   reward      : 勝利報酬 { exp, g, normalIngredients（ノーマル具材の個数）, normalSpice（ノーマルスパイスの個数） }
 //
-// 行動パターン（種連続発射25%／毒攻撃25%／通常攻撃50%）はエンジン側（story.js経由でgame.js本体、
-// oppC.isBookBoss フラグ）で処理するため、ここではデータのみを持つ。
+// 行動パターン：
+//   book1（種連続発射25%／毒攻撃25%／通常攻撃50%）
+//   book2（想いの爆発25%／想いの大爆発15%／通常攻撃60%）
+// はエンジン側（story.js経由でgame.js本体、oppC.isBookBoss + oppC.bookChapterNumで分岐）で
+// 処理するため、ここではデータのみを持つ。
+//   isHomerun : 特技「ホームラン」（プレイヤーの技を確率で打ち返して無効化）を持たせるか
+//               （既存のisHomerun反射ロジックをそのまま流用。true以外は省略可）
 const STORY_BOOK_BOSSES = {
     1: {
         name: 'Memories Book',
@@ -412,6 +417,16 @@ const STORY_BOOK_BOSSES = {
         materials: ['レンコン', 'ナス', 'ジャガイモ'],
         hp: 900, atk: 70, def: 55, spd: 20,
         foodCategory: 'vegetable', // 属性：野菜系統（ふわとろオム／世界三大珍味の軽減対象判定に使用）
+        reward: { exp: 50, g: 50, normalIngredients: 3, normalSpice: 1 },
+    },
+    2: {
+        name: 'Memories Book',
+        image: 'botimage/bot-book02.png',
+        curryName: 'あの日のカレー',
+        materials: ['ソーセージ', 'たまねぎ', 'ソーセージ'],
+        hp: 780, atk: 75, def: 80, spd: 15,
+        foodCategory: 'meat', // 属性：肉系統
+        isHomerun: true, // 特技：ホームラン（プレイヤーの技を確率で打ち返して無効に）
         reward: { exp: 50, g: 50, normalIngredients: 3, normalSpice: 1 },
     },
 };
