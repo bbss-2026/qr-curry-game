@@ -426,7 +426,7 @@ const STORY_BOOK_SCRIPTS = {
             image: 'story/book3_i02.png',
             beats: [
                 {
-                    silhouette: { src: 'story/manimage06.svg', x: '50%', y: '75%', height: '120%', opacity: 0.8 },
+                    silhouette: { src: 'story/manimage07.svg', x: '50%', y: '75%', height: '120%', opacity: 0.8 },
                     delay: 1000,
                 },
                 { text: '婆ちゃん「鈴ちゃん、竜ちゃん\n一緒に畑に行かないかい？」', delay: 1000 },
@@ -446,9 +446,10 @@ const STORY_BOOK_SCRIPTS = {
         {
             image: 'story/book3_i03.png',
             beats: [
-                // 制御用beat：3秒待ってから、効果音（蝉のループ）とBGMを止める
-                { bgm: null, ambient: null, delay: 3000 },
-                { text: '竜太が畑を踏み荒らした。' },
+                // 制御用beat：ページが表示されたらすぐに効果音（蝉のループ）とBGMを止める
+                { bgm: null, ambient: null },
+                // 止まってから3秒待ってから最初のセリフを表示する
+                { text: '竜太が畑を踏み荒らした。', delay: 3000 },
                 { text: 'ばあちゃんが種を蒔いた畑を。' },
                 { text: '竜太はお母さんに激怒され\n大号泣のまま連れて行かれた' },
                 { text: 'ばあちゃんは怒らなかった。' },
@@ -465,11 +466,7 @@ const STORY_BOOK_SCRIPTS = {
             bgm: 'story/library-bgm.mp3',
             image: 'story/book3_i04.png',
             beats: [
-                {
-                    silhouette: { src: 'story/manimage06.svg', x: '50%', y: '75%', height: '120%', opacity: 0.8 },
-                    delay: 1000,
-                },
-                { text: '婆ちゃん「さぁお食べ。\nうちで採れたお豆さん入りだよ。」' },
+                { text: '婆ちゃん「さぁお食べ。\nうちで採れたお豆さん入りだよ。」', delay: 1000 },
                 { text: '竜太「………………」' },
                 { text: '「ほら、竜太」' },
                 { text: '竜太「………ごめんなさい」' },
@@ -478,13 +475,20 @@ const STORY_BOOK_SCRIPTS = {
                 { text: 'ばあちゃんのカレーはいつも\n野菜が沢山入っている' },
                 { text: '野菜にもカレーにも\n愛情が込められている' },
                 { text: '最高のカレーだ。' },
+                // 制御用beat：ページの最後に画面を黒くフェードアウトし、そのまま次ページへ
+                // （次ページ側で黒からフェードインすることで、切り替わりがブラックアウト演出になる）
+                { blackout: true, wait: 600 },
             ],
         },
         // ---- 5ページ目 ----
         {
             image: 'story/book3_i05.png',
+            blackout: true, // 前ページの黒画面のまま入り、画像差し替え後にフェードインする
+            ambient: null, // 前ページからの蝉のループが万一残っていた場合に備えて念のため停止
             beats: [
-                { text: '竜太「姉ちゃん」' },
+                // 制御用beat：黒からフェードイン
+                { blackout: false },
+                { text: '竜太「姉ちゃん」', delay: 700 },
                 {
                     text: '「ひさしぶり」',
                     silhouette: { src: 'story/manimage08.svg', x: '50%', y: '75%', height: '120%', opacity: 0.8 },
@@ -559,7 +563,7 @@ const STORY_BOOK_BOSSES = {
         image: 'botimage/bot-book03.png',
         curryName: 'あの日のカレー',
         materials: ['オクラ', 'ひよこ豆', 'タマゴ'],
-        hp: 980, atk: 55, def: 35, spd: 65,
+        hp: 1050, atk: 70, def: 35, spd: 65,
         foodCategory: 'vegetable', // 属性：野菜系統
         isWanpaku: true, // 特技：わんぱく
         reward: { exp: 50, g: 50, normalIngredients: 3, normalSpice: 1 },
