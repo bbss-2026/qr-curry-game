@@ -370,8 +370,8 @@ const STORY_BOOK_SCRIPTS = {
                 { text: '女性「残念ながら」' },
                 { text: '男性「今日でおしまい」' },
                 { text: '「もう、この味が食べられないなんて\nもったいないです」' },
-                // 制御用beat：ここでBGMを止め、効果音を1回鳴らす
-                { bgm: null, se: 'story/hitosaranokioku.mp3' },
+                // 制御用beat：ここでBGMを止める
+                { bgm: null },
                 // 制御用beat：画面（背景・シルエット含む）をゆっくり黒一色にし、×・◀を無効化
                 { blackout: true, closeDisabled: true },
                 { centerText: '人が沢山くれば', delay: 650 },
@@ -379,11 +379,19 @@ const STORY_BOOK_SCRIPTS = {
                 { centerText: 'もしかしたら\nこの味が継承されるかもしれない' },
                 { centerText: 'そう思って記事を書いた' },
                 { centerText: 'でも私の文章では間に合わなかった' },
-                { centerText: '悔しい...' },
-                // ブラックアウト中だが、通常のセリフ表示（画面下のテキストエリア）で出す
-                { text: '「すみません、私が継いじゃダメですか？」' },
-                { centerText: 'fin', delay: 3000 }, // 間3秒
-                { closeDisabled: false, delay: 2000 }, // 間2秒後、×・◀を再び使用可能に
+                { centerText: '…' },
+                { centerText: '……' },
+                { centerText: '………' },
+                { centerText: '…………' },
+                { centerText: '私は何がしたかったのだろう…' },
+                // 制御用beat：ここで効果音を1回鳴らす
+                { se: 'story/hitosaranokioku.mp3' },
+                { blackout: false }, // ブラックアウト解除（×・◀はまだ無効のまま）
+                { text: '「すみません、この味……」', delay: 2000 }, // 間2秒
+                { text: '「私が継いじゃダメですか？」', delay: 2000 }, // 間2秒
+                { blackout: true, delay: 1000 }, // 間1秒後、再びブラックアウト（背景とシルエットごと黒く）
+                { centerText: 'fin', delay: 1000 }, // 間1秒
+                { closeDisabled: false, delay: 3000 }, // 間3秒後、×・◀を再び使用可能に
             ],
         },
     ],
