@@ -610,8 +610,10 @@ const STORY_BOOK_SCRIPTS = {
                 { text: '男「いつか、カレーでバトルしようぜ」' },
                 { text: '男「じゃあな！」' },
                 { text: '謎の男は颯爽と去って行った' },
-                // 制御用beat：画面（背景・シルエット含む）をゆっくり黒一色にし、×・◀を無効化。効果音を1回鳴らす
-                { blackout: true, closeDisabled: true, se: 'story/hitosaranokioku.mp3' },
+                // 制御用beat：画面（背景・シルエット含む）をゆっくり黒一色にし、×・◀を無効化。BGMも止める
+                { blackout: true, closeDisabled: true, bgm: null },
+                // 制御用beat：BGMが止まってから効果音を1回鳴らす
+                { se: 'story/hitosaranokioku.mp3' },
                 { centerText: 'なぜ筋トレをしたのか' },
                 { centerText: 'なぜ組み手をしたのか' },
                 { centerText: 'なぜ走り込みをしたのか' },
