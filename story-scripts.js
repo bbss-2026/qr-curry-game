@@ -431,7 +431,7 @@ const STORY_BOOK_BOSSES = {
         name: 'Memories Book',
         image: 'botimage/bot-book02.png',
         curryName: 'あの日のカレー',
-        materials: ['ソーセージ', 'たまねぎ', 'ソーセージ'],
+        materials: ['ウインナー', '玉ねぎ', 'ウインナー'], // ソーセージ→ウインナー、たまねぎ→玉ねぎ（masterIngredientsの実在キー名に合わせています）
         hp: 780, atk: 75, def: 80, spd: 15,
         foodCategory: 'meat', // 属性：肉系統
         isHomerun: true, // 特技：ホームラン（プレイヤーの技を確率で打ち返して無効に）

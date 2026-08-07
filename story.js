@@ -130,7 +130,7 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
     // デバッグ用：読書画面に小さく表示するビルド番号。デプロイのたびに更新し、実機で本当に
     // 最新のstory.jsが読み込まれているか（キャッシュが残っていないか）を目視確認できるようにする。
     // 一般公開（STORY_LIBRARY_ENABLED=true）前には削除すること。
-    const STORY_ENGINE_BUILD = 'b36';
+    const STORY_ENGINE_BUILD = 'b37';
     const STORY_UNLOCK_STORAGE_KEY = 'qr_story_library_unlocked';
     const STORY_BOOK_SPAWN_STAGGER_MS = 90;
     const STORY_BOOK_SPAWN_DURATION_MS = 550;
@@ -1835,6 +1835,12 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
         if (Object.prototype.hasOwnProperty.call(src, 'blackout')) {
             const blackoutEl = storyLibraryState.overlayEl.querySelector('#storyReaderBlackout');
             if (blackoutEl) blackoutEl.classList.toggle('story-reader-blackout-visible', !!src.blackout);
+            // ブラックアウトを解除する時は、暗転中に表示していた中央フェードテキスト（centerText）が
+            // 出しっぱなしにならないよう、ここで一緒に消す。
+            if (!src.blackout) {
+                const centerTextEl = storyLibraryState.overlayEl.querySelector('#storyReaderCenterText');
+                if (centerTextEl) { centerTextEl.classList.remove('story-center-text-visible'); centerTextEl.textContent = ''; }
+            }
         }
 
         // ×（本編を閉じるボタン）の有効／無効。演出上、途中で離脱させたくない場面で使う。
