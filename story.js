@@ -130,7 +130,7 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
     // デバッグ用：読書画面に小さく表示するビルド番号。デプロイのたびに更新し、実機で本当に
     // 最新のstory.jsが読み込まれているか（キャッシュが残っていないか）を目視確認できるようにする。
     // 一般公開（STORY_LIBRARY_ENABLED=true）前には削除すること。
-    const STORY_ENGINE_BUILD = 'b37';
+    const STORY_ENGINE_BUILD = 'b38';
     const STORY_UNLOCK_STORAGE_KEY = 'qr_story_library_unlocked';
     const STORY_BOOK_SPAWN_STAGGER_MS = 90;
     const STORY_BOOK_SPAWN_DURATION_MS = 550;
@@ -1485,6 +1485,7 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
             hp: boss.hp, atk: boss.atk, def: boss.def, spd: boss.spd,
             foodCategory: boss.foodCategory || null, // 属性（meat/seafood/vegetable/fruit）。ふわとろオム等の軽減判定に使用。
             isHomerun: !!boss.isHomerun, // 特技「ホームラン」：プレイヤーの技を確率で打ち返して無効化（既存のisHomerun反射ロジックをそのまま流用）
+            isWanpaku: !!boss.isWanpaku, // 特技「わんぱく」：通常攻撃のダメージ幅が広がり、ミスすることもある（既存のisWanpakuロジックをそのまま流用）
             isBotImage: true,
             isBookBoss: true,
             bookChapterNum: chapter.num,

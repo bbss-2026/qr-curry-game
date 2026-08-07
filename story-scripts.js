@@ -395,6 +395,120 @@ const STORY_BOOK_SCRIPTS = {
             ],
         },
     ],
+    // ---- book-03 ----
+    // ※効果音「sound/semi.mp3」は各ページで単発SEとして繰り返し指定されていましたが、
+    //   1〜3ページ目にわたって鳴り続ける蝉の鳴き声（BGMに重ねるループ音）と解釈し、
+    //   ambient（雨音などと同じ仕組み）として1ページ目にのみ設定し、以降のページでは
+    //   （省略時は前のページの状態を維持する仕様のため）自動的に鳴り続けます。
+    //   3ページ目の「効果音とBGMストップ」の後に再度出てくる「効果音：sound/semi.mp3」は
+    //   単発の蝉の鳴き声として、そのままse（1回だけ再生）で表現しています。
+    // ※「効果音：sound/hitosaranokioku.mp3」は実際のファイルがstory/hitosaranokioku.mp3に
+    //   あったため、パスをそちらに修正しています（book1・book2と同じ効果音です）。
+    // ※5ページ目の末尾（fin後）に、×・◀を再び使用可能に戻す制御beatを追加しています
+    //   （book1・book2と同様、blackout中はcloseDisabledをtrueのままにしているため、
+    //   読了後に操作できなくならないよう必須の処理として補っています）。
+    3: [
+        // ---- 1ページ目 ----
+        {
+            bg: 'story/bookstory_bg.png',
+            image: 'story/book3_i01.png',
+            bgm: 'story/book3bgm.mp3',
+            ambient: 'sound/semi.mp3', // 蝉の鳴き声（ループ）
+            beats: [
+                { text: '夏休みは毎年お婆ちゃん家に\n家族で遊びに行った。', delay: 2000 },
+                { text: '小さい頃は弟と\n田舎の畦道を駆け回り' },
+                { text: '虫取りをし\n川に入り' },
+                { text: '日が暮れるまで\n汗だくで遊んだ' },
+            ],
+        },
+        // ---- 2ページ目 ----
+        {
+            image: 'story/book3_i02.png',
+            beats: [
+                {
+                    silhouette: { src: 'story/manimage06.svg', x: '50%', y: '75%', height: '120%', opacity: 0.8 },
+                    delay: 1000,
+                },
+                { text: '婆ちゃん「鈴ちゃん、竜ちゃん\n一緒に畑に行かないかい？」', delay: 1000 },
+                { text: '「えっと…」' },
+                { text: '竜太「暑いからいい」' },
+                { text: '2年生と6年生になった私たちは\nあの頃よりも大人に、\nいや、生意気になった。' },
+                { text: '婆ちゃん「手伝ってくれんの？」' },
+                { text: '竜太「ゲームしたい」' },
+                { text: '婆ちゃん「………そうかぁ」' },
+                { silhouette: null }, // 制御用beat：シルエット消える
+                { text: '「竜太、畑行こ」', delay: 2000 },
+                { text: '竜太「ええ〜」' },
+                { text: '「行くよ！」' },
+            ],
+        },
+        // ---- 3ページ目 ----
+        {
+            image: 'story/book3_i03.png',
+            beats: [
+                // 制御用beat：3秒待ってから、効果音（蝉のループ）とBGMを止める
+                { bgm: null, ambient: null, delay: 3000 },
+                { text: '竜太が畑を踏み荒らした。' },
+                { text: 'ばあちゃんが種を蒔いた畑を。' },
+                { text: '竜太はお母さんに激怒され\n大号泣のまま連れて行かれた' },
+                { text: 'ばあちゃんは怒らなかった。' },
+                { text: '「ばあちゃんごめんね」' },
+                { text: '婆ちゃん「暑いのに種まき\n誘っちゃった婆ちゃんが\n悪かったんだよ」' },
+                { text: '「そんなことないよ。\n種まき、やり直そう」' },
+                { text: '婆ちゃん「ありがとうね。\n鈴ちゃんは優しいねぇ」' },
+                { se: 'sound/semi.mp3', delay: 2000 }, // 間2秒後、蝉の鳴き声を1回
+                { text: '優しいのは婆ちゃんだよ。', delay: 2000 }, // 間2秒
+            ],
+        },
+        // ---- 4ページ目 ----
+        {
+            bgm: 'story/library-bgm.mp3',
+            image: 'story/book3_i04.png',
+            beats: [
+                {
+                    silhouette: { src: 'story/manimage06.svg', x: '50%', y: '75%', height: '120%', opacity: 0.8 },
+                    delay: 1000,
+                },
+                { text: '婆ちゃん「さぁお食べ。\nうちで採れたお豆さん入りだよ。」' },
+                { text: '竜太「………………」' },
+                { text: '「ほら、竜太」' },
+                { text: '竜太「………ごめんなさい」' },
+                { text: '婆ちゃん「ごめんなさい言えて\n偉いね」' },
+                { text: '婆ちゃん「もう気にしなくて良いから\nお食べなさい」' },
+                { text: 'ばあちゃんのカレーはいつも\n野菜が沢山入っている' },
+                { text: '野菜にもカレーにも\n愛情が込められている' },
+                { text: '最高のカレーだ。' },
+            ],
+        },
+        // ---- 5ページ目 ----
+        {
+            image: 'story/book3_i05.png',
+            beats: [
+                { text: '竜太「姉ちゃん」' },
+                {
+                    text: '「ひさしぶり」',
+                    silhouette: { src: 'story/manimage08.svg', x: '50%', y: '75%', height: '120%', opacity: 0.8 },
+                },
+                { text: '竜太「仕事は順調？」' },
+                { text: '「編集長に怒られてばっかりよ」' },
+                { text: '竜太「大変そう」' },
+                { text: '「あ、そうだこの前部屋掃除してたら\n前にばあちゃんから貰った種があって」' },
+                { text: '竜太「なんの種？」' },
+                { text: '「なんだろ？とりあえず植えてみて\n野菜できたらあんた料理してよ」' },
+                // 制御用beat：画面（背景・シルエット含む）をゆっくり黒一色にし、×・◀を無効化。BGMも止める
+                { blackout: true, closeDisabled: true, bgm: null },
+                { se: 'story/hitosaranokioku.mp3' },
+                { centerText: '今年高校を卒業する竜太は\n料理学校へ進学する' },
+                { centerText: '料理人になって\nばあちゃんの野菜を\n美味しく料理したいらしい' },
+                { centerText: '18歳と22歳になった私たちは\nあの頃よりも大人になった。' },
+                { centerText: '「姉ちゃんがどうしてもって言うなら\n料理してあげてもいいけど？」' },
+                { centerText: 'いや、生意気になったのかも。' },
+                { centerText: 'ばあちゃん、また夏には\n生意気な弟を連れて\n遊びに行くね。' },
+                { centerText: 'fin', delay: 1000 }, // 間1秒
+                { closeDisabled: false, delay: 3000 }, // 間3秒後、×・◀を再び使用可能に
+            ],
+        },
+    ],
 };
 
 // ============================================================
@@ -413,10 +527,13 @@ const STORY_BOOK_SCRIPTS = {
 // 行動パターン：
 //   book1（種連続発射25%／毒攻撃25%／通常攻撃50%）
 //   book2（想いの爆発25%／想いの大爆発15%／通常攻撃60%）
+//   book3（種連続発射25%／系統バリア15%／通常攻撃60%）
 // はエンジン側（story.js経由でgame.js本体、oppC.isBookBoss + oppC.bookChapterNumで分岐）で
 // 処理するため、ここではデータのみを持つ。
 //   isHomerun : 特技「ホームラン」（プレイヤーの技を確率で打ち返して無効化）を持たせるか
 //               （既存のisHomerun反射ロジックをそのまま流用。true以外は省略可）
+//   isWanpaku : 特技「わんぱく」（通常攻撃のダメージ幅が広がり、ミスすることもある）を持たせるか
+//               （既存のisWanpakuロジックをそのまま流用。true以外は省略可）
 const STORY_BOOK_BOSSES = {
     1: {
         name: 'Memories Book',
@@ -435,6 +552,16 @@ const STORY_BOOK_BOSSES = {
         hp: 780, atk: 75, def: 80, spd: 15,
         foodCategory: 'meat', // 属性：肉系統
         isHomerun: true, // 特技：ホームラン（プレイヤーの技を確率で打ち返して無効に）
+        reward: { exp: 50, g: 50, normalIngredients: 3, normalSpice: 1 },
+    },
+    3: {
+        name: 'Memories Book',
+        image: 'botimage/bot-book03.png',
+        curryName: 'あの日のカレー',
+        materials: ['オクラ', 'ひよこ豆', 'タマゴ'],
+        hp: 980, atk: 55, def: 35, spd: 65,
+        foodCategory: 'vegetable', // 属性：野菜系統
+        isWanpaku: true, // 特技：わんぱく
         reward: { exp: 50, g: 50, normalIngredients: 3, normalSpice: 1 },
     },
 };
