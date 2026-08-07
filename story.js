@@ -130,7 +130,7 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
     // デバッグ用：読書画面に小さく表示するビルド番号。デプロイのたびに更新し、実機で本当に
     // 最新のstory.jsが読み込まれているか（キャッシュが残っていないか）を目視確認できるようにする。
     // 一般公開（STORY_LIBRARY_ENABLED=true）前には削除すること。
-    const STORY_ENGINE_BUILD = 'b35';
+    const STORY_ENGINE_BUILD = 'b36';
     const STORY_UNLOCK_STORAGE_KEY = 'qr_story_library_unlocked';
     const STORY_BOOK_SPAWN_STAGGER_MS = 90;
     const STORY_BOOK_SPAWN_DURATION_MS = 550;
@@ -716,16 +716,23 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
     white-space:pre-line; opacity:0; pointer-events:none; transition:opacity 0.6s ease;
 }
 #storyReaderCenterText.story-center-text-visible { opacity:1; }
+/* 暗転（#storyReaderBlackout）中に、通常のセリフ表示（画面下のテキストエリアと同じ見た目・進め方）を
+   前面に出したい時専用のレイヤー。#storyReaderTextAreaは親の#storyReaderContentがz-index:2で
+   独自のスタッキングコンテキストを作ってしまっているため、子要素のz-indexをいくら上げても
+   z-index:5の#storyReaderBlackoutより前面には出せない。そのためテキストエリアと同じ見た目を
+   #storyReaderOverlay直下の別レイヤーとして用意し、暗転中のbeat.textはこちらに描画する。 */
+#storyReaderBlackoutText {
+    position:absolute; left:0; right:0; bottom:14%; z-index:9;
+    max-height:60%; padding:0 12%; box-sizing:border-box;
+    color:#fff; font-size:15px; line-height:1.85; text-align:left;
+    white-space:pre-line; overflow-y:auto; display:none;
+}
 /* 挿絵の下の地の文エリア（絵本風）。タイプライターなし・効果音なしで、タップすると
    表示中の文章が次の文章に置き換わる（切り替え式）。全文を出し切った状態でタップするとページがめくれる。
    文章が長くページ内に収まらない場合は、このエリア内だけで縦スクロールできるようにしてある。 */
 #storyReaderTextArea {
     width:100%; margin-top:18px; color:#2a2118; font-size:15px; line-height:1.85; text-align:left;
     white-space:pre-line; overflow-y:auto; flex:1 1 auto; min-height:0; display:none;
-    /* #storyReaderBlackout(z-index:5)より前面に出す。blackoutはpointer-events:noneなので
-       常時前面にしても操作の妨げにはならず、暗転中に通常のセリフ表示（textビート）を
-       使いたい場面（例：暗転中に「」で1行だけ見せたい演出）でも文字が隠れずに見えるようにする。 */
-    position:relative; z-index:8;
 }
 #storyReaderTextArrow {
     display:inline-block; margin-left:4px; animation:storyArrowBlink 1s steps(1) infinite;
@@ -863,6 +870,7 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
             + '</div>'
             + '<div id="storyReaderBlackout"></div>'
             + '<div id="storyReaderCenterText"></div>'
+            + '<div id="storyReaderBlackoutText"></div>'
             + '</div>'
             + '<button id="storyReaderCloseBtn">✕</button>'
             + '<button id="storyReaderPrevBtn">◀</button>'
@@ -1870,8 +1878,10 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
         // 前の文章がまだ見えている、という状態を作らないため）。
         const textArea = storyLibraryState.overlayEl.querySelector('#storyReaderTextArea');
         const layer = storyLibraryState.overlayEl.querySelector('#storyDialogueLayer');
+        const blackoutTextEl = storyLibraryState.overlayEl.querySelector('#storyReaderBlackoutText');
         if (textArea) { textArea.style.display = 'none'; textArea.innerHTML = ''; }
         if (layer) layer.style.display = 'none';
+        if (blackoutTextEl) { blackoutTextEl.style.display = 'none'; blackoutTextEl.innerHTML = ''; }
 
         // シルエット／オーバーレイ／画面暗転は、ページ側で明示的に指定されていない限り、
         // ページが変わるタイミングでいったんリセットする（前のページの表示を持ち越さない）。
@@ -1943,8 +1953,10 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
                     // 暗転画面の中央にフェードイン／アウトしながら表示するテキスト
                     const textArea = storyLibraryState.overlayEl.querySelector('#storyReaderTextArea');
                     const layer = storyLibraryState.overlayEl.querySelector('#storyDialogueLayer');
+                    const blackoutTextEl = storyLibraryState.overlayEl.querySelector('#storyReaderBlackoutText');
                     if (textArea) textArea.style.display = 'none';
                     if (layer) layer.style.display = 'none';
+                    if (blackoutTextEl) { blackoutTextEl.style.display = 'none'; blackoutTextEl.innerHTML = ''; }
                     showReaderCenterText(beat.centerText, function() {
                         storyLibraryState.readerBusy = false; // フェードインが完了した時点でタップ待ちに
                         updateReaderDebugLine();
@@ -2008,27 +2020,49 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
     function renderReaderBeatText(beat) {
         const textArea = storyLibraryState.overlayEl.querySelector('#storyReaderTextArea');
         const layer = storyLibraryState.overlayEl.querySelector('#storyDialogueLayer');
+        const blackoutTextEl = storyLibraryState.overlayEl.querySelector('#storyReaderBlackoutText');
         if (beat.say || beat.narration) {
             // 既存のメッセージウインドウ（タイプライター＋効果音）を流用
             if (textArea) textArea.style.display = 'none';
+            if (blackoutTextEl) { blackoutTextEl.style.display = 'none'; blackoutTextEl.innerHTML = ''; }
             showStoryDialogueLayerOnly(); // 館長の画像は出さず、ウインドウだけ表示
             const speaker = beat.say ? beat.say : '';
             const text = beat.say ? beat.text : beat.narration;
             startTypewriter(text, null, speaker);
         } else if (beat.text) {
-            // 絵本風のテキストエリアに即時表示（タイプライターなし・効果音なし）
             if (layer) layer.style.display = 'none';
-            if (textArea) {
-                textArea.innerHTML = '';
+            // 暗転（#storyReaderBlackout）中かどうかで表示先を切り替える。暗転中は通常の
+            // #storyReaderTextAreaが黒画面の下に隠れてしまうため、暗転より前面に出る
+            // #storyReaderBlackoutTextの方に同じ見た目・進め方で表示する。
+            const blackoutEl = storyLibraryState.overlayEl.querySelector('#storyReaderBlackout');
+            const isBlackedOut = !!(blackoutEl && blackoutEl.classList.contains('story-reader-blackout-visible'));
+            if (isBlackedOut && blackoutTextEl) {
+                if (textArea) { textArea.style.display = 'none'; textArea.innerHTML = ''; }
+                blackoutTextEl.innerHTML = '';
                 const span = document.createElement('span');
                 span.textContent = beat.text;
-                textArea.appendChild(span);
+                blackoutTextEl.appendChild(span);
                 const arrow = document.createElement('span');
-                arrow.id = 'storyReaderTextArrow';
+                arrow.id = 'storyReaderBlackoutTextArrow';
                 arrow.textContent = '▼';
-                textArea.appendChild(document.createElement('br'));
-                textArea.appendChild(arrow);
-                textArea.style.display = 'block';
+                blackoutTextEl.appendChild(document.createElement('br'));
+                blackoutTextEl.appendChild(arrow);
+                blackoutTextEl.style.display = 'block';
+            } else {
+                if (blackoutTextEl) { blackoutTextEl.style.display = 'none'; blackoutTextEl.innerHTML = ''; }
+                // 絵本風のテキストエリアに即時表示（タイプライターなし・効果音なし）
+                if (textArea) {
+                    textArea.innerHTML = '';
+                    const span = document.createElement('span');
+                    span.textContent = beat.text;
+                    textArea.appendChild(span);
+                    const arrow = document.createElement('span');
+                    arrow.id = 'storyReaderTextArrow';
+                    arrow.textContent = '▼';
+                    textArea.appendChild(document.createElement('br'));
+                    textArea.appendChild(arrow);
+                    textArea.style.display = 'block';
+                }
             }
         }
     }
@@ -2086,6 +2120,7 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
         const overlayEl = storyLibraryState.overlayEl.querySelector('#storyReaderImageOverlay');
         const blackoutEl = storyLibraryState.overlayEl.querySelector('#storyReaderBlackout');
         const centerTextEl = storyLibraryState.overlayEl.querySelector('#storyReaderCenterText');
+        const blackoutTextEl = storyLibraryState.overlayEl.querySelector('#storyReaderBlackoutText');
         const readerOverlay = storyLibraryState.overlayEl.querySelector('#storyReaderOverlay');
         const readerCloseBtn = storyLibraryState.overlayEl.querySelector('#storyReaderCloseBtn');
         const prevBtn = storyLibraryState.overlayEl.querySelector('#storyReaderPrevBtn');
@@ -2096,6 +2131,7 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
         if (nameEl) nameEl.style.display = 'none';
         if (layer) layer.style.display = 'none';
         if (textArea) { textArea.style.display = 'none'; textArea.innerHTML = ''; }
+        if (blackoutTextEl) { blackoutTextEl.style.display = 'none'; blackoutTextEl.innerHTML = ''; }
         if (imgWrap) imgWrap.style.display = 'none';
         if (imgEl) imgEl.removeAttribute('src');
         if (silEl) { silEl.style.display = 'none'; silEl.removeAttribute('src'); }
