@@ -513,6 +513,120 @@ const STORY_BOOK_SCRIPTS = {
             ],
         },
     ],
+    // ---- book-04「レシピのないカレー」----
+    // ※「効果音：sound/hitosaranokioku.mp3」は実際のファイルがstory/hitosaranokioku.mp3に
+    //   あったため、パスをそちらに修正しています（book1〜3と同じ効果音です）。
+    // ※4ページ目末尾（fin後）に、×・◀を再び使用可能に戻す制御beatを追加しています
+    //   （book1〜3と同様、最後の暗転中はcloseDisabledをtrueにしているため、読了後に
+    //   操作できなくならないよう必須の処理として補っています。今回の台本には
+    //   closeDisabledの指定がなかったため、最後の暗転（「なぜ筋トレをしたのか」以降）に
+    //   合わせてtrue/falseを追加しました）。
+    4: [
+        // ---- 1ページ目 ----
+        {
+            bg: 'story/bookstory_bg.png',
+            image: 'story/book4_i01.png',
+            bgm: 'story/library-bgm.mp3',
+            beats: [
+                { text: '私にかかればどんなカレーの味でも\n完璧に再現できてしまう。' },
+                { text: 'カレーを食べるとそのレジピが\n頭にインプットされるのだ。' },
+                { text: 'あの人気チェーン店はもちろん\n高級店から家庭の味\n個性派スパイスカレーまで' },
+                { text: '寸分狂いなく完璧にできてしまう' },
+                { text: 'なのに…' },
+                { text: 'なのになぜだ…' },
+            ],
+        },
+        // ---- 2ページ目 ----
+        {
+            image: 'story/book4_i02.png',
+            beats: [
+                { text: 'なぜこんなに暇なんだ' },
+                { text: 'くそ、それもこれもあの記事のせいだ' },
+                {
+                    text: '女性記者「美味しいんですよ。\n美味しいんですけど、なんと言うか',
+                    silhouette: { src: 'story/manimage09.svg', x: '50%', y: '75%', height: '120%', opacity: 0.8 },
+                },
+                { text: '女性記者「面白くないんですよね。' },
+                { text: '「面白くない？」' },
+                { text: '女性記者「完璧すぎると言うか」' },
+                { text: '「私の調理は寸分狂いなく完璧だからね」' },
+                { text: '女性記者「寸分狂いなく？ どうやって？」' },
+                { text: '「その昔、宇宙人から能力を授かりましてね」' },
+                { text: '女性記者「……………………………あ、そうですか」' },
+            ],
+        },
+        // ---- 3ページ目 ----
+        {
+            image: 'story/book2_i03.png',
+            silhouette: null, // 制御用：前ページのシルエットを持ち越さない
+            beats: [
+                { text: '-宇宙人が作る謎カレー-' },
+                { text: '-味に寸分の狂いもない奇妙なカレー-' },
+                { text: '誰が宇宙人だ。俺は人間だ。\nちょっと魔術が使える人間だ。' },
+                { text: '-調理は完璧なのに、また来たいと思えない-' },
+                { text: 'くそ、悔しいがその通りだ' },
+                { text: '雑誌を見て面白半分で着た客も全くリピートしてこない。' },
+                { text: 'それが事実だ。' },
+                { text: 'どうすればいいんだ。' },
+                { text: 'どうすれば俺は変われる。' },
+            ],
+        },
+        // ---- 4ページ目 ----
+        {
+            image: 'story/book4_i03.png',
+            bgm: 'story/library-bgm.mp3',
+            beats: [
+                { text: 'とりあえず山に来た。' },
+                { text: '登ろう。' },
+                { text: '今までの自分とは全く無縁だった\n山に登ってみよう。' },
+                // 制御用beat：ブラックアウトすると同時に（見えないうちに）画像を差し替え、
+                // 1秒待ってから自動的に（タップ不要で）次のbeatへ進む
+                { blackout: true, image: 'story/book4_i04.png', wait: 1000 },
+                // 制御用beat：ブラックアウト解除→差し替わった画像がフェードインで見える
+                { blackout: false },
+                { text: '疲れた………' },
+                { text: '調理の配分は得意なのに\n自身の体力の配分は下手すぎた。' },
+                { text: 'だめだ、もう歩けない………\n少し休憩をしよう。' },
+                // 制御用beat：シルエット表示とBGM切り替えを同時に
+                {
+                    silhouette: { src: 'story/manimage10.svg', x: '50%', y: '75%', height: '120%', opacity: 0.8 },
+                    bgm: 'story/book4bgm.mp3',
+                },
+                { text: '男「やぁなにしてるんだい！」' },
+                { text: 'なんだこの上半身裸にカンフーパンツの怪しい男は' },
+                { text: '男「そんなヒョロヒョロの体で何ができる！」' },
+                { text: '「料理は完璧にできる」' },
+                { text: '男「料理に完璧など求めていない！」' },
+                { text: '男「求めているのは燃える情熱だ！」' },
+                { text: '「………………………………は？」' },
+                { text: '男「俺を蹴ってみろ！」' },
+                { text: '「………………………………は？」' },
+                { text: '男「自分を変えたいんだろ？そんな顔してるぜ」' },
+                { text: '男「Don\'t think. Feel!」' },
+                { blackout: true }, // 制御用beat：ブラックアウト
+                { centerText: 'そしてなぜか私はこの男と特訓を始め\n気がつけば世が明けた' },
+                { blackout: false }, // 制御用beat：ブラックアウト解除
+                { text: '男「良い顔になったな」' },
+                { text: '男「いつか、カレーでバトルしようぜ」' },
+                { text: '男「じゃあな！」' },
+                { text: '謎の男は颯爽と去って行った' },
+                // 制御用beat：画面（背景・シルエット含む）をゆっくり黒一色にし、×・◀を無効化。効果音を1回鳴らす
+                { blackout: true, closeDisabled: true, se: 'story/hitosaranokioku.mp3' },
+                { centerText: 'なぜ筋トレをしたのか' },
+                { centerText: 'なぜ組み手をしたのか' },
+                { centerText: 'なぜ走り込みをしたのか' },
+                { centerText: '理由などわからない' },
+                { centerText: 'だけど' },
+                { centerText: '何かが変わる気がした' },
+                { centerText: '「Don\'t think. Feel!」' },
+                { centerText: '考えるな、感じろ' },
+                { centerText: '料理は完璧であればいいわけではない' },
+                { centerText: '時には感じるままに\n感じるままに魔術をかけるのも\n良いのかもしれない' },
+                { centerText: 'fin', delay: 1000 }, // 間1秒
+                { closeDisabled: false, delay: 3000 }, // 間3秒後、×・◀を再び使用可能に
+            ],
+        },
+    ],
 };
 
 // ============================================================
@@ -532,6 +646,7 @@ const STORY_BOOK_SCRIPTS = {
 //   book1（種連続発射25%／毒攻撃25%／通常攻撃50%）
 //   book2（想いの爆発25%／想いの大爆発15%／通常攻撃60%）
 //   book3（種連続発射25%／系統バリア15%／通常攻撃60%）
+//   book4（想いの爆発25%／念の方出15%（固定80ダメージ）／系統バリア15%／通常攻撃45%）
 // はエンジン側（story.js経由でgame.js本体、oppC.isBookBoss + oppC.bookChapterNumで分岐）で
 // 処理するため、ここではデータのみを持つ。
 //   isHomerun : 特技「ホームラン」（プレイヤーの技を確率で打ち返して無効化）を持たせるか
@@ -566,6 +681,15 @@ const STORY_BOOK_BOSSES = {
         hp: 1050, atk: 70, def: 35, spd: 65,
         foodCategory: 'vegetable', // 属性：野菜系統
         isWanpaku: true, // 特技：わんぱく
+        reward: { exp: 50, g: 50, normalIngredients: 3, normalSpice: 1 },
+    },
+    4: {
+        name: 'Memories Book',
+        image: 'botimage/bot-book04.png',
+        curryName: 'あの日のカレー',
+        materials: ['唐揚げ', 'チキン', 'ハラペーニョ'], // からあげ→唐揚げ（masterIngredientsの実在キー名に合わせています）
+        hp: 700, atk: 95, def: 55, spd: 5,
+        foodCategory: 'meat', // 属性：肉系統
         reward: { exp: 50, g: 50, normalIngredients: 3, normalSpice: 1 },
     },
 };
