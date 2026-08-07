@@ -130,7 +130,7 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
     // デバッグ用：読書画面に小さく表示するビルド番号。デプロイのたびに更新し、実機で本当に
     // 最新のstory.jsが読み込まれているか（キャッシュが残っていないか）を目視確認できるようにする。
     // 一般公開（STORY_LIBRARY_ENABLED=true）前には削除すること。
-    const STORY_ENGINE_BUILD = 'b38';
+    const STORY_ENGINE_BUILD = 'b39';
     const STORY_UNLOCK_STORAGE_KEY = 'qr_story_library_unlocked';
     const STORY_BOOK_SPAWN_STAGGER_MS = 90;
     const STORY_BOOK_SPAWN_DURATION_MS = 550;
@@ -1871,6 +1871,11 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
     // 指定ページの背景・挿絵・BGM／環境音／効果音を反映し、1秒待ってからそのページの先頭のbeatを表示する。
     function showReaderPage(pageIndex) {
         clearStoryTypingTimer();
+        // ページが切り替わった瞬間に、前のページで鳴らしたbeatごとの効果音（se）が再生し終わって
+        // いなくても必ず止める（再生時間が長いSEを鳴らした直後にページをめくると、次のページに
+        // 移っても鳴り続けてしまっていた不具合の修正）。BGM／環境音（ambient）は別チャンネルなので
+        // 対象外（それぞれの場面でbgm:null／ambient:nullを指定して個別に止める）。
+        stopAllStorySE();
         const pages = storyLibraryState.readerPages;
         const page = pages[pageIndex];
         if (!page) { endStoryReader(); return; }
