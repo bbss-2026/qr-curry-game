@@ -107,6 +107,12 @@
     </div>
 
     <div class="section">
+        <div class="section-label">📚 咖喱図書館 個別リセット（ID指定）</div>
+        <button class="save-btn" style="background:#8a5a3c;" onclick="actStoryLibraryResetIndiv()">🔄 咖喱図書館をリセット</button>
+        <div class="hint">指定したプレイヤーIDの咖喱図書館の進行状況（本棚の解放状況・想いの欠片・読了/撃破履歴）をリセットします。直接上書きはせず、対象プレイヤーの端末が次回起動した時に自動で処理されます（それまでは反映されません）。</div>
+    </div>
+
+    <div class="section">
         <div class="section-label">📢 お知らせ設定（全ユーザーに表示）</div>
         <textarea id="staffNoticeInput" rows="4" placeholder="お知らせ内容（空欄で非表示）"></textarea>
         <button class="save-btn" onclick="actSetNotice()">💾 お知らせを保存・反映</button>
@@ -1402,6 +1408,22 @@ function actSpecialBonusIndiv() {
             gold: gold, ticket: ticket, spicyCoin: spicyCoin, grantedAt: Date.now()
         }).then(function(){
             showCustomAlert("✅ 個別補充完了", "ID: " + targetId + " にプレゼントを送りました。<br>次回そのプレイヤーがアクセスした際に反映されます。");
+        });
+    });
+}
+
+// 咖喱図書館の進行状況をリセットする。対象プレイヤーのsavedataを直接上書きすると、
+// その端末側がまだ古いタイムスタンプのまま保存した場合に上書きされてしまう恐れがあるため、
+// giftQueueと同じ考え方で「players/<id>/storyLibraryResetRequested」フラグだけを立てておき、
+// 対象プレイヤー本人の端末が次回起動時に自発的に処理する（story.js側のcheckRemoteStoryLibraryResetRequest参照）。
+function actStoryLibraryResetIndiv() {
+    if(!database) { showCustomAlert("❌ エラー", "通信に問題があります。"); return; }
+    const targetId = prompt("📚 咖喱図書館をリセットするプレイヤーのIDを入力してください（例: BC-XXXXXXXX）");
+    if(!targetId) return;
+    database.ref('players/' + targetId).once('value').then(function(snap){
+        if(!snap.exists()) { showCustomAlert("❌ エラー", "そのIDのプレイヤーは見つかりません。"); return; }
+        database.ref('players/' + targetId + '/storyLibraryResetRequested').set(true).then(function(){
+            showCustomAlert("✅ リセット予約完了", "ID: " + targetId + " の咖喱図書館を次回起動時にリセットするよう予約しました。");
         });
     });
 }
