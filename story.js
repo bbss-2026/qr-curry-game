@@ -132,7 +132,7 @@ const STORY_LIBRARY_ENABLED = true; // 図書館タブから全プレイヤー�
     // デバッグ用：読書画面に小さく表示するビルド番号。デプロイのたびに更新し、実機で本当に
     // 最新のstory.jsが読み込まれているか（キャッシュが残っていないか）を目視確認できるようにする。
     // 一般公開（STORY_LIBRARY_ENABLED=true）前には削除すること。
-    const STORY_ENGINE_BUILD = 'b42';
+    const STORY_ENGINE_BUILD = 'b43';
     const STORY_UNLOCK_STORAGE_KEY = 'qr_story_library_unlocked';
     const STORY_BOOK_SPAWN_STAGGER_MS = 90;
     const STORY_BOOK_SPAWN_DURATION_MS = 550;
@@ -1542,12 +1542,43 @@ const STORY_LIBRARY_ENABLED = true; // 図書館タブから全プレイヤー�
     // #vsCutIn・#battleArenaを咖喱図書館の背景（z-index:9999）より前面に持ち上げる／元に戻す。
     // 通常ヘッダーの#muteBtnもこの間は隠れてしまうため、専用のミュートボタン(#bookBattleMuteBtn)を
     // 同じタイミングで表示/非表示にする。
+    //
+    // 【重要】#battleArenaはgame.html内で#pageBattle（対戦タブの中身、class="page"）の子要素として
+    // 配置されている。.page/.page.activeのCSS（.page{display:none} .page.active{display:block}）により、
+    // 対戦タブ以外（＝図書館タブ）を開いている間は#pageBattleごとdisplay:noneになる。
+    // 図書館タブから本のボス戦を開始した場合、.book-battle-lift（position:fixed!important等）を
+    // 付けても、display:noneの祖先の中では描画されず何も見えない（戦闘ロジック自体はstep()等で
+    // 裏で進行し続ける）。#vsCutInは.pageの外（#mainContainer直下）にあるため影響を受けない。
+    // これが「戦闘が見えないが裏では動いている」不具合の原因。
+    // 対策として、持ち上げている間だけ#battleArenaをdocument.body直下へ一時的に移動し、
+    // 元に戻す際は元の位置（親要素・直後の兄弟要素）へ復元する。
+    let bookBattleArenaOrigParent = null;
+    let bookBattleArenaOrigNext = null;
     function applyBookBattleLift(on) {
         const vs = document.getElementById('vsCutIn');
         const arena = document.getElementById('battleArena');
         const muteBtn = document.getElementById('bookBattleMuteBtn');
         if (vs) vs.classList.toggle('book-battle-lift', !!on);
-        if (arena) arena.classList.toggle('book-battle-lift', !!on);
+        if (arena) {
+            arena.classList.toggle('book-battle-lift', !!on);
+            if (on) {
+                if (arena.parentElement !== document.body) {
+                    bookBattleArenaOrigParent = arena.parentElement;
+                    bookBattleArenaOrigNext = arena.nextSibling;
+                    document.body.appendChild(arena);
+                }
+            } else {
+                if (bookBattleArenaOrigParent) {
+                    if (bookBattleArenaOrigNext && bookBattleArenaOrigNext.parentElement === bookBattleArenaOrigParent) {
+                        bookBattleArenaOrigParent.insertBefore(arena, bookBattleArenaOrigNext);
+                    } else {
+                        bookBattleArenaOrigParent.appendChild(arena);
+                    }
+                    bookBattleArenaOrigParent = null;
+                    bookBattleArenaOrigNext = null;
+                }
+            }
+        }
         if (muteBtn) {
             muteBtn.style.display = on ? 'flex' : 'none';
             if (on) updateBookBattleMuteIcon();
