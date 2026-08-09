@@ -250,7 +250,7 @@ const STORY_BOOK_SCRIPTS = {
         },
         // ---- 2ページ目 ----
         {
-            image: 'story/book2_i05.png',
+            image: 'story/book2_i06.png',
             bgm: 'story/library-bgm.mp3',
             beats: [
                 { text: 'ターゲットに定めたのは、住宅街の路地裏にひっそりと佇む、年季の入ったカレー屋だった。' },
@@ -378,7 +378,7 @@ const STORY_BOOK_SCRIPTS = {
             ambient: 'sound/semi.mp3',
             beats: [
                 {
-                    silhouette: { src: 'story/manimage06.svg', x: '50%', y: '75%', height: '120%', opacity: 0.8 },
+                    silhouette: { src: 'story/manimage07.svg', x: '50%', y: '75%', height: '120%', opacity: 0.8 },
                     delay: 1000, // 間1秒
                 },
                 { text: '婆ちゃん「鈴ちゃん、竜太くん。一緒に畑に行こうかねぇ」', delay: 1000 }, // 間1秒

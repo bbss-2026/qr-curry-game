@@ -130,7 +130,7 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
     // デバッグ用：読書画面に小さく表示するビルド番号。デプロイのたびに更新し、実機で本当に
     // 最新のstory.jsが読み込まれているか（キャッシュが残っていないか）を目視確認できるようにする。
     // 一般公開（STORY_LIBRARY_ENABLED=true）前には削除すること。
-    const STORY_ENGINE_BUILD = 'b39';
+    const STORY_ENGINE_BUILD = 'b40';
     const STORY_UNLOCK_STORAGE_KEY = 'qr_story_library_unlocked';
     const STORY_BOOK_SPAWN_STAGGER_MS = 90;
     const STORY_BOOK_SPAWN_DURATION_MS = 550;
@@ -387,6 +387,37 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
         });
     }
 
+    // 本体（game.js）のtoggleMute/setMuteStateはbattleBGM（単一BGMチャンネル）しか止めないため、
+    // このファイル独自の環境音（雨音・蝉など、playStoryAmbient）や効果音（playStorySE）は
+    // ミュートをONにしても鳴り続けてしまう。game.js本体には一切手を加えず、既存のグローバル関数を
+    // 後から差し替えて（monkey patch）、ミュートON時にこのファイル独自の音声もまとめて止める。
+    function installStoryMuteHooks() {
+        if (window.__storyMuteHooksInstalled) return;
+        window.__storyMuteHooksInstalled = true;
+
+        wrapGlobalFn('toggleMute', function(orig) {
+            return function() {
+                const r = orig.apply(this, arguments);
+                if (typeof isMuted !== 'undefined' && isMuted) {
+                    stopStoryAmbient();
+                    stopAllStorySE();
+                }
+                return r;
+            };
+        });
+
+        wrapGlobalFn('setMuteState', function(orig) {
+            return function(mute) {
+                const r = orig.apply(this, arguments);
+                if (mute) {
+                    stopStoryAmbient();
+                    stopAllStorySE();
+                }
+                return r;
+            };
+        });
+    }
+
     const storyLibraryState = {
         overlayEl: null,
         rafId: null,
@@ -435,6 +466,7 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
         injectStoryLibraryEntryButton();
         installStoryKakeraHooks();
         installBookBossHooks();
+        installStoryMuteHooks();
         // 今後、咖喱図書館の初期化処理（セーブデータの読み込み等）をここに追加していく
     }
 
