@@ -130,7 +130,7 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
     // デバッグ用：読書画面に小さく表示するビルド番号。デプロイのたびに更新し、実機で本当に
     // 最新のstory.jsが読み込まれているか（キャッシュが残っていないか）を目視確認できるようにする。
     // 一般公開（STORY_LIBRARY_ENABLED=true）前には削除すること。
-    const STORY_ENGINE_BUILD = 'b40';
+    const STORY_ENGINE_BUILD = 'b41';
     const STORY_UNLOCK_STORAGE_KEY = 'qr_story_library_unlocked';
     const STORY_BOOK_SPAWN_STAGGER_MS = 90;
     const STORY_BOOK_SPAWN_DURATION_MS = 550;
@@ -786,6 +786,7 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
    止まっているかを目視確認するための行）。画面上部中央に常時表示する。
    一般公開前に削除すること。 */
 #storyReaderDebugLine {
+    display:none; /* 一般公開向けに非表示化。デバッグ時はこの行を削除すれば復活できる */
     position:absolute; top:4px; left:50%; transform:translateX(-50%); z-index:33;
     background:rgba(0,0,0,0.6); color:#ffe6a8; font-size:11px; font-family:monospace;
     padding:2px 10px; border-radius:8px; pointer-events:none; white-space:nowrap; max-width:92%;

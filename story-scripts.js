@@ -1004,8 +1004,8 @@ const STORY_BOOK_SCRIPTS = {
                 { text: '足が勝手に港に向かってしまい、遠くから海を眺めていた時、足を滑らせて防波堤から海へ落ちてしまった。' },
                 { image: 'story/book8_i04.png', bgm: null }, // 制御用beat：画像差し替え＋BGM停止
                 { text: '足が攣り、息ができない。' },
+                { ambient: 'story/oboreru.mp3' }, // 制御用beat：4ページ内はこの音をループ再生
                 { text: '体がどんどん沈んでいく。' },
-                { se: 'story/oboreru.mp3' }, // 制御用beat：効果音を1回再生
                 { text: '「た、助け……！」' },
                 { text: '意識が遠のきかけたその時、激しい水煙とともに誰かが飛び込んできた。' },
                 { text: 'クネおじだった。' },
@@ -1016,6 +1016,8 @@ const STORY_BOOK_SCRIPTS = {
         {
             image: 'story/book8_i02.png',
             bgm: 'story/library-bgm.mp3',
+            ambient: null, // 4ページ目のstory/oboreru.mp3ループをここで止める
+            silhouette: { src: 'story/manimage14.svg', x: '50%', y: '75%', height: '120%', opacity: 0.8 }, // 最初からシルエット表示
             beats: [
                 { text: '陸に上がり、激しく咳き込む僕に、クネおじは優しく背中をさすってくれた。' },
                 { text: 'クネおじ「よかった……無事だったか、少年」' },
@@ -1055,15 +1057,17 @@ const STORY_BOOK_SCRIPTS = {
                 { centerText: 'またいつものように、クネクネと体を揺らしながら「少年」って笑いかけてほしい。' },
                 { centerText: '謝りたいことが、伝えたい感謝が、胸のなかで溢れかえって破裂しそうだった。' },
                 { centerText: '追いついてくれ、僕の足。間に合ってくれ。' },
-                // 制御用beat：ブラックアウト解除、×・◀を再び使用可能に（本のエンディングではない中間演出のため）
-                { blackout: false, closeDisabled: false },
             ],
         },
         // ---- 7ページ目 ----
         {
             image: 'story/book8_i06.png',
             bgm: 'story/library-bgm.mp3',
+            blackout: true, // 前ページの黒画面のまま入り、画像差し替え後にフェードインする
+            closeDisabled: true, // ブラックアウト解除まで×・◀を無効のまま維持
             beats: [
+                // 制御用beat：黒からフェードイン、×・◀を再び使用可能に
+                { blackout: false, closeDisabled: false },
                 { text: '港に着いた瞬間、巨大な光の玉がすさまじいスピードで夜空へと飛び去っていくところだった。' },
                 { text: 'あまりの眩しさに目が眩む。' },
                 { text: '遠ざかる光に向かって、僕は声が枯れるまで叫んだ。' },
