@@ -9,22 +9,24 @@
 // ・game.html側の変更は、このファイルを読み込む<script>タグ1行のみで完結させる。
 //   入り口ボタン等のDOM要素は、すべてこのファイルからJSで動的に追加する。
 // ・STORY_LIBRARY_ENABLEDがfalseの間は、管理者以外のプレイヤーからは完全に見えない・
-//   存在しないのと同じ状態（DOMに一切手を加えない）。
-//   実装が完了したら、このフラグをtrueにするだけで全プレイヤーに公開できる。
-// ・ただし開発中でも管理者アカウント（FEST_ADMIN_EXCLUDED_IDSに含まれるplayerId）だけは
-//   入り口が見え、動作確認のために入れるようにする（下記isStoryLibraryAdminUser参照）。
+//   存在しないのと同じ状態（DOMに一切手を加えない）。図書館タブから一般公開する際にtrueへ変更する。
 // ・このファイルはgame.jsより後に読み込まれる前提（game.html内のscriptタグの順序に依存）。
-// ・「咖喱図書館アンロック済みか」「想いの欠片の所持数」は今のところ端末ローカル（localStorage）のみで
-//   管理している（Firebase・ルールに一切触れない方針を優先したため）。管理者用リセットボタンも同じ理由で
-//   ゲーム内（対戦タブのボタン横）に仮設置している。複数端末をまたいだ管理や、専用の管理ツール
-//   （admin.html等）からのリセットが必要な場合は、別途相談の上でクラウド化する。
+// ・「咖喱図書館アンロック済みか」「想いの欠片の所持数」「読了/撃破済みの章」は、端末ローカル
+//   （localStorage）を第一の保存先としつつ、buildSaveDataObject/applySaveDataObject（game.js側）に
+//   組み込むことで、既存のクラウド保存（players/<id>/savedata）経由でFirebaseにも同期される
+//   （他の永続データ＝所持G/EXP/インベントリ等と全く同じ仕組みに乗せているだけで、専用の
+//   非同期読み書きは追加していない）。
+// ・管理ツール（admin.html）からのリセットは、対象プレイヤーのsavedataを管理者側から直接
+//   上書きすると、対象端末がまだ古いタイムスタンプのまま保存してしまった場合に上書きされてしまう
+//   恐れがあるため、giftQueueと同様「players/<id>/storyLibraryResetRequestedフラグを立てておき、
+//   本人の端末が次回起動時に自発的に処理する」方式にしている（checkRemoteStoryLibraryResetRequest参照）。
 // ・「想いの欠片」の自動付与（QRスキャン・調理・PC戦勝利など）は、game.js本体を一切編集せず、
 //   game.js側の既存グローバル関数を「後からラップ（monkey patch）」する形で実現している
 //   （installStoryKakeraHooks参照）。game.jsはトップレベルのfunction宣言＝window直下の
 //   プロパティなので、story.js側からwindow.関数名を差し替えても、game.js内部からの
 //   呼び出しは新しい（ラップ後の）関数を使うようになる。
 
-const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrueへ変更する
+const STORY_LIBRARY_ENABLED = true; // 図書館タブから全プレイヤーに公開
 
 (function() {
 
@@ -130,7 +132,7 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
     // デバッグ用：読書画面に小さく表示するビルド番号。デプロイのたびに更新し、実機で本当に
     // 最新のstory.jsが読み込まれているか（キャッシュが残っていないか）を目視確認できるようにする。
     // 一般公開（STORY_LIBRARY_ENABLED=true）前には削除すること。
-    const STORY_ENGINE_BUILD = 'b41';
+    const STORY_ENGINE_BUILD = 'b42';
     const STORY_UNLOCK_STORAGE_KEY = 'qr_story_library_unlocked';
     const STORY_BOOK_SPAWN_STAGGER_MS = 90;
     const STORY_BOOK_SPAWN_DURATION_MS = 550;
@@ -179,11 +181,14 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
         ['QRビンゴ1列', '5個'],
         ['PC戦(初級)勝利', '3個'],
         ['PC戦(中級)勝利', '5個'],
+        ['日替わりカレー勝利', '10個'],
         ['タッグ戦勝利', '5個'],
         ['ルーム戦勝利', '5個'],
         ['カレーフェス10連勝ごと', '5個'],
+        ['イベント戦参加', '3個'],
         ['宅配カレー使用される', '1個'],
         ['宅配カレー完食される', '10個'],
+        ['Memories Book 再討伐', '10個'],
     ];
 
     function getStoryKakera() {
@@ -328,6 +333,15 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
             };
         });
 
+        // 日替わりカレー勝利：+10（grantDailyCurryRewardはdone()内、日替わりカレーに勝った時だけ呼ばれる）
+        wrapGlobalFn('grantDailyCurryReward', function(orig) {
+            return function() {
+                const r = orig.apply(this, arguments);
+                addStoryKakera(10);
+                return r;
+            };
+        });
+
         // タッグ戦勝利：+5
         wrapGlobalFn('tagFinishBattle', function(orig) {
             return function(result) {
@@ -360,6 +374,15 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
                         addStoryKakera(5);
                     }
                 } catch (e) {}
+                return r;
+            };
+        });
+
+        // イベント戦参加：+3（勝敗問わず、戦闘開始時に加算。startEventBattleSceneは「参加する」操作の度に必ず呼ばれる）
+        wrapGlobalFn('startEventBattleScene', function(orig) {
+            return function() {
+                const r = orig.apply(this, arguments);
+                addStoryKakera(3);
                 return r;
             };
         });
@@ -463,65 +486,44 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
     function initStoryLibrary() {
         injectStoryLibraryStyles();
         injectStoryLibraryFont();
-        injectStoryLibraryEntryButton();
         installStoryKakeraHooks();
         installBookBossHooks();
         installStoryMuteHooks();
-        // 今後、咖喱図書館の初期化処理（セーブデータの読み込み等）をここに追加していく
+        checkRemoteStoryLibraryResetRequest();
     }
 
-    // 対戦タブ（カレーフェスボタンの並び）に入り口ボタンを動的に追加する。
-    // ※あくまで仮の設置場所。実装が進む段階で適切な場所へ調整する想定。
-    function injectStoryLibraryEntryButton() {
-        const anchor = document.getElementById('btnCurryFes');
-        if (!anchor || !anchor.parentNode) return;
-        const btn = document.createElement('button');
-        btn.id = 'btnStoryLibrary';
-        btn.className = 'btn-bot-img';
-        btn.onclick = openStoryLibrary;
-        btn.style.cssText = 'flex:1; min-height:40px; display:flex; flex-direction:column; align-items:center; justify-content:center; background:linear-gradient(135deg,#8a5a3c,#5c3a24); color:#fff8ec; border-radius:6px; box-shadow:0 2px 6px rgba(0,0,0,0.25); font-weight:bold; padding:4px;';
-        btn.innerHTML = '<span style="font-size:13px;">📚 咖喱図書館</span>'
-            + (storyLibraryDevPreview ? '<span style="font-size:9px; opacity:0.85;">（開発中・管理者のみ）</span>' : '');
-        anchor.parentNode.appendChild(btn);
-
-        // 管理者用：咖喱図書館の進行状況（この端末のみ）をリセットするボタン。
-        // 動作確認のたびに毎回初回案内から見直せるようにするための仮設置。
-        if (storyLibraryDevPreview) {
-            const resetBtn = document.createElement('button');
-            resetBtn.id = 'btnStoryLibraryReset';
-            resetBtn.title = '咖喱図書館リセット（管理者用・この端末のみ）';
-            resetBtn.style.cssText = 'flex:0 0 34px; min-height:40px; display:flex; align-items:center; justify-content:center; background:rgba(0,0,0,0.15); color:#5c3a24; border-radius:6px; font-size:15px; margin-left:2px; border:none; cursor:pointer;';
-            resetBtn.textContent = '🔄';
-            resetBtn.onclick = onStoryLibraryResetClick;
-            anchor.parentNode.appendChild(resetBtn);
-        }
+    // 咖喱図書館の進行状況（本棚の解放状況・想いの欠片・読了/撃破履歴）をこの端末上でリセットする。
+    // 管理ツール（admin.html）からのリモートリセット要求（checkRemoteStoryLibraryResetRequest）と、
+    // 将来の設定画面等からのリセット操作、両方から共有して使えるよう独立した関数にしてある。
+    function resetStoryLibraryProgressLocal() {
+        localStorage.removeItem(STORY_UNLOCK_STORAGE_KEY);
+        localStorage.removeItem(STORY_KAKERA_STORAGE_KEY);
+        localStorage.removeItem(STORY_KAKERA_ONBOARD_KEY);
+        localStorage.removeItem(STORY_KAKERA_INFO_SEEN_KEY);
+        localStorage.removeItem(STORY_UNLOCKED_CHAPTERS_KEY);
+        localStorage.removeItem(STORY_READ_CHAPTERS_KEY);
+        localStorage.removeItem(STORY_CLEARED_CHAPTERS_KEY);
+        localStorage.removeItem(STORY_BOOK_BOSS_INTRO_SEEN_KEY);
+        STORY_CHAPTERS.forEach(function(chapter) {
+            chapter.locked = true;
+            if (chapter._lockEl) chapter._lockEl.style.display = '';
+            updateStoryBookReadVisual(chapter);
+        });
     }
 
-    function onStoryLibraryResetClick() {
-        const doReset = function() {
-            localStorage.removeItem(STORY_UNLOCK_STORAGE_KEY);
-            localStorage.removeItem(STORY_KAKERA_STORAGE_KEY);
-            localStorage.removeItem(STORY_KAKERA_ONBOARD_KEY);
-            localStorage.removeItem(STORY_KAKERA_INFO_SEEN_KEY);
-            localStorage.removeItem(STORY_UNLOCKED_CHAPTERS_KEY);
-            localStorage.removeItem(STORY_READ_CHAPTERS_KEY);
-            localStorage.removeItem(STORY_CLEARED_CHAPTERS_KEY);
-            localStorage.removeItem(STORY_BOOK_BOSS_INTRO_SEEN_KEY);
-            STORY_CHAPTERS.forEach(function(chapter) {
-                chapter.locked = true;
-                if (chapter._lockEl) chapter._lockEl.style.display = '';
-                updateStoryBookReadVisual(chapter);
-            });
-            if (typeof showCustomAlert === 'function') {
-                showCustomAlert('🔄 咖喱図書館リセット', 'リセットしました。次回入場時に最初から案内が始まります。');
-            }
-        };
-        const msg = '管理者用：この端末の咖喱図書館の進行状況（本棚の解放状況・想いの欠片を含む）をリセットします。よろしいですか？';
-        if (typeof showCustomConfirm === 'function') {
-            showCustomConfirm('🔄 咖喱図書館リセット', msg, doReset);
-        } else if (confirm(msg)) {
-            doReset();
-        }
+    // 管理ツール（admin.html）から「players/<id>/storyLibraryResetRequested」にtrueが立てられていないか
+    // 起動時に確認し、立っていればこの端末の進行状況をリセットしてFirebaseへ保存し直し、フラグを消す。
+    // 直接savedataを上書きする方式だと、対象プレイヤー側の端末がまだ古いタイムスタンプのまま
+    // 保存してしまった場合に上書きされてしまう恐れがあるため、giftQueueと同様「本人の端末が
+    // 次回起動時に自発的に処理する」方式にしている。
+    function checkRemoteStoryLibraryResetRequest() {
+        if (typeof database === 'undefined' || !database || typeof playerId === 'undefined' || !playerId) return;
+        database.ref('players/' + playerId + '/storyLibraryResetRequested').once('value').then(function(snap) {
+            if (!snap.exists() || !snap.val()) return;
+            resetStoryLibraryProgressLocal();
+            if (typeof saveGame === 'function') saveGame();
+            database.ref('players/' + playerId + '/storyLibraryResetRequested').remove();
+        }).catch(function() {});
     }
 
     // 「咖喱」等のCJK漢字が端末フォントによっては表示できない場合があるため、
@@ -844,6 +846,8 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
         if (storyLibraryState.overlayEl) return; // 既に開いている場合は何もしない
         buildStoryLibraryOverlay();
     }
+    // 図書館タブ（game.html側の静的なonclick="openStoryLibrary()"）から呼べるようにグローバル公開する。
+    window.openStoryLibrary = openStoryLibrary;
 
     function isStoryLibraryUnlocked() {
         try {
@@ -1417,7 +1421,7 @@ const STORY_LIBRARY_ENABLED = false; // ← 完成して公開する時にtrue�
             btn.onclick = function(e) { e.stopPropagation(); onStoryBookUnlockClick(chapter); };
         } else {
             // book-09/10など、解放条件が未設定の巻
-            btn.textContent = '解放条件は後日公開';
+            btn.textContent = '解放条件は後日公開予定';
             btn.style.display = 'inline-block';
             btn.classList.add('story-book-action-disabled');
         }

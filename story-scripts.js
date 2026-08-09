@@ -220,8 +220,8 @@ const STORY_BOOK_SCRIPTS = {
                 { text: '運ばれてきたカレーを口に運ぶ。' },
                 { text: '10年前に食べたあの味と、まったく同じ温かい味がした。' },
                 { se: 'story/hitosaranokioku.mp3' }, // ここで1回再生
-                // 制御用beat：画面をゆっくり黒一色にし、×・◀を無効化
-                { blackout: true, closeDisabled: true },
+                // 制御用beat：画面をゆっくり黒一色にし、×・◀を無効化。BGMも止める
+                { blackout: true, closeDisabled: true, bgm: null },
                 { centerText: '涙がこぼれそうになるのを必死でこらえながら、僕は心の中で誓う。', delay: 650 }, // 暗転が見えてから少し待って最初の文字を出す
                 { centerText: '僕も、いつかきっと。' },
                 { centerText: '誰かの心とお腹を温めて、たくさんの「ごちそうさま」がもらえるような、そんな美味しいカレーを作れる料理人になろう、と。' },
