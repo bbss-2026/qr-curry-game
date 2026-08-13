@@ -71,7 +71,7 @@
         <button style="background:#3498db;" onclick="actSetLevel()">🎮 レベル設定</button>
         <button style="background:#e74c3c;" onclick="actCheckPassword()">🔒 パスワード確認</button>
         <button id="btnTimeSetting" style="background:#7f8c8d;" onclick="actSetTime()">⏰ 時間設定: OFF</button>
-        <button style="background:#d35400;" onclick="actResetBingo()">QR BINGO リセット</button>
+        <button id="btnDebugLog" style="background:#27ae60;" onclick="actToggleDebugLog()">📋 デバックログ: ON</button>
         <button id="btnQrIgnore" style="background:#27ae60;" onclick="actToggleQrIgnore()">🔓 QR使用済み無視: OFF</button>
         <button id="btnNewPlayerMode" style="background:#7f8c8d;" onclick="actToggleNewPlayerMode()">🆕 初期プレイヤー化: OFF</button>
         <button style="background:#2980b9;" onclick="actShowSyncErrors()">🔄 同期エラーログ</button>
@@ -1042,11 +1042,15 @@ function actSetTime() {
     showCustomAlert("✅ 設定完了", "仮想時刻を " + trimmed + "（日本時間）に設定しました。<br>※デバッグモード中のこのブラウザのみ反映されます。");
 }
 
-function actResetBingo() {
-    showCustomConfirm("QR BINGO リセット", "このブラウザのQR BINGOデータを完全に削除します。<br>次回「QR BINGO」を開いたときは、初回と同じくムービーから始まります。<br><br>本当によろしいですか？", function(){
-        localStorage.removeItem('qr_bingo');
-        showCustomAlert("✅ リセット完了", "QR BINGOデータを削除しました。<br>ゲーム画面をリロードしてください。");
-    });
+// デバッグモード中に画面下部へ表示される同期ログ（JSエラー・クラウド同期状況等のdebugErrorPanel）
+// を非表示にできるようにするための設定。デフォルトはON（表示）。
+function actToggleDebugLog() {
+    const key = 'qr_debug_log_hidden';
+    const currentlyHidden = localStorage.getItem(key) === '1';
+    const nextHidden = !currentlyHidden;
+    localStorage.setItem(key, nextHidden ? '1' : '0');
+    updateButtonLabels();
+    showCustomAlert("✅ 設定完了", "デバックログを " + (nextHidden ? "OFF（非表示）" : "ON（表示）") + " にしました。<br>ゲーム画面をリロードしてください。");
 }
 
 function actToggleQrIgnore() {
@@ -1161,6 +1165,7 @@ function actAnalytics() {
             + row('🥚 ふわとろオム', cook.fluffyomelette)
             + row('🟢 激辛グリーン', cook.greencurry)
             + row('👑 世界三大珍味', cook.tricaviar)
+            + row('🛡️ 貝の盾', cook.kaitate)
 
             + section('⚔️ バトル')
             + row('PC戦（初級）', battle.bot)
@@ -1188,6 +1193,12 @@ function actPlayerProgress() {
         const easyCount  = {}; easyBots.forEach(function(n){ easyCount[n] = 0; });
         const hardCount  = {}; hardBots.forEach(function(n){ hardCount[n] = 0; });
         const tagCount   = {}; tagBots.forEach(function(n){ tagCount[n] = 0; });
+        // 咖喱図書館：本のボス討伐人数（09/10は未実装だが将来の実装に備えて先に集計対象へ含めておく）
+        const BOOK_TITLES = {
+            1: 'ごちそうさま', 2: '50年', 3: '夏の思い出', 4: 'レシピのないカレー', 5: '辛い涙',
+            6: 'たまねぎ', 7: '火を絶やすな', 8: '港のおっちゃん', 9: 'ぼくのヒーロー', 10: '？？？？？'
+        };
+        const bookCount = {}; Object.keys(BOOK_TITLES).forEach(function(n){ bookCount[n] = 0; });
         let totalPlayers = 0;
         Object.keys(players).forEach(function(pid) {
             const sd = players[pid].savedata;
@@ -1201,6 +1212,11 @@ function actPlayerProgress() {
             easyBots.forEach(function(n){ if(defeatedBots.indexOf(n)     >= 0) easyCount[n]++; });
             hardBots.forEach(function(n){ if(defeatedHardBots.indexOf(n) >= 0) hardCount[n]++; });
             tagBots.forEach(function(n){  if(defeatedTagBots.indexOf(n)  >= 0) tagCount[n]++; });
+            let clearedChapters = [];
+            try { clearedChapters = JSON.parse(sd.storyClearedChapters || '[]'); } catch(e) {}
+            if(Array.isArray(clearedChapters)) {
+                clearedChapters.forEach(function(num){ if(bookCount.hasOwnProperty(num)) bookCount[num]++; });
+            }
         });
         function section(title) {
             return '<div style="font-size:13px;font-weight:bold;color:#420000;margin:14px 0 6px;border-bottom:1px solid #b88742;padding-bottom:4px;">' + title + '</div>';
@@ -1224,6 +1240,11 @@ function actPlayerProgress() {
             + hardBots.map(function(n){ return row(n, hardCount[n]); }).join('')
             + section('🤝 タッグ戦')
             + tagBots.map(function(n){ return row(n, tagCount[n]); }).join('')
+            + section('📚 咖喱図書館（本のボス討伐人数）')
+            + Object.keys(BOOK_TITLES).map(function(n){
+                const numStr = String(n).padStart(2, '0');
+                return row(numStr + '.' + BOOK_TITLES[n], bookCount[n]);
+            }).join('')
             + '</div>';
         showCustomAlert('🗺️ プレイヤー進行度', html);
     }).catch(function(e) {
@@ -1460,6 +1481,13 @@ function updateButtonLabels() {
     const btnTime = document.getElementById('btnTimeSetting');
     btnTime.innerText = "⏰ 時間設定: " + (hasTimeOverride ? "ON" : "OFF");
     btnTime.style.background = hasTimeOverride ? "#e74c3c" : "#7f8c8d";
+
+    const debugLogHidden = localStorage.getItem('qr_debug_log_hidden') === '1';
+    const btnDebugLog = document.getElementById('btnDebugLog');
+    if(btnDebugLog) {
+        btnDebugLog.innerText = "📋 デバックログ: " + (debugLogHidden ? "OFF" : "ON");
+        btnDebugLog.style.background = debugLogHidden ? "#7f8c8d" : "#27ae60";
+    }
 }
 
 function loadInitialData() {
