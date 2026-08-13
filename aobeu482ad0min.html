@@ -1203,6 +1203,7 @@ function actPlayerProgress() {
         Object.keys(players).forEach(function(pid) {
             const sd = players[pid].savedata;
             if(!sd) return;
+            if(players[pid].debugMode === true) return; // デバッグモード中のキャラは集計から除外（表示文言と一致させる）
             totalPlayers++;
             let stats = {};
             try { stats = typeof sd.stats === 'string' ? JSON.parse(sd.stats) : (sd.stats || {}); } catch(e) {}
