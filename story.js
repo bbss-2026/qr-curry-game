@@ -132,7 +132,7 @@ const STORY_LIBRARY_ENABLED = true; // 図書館タブから全プレイヤー�
     // デバッグ用：読書画面に小さく表示するビルド番号。デプロイのたびに更新し、実機で本当に
     // 最新のstory.jsが読み込まれているか（キャッシュが残っていないか）を目視確認できるようにする。
     // 一般公開（STORY_LIBRARY_ENABLED=true）前には削除すること。
-    const STORY_ENGINE_BUILD = 'b43';
+    const STORY_ENGINE_BUILD = 'b44';
     const STORY_UNLOCK_STORAGE_KEY = 'qr_story_library_unlocked';
     const STORY_BOOK_SPAWN_STAGGER_MS = 90;
     const STORY_BOOK_SPAWN_DURATION_MS = 550;
@@ -630,7 +630,9 @@ const STORY_LIBRARY_ENABLED = true; // 図書館タブから全プレイヤー�
     box-shadow:0 8px 20px rgba(0,0,0,0.25); display:none;
 }
 #storyBookDetailActionBtn:active { background:rgba(60,48,32,0.9); }
-#storyBookDetailActionBtn.story-book-action-disabled { opacity:0.5; cursor:default; }
+/* book-09/10の「解放条件は後日公開予定」表示や、8冊討伐報酬イベント中のボタン一時無効化など、
+   本の拡大画面のボタン（×・読む/戦う/再読・再戦のいずれも）を無効化する共通クラス。 */
+.story-book-action-disabled { opacity:0.5; cursor:default; pointer-events:none; }
 /* 再戦ボタン：撃破済みの本で「再読」の横に並べて表示する（クリア後、何度でも同じボスと再戦できる）。 */
 #storyBookDetailRebattleBtn {
     background:rgba(140,40,30,0.85); color:#fff; border:1px solid rgba(255,255,255,0.4);
@@ -1647,6 +1649,79 @@ const STORY_LIBRARY_ENABLED = true; // 図書館タブから全プレイヤー�
         const chapter = storyLibraryState.bookBossChapter || storyLibraryState.currentDetailChapter;
         if (chapter) updateStoryBookDetailActionButton(chapter);
         storyLibraryState.bookBossChapter = null;
+
+        // book1〜8の全ボスを討伐済みかどうかをここでチェックし、初めて条件を満たした時だけ
+        // 特別な館長イベント（ここまでの報酬＋残り2冊の予告）を発生させる。
+        maybeStartLibraryCompleteEvent();
+    }
+
+    // ===== book1〜8全ボス討伐イベント（1回だけ発生） =====
+    const STORY_LIBRARY_COMPLETE_SEEN_KEY = 'qr_story_library_complete_seen';
+    function hasSeenLibraryCompleteEvent() {
+        try { return localStorage.getItem(STORY_LIBRARY_COMPLETE_SEEN_KEY) === '1'; } catch (e) { return false; }
+    }
+    function setLibraryCompleteEventSeen(v) {
+        try { localStorage.setItem(STORY_LIBRARY_COMPLETE_SEEN_KEY, v ? '1' : '0'); } catch (e) {}
+    }
+    function hasAllBook1to8Cleared() {
+        for (let i = 1; i <= 8; i++) {
+            if (!hasStoryChapterBeenCleared(i)) return false;
+        }
+        return true;
+    }
+    // 拡大画面の「×」「再読/戦う」「再戦」の3ボタンをまとめて無効化／有効化する。
+    function setLibraryDetailButtonsDisabled(disabled) {
+        if (!storyLibraryState.overlayEl) return;
+        const ids = ['storyBookDetailCloseBtn', 'storyBookDetailActionBtn', 'storyBookDetailRebattleBtn'];
+        ids.forEach(function(id) {
+            const btn = storyLibraryState.overlayEl.querySelector('#' + id);
+            if (!btn) return;
+            btn.disabled = disabled;
+            btn.classList.toggle('story-book-action-disabled', disabled);
+        });
+    }
+    // book1〜8を初めて全て討伐した時、本の拡大画面に戻ったタイミングで一度だけ発生する館長イベント。
+    // ここまでの報酬（ベース「ターメリックライス」解放＋スパイシーコイン1枚）を渡し、残り2冊は
+    // 準備中であることを伝える。演出中は拡大画面の×・読む系・再戦ボタンを無効化しておく。
+    function maybeStartLibraryCompleteEvent() {
+        if (hasSeenLibraryCompleteEvent()) return;
+        if (!hasAllBook1to8Cleared()) return;
+        if (storyLibraryState.mode === 'intro_dialogue') return; // 他の会話と衝突させない
+        setLibraryCompleteEventSeen(true);
+        setLibraryDetailButtonsDisabled(true);
+
+        storyLibraryState.mode = 'intro_dialogue';
+        storyLibraryState.dialogueQueue = [
+            { text: '「8つの想いを知ることができたか。\n残りは2冊だがこの2冊は特別だ。」' },
+            { text: '「ひとまずここまでの報酬だ」' },
+            { text: '「残りの2冊の準備が整うまで\nしばらく待つといい」', beforeShow: grantLibraryCompleteReward },
+        ];
+        storyLibraryState.dialogueIndex = 0;
+        storyLibraryState.onDialogueEnd = function() {
+            storyLibraryState.mode = 'carousel';
+            setLibraryDetailButtonsDisabled(false);
+        };
+        showStoryDialogueLayerOnly(); // 拡大画面では館長の画像は出さない（既存の他イベントと同じ方針）
+        scheduleDialogueStart(300);
+    }
+    // 「ひとまずここまでの報酬だ」の次のページが表示される直前に、報酬付与＋アイテム入手POPを出す。
+    function grantLibraryCompleteReward() {
+        try {
+            if (typeof unlockTurmericRiceBase !== 'undefined') {
+                unlockTurmericRiceBase = true;
+            }
+        } catch (e) {}
+        try {
+            if (typeof spicyCoin !== 'undefined') {
+                spicyCoin = (spicyCoin || 0) + 1;
+                const coinEl = document.getElementById('globalSpicyCoin');
+                if (coinEl) coinEl.innerText = spicyCoin;
+            }
+        } catch (e) {}
+        try { if (typeof saveGame === 'function') saveGame(); } catch (e) {}
+        if (typeof showCustomAlert === 'function') {
+            showCustomAlert('🎁 アイテム入手！', '🍚 新しいベース「ターメリックライス」を入手！<br>🌶️ スパイシーコインを1枚入手！');
+        }
     }
 
     // game.js側のdone()／abortMatchDeployment()を後からラップして、本のボス戦専用のフック・
