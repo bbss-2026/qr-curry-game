@@ -520,8 +520,27 @@ function classifySyncEntry(e, siblings) {
     if (e.context === 'syncSaveDataToCloud_write_failed' || e.context === 'checkCloudSyncOnLoad_read_failed') {
         if (e.isIframe) return { level: 'warn', reason: '外部サイトへのiframe埋め込み経由です。サードパーティのストレージ制限が原因のことが多く、公式ページで開き直せば解消します。' };
         const sameContextCount = siblings.filter(function(s) { return s.context === e.context; }).length;
+        const hasStagedResync = siblings.some(function(s) { return s.context === 'resyncRequest_staged'; });
+        if (hasStagedResync) return { level: 'danger', reason: '「📥 再同期依頼を確認」に退避データがあるはずです。そちらから内容を確認・反映してください（このログ自体への個別対応は不要）。' };
         if (sameContextCount >= 3) return { level: 'danger', reason: '同じIDで同種の失敗が繰り返されています。UID紐付けの不整合が疑われるので「UID紐付けをリセット」の使用を検討してください。' };
         return { level: 'info', reason: '単発の失敗です。一時的な通信不良の可能性が高く、繰り返さなければ様子見でOKです。' };
+    }
+    // UID自己修復（静かな自己解決）が同じIDで2回以上「成功」している場合、実際にはUIDのズレは
+    // 直っておらず（＝すでに合っている状態で毎回trivialに成功しているだけ）、savedata側の
+    // 増加量上限など別の原因で保存自体が弾かれ続けている可能性が高い。この場合、game-dev.html側が
+    // 自動的にresyncRequest_stagedを記録するはずなので、まずはそちらの有無を案内する。
+    if (e.context === 'uidReclaim_silent_success') {
+        const sameContextCount = siblings.filter(function(s) { return s.context === e.context; }).length;
+        const hasStagedResync = siblings.some(function(s) { return s.context === 'resyncRequest_staged'; });
+        if (hasStagedResync) return { level: 'danger', reason: '「📥 再同期依頼を確認」に退避データがあります。そちらから確認・反映してください。' };
+        if (sameContextCount >= 2) return { level: 'warn', reason: '同じIDで繰り返し成功しています。UIDのズレ以外（増加量上限など）が原因の可能性があります。「📥 再同期依頼を確認」に退避データが出ていないか確認してください。' };
+        return { level: 'ok', reason: 'UIDのズレを自動で直しただけの正常な自己修復です。' };
+    }
+    if (e.context === 'resyncRequest_staged') {
+        return { level: 'danger', reason: '再同期依頼が退避されました。「📥 再同期依頼を確認」ボタンから内容を確認し、問題なければ反映してください。' };
+    }
+    if (e.context === 'resyncRequest_stage_failed' || e.context === 'resyncRequest_stage_exception') {
+        return { level: 'warn', reason: '再同期依頼の退避自体に失敗しました。Firebaseルールにresyncrequestsノードが適用されているか確認してください。' };
     }
     if (e.context === 'authTimeout') {
         return { level: 'info', reason: '認証処理が一時的にタイムアウトしただけの可能性が高いです。頻発しなければ様子見でOKです。' };
