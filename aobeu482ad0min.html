@@ -87,6 +87,7 @@
         <button style="background:#c0392b;" onclick="actExcludeKnownSuspiciousAccounts()">🚫 不正疑い3キャラを除外</button>
         <button style="background:#7f0000;" onclick="actResetScanCookBattleAnalytics()">🗑️ スキャン/調理/バトルをリセット</button>
         <button style="background:#2c3e50;" onclick="actMigrateStatsToObject()">🛠️ statsをオブジェクト形式へ移行</button>
+        <button style="background:#d35400;" onclick="actShowResyncRequests()">📥 再同期依頼を確認</button>
     </div>
 
     <div class="section">
@@ -573,6 +574,76 @@ function actShowSyncErrors() {
         showCustomAlert('🔄 同期エラーログ（新しい順・最大100件）', '<div style="text-align:left;max-height:65vh;overflow-y:auto;">' + legend + rows + '</div>');
     }).catch(function(e) {
         showCustomAlert("❌ エラー", "取得に失敗しました: " + e.message);
+    });
+}
+
+// ===== 再同期依頼（クラウド同期が長期間失敗し続け、savedataの増加量上限に引っかかったプレイヤーの救済） =====
+// game-dev.html側は、同じセッション内でUID自己修復が2回以上「成功」した場合
+// （＝UIDはすでに合っているのに保存自体が弾かれ続けているサイン）、現在のローカル保存内容を
+// resyncRequests/<ID>へそのまま退避する。ここではその内容を確認し、問題なければ
+// 管理者権限（増加量上限チェック免除）でplayers/<ID>/savedataへそのまま反映する。
+function actShowResyncRequests() {
+    if (!database) { showCustomAlert("❌ エラー", "通信に問題があります。"); return; }
+    showCustomAlert("📥 読み込み中...", "再同期依頼を取得しています。");
+    database.ref('resyncRequests').once('value').then(function(snap) {
+        const data = snap.val() || {};
+        const pids = Object.keys(data);
+        if (pids.length === 0) {
+            showCustomAlert('📥 再同期依頼', '保留中の再同期依頼はありません。');
+            return;
+        }
+        let rows = '';
+        pids.forEach(function(pid) {
+            const d = data[pid] || {};
+            const dateStr = d.stagedAt ? new Date(d.stagedAt).toLocaleString('ja-JP') : '不明';
+            rows += '<div style="border:1px solid #b88742;border-radius:6px;padding:10px;margin-bottom:8px;background:#fffdf0;">'
+                + '<div style="font-size:13px;font-weight:bold;color:#420000;">' + (d.playerName || '(名前なし)') + ' <span style="color:#999;font-size:10px;">(' + pid + ')</span></div>'
+                + '<div style="font-size:11px;color:#555;margin-top:2px;">G:' + (d.playerG != null ? d.playerG : '-') + ' / EXP:' + (d.playerEXP != null ? d.playerEXP : '-') + ' / パック券:' + (d.packTicket != null ? d.packTicket : '-') + ' / スパイシーコイン:' + (d.spicyCoin != null ? d.spicyCoin : '-') + '</div>'
+                + '<div style="font-size:10px;color:#888;margin-top:2px;">退避理由: ' + (d.stagedReason || '不明') + '</div>'
+                + '<div style="font-size:10px;color:#999;margin-top:2px;">退避日時: ' + dateStr + '</div>'
+                + '<div style="display:flex;gap:8px;margin-top:8px;">'
+                + '<button onclick="actApplyResyncRequest(\'' + pid + '\')" style="flex:1;padding:6px;font-size:11px;background:#2e8b6f;color:#fff;border:none;border-radius:4px;cursor:pointer;">✅ このデータを反映する</button>'
+                + '<button onclick="actDismissResyncRequest(\'' + pid + '\')" style="flex:1;padding:6px;font-size:11px;background:#c0392b;color:#fff;border:none;border-radius:4px;cursor:pointer;">🗑️ 破棄</button>'
+                + '</div>'
+                + '</div>';
+        });
+        showCustomAlert('📥 再同期依頼（' + pids.length + '件）', '<div style="text-align:left;max-height:65vh;overflow-y:auto;">' + rows + '</div>');
+    }).catch(function(e) {
+        showCustomAlert("❌ エラー", "取得に失敗しました: " + e.message);
+    });
+}
+// 退避データをそのまま players/<ID>/savedata に上書き反映する（管理者権限のため増加量上限は無視される）。
+// 反映後は resyncRequests 側の依頼を削除する。
+function actApplyResyncRequest(pid) {
+    if (!database) return;
+    showCustomConfirm(
+        '✅ 再同期データを反映',
+        'ID: ' + pid + ' の退避データを、通常の増加量上限を無視してそのままクラウドに反映します。<br>内容に見覚えがあることを確認してから実行してください。<br><br>本当によろしいですか？',
+        function() {
+            database.ref('resyncRequests/' + pid).once('value').then(function(snap) {
+                const data = snap.val();
+                if (!data) { showCustomAlert('❌ エラー', 'データが見つかりません。'); return; }
+                const cleaned = Object.assign({}, data);
+                delete cleaned.stagedAt;
+                delete cleaned.stagedReason;
+                database.ref('players/' + pid + '/savedata').set(cleaned).then(function() {
+                    return database.ref('resyncRequests/' + pid).remove();
+                }).then(function() {
+                    showCustomAlert('✅ 反映完了', 'ID: ' + pid + ' のデータをクラウドに反映しました。');
+                }).catch(function(e) {
+                    showCustomAlert('❌ エラー', '反映に失敗しました: ' + e.message);
+                });
+            });
+        }
+    );
+}
+// 内容を見て反映不要と判断した場合、依頼だけを削除する。
+function actDismissResyncRequest(pid) {
+    if (!database) return;
+    showCustomConfirm('🗑️ 再同期依頼を破棄', 'ID: ' + pid + ' の再同期依頼を削除します。よろしいですか？', function() {
+        database.ref('resyncRequests/' + pid).remove().then(function() {
+            showCustomAlert('✅ 削除完了', '破棄しました。');
+        });
     });
 }
 
