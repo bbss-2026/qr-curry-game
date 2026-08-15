@@ -65,7 +65,7 @@
         <button style="background:#2c3e50;" onclick="actAnalytics()">📊 アナリティクス</button>
         <button style="background:#1a6e3c;" onclick="actPlayerProgress()">🗺️ プレイヤー進行度</button>
         <button id="btnDebugMode" style="background:#7f8c8d;" onclick="actToggleDebugMode()">🐛 デバッグモード: OFF</button>
-        <button id="btnEventToggle" style="background:#7f8c8d;" onclick="actEventToggle()">🐙 特盛りイベント: OFF</button>
+        <button id="btnEventToggle" style="background:#7f8c8d;" onclick="actEventToggle()">🦈 特盛りイベント: OFF</button>
         <button style="background:#8e44ad;" onclick="actEventDamage()">📊 イベント ダメージ集計</button>
         <button style="background:#16a085;" onclick="actEventSetHp()">🩹 モンスターHP変更</button>
         <button style="background:#3498db;" onclick="actSetLevel()">🎮 レベル設定</button>
@@ -307,7 +307,8 @@ const CUM_EXP_TABLE = (function(){
 const LV_UNLOCK_ICONS = { 2: "mayimage04.png", 3: "mayimage05.png", 4: "mayimage06.png", 7: "mayimage08.png", 9: "mayimage09.png" };
 // Lv11〜20で解放されるベースアイテム（game-dev.js側のBASE_UNLOCK_FLAG_MAPと対応）
 const LV_BASE_UNLOCK_MAP = { 11: { flag: 'qr_unlock_genmai_base', name: '玄米' }, 13: { flag: 'qr_unlock_saffron_rice_base', name: 'サフランライス' }, 16: { flag: 'qr_unlock_jasmine_rice_base', name: 'ジャスミンライス' }, 18: { flag: 'qr_unlock_nan_base', name: 'ナン' } };
-const EVENT_MONSTER_DATA = { hp: 5000, name: "浪花のカレーライスベイビー" };
+const EVENT_MONSTER_DATA = { hp: 5000, name: "水面カレーシャーク" };
+const EVENT_MONSTER_DATA_PREV = { hp: 5000, name: "浪花のカレーライスベイビー" }; // 第一弾（過去の記録参照用）
 
 // ============================================================
 // localStorage操作（このブラウザ自身のセーブデータに対する操作）
@@ -1094,7 +1095,7 @@ function actExcludeKnownSuspiciousAccounts() {
 function actEventToggle() {
     if(!database) { showCustomAlert("❌ エラー", "通信に問題があります。"); return; }
     eventEnabled = !eventEnabled;
-    database.ref('events/tokumori001/enabled').set(eventEnabled).then(function(){
+    database.ref('events/tokumori002/enabled').set(eventEnabled).then(function(){
         updateButtonLabels();
         showCustomAlert("✅ 設定完了", "特盛りイベントを " + (eventEnabled ? "ON" : "OFF") + " にしました。");
     });
@@ -1387,14 +1388,14 @@ function actCheckPassword() {
 
 function actEventSetHp() {
     if(!database) { showCustomAlert("❌ エラー", "通信に問題があります。"); return; }
-    database.ref('events/tokumori001/currentHp').once('value').then(function(snap){
+    database.ref('events/tokumori002/currentHp').once('value').then(function(snap){
         const curHp = snap.val();
-        const input = prompt("🩹 モンスターの現在HPを入力してください（最大: " + EVENT_MONSTER_DATA.hp + "）\n現在値: " + (curHp === null ? "未設定（満タン扱い）" : curHp));
+        const input = prompt("🩹 " + EVENT_MONSTER_DATA.name + "の現在HPを入力してください（最大: " + EVENT_MONSTER_DATA.hp + "）\n現在値: " + (curHp === null ? "未設定（満タン扱い）" : curHp));
         if(input === null) return;
         const newHp = parseInt(input, 10);
         if(isNaN(newHp) || newHp < 1) { showCustomAlert("❌ 入力エラー", "1以上の数値を入力してください。"); return; }
         const clamped = Math.min(EVENT_MONSTER_DATA.hp, newHp);
-        database.ref('events/tokumori001/currentHp').set(clamped).then(function(){
+        database.ref('events/tokumori002/currentHp').set(clamped).then(function(){
             showCustomAlert("✅ 設定完了", "モンスターHPを " + clamped + " に設定しました。");
         });
     });
@@ -1415,15 +1416,16 @@ function isEventDamageSuspicious(stats) {
     return !hasAnyBattleEvidence;
 }
 
-function actEventDamage() {
-    if(!database) { showCustomAlert("❌ エラー", "通信に問題があります。"); return; }
-    database.ref('events/tokumori001/damages').once('value').then(function(snap){
+// eventKeyのダメージ集計（上位15位）のHTML行と参加人数・不審件数サマリーをまとめて返す。
+// 新旧どちらのイベント（tokumori002／tokumori001）でも同じ形式で組み立てられるよう共通化。
+function fetchEventDamageSection(eventKey) {
+    return database.ref('events/' + eventKey + '/damages').once('value').then(function(snap){
         const data = snap.val() || {};
         const entries = Object.keys(data).map(function(pid){ return { pid: pid, dmg: data[pid] }; });
         entries.sort(function(a,b){ return b.dmg - a.dmg; });
         const top15 = entries.slice(0, 15);
-        Promise.all([
-            database.ref('events/tokumori001/participants').once('value'),
+        return Promise.all([
+            database.ref('events/' + eventKey + '/participants').once('value'),
             Promise.all(top15.map(function(e){ return database.ref('players/' + e.pid).once('value'); }))
         ]).then(function(results){
             const pData = results[0].val() || {};
@@ -1445,7 +1447,7 @@ function actEventDamage() {
                     rows += '<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;border-bottom:1px solid #eee;font-size:12px;gap:6px;' + (suspicious ? 'background:#fdecea;' : '') + '">'
                         + '<span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;">' + (i+1) + '. ' + name + ' <span style="color:#999;">(' + e.pid + ')</span>' + warnBadge + '</span>'
                         + '<span style="font-weight:bold;color:#420000;flex-shrink:0;">' + e.dmg + '</span>'
-                        + '<button onclick="editEventPlayerDamage(\'' + e.pid + '\',' + e.dmg + ',\'' + safeName + '\')" style="flex-shrink:0;padding:3px 8px;background:#d35400;color:white;border:none;border-radius:4px;font-size:11px;cursor:pointer;">編集</button>'
+                        + '<button onclick="editEventPlayerDamage(\'' + eventKey + '\',\'' + e.pid + '\',' + e.dmg + ',\'' + safeName + '\')" style="flex-shrink:0;padding:3px 8px;background:#d35400;color:white;border:none;border-radius:4px;font-size:11px;cursor:pointer;">編集</button>'
                         + '</div>';
                 } catch(err) {
                     rows += '<div style="font-size:11px;color:#e74c3c;">⚠️ ' + (i+1) + '位のデータでエラー: ' + err.message + '</div>';
@@ -1455,19 +1457,39 @@ function actEventDamage() {
             const warnSummary = suspiciousCount > 0
                 ? '<div style="margin-bottom:8px;padding:8px;background:#fdecea;border-radius:6px;color:#c0392b;font-size:12px;font-weight:bold;">⚠️ ' + suspiciousCount + '件、ダメージがあるのにプレイ実績（イベント参加・勝利・撃破・スキャン・調理いずれも）が確認できないアカウントがあります。過去に確認された不正と同じパターンです。</div>'
                 : '';
-            showCustomAlert('📊 特盛りイベント ダメージ集計',
-                '<div style="margin-bottom:4px;font-size:13px;font-weight:bold;color:#420000;">参加人数: ' + totalParticipants + '人</div>'
-                + '<div style="margin-bottom:10px;font-size:11px;color:#888;">上位15位まで表示</div>'
-                + warnSummary
-                + rows
-            );
-        }).catch(function(e){
-            showCustomAlert("❌ エラー", "取得に失敗しました: " + e.message);
+            return { rows: rows, totalParticipants: totalParticipants, warnSummary: warnSummary };
         });
     });
 }
 
-function editEventPlayerDamage(pid, currentDmg, name) {
+function actEventDamage() {
+    if(!database) { showCustomAlert("❌ エラー", "通信に問題があります。"); return; }
+    Promise.all([
+        fetchEventDamageSection('tokumori002'),
+        fetchEventDamageSection('tokumori001')
+    ]).then(function(results){
+        const cur = results[0];
+        const old = results[1];
+        showCustomAlert('📊 特盛りイベント ダメージ集計',
+            '<div style="margin-bottom:4px;font-size:13px;font-weight:bold;color:#420000;">🦈 ' + EVENT_MONSTER_DATA.name + '（現行）</div>'
+            + '<div style="margin-bottom:4px;font-size:13px;font-weight:bold;color:#420000;">参加人数: ' + cur.totalParticipants + '人</div>'
+            + '<div style="margin-bottom:10px;font-size:11px;color:#888;">上位15位まで表示</div>'
+            + cur.warnSummary
+            + cur.rows
+            + '<details style="margin-top:16px;border-top:1px solid #e0d5bd;padding-top:10px;">'
+            + '<summary style="cursor:pointer;font-size:12px;font-weight:bold;color:#7a5c1e;">▼ ' + EVENT_MONSTER_DATA_PREV.name + '（過去の記録）を表示</summary>'
+            + '<div style="margin-top:10px;font-size:13px;font-weight:bold;color:#420000;">参加人数: ' + old.totalParticipants + '人</div>'
+            + '<div style="margin-bottom:10px;font-size:11px;color:#888;">上位15位まで表示</div>'
+            + old.warnSummary
+            + old.rows
+            + '</details>'
+        );
+    }).catch(function(e){
+        showCustomAlert("❌ エラー", "取得に失敗しました: " + e.message);
+    });
+}
+
+function editEventPlayerDamage(eventKey, pid, currentDmg, name) {
     document.getElementById("customModal").style.display = "none";
     setTimeout(function(){
         const input = prompt("✏️ " + name + " (" + pid + ") の総ダメージを入力してください\n現在値: " + currentDmg);
@@ -1477,7 +1499,7 @@ function editEventPlayerDamage(pid, currentDmg, name) {
             showCustomAlert("❌ 入力エラー", "0以上の数値を入力してください。", function(){ actEventDamage(); });
             return;
         }
-        database.ref('events/tokumori001/damages/' + pid).set(newDmg).then(function(){
+        database.ref('events/' + eventKey + '/damages/' + pid).set(newDmg).then(function(){
             showCustomAlert("✅ 設定完了", name + " の総ダメージを " + newDmg + " に設定しました。", function(){ actEventDamage(); });
         });
     }, 300);
@@ -1565,7 +1587,7 @@ function updateButtonLabels() {
     btnDebug.style.background = isDebugMode ? "#e74c3c" : "#7f8c8d";
 
     const btnEvent = document.getElementById('btnEventToggle');
-    btnEvent.innerText = "🐙 特盛りイベント: " + (eventEnabled ? "ON" : "OFF");
+    btnEvent.innerText = "🦈 特盛りイベント: " + (eventEnabled ? "ON" : "OFF");
     btnEvent.style.background = eventEnabled ? "#27ae60" : "#7f8c8d";
 
     const hasTimeOverride = !!localStorage.getItem('qr_debug_time_override');
@@ -1583,7 +1605,7 @@ function updateButtonLabels() {
 
 function loadInitialData() {
     if(database) {
-        database.ref('events/tokumori001/enabled').once('value').then(function(snap){
+        database.ref('events/tokumori002/enabled').once('value').then(function(snap){
             eventEnabled = (snap.val() === true);
             updateButtonLabels();
         });
