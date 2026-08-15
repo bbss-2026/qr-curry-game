@@ -1397,7 +1397,11 @@ function actEventSetHp() {
         const clamped = Math.min(EVENT_MONSTER_DATA.hp, newHp);
         database.ref('events/tokumori002/currentHp').set(clamped).then(function(){
             showCustomAlert("✅ 設定完了", "モンスターHPを " + clamped + " に設定しました。");
+        }).catch(function(e){
+            showCustomAlert("❌ エラー", "設定に失敗しました: " + e.message);
         });
+    }).catch(function(e){
+        showCustomAlert("❌ エラー", "取得に失敗しました: " + e.message);
     });
 }
 
