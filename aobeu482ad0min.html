@@ -1925,6 +1925,8 @@ function clearAnnounceForm() {
 }
 // 特盛りモンスター（第1弾・浪花のカレーライスベイビー）討伐報酬のクイック送信：1位・2位に個別送信
 // 同じ件名の古い（不具合のあった）未受領の手紙があれば、先に取り消してから新しい手紙を送信する。
+// 取り消しは「今回新しく送るannounceQueueのID」を明示的に除外対象として渡すID指定方式にしており、
+// 端末間の時刻ズレなどに関わらず、新しい手紙が誤って消されることがない。
 function actSendTokumori001Rewards() {
     if(!database) return;
     const recipients = [
@@ -1936,10 +1938,11 @@ function actSendTokumori001Rewards() {
         return '浪花のカレーライスベイビー\nダメージランキング\n第' + rank + '位 おめでとうございます。\n特別報酬をお送りいたします。\n討伐にご協力いただき、ありがとうございました。';
     };
     showCustomConfirm('🏆 討伐報酬を送信', 'BC-VJZQQGEZ（1位）とBC-GJPGTMTN（2位）に、特盛りモンスター討伐報酬のお知らせ手紙を送信します。<br>同じ件名の古い手紙が届いていれば、先に取り消してから送信します。<br><br>本当によろしいですか？', function(){
-        const now = Date.now();
         const ops = recipients.map(function(r){
-            // 取り消しコマンド（この時刻より前に届いた同件名の手紙だけを削除。今回新しく送る手紙は誤って消さない）
-            return database.ref('mailRevokeQueue/' + r.id).push({ subject: SUBJECT, olderThan: now }).then(function(){
+            // announceQueueの新しいキーを先に確定させる（.push()はキーを同期的に発行できる）
+            const newRef = database.ref('announceQueue/' + r.id).push();
+            // 取り消しコマンド：件名が一致する手紙のうち、今回発行したnewRef.key以外を削除する
+            return database.ref('mailRevokeQueue/' + r.id).push({ subject: SUBJECT, exceptAnnounceId: newRef.key }).then(function(){
                 const data = {
                     subject: SUBJECT,
                     body: bodyFor(r.rank),
@@ -1951,9 +1954,9 @@ function actSendTokumori001Rewards() {
                     rewardSpicyCoin: 1,
                     rewardIcon: 'myimageicon/mayimage12.jpg',
                     rewardItems: [],
-                    createdAt: now + 1 // 取り消し基準時刻より確実に後になるようにする
+                    createdAt: Date.now()
                 };
-                return database.ref('announceQueue/' + r.id).push(data);
+                return newRef.set(data);
             });
         });
         Promise.all(ops).then(function(){
