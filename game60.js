@@ -1330,6 +1330,7 @@ let festHireCandidates = [];     // 今回のフェスで雇用可能な仲間�
 let festGlobalMaxStreak = 0;     // 全プレイヤーを通じた最高連勝記録のローカルキャッシュ（Firebase festGlobalRecord/maxStreakを表示用に保持）
 let festWeeklyGlobalMaxStreak = 0;      // 今週の全プレイヤー最高連勝記録のローカルキャッシュ（Firebase festWeeklyRecord/{weekId}/maxStreakを表示用に保持）
 let festWeeklyGlobalMaxStreakWeekId = ''; // 上記キャッシュがどの週IDのものかを覚えておく（週が変わったらキャッシュを無視する）
+let festWeeklyGlobalRecordListenerRef = null; // 購読中のfestWeeklyRecord/{weekId}/maxStreak参照（フェス画面を離れる時にoffする）
 // ===== トッピングスロット =====
 let festNextToppingThreshold = 20; // 次にスロットが自動実行される連勝数（20連勝、以降10連勝ごと）
 let festActiveToppings = [];        // このフェス中に獲得済みの永続トッピング効果（FEST_TOPPING_DEFSのid配列。重複可＝重ねがけ）
@@ -1941,16 +1942,28 @@ function updateFestWeeklyBestDisplay() {
     const el = document.getElementById('festWeeklyBestStreak');
     if(el) el.innerText = getFestWeeklyBestStreak();
 }
-// 今週の全プレイヤー最高連勝記録を取得して表示する（Firebase festWeeklyRecord/{weekId}/maxStreak）
+// 今週の全プレイヤー最高連勝記録を取得して表示する（Firebase festWeeklyRecord/{weekId}/maxStreak）。
+// 一度きりの取得ではなくリアルタイム購読（.on）にすることで、他プレイヤーが今この瞬間に更新した記録も
+// フェス画面を開いたまま即座に反映される（例：Aが1連勝目を取った瞬間、同時にフェス中のBの画面にも反映）。
+// フェス画面を離れる時はdetachFestWeeklyGlobalRecordListener()で購読解除する。
 function fetchFestWeeklyGlobalRecord() {
     const weekId = getFestWeekId();
-    const el = document.getElementById('festWeeklyGlobalRecordStreak');
     if(!database) return;
-    database.ref('festWeeklyRecord/' + weekId + '/maxStreak').once('value').then(function(snap) {
+    detachFestWeeklyGlobalRecordListener();
+    const ref = database.ref('festWeeklyRecord/' + weekId + '/maxStreak');
+    festWeeklyGlobalRecordListenerRef = ref;
+    ref.on('value', function(snap) {
         festWeeklyGlobalMaxStreak = snap.val() || 0;
         festWeeklyGlobalMaxStreakWeekId = weekId;
+        const el = document.getElementById('festWeeklyGlobalRecordStreak');
         if(el) el.innerText = festWeeklyGlobalMaxStreak;
-    }).catch(function() { /* 通信失敗時はローカルキャッシュのまま表示 */ });
+    });
+}
+function detachFestWeeklyGlobalRecordListener() {
+    if(festWeeklyGlobalRecordListenerRef) {
+        festWeeklyGlobalRecordListenerRef.off('value');
+        festWeeklyGlobalRecordListenerRef = null;
+    }
 }
 // 自分の今週の連勝数が今週の全プレイヤー記録を上回っていれば更新する（トップ保持者IDも同時に記録）。
 // フェス終了時とステータスバー更新のたびに呼ばれる想定（updateFestGlobalRecordIfHigherと同じ運用）。
@@ -2033,6 +2046,7 @@ function hideFestScreen() {
     switchTab('battle', document.querySelector('.tab-btn[onclick*="battle"]'));
     showBattleGuideChar(); // フェス終了・撤退で対戦タブに戻るので案内人を再表示
     hideFestCookStatPreview();
+    detachFestWeeklyGlobalRecordListener(); // フェス画面を離れるので今週の全プレイヤー記録のリアルタイム購読を止める
     const cm = document.getElementById('customModal');
     if(cm) cm.classList.remove('fest-theme');
 }
