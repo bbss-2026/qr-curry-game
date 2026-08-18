@@ -575,10 +575,15 @@ function classifySyncEntry(e, siblings) {
 }
 
 // 同期エラーログの確認（game-dev.html側のlogSyncEvent()が記録したエラーを新しい順に表示する）
+// 特定の1人が短時間に大量のエラーを出し続けると、直近の枠が丸ごとその1人で埋まってしまい、
+// 他のプレイヤーの本当に確認すべきエラーが後ろに流れて見落とされる問題があったため、
+// 取得件数を増やしたうえでプレイヤーごとにグループ化し、1人あたりの表示件数に上限を設ける。
+// 表示順はグループ（プレイヤー）ごとに、そのプレイヤーの最新エラー時刻が新しい順。
 function actShowSyncErrors() {
     if (!database) { showCustomAlert("❌ エラー", "通信に問題があります。"); return; }
     showCustomAlert("🔄 読み込み中...", "同期エラーログを取得しています。");
-    database.ref('syncErrors').limitToLast(100).once('value').then(function(snap) {
+    const PER_PLAYER_LIMIT = 3;
+    database.ref('syncErrors').limitToLast(500).once('value').then(function(snap) {
         const data = snap.val() || {};
         const entries = Object.keys(data).map(function(k) { const v = data[k] || {}; v._key = k; return v; });
         entries.sort(function(a, b) { return (b.timestamp || 0) - (a.timestamp || 0); });
@@ -593,27 +598,39 @@ function actShowSyncErrors() {
             if (!byId[pid]) byId[pid] = [];
             byId[pid].push(e);
         });
+        const playerIds = Object.keys(byId).sort(function(a, b) {
+            return (byId[b][0].timestamp || 0) - (byId[a][0].timestamp || 0);
+        });
         const legend = '<div style="font-size:10px;color:#555;margin-bottom:8px;line-height:1.8;padding:6px 8px;background:#f5f5f5;border-radius:6px;">'
             + '🟢 無視してOK　🟡 単発・様子見でOK　🟠 環境要因の可能性（対応不要なことが多い）　🔴 要確認'
-            + '<br>※あくまで目安の自動判定です。'
+            + '<br>※あくまで目安の自動判定です。直近500件を取得し、1人あたり最新' + PER_PLAYER_LIMIT + '件までの表示です（同じ人の連続エラーで他の人が埋もれないようにするため）。'
             + '</div>';
         let rows = '';
-        entries.forEach(function(e) {
-            const siblings = byId[e.playerId || '(unknown)'];
-            const cls = classifySyncEntry(e, siblings);
-            const style = SYNC_LEVEL_STYLE[cls.level] || SYNC_LEVEL_STYLE.info;
-            const dateStr = e.timestamp ? new Date(e.timestamp).toLocaleString('ja-JP') : '不明';
-            const isIframeFlag = e.isIframe ? '<span style="color:#e74c3c;font-weight:bold;"> [iframe埋め込み]</span>' : '';
-            rows += '<div style="border:1px solid ' + style.color + ';border-left:5px solid ' + style.color + ';border-radius:6px;padding:8px;margin-bottom:6px;background:' + style.bg + ';">'
-                + '<div style="font-size:11px;font-weight:bold;color:' + style.color + ';margin-bottom:4px;">' + style.label + (cls.reason ? ' - ' + cls.reason : '') + '</div>'
-                + '<div style="font-size:12px;font-weight:bold;color:#420000;">' + (e.context || '(不明なcontext)') + isIframeFlag + '</div>'
-                + '<div style="font-size:11px;color:#555;margin-top:2px;">ID: ' + (e.playerId || '(unknown)') + '</div>'
-                + (e.detail ? '<div style="font-size:11px;color:#888;margin-top:2px;word-break:break-all;">' + e.detail + '</div>' : '')
-                + '<div style="font-size:10px;color:#999;margin-top:2px;">' + dateStr + '</div>'
-                + (e.referrer ? '<div style="font-size:10px;color:#999;">referrer: ' + e.referrer + '</div>' : '')
-                + '</div>';
+        playerIds.forEach(function(pid) {
+            const siblings = byId[pid];
+            const shown = siblings.slice(0, PER_PLAYER_LIMIT);
+            const extra = siblings.length - shown.length;
+            rows += '<div style="margin-bottom:12px;">'
+                + '<div style="font-size:12px;font-weight:bold;color:#420000;background:#f0e6d2;padding:4px 8px;border-radius:4px;">👤 ' + pid + '（直近' + siblings.length + '件）</div>';
+            shown.forEach(function(e) {
+                const cls = classifySyncEntry(e, siblings);
+                const style = SYNC_LEVEL_STYLE[cls.level] || SYNC_LEVEL_STYLE.info;
+                const dateStr = e.timestamp ? new Date(e.timestamp).toLocaleString('ja-JP') : '不明';
+                const isIframeFlag = e.isIframe ? '<span style="color:#e74c3c;font-weight:bold;"> [iframe埋め込み]</span>' : '';
+                rows += '<div style="border:1px solid ' + style.color + ';border-left:5px solid ' + style.color + ';border-radius:6px;padding:8px;margin-top:6px;background:' + style.bg + ';">'
+                    + '<div style="font-size:11px;font-weight:bold;color:' + style.color + ';margin-bottom:4px;">' + style.label + (cls.reason ? ' - ' + cls.reason : '') + '</div>'
+                    + '<div style="font-size:12px;font-weight:bold;color:#420000;">' + (e.context || '(不明なcontext)') + isIframeFlag + '</div>'
+                    + (e.detail ? '<div style="font-size:11px;color:#888;margin-top:2px;word-break:break-all;">' + e.detail + '</div>' : '')
+                    + '<div style="font-size:10px;color:#999;margin-top:2px;">' + dateStr + '</div>'
+                    + (e.referrer ? '<div style="font-size:10px;color:#999;">referrer: ' + e.referrer + '</div>' : '')
+                    + '</div>';
+            });
+            if (extra > 0) {
+                rows += '<div style="font-size:10px;color:#999;margin-top:4px;padding-left:4px;">…他' + extra + '件（このIDのみ、表示省略）</div>';
+            }
+            rows += '</div>';
         });
-        showCustomAlert('🔄 同期エラーログ（新しい順・最大100件）', '<div style="text-align:left;max-height:65vh;overflow-y:auto;">' + legend + rows + '</div>');
+        showCustomAlert('🔄 同期エラーログ（プレイヤー別・直近500件から集計、対象' + playerIds.length + '人）', '<div style="text-align:left;max-height:65vh;overflow-y:auto;">' + legend + rows + '</div>');
     }).catch(function(e) {
         showCustomAlert("❌ エラー", "取得に失敗しました: " + e.message);
     });
