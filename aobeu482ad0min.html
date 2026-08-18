@@ -146,6 +146,17 @@
             添付：💰2000G、🌶️スパイシーコイン1枚、特別アイコン（myimageicon/mayimage12.jpg）／開封後1週間で自動削除。
         </div>
         <button class="save-btn" style="background:#e67e22;width:100%;" onclick="actSendTokumori001Rewards()">🏆 1位・2位に送信</button>
+        <button class="save-btn" style="background:#7f8c8d;width:100%;margin-top:8px;" onclick="actClearTokumori001Mail()">🧹 同じ件名の手紙を全部削除（新規送信なし）</button>
+    </div>
+
+    <div class="section">
+        <div class="section-label">🎪 カレーフェス週間連勝報酬</div>
+        <div style="font-size:12px;color:#888;margin-bottom:8px;">
+            毎週日曜0:00〜土曜23:59（JST）の連勝記録トップのプレイヤーに、次回ログイン時受信で報酬（🍥食品サンプル3個・開封後3日で自動削除）を送信します。<br>
+            管理ツールを開いたとき、および開いたまま10分ごとに、先週分が未送信であれば自動で確認ポップアップが出ます（⏰時間設定で仮想時刻がONの場合はその時刻を基準に判定します）。
+        </div>
+        <button class="save-btn" style="background:#3498db;width:100%;" onclick="checkFestWeeklyRewardPending()">🔄 未送信の週間報酬を今すぐ確認</button>
+        <button class="save-btn" style="background:#7f8c8d;width:100%;margin-top:8px;" onclick="actSetFestWeeklyDebugTop()">🔧 デバッグ：今週の連勝王を設定</button>
     </div>
 
     <div class="section">
@@ -1927,6 +1938,23 @@ function clearAnnounceForm() {
 // 同じ件名の古い（不具合のあった）未受領の手紙があれば、先に取り消してから新しい手紙を送信する。
 // 取り消しは「今回新しく送るannounceQueueのID」を明示的に除外対象として渡すID指定方式にしており、
 // 端末間の時刻ズレなどに関わらず、新しい手紙が誤って消されることがない。
+// 同じ件名（特盛りモンスター討伐報酬）の手紙を、新規送信を伴わずに全部削除する（残留したクリーンアップ専用）。
+// exceptAnnounceIdをnullにすることで、既に届いている手紙（受け取り済みのものも含む）を全て対象にする。
+function actClearTokumori001Mail() {
+    if(!database) return;
+    const recipients = ['BC-VJZQQGEZ', 'BC-GJPGTMTN'];
+    const SUBJECT = '特盛りモンスター討伐報酬';
+    showCustomConfirm('🧹 手紙を削除', 'BC-VJZQQGEZ・BC-GJPGTMTNに届いている「' + SUBJECT + '」件名の手紙を、次回ログイン時に全て削除します（新しい手紙は送信しません）。<br><br>本当によろしいですか？', function(){
+        const ops = recipients.map(function(id){
+            return database.ref('mailRevokeQueue/' + id).push({ subject: SUBJECT, exceptAnnounceId: null });
+        });
+        Promise.all(ops).then(function(){
+            showCustomAlert('✅ 完了', '両プレイヤーの次回ログイン時に削除されます。');
+        }).catch(function(e){
+            showCustomAlert('❌ エラー', '失敗しました。' + e.message);
+        });
+    });
+}
 function actSendTokumori001Rewards() {
     if(!database) return;
     const recipients = [
@@ -1966,6 +1994,116 @@ function actSendTokumori001Rewards() {
         });
     });
 }
+// ===== カレーフェス週間連勝報酬 =====
+// JST日曜0:00起点の週ID（YYYY-MM-DD＝その週の日曜日の日付、game-source-work.jsのgetFestWeekIdと同じ計算式）。
+// 「今」の基準は⏰時間設定（qr_debug_time_override）が設定されていればそれを使う。デバッグでBC-MXB6JXKBを
+// 今週の連勝王に設定 → 時間設定で来週以降の日時に飛ばす、という流れで送信テストができるようにするため。
+// 時間設定OFF（通常運用）の場合は実際の現在時刻がそのまま使われるので、本番の自動チェックにも支障はない。
+function getAdminNow() {
+    const override = localStorage.getItem('qr_debug_time_override');
+    if(override) {
+        const d = new Date(override);
+        if(!isNaN(d.getTime())) return d;
+    }
+    return new Date();
+}
+function getFestWeekIdReal(baseDate) {
+    const now = baseDate || getAdminNow();
+    const jstMs = now.getTime() + 9 * 60 * 60000;
+    const jst = new Date(jstMs);
+    const dow = jst.getUTCDay(); // 0=日曜
+    const sunday = new Date(jstMs - dow * 86400000);
+    const y = sunday.getUTCFullYear();
+    const m = String(sunday.getUTCMonth() + 1).padStart(2, '0');
+    const d = String(sunday.getUTCDate()).padStart(2, '0');
+    return { id: `${y}-${m}-${d}`, sundayMs: sunday.getTime() };
+}
+function getPrevFestWeekId() {
+    const cur = getFestWeekIdReal();
+    const prevSunday = new Date(cur.sundayMs - 7 * 86400000);
+    const y = prevSunday.getUTCFullYear();
+    const m = String(prevSunday.getUTCMonth() + 1).padStart(2, '0');
+    const d = String(prevSunday.getUTCDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+}
+// 先週分のフェス週間連勝報酬が未送信なら、確認ポップアップを出す（読み込み時＋10分おきに自動実行、手動ボタンからも呼べる）。
+// 同率タイに対応するため、entries配下から「maxStreakと同値の記録を持つプレイヤー全員」を抽出して一覧表示する。
+function checkFestWeeklyRewardPending() {
+    if(!database) return;
+    const prevWeekId = getPrevFestWeekId();
+    database.ref('festWeeklyRecord/' + prevWeekId).once('value').then(function(snap){
+        const rec = snap.val();
+        if(!rec || !rec.maxStreak || rec.rewardSent) return; // 対象なし、または送信済み
+        const entries = rec.entries || {};
+        const maxStreak = rec.maxStreak;
+        const winners = Object.keys(entries)
+            .filter(function(pid){ return entries[pid] && entries[pid].streak === maxStreak; })
+            .map(function(pid){ return { id: pid, name: entries[pid].name || '(名前不明)' }; });
+        if(winners.length === 0) return; // maxStreakはあるがentries側に該当者が見当たらない（古い形式のデータ等）
+        const listHtml = winners.map(function(w){ return '・' + w.name + '（' + w.id + '）'; }).join('<br>');
+        showCustomConfirm('🎪 先週分のフェス連勝報酬が未送信です', '先週（' + prevWeekId + '週）のカレーフェス連勝記録：' + maxStreak + '連勝<br><br>該当者（' + winners.length + '名、同率含む）：<br>' + listHtml + '<br><br>全員に報酬を送信しますか？', function(){
+            sendFestWeeklyReward(prevWeekId, winners.map(function(w){ return w.id; }));
+        });
+    }).catch(function(){ /* 読み取り失敗時は何もしない（次回チェック時に再試行される） */ });
+}
+function sendFestWeeklyReward(weekId, pids) {
+    if(!database || !pids || pids.length === 0) return;
+    const SUBJECT = 'カレーフェス連勝報酬';
+    const BODY = '先週のカレーフェス最高連勝、おめでとうございます。\n報酬をお送りいたします。';
+    const ops = pids.map(function(pid){
+        const newRef = database.ref('announceQueue/' + pid).push();
+        return database.ref('mailRevokeQueue/' + pid).push({ subject: SUBJECT, exceptAnnounceId: newRef.key }).then(function(){
+            const data = {
+                subject: SUBJECT,
+                body: BODY,
+                image: null,
+                imageBottom: null, imageBottomUrl: null, imageBottom2: null, imageBottomUrl2: null,
+                expireMinutesAfterRead: 4320, // 開封後3日
+                rewardGold: 0,
+                rewardPack: 0,
+                rewardSpicyCoin: 0,
+                rewardIcon: null,
+                rewardFoodSample: 3,
+                rewardItems: [],
+                createdAt: Date.now()
+            };
+            return newRef.set(data);
+        });
+    });
+    Promise.all(ops).then(function(){
+        return database.ref('festWeeklyRecord/' + weekId + '/rewardSent').set(true);
+    }).then(function(){
+        showCustomAlert('✅ 送信完了', pids.length + '名（' + pids.join('、') + '）に週間連勝報酬（🍥食品サンプル3個）を送信しました。');
+    }).catch(function(e){
+        showCustomAlert('❌ エラー', '送信に失敗しました。' + e.message);
+    });
+}
+// デバッグ用：今週の連勝王を直接設定する（テスト目的の管理者直接書き込みのため、通常プレイ時のFEST_ADMIN_EXCLUDED_IDS制限は関係ない）。
+// カンマ区切りで複数ID入力すると、同率タイのテストもできる。
+function actSetFestWeeklyDebugTop() {
+    if(!database) return;
+    const idsStr = prompt('🔧 今週の連勝王として設定するプレイヤーIDを入力してください（同率タイのテストをしたい場合はカンマ区切りで複数指定可）', 'BC-MXB6JXKB');
+    if(!idsStr) return;
+    const ids = idsStr.split(',').map(function(s){ return s.trim(); }).filter(Boolean);
+    if(ids.length === 0) return;
+    const streakStr = prompt('連勝数を入力してください（複数指定時は全員同じ値になります）', '25');
+    const streak = parseInt(streakStr, 10);
+    if(isNaN(streak) || streak < 1) { showCustomAlert('❌ 入力エラー', '連勝数は1以上の数値で入力してください。'); return; }
+    const weekId = getFestWeekIdReal().id;
+    Promise.all(ids.map(function(pid){
+        return database.ref('players/' + pid + '/name').once('value').then(function(snap){
+            const name = snap.val() || pid;
+            return database.ref('festWeeklyRecord/' + weekId + '/entries/' + pid).set({ streak: streak, name: name });
+        });
+    })).then(function(){
+        return database.ref('festWeeklyRecord/' + weekId + '/maxStreak').set(streak);
+    }).then(function(){
+        showCustomAlert('✅ 設定完了', weekId + '週（現在の⏰時間設定基準）の連勝王を ' + ids.join('、') + '（各' + streak + '連勝）に設定しました。<br>この状態を「先週分」として確認ポップアップでテストしたい場合は、⏰時間設定で来週以降の日時に設定してから「未送信の週間報酬を今すぐ確認」を押してください。');
+    }).catch(function(e){
+        showCustomAlert('❌ エラー', '設定に失敗しました。' + e.message);
+    });
+}
+
 function actSendAnnounceToAll() {
     if(!database) return;
     const a = buildAnnounceDataFromForm();
@@ -2046,7 +2184,12 @@ window.onload = function() {
     initQrIgnoreBtn();
     initNewPlayerModeBtn();
     if (database) {
-        ensureFirebaseAuth().then(function() { registerAsAdminIfEligible(); });
+        ensureFirebaseAuth().then(function() {
+            registerAsAdminIfEligible();
+            checkFestWeeklyRewardPending();
+            // 開きっぱなしのタブでも週替わりを検知できるよう、10分おきに再チェックする
+            setInterval(checkFestWeeklyRewardPending, 10 * 60 * 1000);
+        });
     }
 };
 </script>
