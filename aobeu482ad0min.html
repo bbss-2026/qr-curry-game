@@ -1995,6 +1995,11 @@ function actSendTokumori001Rewards() {
     });
 }
 // ===== カレーフェス週間連勝報酬 =====
+// game-source-work.js側のFEST_ADMIN_EXCLUDED_IDSと同じ、開発・検証用の管理者3キャラ。
+// 「🔧 デバッグ：今週の連勝王を設定」でこれらのIDにテストデータを書き込んでも、
+// 下のcheckFestWeeklyRewardPending()は必ずこのリストを除外して実際の受賞者を計算し直すため、
+// 本番の実際の連勝王判定（本物のプレイヤーへの報酬送信）がデバッグ操作に影響されることはない。
+const FEST_ADMIN_EXCLUDED_IDS_ADMIN = ['BC-MXB6JXKB', 'BC-ZQ34WFEU', 'BC-GJPGTMTN'];
 // JST日曜0:00起点の週ID（YYYY-MM-DD＝その週の日曜日の日付、game-source-work.jsのgetFestWeekIdと同じ計算式）。
 // 「今」の基準は⏰時間設定（qr_debug_time_override）が設定されていればそれを使う。デバッグでBC-MXB6JXKBを
 // 今週の連勝王に設定 → 時間設定で来週以降の日時に飛ばす、という流れで送信テストができるようにするため。
@@ -2027,21 +2032,28 @@ function getPrevFestWeekId() {
     return `${y}-${m}-${d}`;
 }
 // 先週分のフェス週間連勝報酬が未送信なら、確認ポップアップを出す（読み込み時＋10分おきに自動実行、手動ボタンからも呼べる）。
-// 同率タイに対応するため、entries配下から「maxStreakと同値の記録を持つプレイヤー全員」を抽出して一覧表示する。
+// 同率タイに対応するため、entries配下から「実際の最高値と同値の記録を持つプレイヤー全員」を抽出して一覧表示する。
+// rec.maxStreak（表示専用・デバッグでも書き換わりうる値）は信用せず、開発・検証用キャラを除外したentriesから
+// 実際の最高値を都度計算し直すことで、デバッグ操作が本番の受賞者判定に影響しないようにしている。
 function checkFestWeeklyRewardPending() {
     if(!database) return;
     const prevWeekId = getPrevFestWeekId();
     database.ref('festWeeklyRecord/' + prevWeekId).once('value').then(function(snap){
         const rec = snap.val();
-        if(!rec || !rec.maxStreak || rec.rewardSent) return; // 対象なし、または送信済み
+        if(!rec || rec.rewardSent) return; // 対象なし、または送信済み
         const entries = rec.entries || {};
-        const maxStreak = rec.maxStreak;
-        const winners = Object.keys(entries)
-            .filter(function(pid){ return entries[pid] && entries[pid].streak === maxStreak; })
-            .map(function(pid){ return { id: pid, name: entries[pid].name || '(名前不明)' }; });
-        if(winners.length === 0) return; // maxStreakはあるがentries側に該当者が見当たらない（古い形式のデータ等）
+        const realEntries = {};
+        Object.keys(entries).forEach(function(pid){
+            if(!FEST_ADMIN_EXCLUDED_IDS_ADMIN.includes(pid) && entries[pid]) realEntries[pid] = entries[pid];
+        });
+        const realMax = Object.keys(realEntries).reduce(function(m, pid){ return Math.max(m, realEntries[pid].streak || 0); }, 0);
+        if(realMax <= 0) return; // 開発・検証用キャラ以外に該当者なし
+        const winners = Object.keys(realEntries)
+            .filter(function(pid){ return realEntries[pid].streak === realMax; })
+            .map(function(pid){ return { id: pid, name: realEntries[pid].name || '(名前不明)' }; });
+        if(winners.length === 0) return;
         const listHtml = winners.map(function(w){ return '・' + w.name + '（' + w.id + '）'; }).join('<br>');
-        showCustomConfirm('🎪 先週分のフェス連勝報酬が未送信です', '先週（' + prevWeekId + '週）のカレーフェス連勝記録：' + maxStreak + '連勝<br><br>該当者（' + winners.length + '名、同率含む）：<br>' + listHtml + '<br><br>全員に報酬を送信しますか？', function(){
+        showCustomConfirm('🎪 先週分のフェス連勝報酬が未送信です', '先週（' + prevWeekId + '週）のカレーフェス連勝記録：' + realMax + '連勝<br><br>該当者（' + winners.length + '名、同率含む）：<br>' + listHtml + '<br><br>全員に報酬を送信しますか？', function(){
             sendFestWeeklyReward(prevWeekId, winners.map(function(w){ return w.id; }));
         });
     }).catch(function(){ /* 読み取り失敗時は何もしない（次回チェック時に再試行される） */ });
@@ -2080,6 +2092,10 @@ function sendFestWeeklyReward(weekId, pids) {
 }
 // デバッグ用：今週の連勝王を直接設定する（テスト目的の管理者直接書き込みのため、通常プレイ時のFEST_ADMIN_EXCLUDED_IDS制限は関係ない）。
 // カンマ区切りで複数ID入力すると、同率タイのテストもできる。
+// entriesのみ書き込み、全プレイヤー向け表示専用のmaxStreakには触れない（本物のプレイヤーが見る「今週の最高記録
+// (全プレイヤー)」表示に、テスト用の数値が実際に見えてしまうのを避けるため）。実際の受賞者判定は
+// checkFestWeeklyRewardPending()側でFEST_ADMIN_EXCLUDED_IDS_ADMINを除外して計算するため、maxStreakを
+// 更新しなくても報酬送信テストには支障がない。
 function actSetFestWeeklyDebugTop() {
     if(!database) return;
     const idsStr = prompt('🔧 今週の連勝王として設定するプレイヤーIDを入力してください（同率タイのテストをしたい場合はカンマ区切りで複数指定可）', 'BC-MXB6JXKB');
@@ -2096,9 +2112,7 @@ function actSetFestWeeklyDebugTop() {
             return database.ref('festWeeklyRecord/' + weekId + '/entries/' + pid).set({ streak: streak, name: name });
         });
     })).then(function(){
-        return database.ref('festWeeklyRecord/' + weekId + '/maxStreak').set(streak);
-    }).then(function(){
-        showCustomAlert('✅ 設定完了', weekId + '週（現在の⏰時間設定基準）の連勝王を ' + ids.join('、') + '（各' + streak + '連勝）に設定しました。<br>この状態を「先週分」として確認ポップアップでテストしたい場合は、⏰時間設定で来週以降の日時に設定してから「未送信の週間報酬を今すぐ確認」を押してください。');
+        showCustomAlert('✅ 設定完了', weekId + '週（現在の⏰時間設定基準）の連勝記録を ' + ids.join('、') + '（各' + streak + '連勝）に設定しました。「全プレイヤー」向けの表示（maxStreak）は書き換えていないので、実プレイヤーの画面には影響しません。<br>この状態を「先週分」として確認ポップアップでテストしたい場合は、⏰時間設定で来週以降の日時に設定してから「未送信の週間報酬を今すぐ確認」を押してください。');
     }).catch(function(e){
         showCustomAlert('❌ エラー', '設定に失敗しました。' + e.message);
     });
