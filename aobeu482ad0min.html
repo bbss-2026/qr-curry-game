@@ -127,6 +127,14 @@
 
     <div class="section">
         <div class="section-label">🧪 テスト用QR生成（任意の食材）</div>
+        <div style="font-size:12px;color:#888;margin-bottom:8px;">
+            スキャンするプレイヤーのボス撃破状況に合わせてチェックしてください（未撃破のボス限定食材はQRの抽選対象から外れるため、ここが実際の状況とズレると違う食材が出ます）。
+        </div>
+        <div style="font-size:13px;margin-bottom:8px;">
+            <label style="margin-right:14px;"><input type="checkbox" id="testQrChinUnlocked" checked onchange="populateTestQrItemSelect()"> レンチン玉子 撃破済み</label>
+            <label style="margin-right:14px;"><input type="checkbox" id="testQrAngelUnlocked" checked onchange="populateTestQrItemSelect()"> カレー天使ぴゃぁ 撃破済み</label>
+            <label><input type="checkbox" id="testQrBratUnlocked" checked onchange="populateTestQrItemSelect()"> 悪ガキサタン君 撃破済み</label>
+        </div>
         <select id="testQrItemSelect" style="width:100%;padding:8px;border:1px solid #b88742;border-radius:4px;font-size:13px;margin-bottom:8px;"></select>
         <button class="save-btn" style="background:#3498db;" onclick="actGenerateTestQr()">📱 QRコードを生成</button>
         <div id="testQrResult" style="text-align:center;margin-top:14px;"></div>
@@ -1665,14 +1673,40 @@ function loadInitialData() {
 
 // ============================================================
 // テスト用QR生成（game.htmlのprocessQRDataと同じロジックで、任意の食材が出る文字列を逆算）
+// ボス撃破限定食材（BOSS_UNLOCK_INGREDIENTS）はgame-source-work.js側と同じ定義を持つ。
+// 未撃破のボスの食材は抽選プールから除外されるため、ここがズレると別の食材が出てしまう
+// （実際に報告されたバグ：管理画面がプール構成の変化に追従できておらず古いままだった）。
 // ============================================================
+const BOSS_UNLOCK_INGREDIENTS = {
+    chinUnlocked: ["タマゴ", "うずら卵"],   // レンチン玉子撃破で解放
+    angelUnlocked: ["りんご", "バナナ"],     // カレー天使ぴゃぁ撃破で解放
+    bratUnlocked: ["ハラペーニョ", "パクチー"] // 悪ガキサタン君撃破で解放
+};
+// 現在チェックが外れている（＝未撃破と指定された）ボスの限定食材一覧を返す
+function getTestQrLockedOutItems() {
+    let excluded = [];
+    const chinEl = document.getElementById('testQrChinUnlocked');
+    const angelEl = document.getElementById('testQrAngelUnlocked');
+    const bratEl = document.getElementById('testQrBratUnlocked');
+    if(chinEl && !chinEl.checked) excluded = excluded.concat(BOSS_UNLOCK_INGREDIENTS.chinUnlocked);
+    if(angelEl && !angelEl.checked) excluded = excluded.concat(BOSS_UNLOCK_INGREDIENTS.angelUnlocked);
+    if(bratEl && !bratEl.checked) excluded = excluded.concat(BOSS_UNLOCK_INGREDIENTS.bratUnlocked);
+    return excluded;
+}
+// game-source-work.jsのprocessQRData内のallItems構築と完全に同じロジック（サフランはコイン交換専用のため常に除外）
+function getTestQrAllItems() {
+    const excluded = getTestQrLockedOutItems();
+    const normalItems = Object.keys(masterIngredients).filter(k => masterIngredients[k].shop === 0 && !excluded.includes(k));
+    const allItems = [...normalItems, ...Object.keys(masterSpices).filter(k => k !== "マンゴーチャツネ" && k !== "サフラン")];
+    return allItems;
+}
 function populateTestQrItemSelect() {
     const sel = document.getElementById('testQrItemSelect');
     if(!sel) return;
+    const prevValue = sel.value;
     sel.innerHTML = '';
-    // 通常の抽選対象（game.html側のallItemsと同じ構成）
-    const normalItems = Object.keys(masterIngredients).filter(k => masterIngredients[k].shop === 0);
-    const allItems = [...normalItems, ...Object.keys(masterSpices).filter(k => k !== "マンゴーチャツネ")];
+    // 通常の抽選対象（game.html側のallItemsと同じ構成。ボス限定食材はチェック状況に応じて除外）
+    const allItems = getTestQrAllItems();
     allItems.forEach(name => {
         const opt = document.createElement('option');
         opt.value = name; opt.innerText = name;
@@ -1684,11 +1718,12 @@ function populateTestQrItemSelect() {
         opt.value = label; opt.innerText = label;
         sel.appendChild(opt);
     });
+    // チェックボックス変更後も可能な限り選択中の項目を維持する
+    if(prevValue && Array.from(sel.options).some(o => o.value === prevValue)) sel.value = prevValue;
 }
 
 function findQrTextForItem(targetName) {
-    const normalItems = Object.keys(masterIngredients).filter(k => masterIngredients[k].shop === 0);
-    const allItems = [...normalItems, ...Object.keys(masterSpices).filter(k => k !== "マンゴーチャツネ")];
+    const allItems = getTestQrAllItems();
     const targetIdx = allItems.indexOf(targetName);
     if(targetIdx === -1) return null;
     // ランダムな文字列を生成し、文字コード合計が目的の食材になるものを探す（ブルートフォース）
