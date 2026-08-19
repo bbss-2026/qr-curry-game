@@ -206,8 +206,11 @@ const STORY_LIBRARY_ENABLED = true; // 図書館タブから全プレイヤー�
         return clamped;
     }
     // 今後の自動付与（QRスキャン・調理等）はここを通す。表記や通知は出さず、ひっそり増やすだけ。
+    // ただし、図書館で想いの欠片の説明を受け終える（オンボーディング完了＝ステージ4）前は、
+    // まだ何も知らない状態で裏側だけ貯まってしまうのを防ぐため一切加算しない。
     function addStoryKakera(n) {
         if (!n) return;
+        if (getKakeraOnboardStage() < 4) return;
         setStoryKakera(getStoryKakera() + n);
     }
     // 咖喱図書館側の演出として明示的に付与する場合（初回30個プレゼント等）は通知付き。
