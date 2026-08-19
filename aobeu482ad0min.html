@@ -168,6 +168,15 @@
     </div>
 
     <div class="section">
+        <div class="section-label">📚 未説明の想いの欠片チェック</div>
+        <div style="font-size:12px;color:#888;margin-bottom:8px;">
+            図書館で説明を受け終える（オンボーディング完了）前は想いの欠片が貯まらないよう修正済みですが、それより前にプレイしていた既存プレイヤーは裏側で貯まったままの場合があります。<br>
+            対象者（説明未完了なのに想いの欠片を保有）を確認し、必要なら0にリセットします。
+        </div>
+        <button class="save-btn" style="background:#8e44ad;width:100%;" onclick="actScanUnearnedKakera()">🔍 対象者を確認</button>
+    </div>
+
+    <div class="section">
         <div class="section-label">📮 お知らせ手紙の配信</div>
         <div style="font-size:12px;color:#888;margin-bottom:8px;">下書きを確認してから「全員に送信」または「個別に送信」を選んでください。</div>
         <select id="announceTemplateSelect" style="width:100%;padding:8px;border:1px solid #b88742;border-radius:4px;font-size:13px;margin-bottom:8px;" onchange="actLoadAnnounceTemplate()">
@@ -703,6 +712,57 @@ function actApplyResyncRequest(pid) {
             });
         }
     );
+}
+// ===== 未説明の想いの欠片チェック =====
+// story.js側の修正（オンボーディング完了＝storyKakeraOnboard>=4になるまでaddStoryKakera()が
+// 加算しないようにした）は今後の分にしか効かないため、それ以前にプレイしていたプレイヤーは
+// 図書館で説明を受けていないのに想いの欠片が裏側で貯まったままになっている場合がある。
+// ここでは対象者（storyKakeraOnboard < 4 かつ storyKakera > 0）を一覧表示し、確認の上でリセットする。
+function actScanUnearnedKakera() {
+    if (!database) { showCustomAlert("❌ エラー", "通信に問題があります。"); return; }
+    showCustomAlert("📥 読み込み中...", "全プレイヤーのデータを取得しています。しばらくお待ちください。");
+    database.ref('players').once('value').then(function(snap) {
+        const players = snap.val() || {};
+        const targets = [];
+        Object.keys(players).forEach(function(pid) {
+            if (isAdminSuperId(pid)) return; // 管理者アカウントは対象外（動作確認等で貯まっていても問題ないため）
+            const p = players[pid];
+            const sd = p && p.savedata;
+            if (!sd) return;
+            const kakera = parseInt(sd.storyKakera, 10) || 0;
+            const onboard = parseInt(sd.storyKakeraOnboard, 10) || 0;
+            if (kakera > 0 && onboard < 4) {
+                targets.push({ pid: pid, name: (sd.playerName || p.name || '(名前なし)'), kakera: kakera });
+            }
+        });
+        if (targets.length === 0) {
+            showCustomAlert('📚 未説明の想いの欠片チェック', '説明未完了なのに想いの欠片を保有しているプレイヤーはいませんでした。');
+            return;
+        }
+        targets.sort(function(a, b) { return b.kakera - a.kakera; });
+        const rows = targets.map(function(t) {
+            return '・' + t.name + '（' + t.pid + '）… ' + t.kakera + '個';
+        }).join('<br>');
+        showCustomConfirm(
+            '📚 未説明の想いの欠片（' + targets.length + '名）',
+            '<div style="text-align:left;max-height:50vh;overflow-y:auto;font-size:12px;">' + rows + '</div><br>この' + targets.length + '名の想いの欠片を0にリセットしますか？（オンボーディング進捗自体はそのままなので、次に図書館へ行けば通常通り説明→30個プレゼントの流れになります）',
+            function() { actResetUnearnedKakera(targets.map(function(t) { return t.pid; })); },
+            null,
+            '0にリセットする'
+        );
+    }).catch(function(e) {
+        showCustomAlert("❌ エラー", "取得に失敗しました: " + e.message);
+    });
+}
+function actResetUnearnedKakera(pids) {
+    if (!database || !pids || pids.length === 0) return;
+    const updates = {};
+    pids.forEach(function(pid) { updates['players/' + pid + '/savedata/storyKakera'] = '0'; });
+    database.ref().update(updates).then(function() {
+        showCustomAlert('✅ リセット完了', pids.length + '名の想いの欠片を0にリセットしました。');
+    }).catch(function(e) {
+        showCustomAlert('❌ エラー', 'リセットに失敗しました: ' + e.message);
+    });
 }
 // 内容を見て反映不要と判断した場合、依頼だけを削除する。
 function actDismissResyncRequest(pid) {
