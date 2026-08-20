@@ -617,6 +617,12 @@
         @keyframes tontonGlow { 0% { box-shadow: 0 0 5px #f39c12; } 50% { box-shadow: 0 0 20px #f39c12; } 100% { box-shadow: 0 0 5px #f39c12; } }
         .wave-box { animation: waveGlow 1.5s infinite; border: 3px solid #3498db !important; }
         @keyframes waveGlow { 0% { box-shadow: 0 0 5px #3498db; } 50% { box-shadow: 0 0 20px #1abc9c, 0 0 30px #3498db; } 100% { box-shadow: 0 0 5px #3498db; } }
+        .cheese-box { animation: cheeseGlow 1.5s infinite; border: 3px solid #f5c518 !important; }
+        @keyframes cheeseGlow { 0%,100% { box-shadow: 0 0 5px #f5c518; } 50% { box-shadow: 0 0 20px #fff3cd, 0 0 30px #f5c518; } }
+        .shrimp-box { animation: shrimpGlow 1.5s infinite; border: 3px solid #ff6b81 !important; }
+        @keyframes shrimpGlow { 0%,100% { box-shadow: 0 0 5px #ff6b81; } 50% { box-shadow: 0 0 20px #ff6b81, 0 0 30px #ffa502; } }
+        .banana-box { animation: bananaGlow 1.5s infinite; border: 3px solid #fbc531 !important; }
+        @keyframes bananaGlow { 0%,100% { box-shadow: 0 0 5px #fbc531; } 50% { box-shadow: 0 0 20px #6ab04c, 0 0 30px #fbc531; } }
         @keyframes resultPop {
             0% { transform: scale(0.3); opacity: 0; }
             60% { transform: scale(1.2); opacity: 1; }
@@ -1615,6 +1621,9 @@
             <div id="greencurryFlashText" style="color:#27ae60; font-weight:bold; font-size:16px; display:none;">🟢🌶️ 激辛エスニックの嵐！ヒリヒリ注意！ 🌶️🟢</div>
             <div id="tricaviarFlashText" style="color:#d4af37; font-weight:bold; font-size:16px; display:none;">👑 世界三大珍味が織りなす至高の一皿ざます！ 👑</div>
             <div id="kaitateFlashText" style="color:#3498db; font-weight:bold; font-size:16px; display:none;">🛡️ 貝殻が煌めく…頑丈な盾のカレー！ 🛡️</div>
+            <div id="cheeseFlashText" style="color:#f5c518; font-weight:bold; font-size:16px; display:none;">🧀 チーズまみれ！濃厚な香りが食欲をそそる！ 🧀</div>
+            <div id="shrimpFlashText" style="color:#ff6b81; font-weight:bold; font-size:16px; display:none;">🍤 小エビが元気よく跳ねまわる！ 🍤</div>
+            <div id="bananaFlashText" style="color:#fbc531; font-weight:bold; font-size:16px; display:none;">🍌 そんなバナナ〜！トラップ完成！ 🍌</div>
             <img id="curryVisualImg" src="" alt="" style="display:none; width:140px; height:140px; object-fit:contain; margin:0 auto 6px;">
             <div id="cookResultIcons" style="display:flex; flex-wrap:wrap; justify-content:center; gap:4px; margin-bottom:8px;"></div>
             <div style="font-size:18px; font-weight:bold; color:#c0392b; margin-bottom:10px;" id="curryName">未調理 of カレー</div>
@@ -1753,6 +1762,9 @@
                 <div id="festGreencurryFlashText" style="color:#27ae60; font-weight:bold; font-size:16px; display:none;">🟢🌶️ 激辛エスニックの嵐！ヒリヒリ注意！ 🌶️🟢</div>
                 <div id="festTricaviarFlashText" style="color:#d4af37; font-weight:bold; font-size:16px; display:none;">👑 世界三大珍味が織りなす至高の一皿ざます！ 👑</div>
                 <div id="festKaitateFlashText" style="color:#3498db; font-weight:bold; font-size:16px; display:none;">🛡️ 貝殻が煌めく…頑丈な盾のカレー！ 🛡️</div>
+                <div id="festCheeseFlashText" style="color:#f5c518; font-weight:bold; font-size:16px; display:none;">🧀 チーズまみれ！濃厚な香りが食欲をそそる！ 🧀</div>
+                <div id="festShrimpFlashText" style="color:#ff6b81; font-weight:bold; font-size:16px; display:none;">🍤 小エビが元気よく跳ねまわる！ 🍤</div>
+                <div id="festBananaFlashText" style="color:#fbc531; font-weight:bold; font-size:16px; display:none;">🍌 そんなバナナ〜！トラップ完成！ 🍌</div>
                 <img id="festCurryVisualImg" src="" alt="" style="display:none; width:140px; height:140px; object-fit:contain; margin:0 auto 6px;">
                 <div id="festCookResultIcons" style="display:flex; flex-wrap:wrap; justify-content:center; gap:4px; margin-bottom:8px;"></div>
                 <div style="font-size:18px; font-weight:bold; color:#ff998b; margin-bottom:10px;" id="festCurryName">未調理 of カレー</div>
@@ -2166,7 +2178,7 @@
         <div class="copyright-footer">©2026 Battle Curry All Rights Reserved.<br>QRコードは株式会社デンソーウェーブの登録商標です</div>
     </div>
 </div>
-<script src="game65.js?v=103"></script>
+<script src="game65.js?v=105"></script>
 <!-- 咖喱図書館（ストーリーモード）。図書館タブのボタン（openStoryLibrary()呼び出し）以外は
      game.html側を触る必要はない（詳細はstory.js冒頭コメント参照）。
      story-scripts.jsは各巻の本文データのみを持つファイル。本文の追加・修正はそちらの中身を

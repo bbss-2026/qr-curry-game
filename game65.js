@@ -2637,6 +2637,8 @@ function festApplyAllySpecialOnBattleStart() {
     }
     if(curry && curry.curHp > 0 && curry.isPoison) festInflictBattleStartStatus('poison');
     if(curry && curry.curHp > 0 && curry.isIllusion) festInflictBattleStartStatus('illusion');
+    // 🍌そんなバナナカレー：戦闘開始時にバナナトラップを設置（敵は毎ターン30%で行動不能）
+    if(curry && curry.curHp > 0 && curry.isBananaCurry) { festLogAppend('🍌バナナトラップが仕掛けられた🍌'); }
     // 戦闘不能（HP0）の仲間は特技を発動しない（festAllyHpがnullの場合は初期化前＝満タン扱いなので発動対象）
     const allyAlive = festHiredAllyName && (festAllyHp === null || festAllyHp > 0);
     const allyDef = allyAlive ? getFestAllyDef(festHiredAllyName) : null;
@@ -2720,6 +2722,10 @@ function festPlayerActAttack(unitType, curry, allyStats, callback) {
         if(curry.isSeed && Math.random() < 0.35) { festCurrySeedAttack(curry, done); return; }
         // 激辛グリーンカレー（isGreenCurry）：35%で敵全体に攻撃、反動で自分もダメージ（タッグ戦のヒリヒリクラッシュと同じ）
         if(curry.isGreenCurry && Math.random() < 0.35) { festCurryGreenAttack(curry, done); return; }
+        // 🧀チーズまみれカレー（isCheeseCurry）：30%でチーズキャノン（DEF無視、ATK1〜2倍ダメージ、単体）
+        if(curry.isCheeseCurry && Math.random() < 0.3) { festCurryCheeseAttack(curry, done); return; }
+        // 🍤小えびスピードカレー（isShrimpCurry）：50%で小エビよ！突撃だ！（ATKでなくSPDの数値で通常攻撃、単体）
+        if(curry.isShrimpCurry && Math.random() < 0.5) { festCurryShrimpAttack(curry, done); return; }
     }
     // 幻惑状態（敵「げそまきタコ助」の墨吐き幻惑で付与）：タッグ戦・敵側と同じミス判定
     if((unitType === 'curry' && festPlayerIlluded) || (unitType === 'ally' && festAllyIlluded)) {
@@ -2814,6 +2820,38 @@ function festCurryGreenAttack(curry, callback) {
     });
     festUpdateAllHpDisplays();
     setTimeout(done, battleDelay(900));
+}
+// 🧀チーズまみれカレー（isCheeseCurry）の特技：チーズキャノン（DEF無視でATK1〜2倍のダメージ、単体対象）
+function festCurryCheeseAttack(curry, callback) {
+    const done = callback || function(){};
+    const pick = pickLivingFestEnemyWithIdx();
+    if(!pick) { done(); return; }
+    const target = pick.enemy;
+    const atk = festCurryStatWithTableware(curry.atk, 'atk') * ((festPlayerAtkDownActive || festPlayerAtkDownTurns > 0) ? 0.7 : 1) + (festSpicyBuffActive ? 40 : 0);
+    const d = Math.round(atk * (1 + Math.random()));
+    target.curHp = Math.max(0, target.curHp - d);
+    festLogAppend('🧀 ' + playerName + ' の「チーズキャノン」！🔥 ' + target.name + 'にDEF無視' + d + 'ダメージ！');
+    playSoundEffect('sound/gankowari.mp3');
+    festTriggerDamagePop('enemy', pick.idx, d, '#f1c40f');
+    festUpdateAllHpDisplays();
+    setTimeout(done, battleDelay(700));
+}
+// 🍤小えびスピードカレー（isShrimpCurry）の特技：小エビよ！突撃だ！（通常攻撃をATKではなくSPDの数値で行う、単体対象）
+function festCurryShrimpAttack(curry, callback) {
+    const done = callback || function(){};
+    const pick = pickLivingFestEnemyWithIdx();
+    if(!pick) { done(); return; }
+    const target = pick.enemy;
+    const spd = festCurryStatWithTableware(curry.spd, 'spd');
+    const isCrit = Math.random() < getCritRate(spd, target.spd);
+    let d = isCrit ? Math.max(8, Math.round(spd)) : Math.max(8, Math.round(spd) - Math.floor(target.def/2));
+    d = Math.round(d * (0.9 + Math.random()*0.2));
+    target.curHp = Math.max(0, target.curHp - d);
+    festLogAppend((isCrit ? '🌶️ Spicy Hit!!!! ' : '🦐 ') + playerName + ' の「小エビよ！突撃だ！」！ ' + target.name + 'に' + d + 'ダメージ');
+    playSoundEffect('sound/ryusuikarei.mp3');
+    festTriggerDamagePop('enemy', pick.idx, d, isCrit ? '#ff4500' : '#f1c40f');
+    festUpdateAllHpDisplays();
+    setTimeout(done, battleDelay(700));
 }
 // 攻撃側（自分のカレー or 雇用中の仲間）が肉系かどうかを判定（陽だまり野菜のご隠居のmeatResistant判定で使用）
 function festIsAttackerMeatBased(unitType, curry) {
@@ -3053,6 +3091,13 @@ function festAllyUseNamedSkill(allyDef, allyStats, callback) {
     });
 }
 function festEnemyActAttackSimple(e, curry, allyStats) {
+    // 🍌そんなバナナカレー：バナナトラップにより30%で行動不能
+    if(curry && curry.isBananaCurry && Math.random() < 0.3) {
+        festLogAppend('🍌 ' + e.name + 'はバナナトラップにかかってしまった！');
+        festLogAppend('🍌 そんなバナナ〜🍌');
+        playSoundEffect('sound/manuke.mp3');
+        return;
+    }
     const targets = [];
     if(curry && curry.curHp > 0) targets.push({ type:'curry', idx:0 });
     if(allyStats && festAllyHp > 0) targets.push({ type:'ally', idx:1 });
@@ -3093,6 +3138,14 @@ function festEnemySkillAnimConfig(e) {
 }
 function festEnemyActAttack(e, curry, allyStats, enemyIdx, callback) {
     const done = callback || function(){};
+    // 🍌そんなバナナカレー：バナナトラップにより30%で行動不能
+    if(curry && curry.isBananaCurry && Math.random() < 0.3) {
+        festLogAppend('🍌 ' + e.name + 'はバナナトラップにかかってしまった！');
+        festLogAppend('🍌 そんなバナナ〜🍌');
+        playSoundEffect('sound/manuke.mp3');
+        done();
+        return;
+    }
     // 宮廷カレー長「宮廷流水花麗」で付与されたskipNextTurn：この行動を消費して1回休みにする
     if(e.skipNextTurn) {
         e.skipNextTurn = false;
@@ -12322,6 +12375,10 @@ function launchTagBattle(myCurry, deliveryCand, enemies) {
                 }
             }
         }
+        // 🍌そんなバナナカレー：戦闘開始時にバナナトラップを設置（敵は毎ターン30%で行動不能）
+        if(f.curry && f.curry.isBananaCurry) {
+            openingLogs.push(`🍌バナナトラップが仕掛けられた🍌`);
+        }
     });
     // 戦闘開始時：敵側（毒舌料理人ミスズ／イカ星人グニョグニョ）が自分側に毒・幻惑を付与
     enemyTeam.forEach(ef => {
@@ -12614,6 +12671,52 @@ function tagExecuteAction(actor, myTeam, enemyTeam, callback) {
         setTimeout(callback, tagDelay(900));
         return;
     }
+    if(curry.isCheeseCurry && Math.random() < 0.3) {
+        // 🧀チーズまみれカレー専用特技「チーズキャノン」：DEF無視でATK1〜2倍のダメージ（単体対象）
+        const targetChe = tagPickRandomAliveTarget(enemyTeam);
+        if(!targetChe) { callback(); return; }
+        tagLogAppend(`🧀 ${actor.name} の「チーズキャノン」！`);
+        if(targetChe.curry && targetChe.curry.isHomerun && isHomerunReflect(targetChe.spd, actor.spd)) {
+            tagLogAppend(`🏏 ${targetChe.name} がホームラン！チーズキャノンを打ち返して無効化！`);
+            playBattleSkillAnimation(getHomerunConfig(targetChe.name), function() { callback(); });
+            return;
+        }
+        const dChe = Math.round(actor.atk * (1 + Math.random()));
+        targetChe.hp = Math.max(0, targetChe.hp - dChe);
+        tagTriggerDamagePop('enemy', targetChe.idx, dChe, '#f1c40f');
+        playSoundEffect('sound/gankowari.mp3');
+        tagLogAppend(`🔥 ${targetChe.name}にDEF無視${dChe}ダメージ！`);
+        if(targetChe.hp <= 0) tagLogAppend(`💀 ${targetChe.name} はダウン！`);
+        setTimeout(callback, tagDelay(700));
+        return;
+    }
+    if(curry.isShrimpCurry && Math.random() < 0.5) {
+        // 🍤小えびスピードカレー専用特技「小エビよ！突撃だ！」：通常攻撃をATKではなくSPDの数値で行う（単体対象）
+        const targetShr = tagPickRandomAliveTarget(enemyTeam);
+        if(!targetShr) { callback(); return; }
+        if(targetShr.curry && targetShr.curry.isKaiTate && rollShieldGuard(targetShr.curry.spd)) {
+            playSoundEffect('sound/guard.mp3');
+            tagTriggerDamagePop('enemy', targetShr.idx, 'Guard', '#3498db');
+            tagLogAppend(`🛡️ ${targetShr.name} が攻撃を貝の盾でガードした。`);
+            callback();
+            return;
+        }
+        tagLogAppend(`🦐 ${actor.name} の「小エビよ！突撃だ！」！`);
+        const isCritShr = Math.random() < getCritRate(actor.spd, targetShr.spd);
+        let dShr = isCritShr ? Math.max(8, actor.spd) : Math.max(8, actor.spd - Math.floor(targetShr.def/2));
+        dShr = Math.round(dShr * (0.9 + Math.random()*0.2));
+        let tagFluffyBlockedShr = false;
+        if(targetShr.fluffyCategory && curryHasCategory(curry, targetShr.fluffyCategory)) { dShr = Math.round(dShr * 0.7); tagFluffyBlockedShr = true; }
+        targetShr.hp = Math.max(0, targetShr.hp - dShr);
+        tagTriggerDamagePop('enemy', targetShr.idx, dShr, isCritShr ? '#ff4500' : '#f1c40f');
+        playSoundEffect('sound/ryusuikarei.mp3');
+        if(isCritShr) tagLogAppend(`🌶️ Spicy Hit!!!! ${targetShr.name}に${dShr}ダメージ`);
+        else tagLogAppend(`${targetShr.name}に${dShr}ダメージ`);
+        if(tagFluffyBlockedShr) tagLogAppend(`🥚 ${getBarrierLabel(targetShr.curry)}により${FLUFFY_CATEGORY_LABEL_T[targetShr.fluffyCategory]}からの攻撃を軽減`);
+        if(targetShr.hp <= 0) tagLogAppend(`💀 ${targetShr.name} はダウン！`);
+        setTimeout(callback, tagDelay(700));
+        return;
+    }
     // 通常攻撃（わんぱくならダメージ倍率増加）
     const target = tagPickRandomAliveTarget(enemyTeam);
     if(!target) { callback(); return; }
@@ -12684,6 +12787,14 @@ function tagExecuteEnemyAction(actor, myTeam, enemyTeam, callback) {
 function tagExecuteEnemyActionImpl(actor, myTeam, enemyTeam, callback) {
     const bot = actor.bot;
     const effect = actor.specialEffect;
+    // 🍌そんなバナナカレー：プレイヤー側の誰かが仕掛けたバナナトラップに30%でかかり、このターンは行動不能
+    if(myTeam.some(f => f.hp > 0 && f.curry && f.curry.isBananaCurry) && Math.random() < 0.3) {
+        tagLogAppend(`🍌 ${actor.name}はバナナトラップにかかってしまった！`);
+        tagLogAppend(`🍌 そんなバナナ〜🍌`);
+        playSoundEffect('sound/manuke.mp3');
+        setTimeout(callback, tagDelay(700));
+        return;
+    }
     // 幻惑ミス判定（敵が幻惑にかかっている場合）
     if(actor.isIlluded) {
         const aliveMySpd = myTeam.filter(f => f.hp > 0).map(f => f.spd);
