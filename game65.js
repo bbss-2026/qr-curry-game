@@ -3989,15 +3989,15 @@ function festCookCurryFinish(i1,i2,i3,sp) {
     if(sp) festSpiceInventory[sp]--;
     const newCurry = buildCurryFromMaterials([i1,i2,i3], sp);
     newCurry.curHp = newCurry.hp; // Phase3：戦闘をまたいでHPを持ち越すための現在HP（調理直後は満タン）
-    const { name: cName, hp, atk, def, spd, isPoison, hasGold, isMargherita, isTonTonTon, isSeafood, isIllusion, isSticky, isSeed, isWanpaku, isRatatouille, isHomerun, isPoisonApple, isFluffyOmelette, isGreenCurry, isTriCaviar, isKaiTate, isCritical, materials: acts } = newCurry;
+    const { name: cName, hp, atk, def, spd, isPoison, hasGold, isMargherita, isTonTonTon, isSeafood, isIllusion, isSticky, isSeed, isWanpaku, isRatatouille, isHomerun, isPoisonApple, isFluffyOmelette, isGreenCurry, isTriCaviar, isKaiTate, isCheeseCurry, isShrimpCurry, isBananaCurry, isCritical, materials: acts } = newCurry;
 
     festCurryStock.push(newCurry);
     festCookSelectedIngredients = []; festCookSelectedSpice = "";
     saveFestState();
 
     const resultBox = document.getElementById("festResultBox");
-    ['gold-box','wave-box','critical-box','poison-box','poisonapple-box','margherita-box','tonton-box','illusion-box','sticky-box','seed-box','wanpaku-box','ratatouille-box','homerun-box','fluffyomelette-box','greencurry-box','tricaviar-box','kaitate-box'].forEach(c => resultBox.classList.remove(c));
-    ['festGoldFlashText','festWaveFlashText','festCriticalFlashText','festPoisonFlashText','festPoisonappleFlashText','festMargheritaFlashText','festTontonFlashText','festIllusionFlashText','festStickyFlashText','festSeedFlashText','festWanpakuFlashText','festRatatouilleFlashText','festHomerunFlashText','festFluffyomeletteFlashText','festGreencurryFlashText','festTricaviarFlashText','festKaitateFlashText'].forEach(function(id){ const el=document.getElementById(id); if(el) el.style.display='none'; });
+    ['gold-box','wave-box','critical-box','poison-box','poisonapple-box','margherita-box','tonton-box','illusion-box','sticky-box','seed-box','wanpaku-box','ratatouille-box','homerun-box','fluffyomelette-box','greencurry-box','tricaviar-box','kaitate-box','cheese-box','shrimp-box','banana-box'].forEach(c => resultBox.classList.remove(c));
+    ['festGoldFlashText','festWaveFlashText','festCriticalFlashText','festPoisonFlashText','festPoisonappleFlashText','festMargheritaFlashText','festTontonFlashText','festIllusionFlashText','festStickyFlashText','festSeedFlashText','festWanpakuFlashText','festRatatouilleFlashText','festHomerunFlashText','festFluffyomeletteFlashText','festGreencurryFlashText','festTricaviarFlashText','festKaitateFlashText','festCheeseFlashText','festShrimpFlashText','festBananaFlashText'].forEach(function(id){ const el=document.getElementById(id); if(el) el.style.display='none'; });
 
     if(hasGold) { resultBox.classList.add("gold-box"); document.getElementById("festGoldFlashText").style.display="block"; }
     if(isSeafood) { resultBox.classList.add("wave-box"); document.getElementById("festWaveFlashText").style.display="block"; }
@@ -4018,6 +4018,9 @@ function festCookCurryFinish(i1,i2,i3,sp) {
     else if(isGreenCurry) { resultBox.classList.add("greencurry-box"); const el=document.getElementById("festGreencurryFlashText"); if(el) el.style.display="block"; }
     else if(isTriCaviar) { resultBox.classList.add("tricaviar-box"); const el=document.getElementById("festTricaviarFlashText"); if(el) el.style.display="block"; }
     else if(isKaiTate) { resultBox.classList.add("kaitate-box"); const el=document.getElementById("festKaitateFlashText"); if(el) el.style.display="block"; }
+    else if(isCheeseCurry) { resultBox.classList.add("cheese-box"); const el=document.getElementById("festCheeseFlashText"); if(el) el.style.display="block"; }
+    else if(isShrimpCurry) { resultBox.classList.add("shrimp-box"); const el=document.getElementById("festShrimpFlashText"); if(el) el.style.display="block"; }
+    else if(isBananaCurry) { resultBox.classList.add("banana-box"); const el=document.getElementById("festBananaFlashText"); if(el) el.style.display="block"; }
 
     const _resultSounds = function() {
         if(isTriCaviar)          { playSoundEffect('healing.mp3'); }
@@ -4033,6 +4036,9 @@ function festCookCurryFinish(i1,i2,i3,sp) {
         else if(isSeed)          { playSoundEffect('sound/syakin.mp3'); }
         else if(isIllusion)      { playSoundEffect('sound/syakin.mp3'); }
         else if(isKaiTate)       { playSoundEffect('sound/syakin.mp3'); }
+        else if(isCheeseCurry)   { playSoundEffect('sound/syakin.mp3'); }
+        else if(isShrimpCurry)   { playSoundEffect('sound/syakin.mp3'); }
+        else if(isBananaCurry)   { playSoundEffect('sound/syakin.mp3'); }
         else if(isSeafood)       { playSoundEffect('sound/syakin.mp3'); }
         else if(isCritical)      { playSoundEffect('sound/syakin.mp3'); }
         else if(hasGold)         { playSoundEffect('sound/kinpaku.mp3'); }
@@ -10702,20 +10708,20 @@ function cookCurry() {
     if(i1) inventory[i1]--; if(i2) inventory[i2]--; if(i3) inventory[i3]--; if(sp) inventory[sp]--;
     // カレーの計算（強さ・特殊効果・名前）は共通関数に一本化。今後の新カレー追加はbuildCurryFromMaterialsだけ直せばよい
     const newCurry = buildCurryFromMaterials([i1, i2, i3], sp);
-    const { name: cName, visual: vis, hp, atk, def, spd, isPoison, hasGold, isMargherita, isTonTonTon, isSeafood, isIllusion, isSticky, isSeed, isWanpaku, isRatatouille, isHomerun, isPoisonApple, isFluffyOmelette, isGreenCurry, isTriCaviar, isKaiTate, isCritical, materials: acts } = newCurry;
+    const { name: cName, visual: vis, hp, atk, def, spd, isPoison, hasGold, isMargherita, isTonTonTon, isSeafood, isIllusion, isSticky, isSeed, isWanpaku, isRatatouille, isHomerun, isPoisonApple, isFluffyOmelette, isGreenCurry, isTriCaviar, isKaiTate, isCheeseCurry, isShrimpCurry, isBananaCurry, isCritical, materials: acts } = newCurry;
 
     const rKey=[...acts, sp].filter(Boolean).sort().join("+");
     if(!recipeBook[rKey]) { recipeBook[rKey]={name:cName, visual:vis, materials:acts.length?acts:["なし"], spice:sp||""}; pruneRecipeBook(); }
     window.__lastCookedRecipeKey = rKey; // お気に入り登録ボタン用に直近のレシピキーを保持
 
-    document.getElementById("resultBox").classList.remove("critical-box","poison-box","gold-box","margherita-box","tonton-box","wave-box","illusion-box","sticky-box","seed-box","wanpaku-box","ratatouille-box","homerun-box","poisonapple-box","fluffyomelette-box","greencurry-box","kaitate-box");
-    ["criticalFlashText","poisonFlashText","goldFlashText","margheritaFlashText","tontonFlashText","waveFlashText","illusionFlashText","stickyFlashText","seedFlashText","wanpakuFlashText","ratatouilleFlashText","homerunFlashText","poisonappleFlashText","fluffyomeletteFlashText","greencurryFlashText","kaitateFlashText"].forEach(id=>{ const el=document.getElementById(id); if(el) el.style.display="none"; });
+    document.getElementById("resultBox").classList.remove("critical-box","poison-box","gold-box","margherita-box","tonton-box","wave-box","illusion-box","sticky-box","seed-box","wanpaku-box","ratatouille-box","homerun-box","poisonapple-box","fluffyomelette-box","greencurry-box","kaitate-box","cheese-box","shrimp-box","banana-box");
+    ["criticalFlashText","poisonFlashText","goldFlashText","margheritaFlashText","tontonFlashText","waveFlashText","illusionFlashText","stickyFlashText","seedFlashText","wanpakuFlashText","ratatouilleFlashText","homerunFlashText","poisonappleFlashText","fluffyomeletteFlashText","greencurryFlashText","kaitateFlashText","cheeseFlashText","shrimpFlashText","bananaFlashText"].forEach(id=>{ const el=document.getElementById(id); if(el) el.style.display="none"; });
 
     // 重複OK演出：金箔・海鮮・会心
     // 前回の特殊演出をリセット
     const resultBox = document.getElementById("resultBox");
-    ['gold-box','wave-box','critical-box','poison-box','poisonapple-box','margherita-box','tonton-box','illusion-box','sticky-box','seed-box','wanpaku-box','ratatouille-box','homerun-box','fluffyomelette-box','greencurry-box','tricaviar-box','kaitate-box'].forEach(c => resultBox.classList.remove(c));
-    ['goldFlashText','waveFlashText','criticalFlashText','poisonFlashText','poisonappleFlashText','margheritaFlashText','tontonFlashText','illusionFlashText','stickyFlashText','seedFlashText','wanpakuFlashText','ratatouilleFlashText','homerunFlashText','fluffyomeletteFlashText','greencurryFlashText','tricaviarFlashText','kaitateFlashText'].forEach(id => { const el=document.getElementById(id); if(el) el.style.display='none'; });
+    ['gold-box','wave-box','critical-box','poison-box','poisonapple-box','margherita-box','tonton-box','illusion-box','sticky-box','seed-box','wanpaku-box','ratatouille-box','homerun-box','fluffyomelette-box','greencurry-box','tricaviar-box','kaitate-box','cheese-box','shrimp-box','banana-box'].forEach(c => resultBox.classList.remove(c));
+    ['goldFlashText','waveFlashText','criticalFlashText','poisonFlashText','poisonappleFlashText','margheritaFlashText','tontonFlashText','illusionFlashText','stickyFlashText','seedFlashText','wanpakuFlashText','ratatouilleFlashText','homerunFlashText','fluffyomeletteFlashText','greencurryFlashText','tricaviarFlashText','kaitateFlashText','cheeseFlashText','shrimpFlashText','bananaFlashText'].forEach(id => { const el=document.getElementById(id); if(el) el.style.display='none'; });
 
     if(hasGold) { document.getElementById("resultBox").classList.add("gold-box"); document.getElementById("goldFlashText").style.display="block"; }
     if(isSeafood) { document.getElementById("resultBox").classList.add("wave-box"); document.getElementById("waveFlashText").style.display="block"; }
@@ -10737,6 +10743,9 @@ function cookCurry() {
     else if(isGreenCurry) { document.getElementById("resultBox").classList.add("greencurry-box"); const el=document.getElementById("greencurryFlashText"); if(el) el.style.display="block"; }
     else if(isTriCaviar) { document.getElementById("resultBox").classList.add("tricaviar-box"); const el=document.getElementById("tricaviarFlashText"); if(el) el.style.display="block"; }
     else if(isKaiTate) { document.getElementById("resultBox").classList.add("kaitate-box"); const el=document.getElementById("kaitateFlashText"); if(el) el.style.display="block"; }
+    else if(isCheeseCurry) { document.getElementById("resultBox").classList.add("cheese-box"); const el=document.getElementById("cheeseFlashText"); if(el) el.style.display="block"; }
+    else if(isShrimpCurry) { document.getElementById("resultBox").classList.add("shrimp-box"); const el=document.getElementById("shrimpFlashText"); if(el) el.style.display="block"; }
+    else if(isBananaCurry) { document.getElementById("resultBox").classList.add("banana-box"); const el=document.getElementById("bananaFlashText"); if(el) el.style.display="block"; }
 
     // 効果音：調理アニメ中は背景フェード後に鳴らすために保留
     const _resultSounds = function() {
@@ -10754,6 +10763,9 @@ function cookCurry() {
         else if(isSeed)          { playSoundEffect('sound/syakin.mp3'); }
         else if(isIllusion)      { playSoundEffect('sound/syakin.mp3'); }
         else if(isKaiTate)       { playSoundEffect('sound/syakin.mp3'); }
+        else if(isCheeseCurry)   { playSoundEffect('sound/syakin.mp3'); }
+        else if(isShrimpCurry)   { playSoundEffect('sound/syakin.mp3'); }
+        else if(isBananaCurry)   { playSoundEffect('sound/syakin.mp3'); }
         else if(isSeafood)       { playSoundEffect('sound/syakin.mp3'); }
         else if(isCritical)      { playSoundEffect('sound/syakin.mp3'); }
         else if(hasGold)         { playSoundEffect('sound/kinpaku.mp3'); }
@@ -13917,6 +13929,8 @@ function launchEventBattle(myC, startHp) {
         log.innerHTML += `\n🥚 ${playerName} は${getBarrierLabel(myC)}により${FLUFFY_CATEGORY_LABEL_E[myFluffyCategoryE]}からの攻撃を軽減する！`;
         setTimeout(()=>{ playSoundEffect('healing.mp3'); triggerFluffyBarrierEffect('player'); }, 900);
     }
+    // 🍌そんなバナナカレー：戦闘開始時にバナナトラップを設置（ボスは毎ターン30%で行動不能）
+    if(myC.isBananaCurry){ log.innerHTML += `\n🍌バナナトラップが仕掛けられた🍌`; }
     battleLogHistory.push(log.innerHTML.replace(/<br\s*\/?>/gi, "\n"));
 
     stopBattleBGM();
@@ -14707,7 +14721,10 @@ function startBattleScene(oppN, oppC, myC) {
         setTimeout(()=>{ playSoundEffect('healing.mp3'); triggerFluffyBarrierEffect('enemy'); }, battleStartDelay);
         battleStartDelay += 1200;
     }
-    if(myC.isPoison || oppC.isPoison || myC.isIllusion || oppC.isIllusion || myFluffyCategoryB || oppFluffyCategoryB) {
+    // 🍌そんなバナナカレー：戦闘開始時にバナナトラップを設置（相手は毎ターン30%で行動不能）
+    if(myC.isBananaCurry){ log.innerHTML+=`\n🍌バナナトラップが仕掛けられた🍌`; battleStartDelay += 1200; }
+    if(oppC.isBananaCurry){ log.innerHTML+=`\n🍌バナナトラップが仕掛けられた🍌`; battleStartDelay += 1200; }
+    if(myC.isPoison || oppC.isPoison || myC.isIllusion || oppC.isIllusion || myFluffyCategoryB || oppFluffyCategoryB || myC.isBananaCurry || oppC.isBananaCurry) {
         battleLogHistory.push(log.innerHTML.replace(/<br\s*\/?>/gi, "\n"));
     }
 
