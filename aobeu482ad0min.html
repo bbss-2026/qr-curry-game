@@ -77,34 +77,11 @@
         <button style="background:#2980b9;" onclick="actShowSyncErrors()">🔄 同期エラーログ</button>
         <button style="background:#922b21;" onclick="actShowFraudAlerts()">🚩 不正検知アラート</button>
         <button style="background:#7f8c8d;" onclick="actResetSyncSeal()">🔧 syncSeal/scanSealリセット（1人）</button>
-        <button style="background:#6d4c1c;" onclick="actResetFestGlobalRecord()">🏆 全プレイヤー最高連勝記録リセット</button>
         <button style="background:#c0392b;" onclick="actDebugModeReleaseAll()">🔓 デバッグモード全解除</button>
-        <button style="background:#27ae60;" onclick="actCheckAuthMigrationStatus()">🔑 UID移行状況を確認</button>
         <button style="background:#16a085;" onclick="actResetPlayerUidClaim()">🔓 UID紐付けをリセット（1人）</button>
-        <button style="background:#c0392b;" onclick="actMigratePasswordSecretsToPlayerSecrets()">🔐 パスワード/secretKeyの移行（全員一括）</button>
-        <button style="background:#8e44ad;" onclick="actAnalyticsIntegrityCheck()">📐 アナリティクス整合性チェック</button>
         <button style="background:#e67e22;" onclick="actToggleAnalyticsExclusion()">🚫 アナリティクス除外設定</button>
         <button style="background:#c0392b;" onclick="actExcludeKnownSuspiciousAccounts()">🚫 不正疑い3キャラを除外</button>
-        <button style="background:#7f0000;" onclick="actResetScanCookBattleAnalytics()">🗑️ スキャン/調理/バトルをリセット</button>
-        <button style="background:#2c3e50;" onclick="actMigrateStatsToObject()">🛠️ statsをオブジェクト形式へ移行</button>
         <button style="background:#d35400;" onclick="actShowResyncRequests()">📥 再同期依頼を確認</button>
-    </div>
-
-    <div class="section">
-        <div class="section-label">🎁 特別ボーナス補充</div>
-        <div class="input-grid">
-            <div><label>ノーマル素材(個)</label><input type="number" id="sbNormalCount" min="0" placeholder="0"></div>
-            <div><label>中級/高級素材(個)</label><input type="number" id="sbMidHighCount" min="0" placeholder="0"></div>
-            <div><label>ノーマルスパイス(個)</label><input type="number" id="sbSpiceCount" min="0" placeholder="0"></div>
-            <div><label>ゴールド(G)</label><input type="number" id="sbGold" min="0" placeholder="0"></div>
-            <div><label>パック券(枚)</label><input type="number" id="sbTicket" min="0" placeholder="0"></div>
-            <div><label>スパイシーコイン(枚)</label><input type="number" id="sbSpicyCoin" min="0" placeholder="0"></div>
-        </div>
-        <div class="btn-row">
-            <button style="background:#d35400;" onclick="actSpecialBonusAll()">🌍 全体補充</button>
-            <button style="background:#c0392b;" onclick="actSpecialBonusIndiv()">👤 個別補充（ID指定）</button>
-        </div>
-        <div class="hint">全体補充: 上記の数値で「特別ボーナス」を更新し、全員の受取状況をリセットします。<br>個別補充: 上記の数値を、入力したIDのプレイヤーに直接プレゼントします（特別ボーナスには影響しません）。</div>
     </div>
 
     <div class="section">
@@ -148,16 +125,6 @@
     </div>
 
     <div class="section">
-        <div class="section-label">🏆 特盛りモンスター討伐報酬 クイック送信（浪花のカレーライスベイビー）</div>
-        <div style="font-size:12px;color:#888;margin-bottom:8px;">
-            BC-VJZQQGEZ（1位）とBC-GJPGTMTN（2位）に、討伐報酬のお知らせ手紙を次回ログイン時受信で送信します。<br>
-            添付：💰2000G、🌶️スパイシーコイン1枚、特別アイコン（myimageicon/mayimage12.jpg）／開封後1週間で自動削除。
-        </div>
-        <button class="save-btn" style="background:#e67e22;width:100%;" onclick="actSendTokumori001Rewards()">🏆 1位・2位に送信</button>
-        <button class="save-btn" style="background:#7f8c8d;width:100%;margin-top:8px;" onclick="actClearTokumori001Mail()">🧹 同じ件名の手紙を全部削除（新規送信なし）</button>
-    </div>
-
-    <div class="section">
         <div class="section-label">🎪 カレーフェス週間連勝報酬</div>
         <div style="font-size:12px;color:#888;margin-bottom:8px;">
             毎週日曜0:00〜土曜23:59（JST）の連勝記録トップのプレイヤーに、次回ログイン時受信で報酬（🍥食品サンプル3個・開封後3日で自動削除）を送信します。<br>
@@ -165,15 +132,6 @@
         </div>
         <button class="save-btn" style="background:#3498db;width:100%;" onclick="checkFestWeeklyRewardPending()">🔄 未送信の週間報酬を今すぐ確認</button>
         <button class="save-btn" style="background:#7f8c8d;width:100%;margin-top:8px;" onclick="actSetFestWeeklyDebugTop()">🔧 デバッグ：今週の連勝王を設定</button>
-    </div>
-
-    <div class="section">
-        <div class="section-label">📚 未説明の想いの欠片チェック</div>
-        <div style="font-size:12px;color:#888;margin-bottom:8px;">
-            図書館で説明を受け終える（オンボーディング完了）前は想いの欠片が貯まらないよう修正済みですが、それより前にプレイしていた既存プレイヤーは裏側で貯まったままの場合があります。<br>
-            対象者（説明未完了なのに想いの欠片を保有）を確認し、必要なら0にリセットします。
-        </div>
-        <button class="save-btn" style="background:#8e44ad;width:100%;" onclick="actScanUnearnedKakera()">🔍 対象者を確認</button>
     </div>
 
     <div class="section">
@@ -713,57 +671,6 @@ function actApplyResyncRequest(pid) {
         }
     );
 }
-// ===== 未説明の想いの欠片チェック =====
-// story.js側の修正（オンボーディング完了＝storyKakeraOnboard>=4になるまでaddStoryKakera()が
-// 加算しないようにした）は今後の分にしか効かないため、それ以前にプレイしていたプレイヤーは
-// 図書館で説明を受けていないのに想いの欠片が裏側で貯まったままになっている場合がある。
-// ここでは対象者（storyKakeraOnboard < 4 かつ storyKakera > 0）を一覧表示し、確認の上でリセットする。
-function actScanUnearnedKakera() {
-    if (!database) { showCustomAlert("❌ エラー", "通信に問題があります。"); return; }
-    showCustomAlert("📥 読み込み中...", "全プレイヤーのデータを取得しています。しばらくお待ちください。");
-    database.ref('players').once('value').then(function(snap) {
-        const players = snap.val() || {};
-        const targets = [];
-        Object.keys(players).forEach(function(pid) {
-            if (isAdminSuperId(pid)) return; // 管理者アカウントは対象外（動作確認等で貯まっていても問題ないため）
-            const p = players[pid];
-            const sd = p && p.savedata;
-            if (!sd) return;
-            const kakera = parseInt(sd.storyKakera, 10) || 0;
-            const onboard = parseInt(sd.storyKakeraOnboard, 10) || 0;
-            if (kakera > 0 && onboard < 4) {
-                targets.push({ pid: pid, name: (sd.playerName || p.name || '(名前なし)'), kakera: kakera });
-            }
-        });
-        if (targets.length === 0) {
-            showCustomAlert('📚 未説明の想いの欠片チェック', '説明未完了なのに想いの欠片を保有しているプレイヤーはいませんでした。');
-            return;
-        }
-        targets.sort(function(a, b) { return b.kakera - a.kakera; });
-        const rows = targets.map(function(t) {
-            return '・' + t.name + '（' + t.pid + '）… ' + t.kakera + '個';
-        }).join('<br>');
-        showCustomConfirm(
-            '📚 未説明の想いの欠片（' + targets.length + '名）',
-            '<div style="text-align:left;max-height:50vh;overflow-y:auto;font-size:12px;">' + rows + '</div><br>この' + targets.length + '名の想いの欠片を0にリセットしますか？（オンボーディング進捗自体はそのままなので、次に図書館へ行けば通常通り説明→30個プレゼントの流れになります）',
-            function() { actResetUnearnedKakera(targets.map(function(t) { return t.pid; })); },
-            null,
-            '0にリセットする'
-        );
-    }).catch(function(e) {
-        showCustomAlert("❌ エラー", "取得に失敗しました: " + e.message);
-    });
-}
-function actResetUnearnedKakera(pids) {
-    if (!database || !pids || pids.length === 0) return;
-    const updates = {};
-    pids.forEach(function(pid) { updates['players/' + pid + '/savedata/storyKakera'] = '0'; });
-    database.ref().update(updates).then(function() {
-        showCustomAlert('✅ リセット完了', pids.length + '名の想いの欠片を0にリセットしました。');
-    }).catch(function(e) {
-        showCustomAlert('❌ エラー', 'リセットに失敗しました: ' + e.message);
-    });
-}
 // 内容を見て反映不要と判断した場合、依頼だけを削除する。
 function actDismissResyncRequest(pid) {
     if (!database) return;
@@ -771,48 +678,6 @@ function actDismissResyncRequest(pid) {
         database.ref('resyncRequests/' + pid).remove().then(function() {
             showCustomAlert('✅ 削除完了', '破棄しました。');
         });
-    });
-}
-
-// セキュリティルール強化（UIDによる所有権チェック）への移行状況を確認する。
-// 「players/{ID}/uid」が設定済み＝そのプレイヤーは新しいコードで一度アクセス済み（所有権確定済み）を意味する。
-// 未設定のまま残っているプレイヤーは、新しいgame-dev.html/admin.htmlを読み込むまで
-// クラウド同期の書き込みが失敗する可能性がある（ローカルのプレイ自体はできる）。
-// 3人の管理者IDが未確定のままだと、ルール適用直後は一度admin.htmlを開き直すまで管理者権限が使えないので、
-// ここが✅になっているかを必ず確認してからルールを適用すること。
-function actCheckAuthMigrationStatus() {
-    if (!database) { showCustomAlert("❌ エラー", "通信に問題があります。"); return; }
-    showCustomAlert("🔑 読み込み中...", "UID移行状況を確認しています。");
-    database.ref('players').once('value').then(function(snap) {
-        const players = snap.val() || {};
-        const ids = Object.keys(players);
-        let claimed = 0, unclaimed = 0;
-        const unclaimedList = [];
-        ids.forEach(function(pid) {
-            if (players[pid] && players[pid].uid) claimed++;
-            else { unclaimed++; unclaimedList.push(pid); }
-        });
-        let adminRows = '';
-        ADMIN_SUPER_IDS.forEach(function(pid) {
-            const ok = !!(players[pid] && players[pid].uid);
-            adminRows += '<div style="padding:3px 0;font-size:12px;">'
-                + (ok ? '✅' : '❌') + ' ' + pid + (ok ? ' （claim済み）' : ' （未claim・要ログイン）')
-                + '</div>';
-        });
-        const pct = ids.length > 0 ? Math.round(claimed / ids.length * 100) : 100;
-        const readyForRules = ADMIN_SUPER_IDS.every(function(pid) { return !!(players[pid] && players[pid].uid); });
-        const html = '<div style="text-align:left;max-height:65vh;overflow-y:auto;">'
-            + '<div style="font-size:13px;font-weight:bold;margin-bottom:8px;">全プレイヤー: ' + ids.length + '人 中 ' + claimed + '人がclaim済み（' + pct + '%）</div>'
-            + '<div style="font-size:13px;font-weight:bold;margin:10px 0 4px;">管理者3IDのclaim状況（これが全部✅ならルール適用OK）</div>'
-            + adminRows
-            + (readyForRules
-                ? '<div style="margin-top:12px;padding:8px;background:#eafaf1;border-radius:6px;color:#1a6e3c;font-size:12px;font-weight:bold;">✅ 管理者3人はclaim済みです。ルールを適用しても管理者ツールがロックされることはありません。</div>'
-                : '<div style="margin-top:12px;padding:8px;background:#fdecea;border-radius:6px;color:#c0392b;font-size:12px;font-weight:bold;">⚠️ まだclaimしていない管理者IDがあります。該当の管理者がこのadmin.html（新しい方）を一度開いてから、ルールを適用してください。</div>')
-            + '<div style="margin-top:10px;font-size:11px;color:#888;">※一般プレイヤーは未claimでも問題ありません。新しいgame-dev.htmlを開いた時点で自動的にclaimされます（ルール適用前でも後でも可）。未claimのまま残るのは、まだ新しいコードを一度も読み込んでいない端末です。</div>'
-            + '</div>';
-        showCustomAlert('🔑 UID移行状況', html);
-    }).catch(function(e) {
-        showCustomAlert("❌ エラー", "取得に失敗しました: " + e.message);
     });
 }
 
@@ -894,19 +759,6 @@ function actResetSyncSeal() {
     });
 }
 
-// 全プレイヤー最高連勝記録（festGlobalRecord/maxStreak）のリセット。
-// 個々のプレイヤーの記録（savedata.stats.festBestStreak等）には一切触れない。
-// リセット後、次に誰かがフェスで1勝でもすれば、その時点の連勝数がそのまま新しい全体記録として書き込まれる。
-function actResetFestGlobalRecord() {
-    if (!database) { showCustomAlert("❌ エラー", "通信に問題があります。"); return; }
-    if (!confirm("⚠️ 全プレイヤー最高連勝記録（フェス）をリセットします。\n個々のプレイヤーの記録は消えません。\nよろしいですか？")) return;
-    database.ref('festGlobalRecord/maxStreak').remove().then(function() {
-        showCustomAlert('✅ リセット完了', '全プレイヤー最高連勝記録をリセットしました。<br>個々のプレイヤーの記録には影響ありません。');
-    }).catch(function(e) {
-        showCustomAlert('❌ エラー', 'リセットに失敗しました: ' + e.message);
-    });
-}
-
 // ブラウザのプライベートブラウズ・ストレージ削除・アプリ内ブラウザ等が原因で、
 // 認証状態が引き継がれず「uidが紐付いているのに現在のセッションのUIDと一致しない」ために
 // クラウド同期（savedataの書き込み）が失敗し続けているプレイヤーを救済する。
@@ -934,95 +786,6 @@ function actResetPlayerUidClaim() {
             null,
             '解除する'
         );
-    }).catch(function(e) {
-        showCustomAlert("❌ エラー", "取得に失敗しました: " + e.message);
-    });
-}
-
-// アナリティクスの全体カウンター（scan.total / cook.total）は、各プレイヤーのstats.scanTotal / stats.cookTotalと
-// 「本来のプレイで増えるときは必ず同時に+1される」実装になっている（incrementGlobalStat）。
-// そのため、全プレイヤーのstats合計と全体カウンターを突き合わせれば、
-// 直接Firebaseに書き込むタイプの不正（今回のイベントダメージ改ざんと同じ手口）があったかどうかを検出できる。
-// ※battleカウンターは敗北も数えるため、totalWins（勝利数のみ）との単純比較はできない。参考値として表示するのみ。
-function actAnalyticsIntegrityCheck() {
-    if (!database) { showCustomAlert("❌ エラー", "通信に問題があります。"); return; }
-    showCustomAlert("📐 読み込み中...", "全プレイヤーのデータを集計しています。");
-    Promise.all([
-        database.ref('players').once('value'),
-        database.ref('analytics').once('value')
-    ]).then(function(results) {
-        const players = results[0].val() || {};
-        const analytics = results[1].val() || {};
-        let sumScan = 0, sumCook = 0, sumWins = 0, playerCount = 0;
-        const outliers = [];
-        Object.keys(players).forEach(function(pid) {
-            // 管理者アカウントはテスト操作（アイテム全補充・QR生成テスト等）で個人統計だけが伸びやすく、
-            // かつデバッグモード中は全体カウンターに反映されない仕様のため、集計・突出検出の対象から除外する。
-            if (isAdminSuperId(pid)) return;
-            const sd = players[pid] && players[pid].savedata;
-            if (!sd) return;
-            let stats = {};
-            try { stats = typeof sd.stats === 'string' ? JSON.parse(sd.stats) : (sd.stats || {}); } catch(e) {}
-            const scanTotal = stats.scanTotal || 0;
-            const cookTotal = stats.cookTotal || 0;
-            playerCount++;
-            sumScan += scanTotal;
-            sumCook += cookTotal;
-            sumWins += (stats.totalWins || 0);
-            // 突出して多いプレイヤー（不正の疑いがある個別アカウント）を検出する目安として表示
-            if (scanTotal >= 300 || cookTotal >= 300) {
-                outliers.push({ pid: pid, name: (players[pid].name || '名無し'), scanTotal: scanTotal, cookTotal: cookTotal });
-            }
-        });
-        const scanG = (analytics.scan && analytics.scan.total) || 0;
-        const cookG = (analytics.cook && analytics.cook.total) || 0;
-        const battleG = ((analytics.battle && analytics.battle.bot) || 0) + ((analytics.battle && analytics.battle.hard) || 0) + ((analytics.battle && analytics.battle.tag) || 0) + ((analytics.battle && analytics.battle.room) || 0);
-
-        function diffRow(label, sumVal, globalVal) {
-            const diff = globalVal - sumVal;
-            const suspicious = globalVal > 0 && diff > Math.max(10, globalVal * 0.1);
-            return '<div style="padding:6px 0;border-bottom:1px solid #eee;font-size:12px;">'
-                + '<div style="font-weight:bold;color:#420000;">' + label + '</div>'
-                + '<div>全プレイヤーstats合計: <b>' + sumVal + '</b> ／ 全体カウンター: <b>' + globalVal + '</b></div>'
-                + '<div style="' + (suspicious ? 'color:#c0392b;font-weight:bold;' : 'color:#2e8b6f;') + '">差分: ' + diff + (suspicious ? '　⚠️ 直接改ざんの疑いあり' : '　（誤差範囲）') + '</div>'
-                + '</div>';
-        }
-
-        let outlierHtml = '';
-        if (outliers.length > 0) {
-            outliers.sort(function(a,b){ return (b.scanTotal + b.cookTotal) - (a.scanTotal + a.cookTotal); });
-            outlierHtml = '<div style="font-size:13px;font-weight:bold;margin:12px 0 4px;">突出して多い個別プレイヤー（scan/cookが300以上）</div>'
-                + outliers.map(function(o) {
-                    return '<div style="padding:3px 0;font-size:12px;">' + o.name + ' <span style="color:#999;">(' + o.pid + ')</span>　scan:' + o.scanTotal + ' / cook:' + o.cookTotal + '</div>';
-                }).join('');
-        }
-
-        const html = '<div style="text-align:left;max-height:65vh;overflow-y:auto;">'
-            + '<div style="font-size:11px;color:#888;margin-bottom:8px;">対象: ' + playerCount + '人分のセーブデータ</div>'
-            + diffRow('📷 QRスキャン合計', sumScan, scanG)
-            + diffRow('🍛 調理合計', sumCook, cookG)
-            + '<div style="padding:6px 0;border-bottom:1px solid #eee;font-size:12px;">'
-            + '<div style="font-weight:bold;color:#420000;">⚔️ バトル実施数（参考）</div>'
-            + '<div>全プレイヤー勝利数合計: <b>' + sumWins + '</b> ／ バトル実施カウンター(bot+hard+tag+room): <b>' + battleG + '</b></div>'
-            + '<div style="color:#888;">※敗北分も数えるため単純比較はできません。実施数が勝利数より極端に大きい分には正常です。</div>'
-            + '</div>'
-            + outlierHtml
-            + '<div style="margin-top:10px;font-size:11px;color:#888;">⚠️の項目は「全体カウンターが個人の合計より明らかに多い」＝ゲームプレイを経由せず直接Firebaseの数値を書き換えた可能性を示します。修正する場合は下のボタンで、全体カウンターを「全プレイヤーstats合計」の値に置き換えられます。</div>'
-            + '</div>';
-
-        const btnGroup2 = function() {
-            showCustomConfirm('📐 アナリティクス整合性チェック', html, function() {
-                const updates = {};
-                updates['analytics/scan/total'] = sumScan;
-                updates['analytics/cook/total'] = sumCook;
-                database.ref().update(updates).then(function() {
-                    showCustomAlert('✅ 修正完了', 'scan.total を ' + sumScan + '、cook.total を ' + sumCook + ' に修正しました。<br>※normal/bonus/rareなどの内訳は個別データを持たないため修正できません。');
-                }).catch(function(e) {
-                    showCustomAlert('❌ エラー', '修正に失敗しました: ' + e.message);
-                });
-            }, null, '合計値に修正する');
-        };
-        btnGroup2();
     }).catch(function(e) {
         showCustomAlert("❌ エラー", "取得に失敗しました: " + e.message);
     });
@@ -1057,123 +820,6 @@ function actToggleAnalyticsExclusion() {
     }).catch(function(e) {
         showCustomAlert("❌ エラー", "取得に失敗しました: " + e.message);
     });
-}
-
-// アナリティクスの「QRスキャン」「調理」「バトル」の内訳（合計を含む）をまとめてリセットする。
-// 内訳（通常/ボーナス/レア、カレー種別ごと、バトル種別ごと）は個人データ側に対応する回数が残っておらず、
-// 不正3キャラの寄与分だけを正確に差し引くことも、改ざん前の値に戻すこともできないため、
-// ユーザーの判断で「直近14日アクセス」以外のscan/cook/battleを丸ごと0から再集計する。
-function actResetScanCookBattleAnalytics() {
-    if (!database) { showCustomAlert("❌ エラー", "通信に問題があります。"); return; }
-    showCustomConfirm(
-        '🗑️ スキャン/調理/バトルをリセット',
-        'アナリティクスの「QRスキャン」「調理」「バトル」（内訳・合計とも全項目）を0にリセットします。<br>「直近14日アクセス」は対象外で、そのまま残ります。<br><br>この操作は元に戻せません。よろしいですか？',
-        function() {
-            Promise.all([
-                database.ref('analytics/scan').remove(),
-                database.ref('analytics/cook').remove(),
-                database.ref('analytics/battle').remove()
-            ]).then(function() {
-                showCustomAlert('✅ リセット完了', 'QRスキャン・調理・バトルのアナリティクスをリセットしました。今後の集計は0から再スタートします。');
-            }).catch(function(e) {
-                showCustomAlert('❌ エラー', 'リセットに失敗しました: ' + e.message);
-            });
-        },
-        null,
-        'リセットする'
-    );
-}
-
-// 不正対策の一環：savedata.statsを文字列(JSON)から、Firebaseルールで項目ごとに増加量を検証できる
-// 通常のオブジェクト形式へ、既存プレイヤー全員分まとめて移行する（1回限りの移行用ツール）。
-// これまで players/{id}/password と players/{id}/secretKey は「players」ノード自体が
-// 誰でも認証なしで読み取れる（.read: true）設定だったため、IDさえ分かれば第三者が
-// 平文パスワード・secretKeyを直接読み取れてしまう状態だった（ルールは祖先が許可した読み取りを
-// 子要素側で後から制限できないため、players配下に置く限り保護不可能）。
-// ルールをplayerSecrets/{id}という別ノードに移し、本人（uid一致）または管理者のみ読み取り可能に
-// 変更したが、これは「今後の新規書き込み」にしか効かないため、既存プレイヤー分は
-// このボタンで一括移行（コピー後、players側の値を削除）する必要がある。
-function actMigratePasswordSecretsToPlayerSecrets() {
-    if (!database) { showCustomAlert("❌ エラー", "通信に問題があります。"); return; }
-    showCustomConfirm(
-        '🔐 パスワード/secretKeyの移行',
-        '全プレイヤーの players/{id}/password と secretKey を、公開読み取りされない playerSecrets/{id} 側へ移行します。<br>移行後、players側からは削除されるため、以後は第三者から読み取れなくなります。<br><br>実行しますか？',
-        function() {
-            showCustomAlert("🔐 移行中...", "プレイヤーデータを取得しています。しばらくお待ちください。");
-            database.ref('players').once('value').then(function(snap) {
-                const players = snap.val() || {};
-                const pids = Object.keys(players);
-                let migrated = 0, skipped = 0, failed = 0;
-                const failedIds = [];
-                const tasks = pids.map(function(pid) {
-                    const p = players[pid] || {};
-                    if (!p.password && !p.secretKey) { skipped++; return Promise.resolve(); }
-                    const updates = {};
-                    if (p.password) { updates['playerSecrets/' + pid + '/password'] = p.password; }
-                    if (p.secretKey) { updates['playerSecrets/' + pid + '/secretKey'] = p.secretKey; }
-                    updates['players/' + pid + '/password'] = null;
-                    updates['players/' + pid + '/secretKey'] = null;
-                    return database.ref().update(updates).then(function() {
-                        migrated++;
-                    }).catch(function(e) {
-                        failed++; failedIds.push(pid + '(' + e.message + ')');
-                    });
-                });
-                Promise.all(tasks).then(function() {
-                    const msg = '移行完了: ' + migrated + '件<br>'
-                        + '対象外（元々無し）: ' + skipped + '件<br>'
-                        + '失敗: ' + failed + '件'
-                        + (failedIds.length ? '<br><span style="color:#e74c3c;font-size:11px;">' + failedIds.join('<br>') + '</span>' : '');
-                    showCustomAlert('✅ 移行結果', msg);
-                });
-            }).catch(function(e) {
-                showCustomAlert("❌ エラー", "取得に失敗しました: " + e.message);
-            });
-        },
-        null,
-        '移行する'
-    );
-}
-
-function actMigrateStatsToObject() {
-    if (!database) { showCustomAlert("❌ エラー", "通信に問題があります。"); return; }
-    showCustomConfirm(
-        '🛠️ stats移行',
-        '全プレイヤーの savedata.stats を文字列形式からオブジェクト形式へ変換します。<br>既にオブジェクト形式の場合はスキップします。<br><br>実行しますか？',
-        function() {
-            showCustomAlert("🛠️ 移行中...", "プレイヤーデータを取得しています。しばらくお待ちください。");
-            database.ref('players').once('value').then(function(snap) {
-                const players = snap.val() || {};
-                const pids = Object.keys(players);
-                let migrated = 0, skippedNoSavedata = 0, alreadyObject = 0, failed = 0;
-                const failedIds = [];
-                const tasks = pids.map(function(pid) {
-                    const sd = players[pid].savedata;
-                    if (!sd) { skippedNoSavedata++; return Promise.resolve(); }
-                    if (typeof sd.stats !== 'string') { alreadyObject++; return Promise.resolve(); }
-                    let parsed;
-                    try { parsed = JSON.parse(sd.stats || '{}'); } catch (e) { parsed = {}; }
-                    return database.ref('players/' + pid + '/savedata/stats').set(parsed).then(function() {
-                        migrated++;
-                    }).catch(function(e) {
-                        failed++; failedIds.push(pid + '(' + e.message + ')');
-                    });
-                });
-                Promise.all(tasks).then(function() {
-                    const msg = '移行完了: ' + migrated + '件<br>'
-                        + '既にオブジェクト形式: ' + alreadyObject + '件<br>'
-                        + 'savedataなし(対象外): ' + skippedNoSavedata + '件<br>'
-                        + '失敗: ' + failed + '件'
-                        + (failedIds.length ? '<br><span style="color:#e74c3c;font-size:11px;">' + failedIds.join('<br>') + '</span>' : '');
-                    showCustomAlert('✅ 移行結果', msg);
-                });
-            }).catch(function(e) {
-                showCustomAlert("❌ エラー", "取得に失敗しました: " + e.message);
-            });
-        },
-        null,
-        '移行する'
-    );
 }
 
 // 特盛りイベントで不正なダメージ改ざんが確認された3アカウントを一括でアナリティクス除外にする。
@@ -1339,6 +985,9 @@ function actAnalytics() {
         const html = '<div style="text-align:left;max-height:60vh;overflow-y:auto;">'
             + '<div style="margin-bottom:8px;font-size:12px;color:#888;">※同じキャラクター（ID）の同日アクセスは1回として集計</div>'
 
+            + section('📅 直近14日アクセス（日本時間・タップで詳細）')
+            + dailyRows
+
             + section('📷 QRスキャン')
             + row('通常スキャン', scan.normal)
             + row('ボーナス(3個入手)', scan.bonus)
@@ -1364,6 +1013,7 @@ function actAnalytics() {
             + row('🟢 激辛グリーン', cook.greencurry)
             + row('👑 世界三大珍味', cook.tricaviar)
             + row('🛡️ 貝の盾', cook.kaitate)
+            + row('⛩️ 京野菜', cook.kyoyasai)
 
             + section('⚔️ バトル')
             + row('PC戦（初級）', battle.bot)
@@ -1371,9 +1021,6 @@ function actAnalytics() {
             + row('タッグ戦', battle.tag)
             + row('ルーム対戦', battle.room)
             + row('🎪 フェス参加（対戦数ではなく参加回数）', battle.festJoin)
-
-            + section('📅 直近14日アクセス（日本時間・タップで詳細）')
-            + dailyRows
             + '</div>';
 
         showCustomAlert('📊 アナリティクス', html);
@@ -1614,47 +1261,6 @@ function editEventPlayerDamage(eventKey, pid, currentDmg, name) {
             showCustomAlert("✅ 設定完了", name + " の総ダメージを " + newDmg + " に設定しました。", function(){ actEventDamage(); });
         });
     }, 300);
-}
-
-function actSpecialBonusAll() {
-    if(!database) { showCustomAlert("❌ エラー", "通信に問題があります。"); return; }
-    const normalCount = parseInt(document.getElementById("sbNormalCount").value, 10) || 0;
-    const midHighCount = parseInt(document.getElementById("sbMidHighCount").value, 10) || 0;
-    const spiceCount = parseInt(document.getElementById("sbSpiceCount").value, 10) || 0;
-    const gold = parseInt(document.getElementById("sbGold").value, 10) || 0;
-    const ticket = parseInt(document.getElementById("sbTicket").value, 10) || 0;
-    const spicyCoin = parseInt(document.getElementById("sbSpicyCoin").value, 10) || 0;
-    database.ref('specialBonus').once('value').then(function(snap){
-        const cur = snap.val();
-        const newVersion = (cur && cur.version ? cur.version : 0) + 1;
-        database.ref('specialBonus').set({
-            version: newVersion, normalCount: normalCount, midHighCount: midHighCount,
-            spiceCount: spiceCount, gold: gold, ticket: ticket, spicyCoin: spicyCoin, updatedAt: Date.now()
-        }).then(function(){
-            showCustomAlert("✅ 全体補充完了", "特別ボーナスを更新しました（v" + newVersion + "）。<br>全プレイヤーが再度受け取れます。");
-        });
-    });
-}
-
-function actSpecialBonusIndiv() {
-    if(!database) { showCustomAlert("❌ エラー", "通信に問題があります。"); return; }
-    const normalCount = parseInt(document.getElementById("sbNormalCount").value, 10) || 0;
-    const midHighCount = parseInt(document.getElementById("sbMidHighCount").value, 10) || 0;
-    const spiceCount = parseInt(document.getElementById("sbSpiceCount").value, 10) || 0;
-    const gold = parseInt(document.getElementById("sbGold").value, 10) || 0;
-    const ticket = parseInt(document.getElementById("sbTicket").value, 10) || 0;
-    const spicyCoin = parseInt(document.getElementById("sbSpicyCoin").value, 10) || 0;
-    const targetId = prompt("👤 プレゼントするプレイヤーのIDを入力してください（例: BC-XXXXXXXX）");
-    if(!targetId) return;
-    database.ref('players/' + targetId).once('value').then(function(snap){
-        if(!snap.exists()) { showCustomAlert("❌ エラー", "そのIDのプレイヤーは見つかりません。"); return; }
-        database.ref('giftQueue/' + targetId).push({
-            normalCount: normalCount, midHighCount: midHighCount, spiceCount: spiceCount,
-            gold: gold, ticket: ticket, spicyCoin: spicyCoin, grantedAt: Date.now()
-        }).then(function(){
-            showCustomAlert("✅ 個別補充完了", "ID: " + targetId + " にプレゼントを送りました。<br>次回そのプレイヤーがアクセスした際に反映されます。");
-        });
-    });
 }
 
 // 咖喱図書館の進行状況をリセットする。対象プレイヤーのsavedataを直接上書きすると、
@@ -2045,66 +1651,6 @@ function clearAnnounceForm() {
     document.getElementById('announceRewardIcon').value = '';
     document.getElementById('announceTargetId').value = '';
     document.getElementById('announcePreviewArea').innerHTML = '';
-}
-// 特盛りモンスター（第1弾・浪花のカレーライスベイビー）討伐報酬のクイック送信：1位・2位に個別送信
-// 同じ件名の古い（不具合のあった）未受領の手紙があれば、先に取り消してから新しい手紙を送信する。
-// 取り消しは「今回新しく送るannounceQueueのID」を明示的に除外対象として渡すID指定方式にしており、
-// 端末間の時刻ズレなどに関わらず、新しい手紙が誤って消されることがない。
-// 同じ件名（特盛りモンスター討伐報酬）の手紙を、新規送信を伴わずに全部削除する（残留したクリーンアップ専用）。
-// exceptAnnounceIdをnullにすることで、既に届いている手紙（受け取り済みのものも含む）を全て対象にする。
-function actClearTokumori001Mail() {
-    if(!database) return;
-    const recipients = ['BC-VJZQQGEZ', 'BC-GJPGTMTN'];
-    const SUBJECT = '特盛りモンスター討伐報酬';
-    showCustomConfirm('🧹 手紙を削除', 'BC-VJZQQGEZ・BC-GJPGTMTNに届いている「' + SUBJECT + '」件名の手紙を、次回ログイン時に全て削除します（新しい手紙は送信しません）。<br><br>本当によろしいですか？', function(){
-        const ops = recipients.map(function(id){
-            return database.ref('mailRevokeQueue/' + id).push({ subject: SUBJECT, exceptAnnounceId: null });
-        });
-        Promise.all(ops).then(function(){
-            showCustomAlert('✅ 完了', '両プレイヤーの次回ログイン時に削除されます。');
-        }).catch(function(e){
-            showCustomAlert('❌ エラー', '失敗しました。' + e.message);
-        });
-    });
-}
-function actSendTokumori001Rewards() {
-    if(!database) return;
-    const recipients = [
-        { id: 'BC-VJZQQGEZ', rank: 1 },
-        { id: 'BC-GJPGTMTN', rank: 2 }
-    ];
-    const SUBJECT = '特盛りモンスター討伐報酬';
-    const bodyFor = function(rank) {
-        return '浪花のカレーライスベイビー\nダメージランキング\n第' + rank + '位 おめでとうございます。\n特別報酬をお送りいたします。\n討伐にご協力いただき、ありがとうございました。';
-    };
-    showCustomConfirm('🏆 討伐報酬を送信', 'BC-VJZQQGEZ（1位）とBC-GJPGTMTN（2位）に、特盛りモンスター討伐報酬のお知らせ手紙を送信します。<br>同じ件名の古い手紙が届いていれば、先に取り消してから送信します。<br><br>本当によろしいですか？', function(){
-        const ops = recipients.map(function(r){
-            // announceQueueの新しいキーを先に確定させる（.push()はキーを同期的に発行できる）
-            const newRef = database.ref('announceQueue/' + r.id).push();
-            // 取り消しコマンド：件名が一致する手紙のうち、今回発行したnewRef.key以外を削除する
-            return database.ref('mailRevokeQueue/' + r.id).push({ subject: SUBJECT, exceptAnnounceId: newRef.key }).then(function(){
-                const data = {
-                    subject: SUBJECT,
-                    body: bodyFor(r.rank),
-                    image: null,
-                    imageBottom: null, imageBottomUrl: null, imageBottom2: null, imageBottomUrl2: null,
-                    expireMinutesAfterRead: 10080, // 1週間
-                    rewardGold: 2000,
-                    rewardPack: 0,
-                    rewardSpicyCoin: 1,
-                    rewardIcon: 'myimageicon/mayimage12.jpg',
-                    rewardItems: [],
-                    createdAt: Date.now()
-                };
-                return newRef.set(data);
-            });
-        });
-        Promise.all(ops).then(function(){
-            showCustomAlert('✅ 送信完了', 'BC-VJZQQGEZ（1位）・BC-GJPGTMTN（2位）に、古い手紙の取り消し＋新しい手紙の送信を行いました。');
-        }).catch(function(e){
-            showCustomAlert('❌ エラー', '送信に失敗しました。' + e.message);
-        });
-    });
 }
 // ===== カレーフェス週間連勝報酬 =====
 // game-source-work.js側のFEST_ADMIN_EXCLUDED_IDSと同じ、開発・検証用の管理者3キャラ。
