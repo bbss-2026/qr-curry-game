@@ -83,6 +83,11 @@
             0%, 100% { opacity: 1; }
             50% { opacity: 0.4; }
         }
+        .room-recruit-banner {
+            display: none; text-align: center; font-size: 12px; font-weight: bold;
+            color: #ffffff; background: #3498db; padding: 8px 12px; margin: 0 16px 8px;
+            border-radius: 4px; animation: lunchtimeBlink 2.2s ease-in-out infinite;
+        }
         #questGuideChar {
             position: fixed; right: 12px; bottom: 12px; width: 144.5px; z-index: 500;
             display: none; transform: translateY(210px); transition: transform 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
@@ -1168,6 +1173,7 @@
         </button>
     </div>
     <div class="lunchtime-banner" id="lunchtimeBanner">🍛 ランチタイムボーナス発生中 QR入手アイテム2倍 🍛</div>
+    <div class="room-recruit-banner" id="roomRecruitBanner" onclick="switchTab('battle', null)" style="cursor:pointer;">⚔️ 対戦相手募集中のプレイヤーがいます ⚔️</div>
 
 
     
@@ -2178,7 +2184,7 @@
         <div class="copyright-footer">©2026 Battle Curry All Rights Reserved.<br>QRコードは株式会社デンソーウェーブの登録商標です</div>
     </div>
 </div>
-<script src="game.js?v=105"></script>
+<script src="game.js?v=106"></script>
 <!-- 咖喱図書館（ストーリーモード）。図書館タブのボタン（openStoryLibrary()呼び出し）以外は
      game.html側を触る必要はない（詳細はstory.js冒頭コメント参照）。
      story-scripts.jsは各巻の本文データのみを持つファイル。本文の追加・修正はそちらの中身を
