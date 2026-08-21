@@ -1495,6 +1495,13 @@
             </div>
         </div>
     </div>
+    <!-- 対戦ルーム：対戦相手を待っています（募集取消し or 対戦相手が見つかるまで消えないモーダル） -->
+    <div class="modal-overlay" id="waitingArea" style="display:none;">
+        <div class="modal-box" style="max-width:320px; text-align:center;">
+            <div class="modal-title" style="color:#e67e22;">対戦相手を待っています...</div>
+            <button class="btn btn-cancel" onclick="cancelMatchRoom()" style="width:100%; margin-top:12px;">募集を取り消す</button>
+        </div>
+    </div>
     <!-- 日替わりカレー -->
     <div id="dailyCurryFullscreen" class="tutorial-fullscreen">
         <div class="tutorial-header">
@@ -2045,10 +2052,6 @@
                     <div id="roomListArea" style="font-size:13px; color:#7f8c8d;">部屋を読み込み中...</div>
                 </div>
             </div>
-            <div id="waitingArea" style="display:none; padding:20px; background:#fff; border:2px solid #e67e22; border-radius:10px; text-align:center;">
-                <h3 style="color:#e67e22;">対戦相手を待っています...</h3>
-                <button class="btn btn-cancel" onclick="cancelMatchRoom()" style="width:100%;">募集を取り消す</button>
-            </div>
         </div>
         <div id="battleArena" style="display:none;">
             <div class="battle-stage" id="battleStage">
@@ -2184,7 +2187,7 @@
         <div class="copyright-footer">©2026 Battle Curry All Rights Reserved.<br>QRコードは株式会社デンソーウェーブの登録商標です</div>
     </div>
 </div>
-<script src="game.js?v=108"></script>
+<script src="game.js?v=109"></script>
 <!-- 咖喱図書館（ストーリーモード）。図書館タブのボタン（openStoryLibrary()呼び出し）以外は
      game.html側を触る必要はない（詳細はstory.js冒頭コメント参照）。
      story-scripts.jsは各巻の本文データのみを持つファイル。本文の追加・修正はそちらの中身を
