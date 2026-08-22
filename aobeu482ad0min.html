@@ -128,10 +128,12 @@
         <div class="section-label">🎪 カレーフェス週間連勝報酬</div>
         <div style="font-size:12px;color:#888;margin-bottom:8px;">
             毎週日曜0:00〜土曜23:59（JST）の連勝記録トップのプレイヤーに、次回ログイン時受信で報酬（🍥食品サンプル3個・開封後3日で自動削除）を送信します。<br>
-            管理ツールを開いたとき、および開いたまま10分ごとに、先週分が未送信であれば自動で確認ポップアップが出ます（⏰時間設定で仮想時刻がONの場合はその時刻を基準に判定します）。
+            管理ツールを開いたとき、および開いたまま10分ごとに、先週分が未送信であれば自動で確認ポップアップが出ます（⏰時間設定で仮想時刻がONの場合はその時刻を基準に判定します）。<br>
+            <span style="color:#c0392b;">⚠️ ⏰時間設定（仮想時刻）を使ってこの機能をテストする際、まだ本当に終わっていない実際の週を「先週」と誤認識させると、その週の実データに「送信済み」フラグが本番投入されてしまい、実際の週終了時に本物の受賞者へ送信されなくなります。テストは必ず来週以降の未来日時で行ってください。</span>
         </div>
         <button class="save-btn" style="background:#3498db;width:100%;" onclick="checkFestWeeklyRewardPending(true)">🔄 未送信の週間報酬を今すぐ確認</button>
         <button class="save-btn" style="background:#7f8c8d;width:100%;margin-top:8px;" onclick="actSetFestWeeklyDebugTop()">🔧 デバッグ：今週の連勝王を設定</button>
+        <button class="save-btn" style="background:#c0392b;width:100%;margin-top:8px;" onclick="actResetFestWeeklyRewardSent()">🔧 rewardSentフラグをリセット（誤って立った送信済みフラグの解除）</button>
     </div>
 
     <div class="section">
@@ -1781,6 +1783,25 @@ function actSetFestWeeklyDebugTop() {
     }).catch(function(e){
         showCustomAlert('❌ エラー', '設定に失敗しました。' + e.message);
     });
+}
+// 誤って（主に⏰時間設定を使ったテスト中に、本当はまだ終わっていない実際の週を「先週」と
+// 誤認識させてしまったことで）rewardSentがtrueのまま立ってしまった週を、未送信状態に戻す。
+// これにより、その週の本当の最終結果（週が実際に終わった後の実データ）に基づいて
+// checkFestWeeklyRewardPending()が改めて受賞者を計算し直し、確認ポップアップを出せるようになる。
+// 注意：もし過去に本当に実在プレイヤーへ送信済みだった場合、リセット後にもう一度「今すぐ確認」から
+// 送信すると同じ人に重複送信することになるので、本当に送信されていないか（該当プレイヤーの
+// ゲーム内お知らせ受信箱など）を確認してから使うこと。
+function actResetFestWeeklyRewardSent() {
+    if(!database) return;
+    const weekId = prompt('rewardSentフラグをリセットする週ID（YYYY-MM-DD＝その週の日曜日の日付）を入力してください', getPrevFestWeekId());
+    if(!weekId) return;
+    showCustomConfirm('⚠️ rewardSentフラグのリセット確認', weekId + '週の「送信済み」フラグを未送信状態に戻します。<br>本当にまだ実在プレイヤーへ送信されていないことを確認済みですか？（既に送信済みの場合、再送信すると重複送信になります）', function(){
+        database.ref('festWeeklyRecord/' + weekId + '/rewardSent').set(false).then(function(){
+            showCustomAlert('✅ 完了', weekId + '週のrewardSentフラグをリセットしました。「未送信の週間報酬を今すぐ確認」から改めて内容を確認してください。');
+        }).catch(function(e){
+            showCustomAlert('❌ エラー', 'リセットに失敗しました。' + e.message);
+        });
+    }, null, 'リセットする');
 }
 
 function actSendAnnounceToAll() {
