@@ -130,7 +130,7 @@
             毎週日曜0:00〜土曜23:59（JST）の連勝記録トップのプレイヤーに、次回ログイン時受信で報酬（🍥食品サンプル3個・開封後3日で自動削除）を送信します。<br>
             管理ツールを開いたとき、および開いたまま10分ごとに、先週分が未送信であれば自動で確認ポップアップが出ます（⏰時間設定で仮想時刻がONの場合はその時刻を基準に判定します）。
         </div>
-        <button class="save-btn" style="background:#3498db;width:100%;" onclick="checkFestWeeklyRewardPending()">🔄 未送信の週間報酬を今すぐ確認</button>
+        <button class="save-btn" style="background:#3498db;width:100%;" onclick="checkFestWeeklyRewardPending(true)">🔄 未送信の週間報酬を今すぐ確認</button>
         <button class="save-btn" style="background:#7f8c8d;width:100%;margin-top:8px;" onclick="actSetFestWeeklyDebugTop()">🔧 デバッグ：今週の連勝王を設定</button>
     </div>
 
@@ -1696,28 +1696,32 @@ function getPrevFestWeekId() {
 // 同率タイに対応するため、entries配下から「実際の最高値と同値の記録を持つプレイヤー全員」を抽出して一覧表示する。
 // rec.maxStreak（表示専用・デバッグでも書き換わりうる値）は信用せず、開発・検証用キャラを除外したentriesから
 // 実際の最高値を都度計算し直すことで、デバッグ操作が本番の受賞者判定に影響しないようにしている。
-function checkFestWeeklyRewardPending() {
-    if(!database) return;
+// isManual: trueならボタンから手動で呼ばれた場合。対象なし・送信済み・データなしの場合も
+// 必ず何らかのポップアップで結果を知らせる（従来は無言でreturnしていたため「押しても何も起こらない」ように見えていた）。
+// 自動実行（起動時・10分おき）はisManual未指定＝falseなので、対象なしの場合は今まで通り無言のまま。
+function checkFestWeeklyRewardPending(isManual) {
+    if(!database) { if(isManual) showCustomAlert('❌ エラー', 'データベースに接続できていません。'); return; }
     const prevWeekId = getPrevFestWeekId();
     database.ref('festWeeklyRecord/' + prevWeekId).once('value').then(function(snap){
         const rec = snap.val();
-        if(!rec || rec.rewardSent) return; // 対象なし、または送信済み
+        if(!rec) { if(isManual) showCustomAlert('ℹ️ 対象なし', '先週（' + prevWeekId + '週）のフェス連勝記録が見つかりませんでした。\n該当週にフェスで1勝以上した実プレイヤーがいなかった可能性があります。'); return; }
+        if(rec.rewardSent) { if(isManual) showCustomAlert('ℹ️ 送信済み', '先週（' + prevWeekId + '週）分の週間連勝報酬は既に送信済みです。'); return; }
         const entries = rec.entries || {};
         const realEntries = {};
         Object.keys(entries).forEach(function(pid){
             if(!FEST_ADMIN_EXCLUDED_IDS_ADMIN.includes(pid) && entries[pid]) realEntries[pid] = entries[pid];
         });
         const realMax = Object.keys(realEntries).reduce(function(m, pid){ return Math.max(m, realEntries[pid].streak || 0); }, 0);
-        if(realMax <= 0) return; // 開発・検証用キャラ以外に該当者なし
+        if(realMax <= 0) { if(isManual) showCustomAlert('ℹ️ 対象なし', '先週（' + prevWeekId + '週）は開発・検証用キャラ以外に記録がありませんでした。'); return; } // 開発・検証用キャラ以外に該当者なし
         const winners = Object.keys(realEntries)
             .filter(function(pid){ return realEntries[pid].streak === realMax; })
             .map(function(pid){ return { id: pid, name: realEntries[pid].name || '(名前不明)' }; });
-        if(winners.length === 0) return;
+        if(winners.length === 0) { if(isManual) showCustomAlert('ℹ️ 対象なし', '該当者を特定できませんでした。'); return; }
         const listHtml = winners.map(function(w){ return '・' + w.name + '（' + w.id + '）'; }).join('<br>');
         showCustomConfirm('🎪 先週分のフェス連勝報酬が未送信です', '先週（' + prevWeekId + '週）のカレーフェス連勝記録：' + realMax + '連勝<br><br>該当者（' + winners.length + '名、同率含む）：<br>' + listHtml + '<br><br>全員に報酬を送信しますか？', function(){
             sendFestWeeklyReward(prevWeekId, winners.map(function(w){ return w.id; }));
         });
-    }).catch(function(){ /* 読み取り失敗時は何もしない（次回チェック時に再試行される） */ });
+    }).catch(function(e){ if(isManual) showCustomAlert('❌ エラー', '読み取りに失敗しました。' + (e && e.message ? e.message : '')); /* 自動実行時は次回再試行される */ });
 }
 function sendFestWeeklyReward(weekId, pids) {
     if(!database || !pids || pids.length === 0) return;
