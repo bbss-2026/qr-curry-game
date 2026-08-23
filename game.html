@@ -1685,16 +1685,37 @@
         <select id="ingredient3" onchange="updateIngredientHint(3)" style="display:none;"></select>
         <select id="spice" onchange="updateSpiceHint()" style="display:none;"></select>
         <div id="cookPreviewBox" style="display:none;"></div>
-        <div style="margin-top:25px; border-top:1px solid #b88742; padding-top:16px; display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
-            <h3 style="color:#420000; font-size:13px; letter-spacing:0.08em; font-weight:bold; margin:0;">発見したレシピ履歴</h3>
-            <select id="sortRecipes" onchange="onRecipeSortChange()" style="font-size:16px; padding:3px 5px; border-radius:6px; border:1px solid #b88742; color:#420000; background:#f5e9c8; font-weight:bold; width:auto;">
-                <option value="newest">最新順</option>
-                <option value="oldest">古い順</option>
-                <option value="fav_newest">⭐最新順</option>
-                <option value="fav_oldest">⭐古い順</option>
-            </select>
+
+        <div style="margin-top:25px; border-top:1px solid #b88742; padding-top:16px;">
+            <div class="accordion-item" style="border:1px solid #b88742; border-radius:4px;">
+                <div class="accordion-header" onclick="toggleLocalAccordion(this)" style="font-size:13px; font-weight:bold; color:#420000; letter-spacing:0.08em; padding:14px 12px; border-top:none;">
+                    <span>🌟 発見した特殊カレーレシピ</span>
+                    <span class="accordion-arrow">▼</span>
+                </div>
+                <div class="accordion-body" style="padding:12px 12px 16px 12px;">
+                    <div style="font-size:10px; color:#9a7a50; margin-bottom:8px;">特殊カレーは同時に複数条件を満たす場合は優先度の高いグループが選ばれ、同グループ内で複数該当する場合はランダムで1つ選ばれます。</div>
+                    <div class="recipe-book" id="specialRecipeListArea">まだ発見した特殊カレーがありません。</div>
+                </div>
+            </div>
+
+            <div class="accordion-item" style="border:1px solid #b88742; border-radius:4px; margin-top:10px;">
+                <div class="accordion-header" onclick="toggleLocalAccordion(this)" style="font-size:13px; font-weight:bold; color:#420000; letter-spacing:0.08em; padding:14px 12px; border-top:none;">
+                    <span>発見したレシピ履歴</span>
+                    <span class="accordion-arrow">▼</span>
+                </div>
+                <div class="accordion-body" style="padding:12px 12px 16px 12px;">
+                    <div style="display:flex; justify-content:flex-end; margin-bottom:8px;">
+                        <select id="sortRecipes" onchange="onRecipeSortChange()" style="font-size:16px; padding:3px 5px; border-radius:6px; border:1px solid #b88742; color:#420000; background:#f5e9c8; font-weight:bold; width:auto;">
+                            <option value="newest">最新順</option>
+                            <option value="oldest">古い順</option>
+                            <option value="fav_newest">⭐最新順</option>
+                            <option value="fav_oldest">⭐古い順</option>
+                        </select>
+                    </div>
+                    <div class="recipe-book" id="recipeBookArea">履歴がありません。</div>
+                </div>
+            </div>
         </div>
-        <div class="recipe-book" id="recipeBookArea">履歴がありません。</div>
         <div class="copyright-footer">©2026 Battle Curry All Rights Reserved.<br>QRコードは株式会社デンソーウェーブの登録商標です</div>
     </div>
 
@@ -2187,7 +2208,7 @@
         <div class="copyright-footer">©2026 Battle Curry All Rights Reserved.<br>QRコードは株式会社デンソーウェーブの登録商標です</div>
     </div>
 </div>
-<script src="game.js?v=114"></script>
+<script src="game.js?v=115"></script>
 <!-- 咖喱図書館（ストーリーモード）。図書館タブのボタン（openStoryLibrary()呼び出し）以外は
      game.html側を触る必要はない（詳細はstory.js冒頭コメント参照）。
      story-scripts.jsは各巻の本文データのみを持つファイル。本文の追加・修正はそちらの中身を
