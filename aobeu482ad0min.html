@@ -79,6 +79,7 @@
         <button style="background:#7f8c8d;" onclick="actResetSyncSeal()">🔧 syncSeal/scanSealリセット（1人）</button>
         <button style="background:#c0392b;" onclick="actDebugModeReleaseAll()">🔓 デバッグモード全解除</button>
         <button style="background:#16a085;" onclick="actResetPlayerUidClaim()">🔓 UID紐付けをリセット（1人）</button>
+        <button id="btnOmikujiCheck" style="background:#e74c3c;" onclick="actToggleOmikujiCheck()">🔮 おみくじ完了チェック: OFF</button>
         <button style="background:#e67e22;" onclick="actToggleAnalyticsExclusion()">🚫 アナリティクス除外設定</button>
         <button style="background:#c0392b;" onclick="actExcludeKnownSuspiciousAccounts()">🚫 不正疑い3キャラを除外</button>
         <button style="background:#d35400;" onclick="actShowResyncRequests()">📥 再同期依頼を確認</button>
@@ -791,6 +792,34 @@ function actResetPlayerUidClaim() {
     }).catch(function(e) {
         showCustomAlert("❌ エラー", "取得に失敗しました: " + e.message);
     });
+}
+
+// このブラウザ（デバッグキャラクター）のヒントおみくじ「1日1回」制限チェックを有効/無効にする。
+// OFF中はgame-dev.html側が完了チェックを無視するため、このブラウザだけ何度でも引き放題になる
+// （他プレイヤーには一切影響しない、このブラウザ専用のlocalStorageフラグ）。
+// ON＝通常通り1日1回の制限に戻る。
+function actToggleOmikujiCheck() {
+    const key = 'qr_debug_omikuji_check';
+    const current = localStorage.getItem(key) === '1';
+    const next = !current;
+    localStorage.setItem(key, next ? '1' : '0');
+    const btn = document.getElementById('btnOmikujiCheck');
+    if(next) {
+        btn.style.background = '#27ae60';
+        btn.innerText = '🔮 おみくじ完了チェック: ON';
+        showCustomAlert('🔮 おみくじ完了チェック ON', '通常通り、ヒントおみくじは1日1回の制限に戻りました。<br>ゲーム画面をリロードしてください。');
+    } else {
+        btn.style.background = '#e74c3c';
+        btn.innerText = '🔮 おみくじ完了チェック: OFF';
+        showCustomAlert('🔮 おみくじ完了チェック OFF', 'このブラウザはヒントおみくじを何度でも引けるようになりました（他プレイヤーには影響しません）。<br>ゲーム画面をリロードしてください。');
+    }
+}
+function initOmikujiCheckBtn() {
+    const on = localStorage.getItem('qr_debug_omikuji_check') === '1';
+    const btn = document.getElementById('btnOmikujiCheck');
+    if(!btn) return;
+    btn.style.background = on ? '#27ae60' : '#e74c3c';
+    btn.innerText = on ? '🔮 おみくじ完了チェック: ON' : '🔮 おみくじ完了チェック: OFF';
 }
 
 // 指定したIDのアナリティクス除外フラグ（players/{id}/analyticsExcluded）をON/OFFする。
@@ -1883,6 +1912,7 @@ window.onload = function() {
     loadInitialData();
     initQrIgnoreBtn();
     initNewPlayerModeBtn();
+    initOmikujiCheckBtn();
     if (database) {
         ensureFirebaseAuth().then(function() {
             registerAsAdminIfEligible();
