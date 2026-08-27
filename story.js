@@ -117,7 +117,9 @@ const STORY_LIBRARY_ENABLED = true; // 図書館タブから全プレイヤー�
             frontImage: 'story/book-' + num + '.png',
             backImage: 'story/book2-' + num + '.png',
             locked: !_storyUnlockedNums.includes(i),
-            unlockCost: i <= 8 ? 50 : null, // book-01〜08は想いの欠片50個で解放。09/10は解放条件を後日設定
+            // book-01〜08は想いの欠片50個で解放。09は現状、管理者キャラクターのみ同じ条件で解放できる
+            // （一般プレイヤーには従来通り「解放条件は後日公開予定」を表示する）。10は引き続き未設定。
+            unlockCost: i <= 8 ? 50 : (i === 9 && isStoryLibraryAdminUser() ? 50 : null),
         });
     }
     const STORY_FLOAT_INTENSITY = 22;
@@ -148,6 +150,14 @@ const STORY_LIBRARY_ENABLED = true; // 図書館タブから全プレイヤー�
         } catch (e) {
             return 'プレイヤー';
         }
+    }
+
+    // 本編（STORY_BOOK_SCRIPTS）のbeat.text/say/narrationの中に書かれた「プレイヤー名」という
+    // 文字列を、実際のプレイヤー名に置き換える。book9のようにプレイヤー自身を登場人物として
+    // 扱う本文で使う（該当の文字列が含まれない通常の文章には何の影響も無い）。
+    function resolveStoryPlaceholders(str) {
+        if (typeof str !== 'string') return str;
+        return str.split('プレイヤー名').join(getStoryPlayerName());
     }
 
     // 初回案内で表示する会話ページ。プレイヤー名を差し込むため、開始時に毎回組み立て直す。
@@ -1656,6 +1666,8 @@ const STORY_LIBRARY_ENABLED = true; // 図書館タブから全プレイヤー�
         // book1〜8の全ボスを討伐済みかどうかをここでチェックし、初めて条件を満たした時だけ
         // 特別な館長イベント（ここまでの報酬＋残り2冊の予告）を発生させる。
         maybeStartLibraryCompleteEvent();
+        // book9（現状は管理者のみ到達可能）を初めて討伐した時の館長イベント。
+        maybeStartBook9CompleteEvent();
     }
 
     // ===== book1〜8全ボス討伐イベント（1回だけ発生） =====
@@ -1695,9 +1707,9 @@ const STORY_LIBRARY_ENABLED = true; // 図書館タブから全プレイヤー�
 
         storyLibraryState.mode = 'intro_dialogue';
         storyLibraryState.dialogueQueue = [
-            { text: '「8つの想いを知ることができたか。\n残りは2冊だがこの2冊は特別だ。」' },
+            { text: '「8つの想いを知ることができたか。」' },
             { text: '「ひとまずここまでの報酬だ」' },
-            { text: '「残りの2冊の準備が整うまで\nしばらく待つといい」', beforeShow: grantLibraryCompleteReward },
+            { text: '「残りは2冊だ。」', beforeShow: grantLibraryCompleteReward },
         ];
         storyLibraryState.dialogueIndex = 0;
         storyLibraryState.onDialogueEnd = function() {
@@ -1725,6 +1737,37 @@ const STORY_LIBRARY_ENABLED = true; // 図書館タブから全プレイヤー�
         if (typeof showCustomAlert === 'function') {
             showCustomAlert('🎁 アイテム入手！', '🍚 新しいベース「ターメリックライス」を入手！<br>🌶️ スパイシーコインを1枚入手！');
         }
+    }
+
+    // ===== book9ボス討伐イベント（1回だけ発生。現状book9自体、管理者キャラクターのみ到達可能） =====
+    const STORY_BOOK9_COMPLETE_SEEN_KEY = 'qr_story_book9_complete_seen';
+    function hasSeenBook9CompleteEvent() {
+        try { return localStorage.getItem(STORY_BOOK9_COMPLETE_SEEN_KEY) === '1'; } catch (e) { return false; }
+    }
+    function setBook9CompleteEventSeen(v) {
+        try { localStorage.setItem(STORY_BOOK9_COMPLETE_SEEN_KEY, v ? '1' : '0'); } catch (e) {}
+    }
+    // book9を初めて討伐した時、本の拡大画面に戻ったタイミングで一度だけ発生する館長イベント
+    // （book1〜8全討伐イベントと同じ方式：演出中は×・読む系・再戦ボタンを無効化）。
+    function maybeStartBook9CompleteEvent() {
+        if (hasSeenBook9CompleteEvent()) return;
+        if (!hasStoryChapterBeenCleared(9)) return;
+        if (storyLibraryState.mode === 'intro_dialogue') return; // 他の会話と衝突させない
+        setBook9CompleteEventSeen(true);
+        setLibraryDetailButtonsDisabled(true);
+
+        storyLibraryState.mode = 'intro_dialogue';
+        storyLibraryState.dialogueQueue = [
+            { text: '「残り1冊だ」' },
+            { text: '「準備が整うまでしばらく待つといい」' },
+        ];
+        storyLibraryState.dialogueIndex = 0;
+        storyLibraryState.onDialogueEnd = function() {
+            storyLibraryState.mode = 'carousel';
+            setLibraryDetailButtonsDisabled(false);
+        };
+        showStoryDialogueLayerOnly(); // 拡大画面では館長の画像は出さない（既存の他イベントと同じ方針）
+        scheduleDialogueStart(300);
     }
 
     // game.js側のdone()／abortMatchDeployment()を後からラップして、本のボス戦専用のフック・
@@ -2185,7 +2228,7 @@ const STORY_LIBRARY_ENABLED = true; // 図書館タブから全プレイヤー�
             if (blackoutTextEl) { blackoutTextEl.style.display = 'none'; blackoutTextEl.innerHTML = ''; }
             showStoryDialogueLayerOnly(); // 館長の画像は出さず、ウインドウだけ表示
             const speaker = beat.say ? beat.say : '';
-            const text = beat.say ? beat.text : beat.narration;
+            const text = resolveStoryPlaceholders(beat.say ? beat.text : beat.narration);
             startTypewriter(text, null, speaker);
         } else if (beat.text) {
             if (layer) layer.style.display = 'none';
@@ -2198,7 +2241,7 @@ const STORY_LIBRARY_ENABLED = true; // 図書館タブから全プレイヤー�
                 if (textArea) { textArea.style.display = 'none'; textArea.innerHTML = ''; }
                 blackoutTextEl.innerHTML = '';
                 const span = document.createElement('span');
-                span.textContent = beat.text;
+                span.textContent = resolveStoryPlaceholders(beat.text);
                 blackoutTextEl.appendChild(span);
                 const arrow = document.createElement('span');
                 arrow.id = 'storyReaderBlackoutTextArrow';
@@ -2212,7 +2255,7 @@ const STORY_LIBRARY_ENABLED = true; // 図書館タブから全プレイヤー�
                 if (textArea) {
                     textArea.innerHTML = '';
                     const span = document.createElement('span');
-                    span.textContent = beat.text;
+                    span.textContent = resolveStoryPlaceholders(beat.text);
                     textArea.appendChild(span);
                     const arrow = document.createElement('span');
                     arrow.id = 'storyReaderTextArrow';
