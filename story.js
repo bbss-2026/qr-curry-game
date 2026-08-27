@@ -117,9 +117,10 @@ const STORY_LIBRARY_ENABLED = true; // 図書館タブから全プレイヤー�
             frontImage: 'story/book-' + num + '.png',
             backImage: 'story/book2-' + num + '.png',
             locked: !_storyUnlockedNums.includes(i),
-            // book-01〜08は想いの欠片50個で解放。09は現状、管理者キャラクターのみ同じ条件で解放できる
-            // （一般プレイヤーには従来通り「解放条件は後日公開予定」を表示する）。10は引き続き未設定。
-            unlockCost: i <= 8 ? 50 : (i === 9 && isStoryLibraryAdminUser() ? 50 : null),
+            // book-01〜08は想いの欠片50個で解放。09/10はここでは固定値を持たない
+            // （09は「book1〜8の全ボス討伐」が解放条件になるため、updateStoryBookDetailActionButton内で
+            // 条件を満たした時点でunlockCostを動的に50へ書き換える。10は引き続き解放条件未設定）。
+            unlockCost: i <= 8 ? 50 : null,
         });
     }
     const STORY_FLOAT_INTENSITY = 22;
@@ -1434,8 +1435,17 @@ const STORY_LIBRARY_ENABLED = true; // 図書館タブから全プレイヤー�
             btn.textContent = '解放';
             btn.style.display = 'inline-block';
             btn.onclick = function(e) { e.stopPropagation(); onStoryBookUnlockClick(chapter); };
+        } else if (chapter.num === 9 && typeof hasAllBook1to8Cleared === 'function' && hasAllBook1to8Cleared()) {
+            // book9の解放条件は「book1〜8の全ボスを討伐済み」（管理者・一般プレイヤー問わず共通）。
+            // 条件を満たした時点で初めてunlockCostを50に確定させ、以降は他の本と全く同じ
+            // 「想いの欠片で解放」フローに乗せる（onStoryBookUnlockClickはchapter.unlockCostが
+            // 数値であることを前提にしているため、ここで先に数値化しておく必要がある）。
+            chapter.unlockCost = 50;
+            btn.textContent = '解放';
+            btn.style.display = 'inline-block';
+            btn.onclick = function(e) { e.stopPropagation(); onStoryBookUnlockClick(chapter); };
         } else {
-            // book-09/10など、解放条件が未設定の巻
+            // book-09（未達成時）/10など、解放条件が未設定・未達成の巻
             btn.textContent = '解放条件は後日公開予定';
             btn.style.display = 'inline-block';
             btn.classList.add('story-book-action-disabled');

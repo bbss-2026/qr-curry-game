@@ -1287,10 +1287,10 @@ const STORY_BOOK_BOSSES = {
         foodCategory: 'seafood', // 属性：海鮮系統
         reward: { exp: 50, g: 50, normalIngredients: 3, normalSpice: 1 },
     },
-    // book9（「僕のヒーロー」）：現状は管理者キャラクターのみ本の解放自体ができるため、
-    // このボスに到達できるのも管理者のみ。行動パターン（系統バリア15%／種連続発射20%／
-    // 想いの大爆発20%／通常攻撃45%）＋いずれの行動後も50%の確率で追加の通常攻撃を1回
-    // 繰り出す特殊仕様は、エンジン側（game.js、oppC.bookChapterNum===9）で処理する。
+    // book9（「僕のヒーロー」）：解放条件は「book1〜8の全ボスを討伐済み」（管理者・一般
+    // プレイヤー問わず共通）。行動パターン（系統バリア15%／種連続発射20%／想いの大爆発15%／
+    // 通常攻撃50%）＋いずれの行動後も35%の確率で追加の通常攻撃を1回繰り出す特殊仕様は、
+    // エンジン側（game.js、oppC.bookChapterNum===9）で処理する。
     9: {
         name: 'Memories Book',
         image: 'botimage/bot-book09.png',
