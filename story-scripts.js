@@ -1147,7 +1147,7 @@ const STORY_BOOK_SCRIPTS = {
         },
         // ---- 4ページ目 ----
         {
-            image: 'story/book9_i12.png',
+            image: 'story/book9_i13.png',
             bgm: 'Revenger.mp3', // 前ページから継続（明示的に再指定）
             beats: [
                 { text: '【３章：さいごの決戦！ドラゴン料理長！】' },
@@ -1172,7 +1172,7 @@ const STORY_BOOK_SCRIPTS = {
                 { text: 'これで、もう誰もカレーを作ることができない！' },
                 { text: '町からカレーは完全に消えて、世界には平和が訪れたのだった！' },
                 { bgm: null }, // 制御用beat：BGMストップ
-                { text: 'Daせ...' },
+                { image: 'story/book9_i17.png', text: 'Daせ...' },
                 { text: 'こkoからdaせ...' },
                 { text: 'QキョクRoomから出せ...' },
                 { text: '（おしまい）' },
@@ -1288,15 +1288,15 @@ const STORY_BOOK_BOSSES = {
         reward: { exp: 50, g: 50, normalIngredients: 3, normalSpice: 1 },
     },
     // book9（「僕のヒーロー」）：現状は管理者キャラクターのみ本の解放自体ができるため、
-    // このボスに到達できるのも管理者のみ。行動パターン（触手連撃20%／系統バリア15%／
-    // 種連続発射15%／想いの大爆発20%／通常攻撃30%）＋いずれの行動後も50%の確率で追加の
-    // 通常攻撃を1回繰り出す特殊仕様は、エンジン側（game.js、oppC.bookChapterNum===9）で処理する。
+    // このボスに到達できるのも管理者のみ。行動パターン（系統バリア15%／種連続発射20%／
+    // 想いの大爆発20%／通常攻撃45%）＋いずれの行動後も50%の確率で追加の通常攻撃を1回
+    // 繰り出す特殊仕様は、エンジン側（game.js、oppC.bookChapterNum===9）で処理する。
     9: {
         name: 'Memories Book',
         image: 'botimage/bot-book09.png',
         curryName: 'あの日のカレー',
         materials: ['バナナ', 'ココナッツ', 'りんご'],
-        hp: 1500, atk: 110, def: 75, spd: 90,
+        hp: 1500, atk: 100, def: 60, spd: 90,
         foodCategory: 'fruit', // 属性：果物系統
         isHomerun: true, // 特技「ホームラン」：プレイヤーの技を確率で打ち返して無効化
         reward: { exp: 50, g: 50, normalIngredients: 3, normalSpice: 1 },
