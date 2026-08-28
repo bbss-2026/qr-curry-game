@@ -450,8 +450,9 @@ function renderBoard() {
     // ノード
     boardNodes.forEach(n => {
         const isFlag = (n.row === ROW_TOP || n.row === ROW_BOTTOM);
-        const unit = state.units.find(u => u.nodeId === n.id);
-        const isActive = !!(state.activeUnit && state.activeUnit.nodeId === n.id && state.activeUnit.hp > 0);
+        // 移動アニメーション中のユニットは、通常描画では一旦隠す（浮動スプライト側で表示する）
+        const unit = state.units.find(u => u.nodeId === n.id && !u._animating);
+        const isActive = !!(state.activeUnit && state.activeUnit.nodeId === n.id && state.activeUnit.hp > 0 && !state.activeUnit._animating);
         let cls = 'board-node-circle';
         if (isFlag) cls += ' flag-tile';
         if (unit) cls += (unit.team === 'player') ? ' occupied-player' : ' occupied-enemy';
@@ -685,18 +686,84 @@ function onBattleNodeClick(nodeId) {
     moveUnitTo(actor, nodeId);
 }
 
+// ------------------------------------------------------------
+// 移動スライドアニメーション
+//    renderBoard()は毎回SVGを丸ごと作り直すため、そのままではDOM要素が毎回
+//    作り直されてしまいCSSトランジションが効かない。そこで移動中だけは対象
+//    ユニットを通常描画から隠し（renderBoard側の!u._animating条件）、代わりに
+//    同じSVG座標系の上に浮動スプライト（<image>＋クリップ用<circle>）を重ねて、
+//    その x/y/cx/cy にCSSトランジションを付けて移動先までスライドさせる。
+// ------------------------------------------------------------
+const MOVE_ANIM_MS = 380;
+function animateUnitMove(unit, fromNodeId, toNodeId, onComplete) {
+    const fromNode = nodesById[fromNodeId];
+    const toNode = nodesById[toNodeId];
+    if (!fromNode || !toNode || fromNodeId === toNodeId) { onComplete(); return; }
+    const svg = document.getElementById('boardSvg');
+    const ns = 'http://www.w3.org/2000/svg';
+    const r2 = NODE_R - 4;
+
+    unit._animating = true;
+    renderBoard();
+
+    const clipId = `animclip${unit.uid}_${Date.now()}`;
+    const defs = document.createElementNS(ns, 'defs');
+    const clipPath = document.createElementNS(ns, 'clipPath');
+    clipPath.setAttribute('id', clipId);
+    const clipCircle = document.createElementNS(ns, 'circle');
+    clipCircle.setAttribute('cx', fromNode.x);
+    clipCircle.setAttribute('cy', fromNode.y);
+    clipCircle.setAttribute('r', r2);
+    clipCircle.style.transition = `cx ${MOVE_ANIM_MS}ms ease, cy ${MOVE_ANIM_MS}ms ease`;
+    clipPath.appendChild(clipCircle);
+    defs.appendChild(clipPath);
+    svg.appendChild(defs);
+
+    const img = document.createElementNS(ns, 'image');
+    img.setAttribute('href', getCurryImage(unit.raw));
+    img.setAttribute('x', fromNode.x - r2);
+    img.setAttribute('y', fromNode.y - r2);
+    img.setAttribute('width', r2 * 2);
+    img.setAttribute('height', r2 * 2);
+    img.setAttribute('preserveAspectRatio', 'xMidYMid slice');
+    img.setAttribute('clip-path', `url(#${clipId})`);
+    img.style.transition = `x ${MOVE_ANIM_MS}ms ease, y ${MOVE_ANIM_MS}ms ease`;
+    svg.appendChild(img);
+
+    // 初期位置が実際に描画されてから値を変えないとトランジションが発火しないため、
+    // 1フレーム待ってから移動先の座標へ更新する。
+    requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+            img.setAttribute('x', toNode.x - r2);
+            img.setAttribute('y', toNode.y - r2);
+            clipCircle.setAttribute('cx', toNode.x);
+            clipCircle.setAttribute('cy', toNode.y);
+        });
+    });
+
+    setTimeout(() => {
+        if (svg.contains(img)) svg.removeChild(img);
+        if (svg.contains(defs)) svg.removeChild(defs);
+        unit._animating = false;
+        onComplete();
+    }, MOVE_ANIM_MS + 20);
+}
+
 function moveUnitTo(unit, nodeId) {
     const defender = state.units.find(u => u.nodeId === nodeId && u.hp > 0 && u.team !== unit.team);
+    const fromNodeId = unit.nodeId;
     boardNodes.forEach(n => { n.highlight = null; });
     if (defender) {
         appendLog(`${unit.name} が ${defender.name} に攻撃！`);
-        resolveBattle(unit, defender, nodeId);
+        resolveBattle(unit, defender, nodeId, fromNodeId);
     } else {
-        unit.nodeId = nodeId;
-        appendLog(`${unit.name} が移動した。`);
-        unit.delay = computeDelay(unit.spd);
-        renderBoard();
-        setTimeout(scheduleNextTurn, 500);
+        animateUnitMove(unit, fromNodeId, nodeId, function () {
+            unit.nodeId = nodeId;
+            appendLog(`${unit.name} が移動した。`);
+            unit.delay = computeDelay(unit.spd);
+            renderBoard();
+            setTimeout(scheduleNextTurn, 500);
+        });
     }
 }
 
@@ -735,6 +802,13 @@ function dist(a, b) { return Math.hypot(a.x - b.x, a.y - b.y); }
 //    実績・クエスト進行には本編側（done()のisBoardBattle分岐）で一切触れないように
 //    してあるため、ボードカレーバトルの駒は勝敗にかかわらず消費されない。
 // ------------------------------------------------------------
+// iframeのloadイベント（=game.html側のwindow.onload相当）が発火するまでは、
+// game.js内のloadGame()（カレーストック・プレイヤー名等の復元）がまだ終わっていない
+// 可能性があるため、単に関数の存在をポーリングするだけでなく、必ずこのloadイベントを
+// 経由してから準備完了とみなす。
+let engineFrameLoadFired = false;
+document.getElementById('engineFrame').addEventListener('load', function () { engineFrameLoadFired = true; });
+
 function waitForEngineReady(cb, attemptsLeft) {
     if (attemptsLeft === undefined) attemptsLeft = 50; // 50 * 300ms = 最大15秒待つ
     const frame = document.getElementById('engineFrame');
@@ -742,9 +816,9 @@ function waitForEngineReady(cb, attemptsLeft) {
     try { win = frame.contentWindow; } catch (e) {}
     // 注意：curryStock等はgame.js側でlet宣言されたトップレベル変数のため、
     // iframe越しにwin.curryStockとして読むことはできない（windowのプロパティにはならない）。
-    // window.startExternalBoardBattle = ... と明示的に代入した関数の存在だけを
-    // 準備完了の合図として使う。
-    if (win && typeof win.startExternalBoardBattle === 'function') {
+    // window.startExternalBoardBattle = ... と明示的に代入した関数の存在に加えて、
+    // loadイベント発火（＝loadGame()実行済み）も準備完了の条件にする。
+    if (engineFrameLoadFired && win && typeof win.startExternalBoardBattle === 'function') {
         cb(win);
         return;
     }
@@ -758,7 +832,7 @@ function waitForEngineReady(cb, attemptsLeft) {
 function showEngineFrame() { document.getElementById('engineFrame').style.display = 'block'; }
 function hideEngineFrame() { document.getElementById('engineFrame').style.display = 'none'; }
 
-function resolveBattle(mover, defender, targetNodeId) {
+function resolveBattle(mover, defender, targetNodeId, fromNodeId) {
     const playerUnit = mover.team === 'player' ? mover : defender;
     const enemyUnit = mover.team === 'player' ? defender : mover;
 
@@ -778,10 +852,20 @@ function resolveBattle(mover, defender, targetNodeId) {
             const loser = moverWon ? defender : mover;
             appendLog(`${loser.name} は力尽きた。${winner.name} の勝ち（残HP ${winner.hp}/${winner.maxHp}）`);
             state.units = state.units.filter(u => u !== loser);
-            if (moverWon) mover.nodeId = targetNodeId;
-            mover.delay = computeDelay(mover.spd);
-            renderBoard();
-            setTimeout(scheduleNextTurn, 500);
+            function finishTurn() {
+                mover.delay = computeDelay(mover.spd);
+                renderBoard();
+                setTimeout(scheduleNextTurn, 500);
+            }
+            if (moverWon) {
+                // 勝った駒がそのマスへスライドして進む
+                animateUnitMove(mover, fromNodeId, targetNodeId, function () {
+                    mover.nodeId = targetNodeId;
+                    finishTurn();
+                });
+            } else {
+                finishTurn();
+            }
         });
     });
 }
