@@ -95,32 +95,9 @@
     }
     #resultBox h2 { font-size: 24px; margin: 0 0 12px 0; }
 
-    /* ===== 戦闘画面（「PCと対戦」相当のビジュアル戦闘表示） ===== */
-    #battleScreenOverlay {
-        position: fixed; inset: 0; background: rgba(10,4,0,0.92); z-index: 40;
-        display: none; flex-direction: column; align-items: center; justify-content: center; padding: 16px;
-    }
-    #bsArena {
-        width: 100%; max-width: 520px; display: flex; align-items: center; justify-content: space-between; gap: 10px;
-    }
-    .bs-side { flex: 1; display: flex; flex-direction: column; align-items: center; }
-    .bs-portrait {
-        width: 92px; height: 92px; border-radius: 50%; overflow: hidden; background: #efdeb1; margin-bottom: 8px;
-    }
-    .bs-side.bs-player .bs-portrait { border: 4px solid #3498db; }
-    .bs-side.bs-enemy .bs-portrait { border: 4px solid #e74c3c; }
-    .bs-portrait img { width: 100%; height: 100%; object-fit: cover; display: block; }
-    .bs-name { font-size: 12px; font-weight: bold; margin-bottom: 6px; text-align: center; }
-    .bs-hpbar-wrap { width: 120px; height: 10px; background: #222; border-radius: 5px; overflow: hidden; }
-    .bs-hpbar-fill { height: 100%; background: #2ecc71; width: 100%; transition: width 0.4s ease; }
-    .bs-hp-text { font-size: 10px; margin-top: 3px; }
-    #bsVsLabel { font-size: 20px; font-weight: bold; color: #f5c469; padding: 0 6px; }
-    #bsLogWrap {
-        width: 100%; max-width: 520px; margin-top: 18px; background: #1c1108; border: 1px solid #6b4a26;
-        border-radius: 8px; padding: 10px; font-size: 12px; height: 90px; overflow-y: auto; line-height: 1.7;
-    }
-    #bsResultBanner {
-        display: none; margin-top: 14px; font-size: 22px; font-weight: bold; color: #ffe066; letter-spacing: 0.1em;
+    /* ===== 戦闘画面：本編game.htmlをiframeでそのまま表示する ===== */
+    #engineFrame {
+        position: fixed; inset: 0; width: 100%; height: 100%; border: none; z-index: 45; display: none; background: #000;
     }
 </style>
 </head>
@@ -157,26 +134,8 @@
     </div>
 </div>
 
-<!-- 駒同士が衝突した際に実際に表示する戦闘画面（「PCと対戦」相当） -->
-<div id="battleScreenOverlay">
-    <div id="bsArena">
-        <div class="bs-side bs-player">
-            <div class="bs-portrait"><img id="bsPlayerImg" alt=""></div>
-            <div class="bs-name" id="bsPlayerName"></div>
-            <div class="bs-hpbar-wrap"><div class="bs-hpbar-fill" id="bsPlayerHpFill"></div></div>
-            <div class="bs-hp-text" id="bsPlayerHpText"></div>
-        </div>
-        <div id="bsVsLabel">VS</div>
-        <div class="bs-side bs-enemy">
-            <div class="bs-portrait"><img id="bsEnemyImg" alt=""></div>
-            <div class="bs-name" id="bsEnemyName"></div>
-            <div class="bs-hpbar-wrap"><div class="bs-hpbar-fill" id="bsEnemyHpFill"></div></div>
-            <div class="bs-hp-text" id="bsEnemyHpText"></div>
-        </div>
-    </div>
-    <div id="bsLogWrap"><div id="bsLog"></div></div>
-    <div id="bsResultBanner"></div>
-</div>
+<!-- 駒同士が衝突した際に表示する、本編game.htmlそのままの戦闘画面（iframe） -->
+<iframe id="engineFrame" src="game.html" title="戦闘エンジン"></iframe>
 
 <div id="resultOverlay">
     <div id="resultBox">
@@ -201,10 +160,12 @@
 // そのまま移植して使用しています。絵文字は一切使用しません（今後の本ゲーム
 // 全体でも、プレイヤーのカレーに絵文字を使うことはしません）。
 //
-// 戦闘は「PCと対戦」の与ダメージ計算式（通常攻撃）を同じ数式で再現し、
-// 実際にVSの戦闘画面（ポートレート・HPバー・ログ）を表示して演出します。
-// 特殊カレー技（毒・幻惑・ホームラン等）はまだこの版では反映していません
-// （followup予定）。
+// 戦闘は「PCと対戦」と全く同じ本編の戦闘エンジンをそのまま流用しています。
+// 本編game.htmlを同一オリジンのiframe（#engineFrame）として裏で読み込んでおき、
+// 駒同士が衝突すると本編側に追加した window.startExternalBoardBattle(...) フックを
+// 呼び出す仕組みです（詳しくは9.のコメントを参照）。特殊カレー技・演出・音まで
+// 含めて本物の戦闘画面がそのまま表示され、ボードカレーバトルの駒が消費されること
+// はありません。
 // ============================================================
 
 // ------------------------------------------------------------
@@ -765,116 +726,60 @@ function performEnemyTurn(unit) {
 function dist(a, b) { return Math.hypot(a.x - b.x, a.y - b.y); }
 
 // ------------------------------------------------------------
-// 9. 戦闘解決 ＋ 戦闘画面（「PCと対戦」相当のビジュアル表示）
-//    「PCと対戦」の与ダメージ計算式（通常攻撃）をそのまま流用し、実際に
-//    ポートレート・HPバー・ログを持つ戦闘画面を表示してから結果を反映します。
-//    特殊カレー技（毒・幻惑・ホームラン等）は現時点では未反映（followup予定）。
+// 9. 戦闘解決 ＋ 戦闘画面
+//    本編game.htmlを同一オリジンのiframe（#engineFrame）として読み込んでおき、
+//    駒同士が衝突したら本編側に追加した window.startExternalBoardBattle(...) を
+//    呼び出す。これにより「PCと対戦」と全く同じ戦闘エンジン（launchVsCutIn→
+//    confirmVsDeploy→startBattleScene→step→done）がそのまま動作し、特殊カレー技・
+//    演出・音まで含めて本物の戦闘画面が表示される。カレーストックの経済・報酬・
+//    実績・クエスト進行には本編側（done()のisBoardBattle分岐）で一切触れないように
+//    してあるため、ボードカレーバトルの駒は勝敗にかかわらず消費されない。
 // ------------------------------------------------------------
-function getCritRate(mySpd, oppSpd) {
-    const ratio = mySpd / Math.max(1, oppSpd);
-    if (ratio >= 10) return 0.30;
-    if (ratio >= 5) return 0.20;
-    if (ratio >= 3) return 0.15;
-    if (ratio >= 2) return 0.10;
-    if (ratio >= 1.5) return 0.07;
-    if (ratio >= 1) return 0.05;
-    return 0.03;
+function waitForEngineReady(cb, attemptsLeft) {
+    if (attemptsLeft === undefined) attemptsLeft = 50; // 50 * 300ms = 最大15秒待つ
+    const frame = document.getElementById('engineFrame');
+    let win = null;
+    try { win = frame.contentWindow; } catch (e) {}
+    if (win && typeof win.startExternalBoardBattle === 'function' && win.curryStock) {
+        cb(win);
+        return;
+    }
+    if (attemptsLeft <= 0) {
+        setBattleStatus('戦闘エンジンの読み込みに時間がかかっています…少々お待ちください。');
+        setTimeout(() => { waitForEngineReady(cb, 20); }, 300); // エラーにはせず待ち続ける
+        return;
+    }
+    setTimeout(() => { waitForEngineReady(cb, attemptsLeft - 1); }, 300);
 }
-function rollDamage(attacker, defender) {
-    const isCrit = Math.random() < getCritRate(attacker.spd, defender.spd);
-    let d = isCrit ? Math.max(8, attacker.atk) : Math.max(8, attacker.atk - Math.floor(defender.def / 2));
-    d = Math.round(d * (0.9 + Math.random() * 0.2));
-    if (isCrit) d = Math.round(d * 1.3);
-    return { dmg: d, isCrit };
-}
+function showEngineFrame() { document.getElementById('engineFrame').style.display = 'block'; }
+function hideEngineFrame() { document.getElementById('engineFrame').style.display = 'none'; }
 
 function resolveBattle(mover, defender, targetNodeId) {
     const playerUnit = mover.team === 'player' ? mover : defender;
     const enemyUnit = mover.team === 'player' ? defender : mover;
 
-    // 交互に殴り合う一連の流れを先に計算しておき、後段の戦闘画面でその通りに再生する
-    const seq = [];
-    let atk = mover, def = defender;
-    const hp = {}; hp[mover.uid] = mover.hp; hp[defender.uid] = defender.hp;
-    let guard = 0;
-    while (hp[atk.uid] > 0 && hp[def.uid] > 0 && guard < 200) {
-        const r = rollDamage(atk, def);
-        hp[def.uid] = Math.max(0, hp[def.uid] - r.dmg);
-        seq.push({ atkUid: atk.uid, defUid: def.uid, dmg: r.dmg, isCrit: r.isCrit, defHpAfter: hp[def.uid] });
-        if (hp[def.uid] <= 0) break;
-        [atk, def] = [def, atk];
-        guard++;
-    }
-    const moverWins = hp[mover.uid] > 0;
-    const loser = moverWins ? defender : mover;
-    const winner = moverWins ? mover : defender;
-
-    openBattleScreen(playerUnit, enemyUnit);
-    playBattleSequence(seq, playerUnit, enemyUnit, function () {
-        mover.hp = hp[mover.uid];
-        defender.hp = hp[defender.uid];
-        appendLog(`${loser.name} は力尽きた。${winner.name} の勝ち（残HP ${winner.hp}/${winner.maxHp}）`);
-        state.units = state.units.filter(u => u !== loser);
-        if (moverWins) mover.nodeId = targetNodeId;
-        mover.delay = computeDelay(mover.spd);
-        closeBattleScreen();
-        renderBoard();
-        setTimeout(scheduleNextTurn, 500);
+    setBattleStatus('戦闘画面を準備中…');
+    waitForEngineReady(function (engineWin) {
+        showEngineFrame();
+        // 現在のHP（盤面上で既に負っているダメージ）をそのまま引き継いだスナップショットを渡す
+        const myCurrySnapshot = Object.assign({}, playerUnit.raw, { hp: playerUnit.hp });
+        const oppCurrySnapshot = Object.assign({}, enemyUnit.raw, { hp: enemyUnit.hp, name: enemyUnit.name });
+        engineWin.startExternalBoardBattle(myCurrySnapshot, oppCurrySnapshot, function (didPlayerWin, remainingPlayerHp, remainingOppHp) {
+            hideEngineFrame();
+            playerUnit.hp = remainingPlayerHp;
+            enemyUnit.hp = remainingOppHp;
+            const moverIsPlayer = (mover.team === 'player');
+            const moverWon = moverIsPlayer ? didPlayerWin : !didPlayerWin;
+            const winner = moverWon ? mover : defender;
+            const loser = moverWon ? defender : mover;
+            appendLog(`${loser.name} は力尽きた。${winner.name} の勝ち（残HP ${winner.hp}/${winner.maxHp}）`);
+            state.units = state.units.filter(u => u !== loser);
+            if (moverWon) mover.nodeId = targetNodeId;
+            mover.delay = computeDelay(mover.spd);
+            renderBoard();
+            setTimeout(scheduleNextTurn, 500);
+        });
     });
-}
-
-function openBattleScreen(playerUnit, enemyUnit) {
-    document.getElementById('bsPlayerImg').src = getCurryImage(playerUnit.raw);
-    document.getElementById('bsPlayerName').textContent = playerUnit.name;
-    document.getElementById('bsEnemyImg').src = getCurryImage(enemyUnit.raw);
-    document.getElementById('bsEnemyName').textContent = enemyUnit.name;
-    setBsHp('bsPlayerHpFill', 'bsPlayerHpText', playerUnit.hp, playerUnit.maxHp);
-    setBsHp('bsEnemyHpFill', 'bsEnemyHpText', enemyUnit.hp, enemyUnit.maxHp);
-    document.getElementById('bsLog').innerHTML = '';
-    const banner = document.getElementById('bsResultBanner');
-    banner.style.display = 'none';
-    banner.textContent = '';
-    document.getElementById('battleScreenOverlay').style.display = 'flex';
-}
-function setBsHp(fillId, textId, hp, maxHp) {
-    const pct = Math.max(0, hp / maxHp) * 100;
-    document.getElementById(fillId).style.width = pct + '%';
-    document.getElementById(textId).textContent = `${Math.max(0, hp)} / ${maxHp}`;
-}
-function closeBattleScreen() {
-    document.getElementById('battleScreenOverlay').style.display = 'none';
-}
-function playBattleSequence(seq, playerUnit, enemyUnit, onDone) {
-    let i = 0;
-    function step() {
-        if (i >= seq.length) {
-            const playerAlive = !(seq.length && seq[seq.length - 1].defUid === playerUnit.uid && seq[seq.length - 1].defHpAfter <= 0);
-            const enemyAlive = !(seq.length && seq[seq.length - 1].defUid === enemyUnit.uid && seq[seq.length - 1].defHpAfter <= 0);
-            const banner = document.getElementById('bsResultBanner');
-            if (!playerAlive) { banner.textContent = 'LOSE'; banner.style.display = 'block'; }
-            else if (!enemyAlive) { banner.textContent = 'WIN'; banner.style.display = 'block'; }
-            setTimeout(onDone, 900);
-            return;
-        }
-        const s = seq[i];
-        const isPlayerDefender = (s.defUid === playerUnit.uid);
-        setBsHp(
-            isPlayerDefender ? 'bsPlayerHpFill' : 'bsEnemyHpFill',
-            isPlayerDefender ? 'bsPlayerHpText' : 'bsEnemyHpText',
-            s.defHpAfter,
-            isPlayerDefender ? playerUnit.maxHp : enemyUnit.maxHp
-        );
-        const attackerName = (s.atkUid === playerUnit.uid) ? playerUnit.name : enemyUnit.name;
-        const defenderName = isPlayerDefender ? playerUnit.name : enemyUnit.name;
-        const logEl = document.getElementById('bsLog');
-        const line = document.createElement('div');
-        line.textContent = (s.isCrit ? '会心の一撃！ ' : '') + `${attackerName} の攻撃！ ${defenderName} に ${s.dmg} ダメージ`;
-        logEl.appendChild(line);
-        logEl.scrollTop = logEl.scrollHeight;
-        i++;
-        setTimeout(step, 650);
-    }
-    step();
 }
 
 function checkWinCondition() {
