@@ -1,0 +1,674 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>ボードカレーバトル（開発版）</title>
+<style>
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    body {
+        margin: 0; padding: 0; background: #2b1a0e; color: #efdeb1;
+        font-family: "Hiragino Kaku Gothic ProN", "Yu Gothic", sans-serif;
+        overscroll-behavior: none; user-select: none;
+    }
+    #appRoot { max-width: 720px; margin: 0 auto; min-height: 100vh; display: flex; flex-direction: column; }
+
+    /* ===== ヘッダー ===== */
+    #headerBar {
+        background: #420000; padding: 10px 14px; display: flex; align-items: center; justify-content: space-between;
+        border-bottom: 2px solid #b88742;
+    }
+    #headerBar h1 { font-size: 14px; margin: 0; letter-spacing: 0.05em; color: #efdeb1; }
+    #devBadge { font-size: 10px; background: #b88742; color: #420000; padding: 2px 8px; border-radius: 10px; font-weight: bold; }
+
+    /* ===== 行動順ストリップ ===== */
+    #turnQueueBar {
+        display: flex; align-items: center; gap: 6px; padding: 10px 12px; background: #3a2413;
+        border-bottom: 1px solid #6b4a26; overflow-x: auto; min-height: 62px;
+    }
+    .turnIcon {
+        width: 34px; height: 34px; border-radius: 50%; flex-shrink: 0; display: flex; align-items: center; justify-content: center;
+        font-size: 18px; border: 2px solid #888; background: #efdeb1; opacity: 0.85; position: relative;
+        transition: transform 0.15s ease;
+    }
+    .turnIcon.team-player { border-color: #3498db; }
+    .turnIcon.team-enemy { border-color: #e74c3c; }
+    .turnIcon.current { width: 52px; height: 52px; font-size: 26px; opacity: 1; transform: scale(1.05); box-shadow: 0 0 12px rgba(255,255,255,0.5); }
+
+    /* ===== 盤面 ===== */
+    #boardWrap { flex: 1; display: flex; align-items: center; justify-content: center; padding: 10px; overflow: auto; }
+    #boardSvg { width: 100%; max-width: 640px; height: auto; }
+    .board-edge { stroke: #6b4a26; stroke-width: 2; }
+    .board-node-circle { fill: #efdeb1; stroke: #6b4a26; stroke-width: 3; cursor: default; }
+    .board-node-circle.flag-tile { fill: #f5e9c8; stroke: #b88742; stroke-width: 4; }
+    .board-node-circle.selectable { stroke: #2ecc71; stroke-width: 4; cursor: pointer; }
+    .board-node-circle.movable { stroke: #f1c40f; stroke-width: 4; cursor: pointer; }
+    .board-node-circle.occupied-player { stroke: #3498db; }
+    .board-node-circle.occupied-enemy { stroke: #e74c3c; }
+    .board-flag-icon { font-size: 22px; pointer-events: none; }
+    .board-unit-icon { font-size: 20px; pointer-events: none; }
+    .board-hp-bg { fill: #222; }
+    .board-hp-fill { fill: #2ecc71; }
+    .board-node-label { font-size: 9px; fill: #b88742; pointer-events: none; }
+
+    /* ===== 下部パネル ===== */
+    #bottomPanel { background: #3a2413; border-top: 2px solid #b88742; padding: 12px; }
+    #bottomPanel h2 { font-size: 13px; margin: 0 0 8px 0; color: #f5c469; }
+    #budgetLine { font-size: 12px; margin-bottom: 8px; }
+    #budgetLine.over { color: #e74c3c; font-weight: bold; }
+    #rosterList { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; max-height: 160px; overflow-y: auto; }
+    .rosterCard {
+        width: 78px; background: #2b1a0e; border: 2px solid #6b4a26; border-radius: 8px; padding: 6px 4px;
+        text-align: center; cursor: pointer; font-size: 10px;
+    }
+    .rosterCard.picked { border-color: #2ecc71; background: #1f3a1f; }
+    .rosterCard .rcVisual { font-size: 22px; }
+    .rosterCard .rcName { font-size: 9px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 2px; }
+    .rosterCard .rcStats { font-size: 8px; color: #b88742; margin-top: 2px; }
+    #placeHint { font-size: 11px; color: #b88742; margin-bottom: 8px; line-height: 1.5; }
+    .actionBtn {
+        background: #b88742; color: #efdeb1; border: none; border-radius: 6px; padding: 10px 20px;
+        font-weight: bold; font-size: 13px; cursor: pointer; margin-right: 8px;
+    }
+    .actionBtn:disabled { background: #6b4a26; color: #8a7250; cursor: not-allowed; }
+    .actionBtn.secondary { background: #5a3d20; }
+    #battleLog {
+        background: #1c1108; border: 1px solid #6b4a26; border-radius: 6px; padding: 8px; font-size: 11px;
+        max-height: 90px; overflow-y: auto; margin-bottom: 8px; line-height: 1.6; white-space: pre-wrap;
+    }
+    #resultOverlay {
+        position: fixed; inset: 0; background: rgba(0,0,0,0.75); display: none; align-items: center; justify-content: center; z-index: 50;
+    }
+    #resultBox {
+        background: #efdeb1; color: #420000; border-radius: 12px; padding: 30px 40px; text-align: center;
+    }
+    #resultBox h2 { font-size: 24px; margin: 0 0 12px 0; }
+</style>
+</head>
+<body>
+<div id="appRoot">
+    <div id="headerBar">
+        <h1>ボードカレーバトル</h1>
+        <span id="devBadge">開発版</span>
+    </div>
+
+    <div id="turnQueueBar"></div>
+
+    <div id="boardWrap">
+        <svg id="boardSvg" viewBox="0 0 600 900"></svg>
+    </div>
+
+    <div id="bottomPanel">
+        <!-- 配置フェーズUI -->
+        <div id="placementPanel">
+            <h2>配置フェーズ（自陣の旗から2列以内・ステータス合計2500まで・最大5体）</h2>
+            <div id="budgetLine">合計ステータス: 0 / 2500　配置数: 0 / 5</div>
+            <div id="placeHint">下のカレーをタップして選択 → 盤面の自陣側（青枠）マスをタップして配置します。</div>
+            <div id="rosterList"></div>
+            <button class="actionBtn" id="btnStartBattle" disabled onclick="onStartBattleClick()">戦闘開始</button>
+            <button class="actionBtn secondary" onclick="onRegenerateEnemyClick()">敵編成を再生成（デバッグ）</button>
+        </div>
+
+        <!-- 戦闘フェーズUI -->
+        <div id="battlePanel" style="display:none;">
+            <h2 id="battleStatusLine">戦闘中…</h2>
+            <div id="battleLog"></div>
+            <div id="battleControls"></div>
+        </div>
+    </div>
+</div>
+
+<div id="resultOverlay">
+    <div id="resultBox">
+        <h2 id="resultTitle">VICTORY</h2>
+        <div id="resultDesc" style="font-size:13px; margin-bottom:16px;"></div>
+        <button class="actionBtn" onclick="location.reload()">もう一度</button>
+    </div>
+</div>
+
+<script>
+// ============================================================
+// ボードカレーバトル（開発版・単体HTML）
+// ------------------------------------------------------------
+// 本番のgame.htmlとは完全に独立したファイルとして開発しています。
+// カレーストック（qr_curry_stock）はgame.htmlと同じlocalStorageキーを
+// 読むため、同じ端末・同じサイトで開けば実際の手持ちカレーが表示されます
+// （書き込みは行わないので、ここで選んでもカレーストック自体は減りません＝
+// 「カレーストックから登録すると無くなる」仕様はまだ未実装。今回はプロトタイプ
+// として「選択して配置するだけ」にしています）。
+// 戦闘は「PCと対戦」の中核ロジック（getCritRate等の与ダメージ計算）を
+// 同じ数式で再実装した簡易版です。特殊カレー技（毒・幻惑・ホームラン等）は
+// まだこの版では反映していません（followup予定）。
+// ============================================================
+
+// ------------------------------------------------------------
+// 1. 盤面トポロジー（添付画像を基にしたたたき台。行ごとのマス数はここを
+//    変えるだけで調整できます＝画像とズレていたら教えてください）。
+// ------------------------------------------------------------
+const BOARD_ROWS = [1, 4, 3, 3, 3, 3, 3, 4, 1]; // 上=敵陣旗 → 下=自陣旗
+const ROW_TOP = 0;                 // 敵旗の行index
+const ENEMY_DEPLOY_ROWS = [1, 2];  // 敵の配置可能行（旗から2列以内）
+const NEUTRAL_ROWS = [3, 4, 5];    // 中立地帯
+const PLAYER_DEPLOY_ROWS = [6, 7]; // 自分の配置可能行（旗から2列以内）
+const ROW_BOTTOM = BOARD_ROWS.length - 1; // 自陣旗の行index
+
+const BOARD_WIDTH = 600;
+const ROW_Y_TOP = 60;
+const ROW_Y_GAP = 100;
+const NODE_R = 30;
+
+const STAT_BUDGET = 2500;
+const MAX_UNITS = 5;
+
+let boardNodes = [];   // {id,row,col,x,y,neighbors:[id...]}
+let nodesById = {};
+
+function buildBoard() {
+    boardNodes = [];
+    let id = 0;
+    BOARD_ROWS.forEach((count, rowIdx) => {
+        for (let i = 0; i < count; i++) {
+            const x = (BOARD_WIDTH / (count + 1)) * (i + 1);
+            const y = ROW_Y_TOP + rowIdx * ROW_Y_GAP;
+            boardNodes.push({ id: id, row: rowIdx, col: i, x: x, y: y, neighbors: [] });
+            id++;
+        }
+    });
+    nodesById = {};
+    boardNodes.forEach(n => { nodesById[n.id] = n; });
+    buildEdges();
+}
+
+function buildEdges() {
+    const connect = (a, b) => {
+        if (!a.neighbors.includes(b.id)) a.neighbors.push(b.id);
+        if (!b.neighbors.includes(a.id)) b.neighbors.push(a.id);
+    };
+    // 同じ行の左右隣接
+    const byRow = {};
+    boardNodes.forEach(n => { (byRow[n.row] = byRow[n.row] || []).push(n); });
+    Object.keys(byRow).forEach(r => {
+        const row = byRow[r].sort((a, b) => a.x - b.x);
+        for (let i = 0; i < row.length - 1; i++) connect(row[i], row[i + 1]);
+    });
+    // 上下の行同士は、x座標が近い順に2つまで接続（不揃いな行幅でも三角格子になるように）
+    const rowKeys = Object.keys(byRow).map(Number).sort((a, b) => a - b);
+    for (let r = 0; r < rowKeys.length - 1; r++) {
+        const upper = byRow[rowKeys[r]];
+        const lower = byRow[rowKeys[r + 1]];
+        upper.forEach(u => {
+            const sorted = lower.slice().sort((a, b) => Math.abs(a.x - u.x) - Math.abs(b.x - u.x));
+            sorted.slice(0, 2).forEach(l => connect(u, l));
+        });
+        lower.forEach(l => {
+            const sorted = upper.slice().sort((a, b) => Math.abs(a.x - l.x) - Math.abs(b.x - l.x));
+            sorted.slice(0, 2).forEach(u => connect(u, l));
+        });
+    }
+}
+
+function getFlagNodeId(team) {
+    // team='player'の旗は最下段、'enemy'の旗は最上段（各行1マスのみの想定）
+    const row = (team === 'player') ? ROW_BOTTOM : ROW_TOP;
+    const n = boardNodes.find(n => n.row === row);
+    return n ? n.id : null;
+}
+
+function getDeployRows(team) {
+    return team === 'player' ? PLAYER_DEPLOY_ROWS : ENEMY_DEPLOY_ROWS;
+}
+
+// ------------------------------------------------------------
+// 2. カレー ↔ ユニット
+// ------------------------------------------------------------
+let unitSeq = 1;
+function makeUnit(curry, team) {
+    const hp = Math.max(1, curry.hp || 1);
+    return {
+        uid: unitSeq++,
+        name: curry.name || 'カレー',
+        visual: curry.visual || '🍛',
+        hp: hp, maxHp: hp,
+        atk: curry.atk || 0, def: curry.def || 0, spd: curry.spd || 0,
+        team: team,
+        nodeId: null,
+        delay: computeDelay(curry.spd || 0),
+        raw: curry
+    };
+}
+function computeDelay(spd) {
+    const s = Math.max(0, spd || 0);
+    return Math.round(100000 / (s + 200)); // ゼロ除算防止：+200なのでspd=0でも安全
+}
+function statTotal(c) { return (c.hp || 0) + (c.atk || 0) + (c.def || 0) + (c.spd || 0); }
+
+// ------------------------------------------------------------
+// 3. 実際のカレーストックを読み込む（game.htmlと同じlocalStorageキー）
+// ------------------------------------------------------------
+function loadRealCurryStock() {
+    try {
+        const raw = localStorage.getItem('qr_curry_stock');
+        if (!raw) return [];
+        const arr = JSON.parse(raw);
+        return Array.isArray(arr) ? arr.filter(c => !c.isDelivering) : [];
+    } catch (e) {
+        console.warn('カレーストックの読み込みに失敗:', e);
+        return [];
+    }
+}
+
+// デバッグ用：ランダムなカレーを生成する（масterIngredients等の実データが無くても
+// 動くよう、簡易ステータステーブルから合成する。本実装では調理と同じ抽選ロジックに
+// 差し替え予定）。
+const DEBUG_RANDOM_CURRY_NAMES = ['野生のカレー', '謎のカレー', '見習いのカレー', '放浪カレー', '名もなきカレー', '荒野のカレー', '古の一皿', '通りすがりのカレー'];
+const DEBUG_VISUALS = ['🍛', '🥘', '🍲', '🌶️', '🥔', '🥕', '🍅', '🧀'];
+function generateDebugCurry(targetTotalHint) {
+    // ざっくり4ステータスにランダム配分して合計を大体targetTotalHint近辺に収める
+    const total = targetTotalHint || (300 + Math.floor(Math.random() * 300));
+    const weights = [Math.random(), Math.random(), Math.random(), Math.random()];
+    const wsum = weights.reduce((a, b) => a + b, 0);
+    const hp = Math.max(20, Math.round(total * weights[0] / wsum));
+    const atk = Math.max(10, Math.round(total * weights[1] / wsum));
+    const def = Math.max(10, Math.round(total * weights[2] / wsum));
+    const spd = Math.max(5, Math.round(total * weights[3] / wsum));
+    return {
+        name: DEBUG_RANDOM_CURRY_NAMES[Math.floor(Math.random() * DEBUG_RANDOM_CURRY_NAMES.length)],
+        visual: DEBUG_VISUALS[Math.floor(Math.random() * DEBUG_VISUALS.length)],
+        hp, atk, def, spd
+    };
+}
+function generateDebugEnemyTeam() {
+    // 2500の予算をランダムに5体前後へ分割して敵チームを生成
+    const count = 3 + Math.floor(Math.random() * 3); // 3〜5体
+    let remaining = STAT_BUDGET;
+    const team = [];
+    for (let i = 0; i < count; i++) {
+        const isLast = (i === count - 1);
+        const share = isLast ? remaining : Math.round(remaining / (count - i) * (0.7 + Math.random() * 0.6));
+        const amount = Math.max(80, Math.min(remaining - (count - i - 1) * 50, share));
+        team.push(generateDebugCurry(amount));
+        remaining -= amount;
+    }
+    return team;
+}
+
+// ------------------------------------------------------------
+// 4. ゲーム状態
+// ------------------------------------------------------------
+const state = {
+    phase: 'placement', // 'placement' | 'battle' | 'result'
+    playerPool: [],      // 配置候補（実カレーストック）
+    enemyPool: [],        // デバッグ生成された敵候補
+    selectedPoolIndex: null,
+    units: [],            // 盤面に配置された全ユニット（player/enemy混在）
+    turnQueue: [],         // 直近の行動順プレビュー用（表示専用。実際の判定はdelayで毎回計算）
+    activeUnit: null,
+    battleLogLines: []
+};
+
+function init() {
+    buildBoard();
+    state.playerPool = loadRealCurryStock();
+    state.enemyPool = generateDebugEnemyTeam();
+    renderBoard();
+    renderPlacementPanel();
+}
+
+// ------------------------------------------------------------
+// 5. 盤面描画
+// ------------------------------------------------------------
+function renderBoard() {
+    const svg = document.getElementById('boardSvg');
+    const totalHeight = ROW_Y_TOP + (BOARD_ROWS.length - 1) * ROW_Y_GAP + 60;
+    svg.setAttribute('viewBox', `0 0 ${BOARD_WIDTH} ${totalHeight}`);
+    let html = '';
+    // 辺
+    boardNodes.forEach(n => {
+        n.neighbors.forEach(nid => {
+            if (nid > n.id) {
+                const o = nodesById[nid];
+                html += `<line class="board-edge" x1="${n.x}" y1="${n.y}" x2="${o.x}" y2="${o.y}"></line>`;
+            }
+        });
+    });
+    // ノード
+    boardNodes.forEach(n => {
+        const isFlag = (n.row === ROW_TOP || n.row === ROW_BOTTOM);
+        const unit = state.units.find(u => u.nodeId === n.id);
+        let cls = 'board-node-circle';
+        if (isFlag) cls += ' flag-tile';
+        if (unit) cls += (unit.team === 'player') ? ' occupied-player' : ' occupied-enemy';
+        if (n.highlight === 'selectable') cls += ' selectable';
+        if (n.highlight === 'movable') cls += ' movable';
+        html += `<g onclick="onNodeClick(${n.id})">`;
+        html += `<circle class="${cls}" cx="${n.x}" cy="${n.y}" r="${NODE_R}"></circle>`;
+        if (isFlag && !unit) {
+            html += `<text class="board-flag-icon" x="${n.x}" y="${n.y + 8}" text-anchor="middle">${n.row === ROW_TOP ? '🚩' : '🏁'}</text>`;
+        }
+        if (unit) {
+            html += `<text class="board-unit-icon" x="${n.x}" y="${n.y + 7}" text-anchor="middle">${escapeHtmlAttr(unit.visual).slice(0, 4)}</text>`;
+            const pct = Math.max(0, unit.hp / unit.maxHp);
+            const barW = NODE_R * 1.6;
+            html += `<rect class="board-hp-bg" x="${n.x - barW / 2}" y="${n.y + NODE_R + 4}" width="${barW}" height="5" rx="2"></rect>`;
+            html += `<rect class="board-hp-fill" x="${n.x - barW / 2}" y="${n.y + NODE_R + 4}" width="${barW * pct}" height="5" rx="2"></rect>`;
+        }
+        html += `</g>`;
+    });
+    svg.innerHTML = html;
+}
+function escapeHtmlAttr(s) { return String(s == null ? '' : s); }
+
+// ------------------------------------------------------------
+// 6. 配置フェーズ
+// ------------------------------------------------------------
+function renderPlacementPanel() {
+    const list = document.getElementById('rosterList');
+    list.innerHTML = state.playerPool.map((c, idx) => {
+        const picked = state.units.some(u => u.team === 'player' && u.raw === c);
+        return `<div class="rosterCard${picked ? ' picked' : ''}" onclick="onPickPoolCurry(${idx})">
+            <div class="rcVisual">${escapeHtmlAttr(c.visual || '🍛')}</div>
+            <div class="rcName">${escapeHtmlAttr(c.name || 'カレー')}</div>
+            <div class="rcStats">HP${c.hp||0} ATK${c.atk||0}<br>DEF${c.def||0} SPD${c.spd||0}</div>
+        </div>`;
+    }).join('') || '<div style="font-size:11px;color:#b88742;">カレーストックにカレーがありません（game.htmlと同じ端末で開いてください）</div>';
+    updateBudgetLine();
+    highlightDeployTiles();
+    renderBoard();
+}
+
+function updateBudgetLine() {
+    const placed = state.units.filter(u => u.team === 'player');
+    const total = placed.reduce((sum, u) => sum + statTotal(u.raw), 0);
+    const el = document.getElementById('budgetLine');
+    el.textContent = `合計ステータス: ${total} / ${STAT_BUDGET}　配置数: ${placed.length} / ${MAX_UNITS}`;
+    el.classList.toggle('over', total > STAT_BUDGET);
+    document.getElementById('btnStartBattle').disabled = !(placed.length > 0 && total <= STAT_BUDGET);
+}
+
+function highlightDeployTiles() {
+    boardNodes.forEach(n => { n.highlight = null; });
+    if (state.selectedPoolIndex !== null) {
+        const deployRows = getDeployRows('player');
+        boardNodes.forEach(n => {
+            if (deployRows.includes(n.row) && !state.units.some(u => u.nodeId === n.id)) {
+                n.highlight = 'selectable';
+            }
+        });
+    }
+}
+
+function onPickPoolCurry(idx) {
+    if (state.phase !== 'placement') return;
+    const already = state.units.find(u => u.team === 'player' && u.raw === state.playerPool[idx]);
+    if (already) {
+        // 選び直し＝配置取り消し
+        state.units = state.units.filter(u => u !== already);
+        state.selectedPoolIndex = null;
+        renderPlacementPanel();
+        return;
+    }
+    const placed = state.units.filter(u => u.team === 'player');
+    if (placed.length >= MAX_UNITS) {
+        alert('配置できるのは最大5体までです。');
+        return;
+    }
+    state.selectedPoolIndex = idx;
+    highlightDeployTiles();
+    renderBoard();
+}
+
+function onNodeClick(nodeId) {
+    if (state.phase === 'placement') {
+        if (state.selectedPoolIndex === null) return;
+        const node = nodesById[nodeId];
+        if (node.highlight !== 'selectable') return;
+        const curry = state.playerPool[state.selectedPoolIndex];
+        const total = state.units.filter(u => u.team === 'player').reduce((s, u) => s + statTotal(u.raw), 0) + statTotal(curry);
+        if (total > STAT_BUDGET) {
+            alert('ステータス合計が2500を超えるため配置できません。');
+            return;
+        }
+        const unit = makeUnit(curry, 'player');
+        unit.nodeId = nodeId;
+        state.units.push(unit);
+        state.selectedPoolIndex = null;
+        renderPlacementPanel();
+        return;
+    }
+    if (state.phase === 'battle') {
+        onBattleNodeClick(nodeId);
+    }
+}
+
+function onRegenerateEnemyClick() {
+    state.enemyPool = generateDebugEnemyTeam();
+    appendLog('敵編成を再生成しました（デバッグ）。');
+}
+
+function onStartBattleClick() {
+    // 敵チームを自動配置（敵配置マスにランダムに割り当て）
+    const enemyDeployNodes = boardNodes.filter(n => getDeployRows('enemy').includes(n.row));
+    shuffleArray(enemyDeployNodes);
+    let idx = 0;
+    state.enemyPool.slice(0, MAX_UNITS).forEach(curry => {
+        if (idx >= enemyDeployNodes.length) return;
+        const unit = makeUnit(curry, 'enemy');
+        unit.nodeId = enemyDeployNodes[idx].id;
+        state.units.push(unit);
+        idx++;
+    });
+    boardNodes.forEach(n => { n.highlight = null; });
+    state.phase = 'battle';
+    document.getElementById('placementPanel').style.display = 'none';
+    document.getElementById('battlePanel').style.display = 'block';
+    renderBoard();
+    appendLog('戦闘開始！');
+    scheduleNextTurn();
+}
+function shuffleArray(arr) { for (let i = arr.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [arr[i], arr[j]] = [arr[j], arr[i]]; } }
+
+// ------------------------------------------------------------
+// 7. ATB行動順エンジン
+//    ディレイ値 = round(100000 / (SPD+200))。全員から毎ステップ1ずつ減らし、
+//    0になった駒（複数なら元SPDが高い方、それも同じならランダム）に行動権を渡す。
+// ------------------------------------------------------------
+function pickNextActor() {
+    const alive = state.units.filter(u => u.hp > 0);
+    if (alive.length === 0) return null;
+    let minDelay = Math.min(...alive.map(u => u.delay));
+    alive.forEach(u => { u.delay -= minDelay; });
+    let candidates = alive.filter(u => u.delay <= 0);
+    if (candidates.length > 1) {
+        const maxSpd = Math.max(...candidates.map(u => u.spd));
+        const topSpd = candidates.filter(u => u.spd === maxSpd);
+        candidates = [topSpd[Math.floor(Math.random() * topSpd.length)]];
+    }
+    return candidates[0] || alive[0];
+}
+
+function scheduleNextTurn() {
+    if (state.phase !== 'battle') return;
+    const winner = checkWinCondition();
+    if (winner) { endBattle(winner); return; }
+    const actor = pickNextActor();
+    if (!actor) return;
+    state.activeUnit = actor;
+    renderTurnQueuePreview();
+    renderBoard();
+    if (actor.team === 'player') {
+        highlightMovableTiles(actor);
+        setBattleStatus(`${actor.name} の番です。移動先のマスをタップしてください。`);
+    } else {
+        setBattleStatus(`${actor.name}（敵）が行動中…`);
+        setTimeout(() => { performEnemyTurn(actor); }, 500);
+    }
+}
+
+function renderTurnQueuePreview() {
+    // 表示専用の簡易プレビュー：現在のdelay状態からこの先の順番を軽くシミュレートする
+    const bar = document.getElementById('turnQueueBar');
+    const sim = state.units.filter(u => u.hp > 0).map(u => ({ u, delay: u.delay }));
+    const order = [];
+    for (let step = 0; step < 8 && sim.length > 0; step++) {
+        const minD = Math.min(...sim.map(s => s.delay));
+        sim.forEach(s => s.delay -= minD);
+        let ready = sim.filter(s => s.delay <= 0);
+        ready.sort((a, b) => b.u.spd - a.u.spd);
+        const chosen = ready[0];
+        if (!chosen) break;
+        order.push(chosen.u);
+        chosen.delay = computeDelay(chosen.u.spd);
+    }
+    bar.innerHTML = order.map((u, i) => {
+        const cls = `turnIcon team-${u.team}${i === 0 ? ' current' : ''}`;
+        return `<div class="${cls}" title="${escapeHtmlAttr(u.name)}">${escapeHtmlAttr(u.visual).slice(0,2)}</div>`;
+    }).join('');
+}
+
+// ------------------------------------------------------------
+// 8. 移動・戦闘
+// ------------------------------------------------------------
+function highlightMovableTiles(unit) {
+    boardNodes.forEach(n => { n.highlight = null; });
+    const node = nodesById[unit.nodeId];
+    node.neighbors.forEach(nid => {
+        const target = nodesById[nid];
+        const occupant = state.units.find(u => u.nodeId === nid && u.hp > 0);
+        if (!occupant || occupant.team !== unit.team) {
+            target.highlight = 'movable';
+        }
+    });
+    renderBoard();
+}
+
+function getMovableNeighbors(unit) {
+    const node = nodesById[unit.nodeId];
+    return node.neighbors.filter(nid => {
+        const occupant = state.units.find(u => u.nodeId === nid && u.hp > 0);
+        return !occupant || occupant.team !== unit.team;
+    });
+}
+
+function onBattleNodeClick(nodeId) {
+    const actor = state.activeUnit;
+    if (!actor || actor.team !== 'player') return;
+    const node = nodesById[nodeId];
+    if (node.highlight !== 'movable') return;
+    moveUnitTo(actor, nodeId);
+}
+
+function moveUnitTo(unit, nodeId) {
+    const defender = state.units.find(u => u.nodeId === nodeId && u.hp > 0 && u.team !== unit.team);
+    const fromNodeId = unit.nodeId;
+    unit.nodeId = nodeId;
+    boardNodes.forEach(n => { n.highlight = null; });
+    if (defender) {
+        appendLog(`${unit.name} が ${defender.name} に攻撃！`);
+        resolveBattle(unit, defender);
+        unit.nodeId = nodeId; // 勝者がそのマスへ進む
+    } else {
+        appendLog(`${unit.name} が移動した。`);
+    }
+    unit.delay = computeDelay(unit.spd);
+    renderBoard();
+    setTimeout(scheduleNextTurn, 500);
+}
+
+function performEnemyTurn(unit) {
+    const moves = getMovableNeighbors(unit);
+    if (moves.length === 0) {
+        appendLog(`${unit.name}（敵）は動けずパス。`);
+        unit.delay = computeDelay(unit.spd);
+        setTimeout(scheduleNextTurn, 400);
+        return;
+    }
+    // 簡易AI：隣接に敵（プレイヤー側）がいれば最優先で攻撃、いなければ自陣旗（プレイヤー旗）に
+    // 最短距離で近づくマスを選ぶ。
+    const attackMove = moves.find(nid => state.units.some(u => u.nodeId === nid && u.hp > 0 && u.team !== unit.team));
+    let chosen;
+    if (attackMove !== undefined) {
+        chosen = attackMove;
+    } else {
+        const targetNode = nodesById[getFlagNodeId('player')];
+        chosen = moves.slice().sort((a, b) => {
+            const da = dist(nodesById[a], targetNode), db = dist(nodesById[b], targetNode);
+            return da - db;
+        })[0];
+    }
+    moveUnitTo(unit, chosen);
+}
+function dist(a, b) { return Math.hypot(a.x - b.x, a.y - b.y); }
+
+// 戦闘解決：「PCと対戦」の与ダメージ計算式（通常攻撃）を流用した簡易オート戦闘。
+// 特殊カレー技（毒・幻惑・ホームラン等）は現時点では未反映（followup予定）。
+function getCritRate(mySpd, oppSpd) {
+    const ratio = mySpd / Math.max(1, oppSpd);
+    if (ratio >= 10) return 0.30;
+    if (ratio >= 5) return 0.20;
+    if (ratio >= 3) return 0.15;
+    if (ratio >= 2) return 0.10;
+    if (ratio >= 1.5) return 0.07;
+    if (ratio >= 1) return 0.05;
+    return 0.03;
+}
+function rollDamage(attacker, defender) {
+    const isCrit = Math.random() < getCritRate(attacker.spd, defender.spd);
+    let d = isCrit ? Math.max(8, attacker.atk) : Math.max(8, attacker.atk - Math.floor(defender.def / 2));
+    d = Math.round(d * (0.9 + Math.random() * 0.2));
+    if (isCrit) d = Math.round(d * 1.3);
+    return { dmg: d, isCrit };
+}
+function resolveBattle(a, b) {
+    // aが移動してきた側（先制）、bが待ち受けていた側。交互に殴り合い、どちらかのHPが0になるまで続ける。
+    let attacker = a, defender = b;
+    let guard = 0;
+    while (attacker.hp > 0 && defender.hp > 0 && guard < 200) {
+        const { dmg, isCrit } = rollDamage(attacker, defender);
+        defender.hp = Math.max(0, defender.hp - dmg);
+        appendLog(`${isCrit ? '🌶️ Spicy Hit! ' : ''}${attacker.name} の攻撃！ ${defender.name} に ${dmg} ダメージ`);
+        if (defender.hp <= 0) break;
+        [attacker, defender] = [defender, attacker];
+        guard++;
+    }
+    const loser = a.hp <= 0 ? a : b;
+    const winner = a.hp <= 0 ? b : a;
+    appendLog(`💥 ${loser.name} は力尽きた…！ ${winner.name} の勝ち（残HP ${winner.hp}/${winner.maxHp}）`);
+    state.units = state.units.filter(u => u !== loser);
+}
+
+function checkWinCondition() {
+    const playerUnits = state.units.filter(u => u.team === 'player' && u.hp > 0);
+    const enemyUnits = state.units.filter(u => u.team === 'enemy' && u.hp > 0);
+    if (enemyUnits.length === 0) return 'player';
+    if (playerUnits.length === 0) return 'enemy';
+    const playerOnEnemyFlag = playerUnits.some(u => u.nodeId === getFlagNodeId('enemy'));
+    if (playerOnEnemyFlag) return 'player';
+    const enemyOnPlayerFlag = enemyUnits.some(u => u.nodeId === getFlagNodeId('player'));
+    if (enemyOnPlayerFlag) return 'enemy';
+    return null;
+}
+
+function endBattle(winner) {
+    state.phase = 'result';
+    document.getElementById('resultOverlay').style.display = 'flex';
+    document.getElementById('resultTitle').textContent = winner === 'player' ? '🏆 VICTORY' : '💀 DEFEAT';
+    document.getElementById('resultDesc').textContent = winner === 'player' ? '敵の旗を奪う、または全滅させました！' : '自陣の旗を奪われる、または全滅しました…';
+}
+
+// ------------------------------------------------------------
+// 9. ログ・ステータス表示
+// ------------------------------------------------------------
+function appendLog(text) {
+    state.battleLogLines.push(text);
+    const el = document.getElementById('battleLog');
+    el.textContent = state.battleLogLines.slice(-30).join('\n');
+    el.scrollTop = el.scrollHeight;
+}
+function setBattleStatus(text) {
+    document.getElementById('battleStatusLine').textContent = text;
+}
+
+window.onload = init;
+</script>
+</body>
+</html>
