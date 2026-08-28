@@ -740,7 +740,11 @@ function waitForEngineReady(cb, attemptsLeft) {
     const frame = document.getElementById('engineFrame');
     let win = null;
     try { win = frame.contentWindow; } catch (e) {}
-    if (win && typeof win.startExternalBoardBattle === 'function' && win.curryStock) {
+    // 注意：curryStock等はgame.js側でlet宣言されたトップレベル変数のため、
+    // iframe越しにwin.curryStockとして読むことはできない（windowのプロパティにはならない）。
+    // window.startExternalBoardBattle = ... と明示的に代入した関数の存在だけを
+    // 準備完了の合図として使う。
+    if (win && typeof win.startExternalBoardBattle === 'function') {
         cb(win);
         return;
     }
