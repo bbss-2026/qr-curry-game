@@ -691,8 +691,10 @@ function onBattleNodeClick(nodeId) {
 //    renderBoard()は毎回SVGを丸ごと作り直すため、そのままではDOM要素が毎回
 //    作り直されてしまいCSSトランジションが効かない。そこで移動中だけは対象
 //    ユニットを通常描画から隠し（renderBoard側の!u._animating条件）、代わりに
-//    同じSVG座標系の上に浮動スプライト（<image>＋クリップ用<circle>）を重ねて、
-//    その x/y/cx/cy にCSSトランジションを付けて移動先までスライドさせる。
+//    同じSVG座標系の上に浮動スプライトを重ねる。x/y/cx/cy等のSVG座標属性を
+//    直接CSSトランジションさせるのはブラウザによって効かないことがあるため、
+//    <g>でラップしてCSSの transform:translate() をトランジションさせる
+//    （transformは各ブラウザで最も確実にアニメーションする）。
 // ------------------------------------------------------------
 const MOVE_ANIM_MS = 380;
 function animateUnitMove(unit, fromNodeId, toNodeId, onComplete) {
@@ -714,10 +716,13 @@ function animateUnitMove(unit, fromNodeId, toNodeId, onComplete) {
     clipCircle.setAttribute('cx', fromNode.x);
     clipCircle.setAttribute('cy', fromNode.y);
     clipCircle.setAttribute('r', r2);
-    clipCircle.style.transition = `cx ${MOVE_ANIM_MS}ms ease, cy ${MOVE_ANIM_MS}ms ease`;
     clipPath.appendChild(clipCircle);
     defs.appendChild(clipPath);
     svg.appendChild(defs);
+
+    const g = document.createElementNS(ns, 'g');
+    g.style.transition = `transform ${MOVE_ANIM_MS}ms ease`;
+    g.style.transform = 'translate(0px, 0px)';
 
     const img = document.createElementNS(ns, 'image');
     img.setAttribute('href', getCurryImage(unit.raw));
@@ -727,26 +732,26 @@ function animateUnitMove(unit, fromNodeId, toNodeId, onComplete) {
     img.setAttribute('height', r2 * 2);
     img.setAttribute('preserveAspectRatio', 'xMidYMid slice');
     img.setAttribute('clip-path', `url(#${clipId})`);
-    img.style.transition = `x ${MOVE_ANIM_MS}ms ease, y ${MOVE_ANIM_MS}ms ease`;
-    svg.appendChild(img);
+    g.appendChild(img);
+    svg.appendChild(g);
 
-    // 初期位置が実際に描画されてから値を変えないとトランジションが発火しないため、
-    // 1フレーム待ってから移動先の座標へ更新する。
+    const dx = toNode.x - fromNode.x;
+    const dy = toNode.y - fromNode.y;
+    // 初期状態（translate(0,0)）が実際に描画されてから動かさないとトランジションが
+    // 発火しないため、強制リフロー＋1フレーム待ってから移動先へのtransformへ切り替える。
     requestAnimationFrame(() => {
+        void g.getBoundingClientRect();
         requestAnimationFrame(() => {
-            img.setAttribute('x', toNode.x - r2);
-            img.setAttribute('y', toNode.y - r2);
-            clipCircle.setAttribute('cx', toNode.x);
-            clipCircle.setAttribute('cy', toNode.y);
+            g.style.transform = `translate(${dx}px, ${dy}px)`;
         });
     });
 
     setTimeout(() => {
-        if (svg.contains(img)) svg.removeChild(img);
+        if (svg.contains(g)) svg.removeChild(g);
         if (svg.contains(defs)) svg.removeChild(defs);
         unit._animating = false;
         onComplete();
-    }, MOVE_ANIM_MS + 20);
+    }, MOVE_ANIM_MS + 60);
 }
 
 function moveUnitTo(unit, nodeId) {
