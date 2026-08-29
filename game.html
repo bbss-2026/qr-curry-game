@@ -2220,6 +2220,12 @@
      書き換えるだけでよく、story.js（再生エンジン側）やこのHTMLを触る必要はない。 -->
 <script src="story.js?v=48"></script>
 <script src="story-scripts.js?v=34"></script>
+<!-- ボードカレーバトル（開発中）。story.jsと同じ方針で、DOM・CSSはすべてこのファイルから
+     動的に注入する。game.html側はこの<script>タグ1行のみで完結する（詳細はboard-battle.js
+     冒頭コメント参照）。入り口は本人のデバッグモードが有効な間だけ画面右下に表示される。
+     game.js・story.jsより後に読み込むこと（curryStock/getCurryImage/applyBookBattleLift等の
+     既存グローバルをそのまま利用するため）。 -->
+<script src="board-battle.js?v=1"></script>
 <div style="height:80px;"></div>
 </div><!-- /gameUI -->
 </div>
