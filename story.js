@@ -1444,8 +1444,13 @@ const STORY_LIBRARY_ENABLED = true; // 図書館タブから全プレイヤー�
             btn.textContent = '解放';
             btn.style.display = 'inline-block';
             btn.onclick = function(e) { e.stopPropagation(); onStoryBookUnlockClick(chapter); };
+        } else if (chapter.num === 9) {
+            // book9（未達成時）：解放条件（book1〜8の全ボス討伐）がまだ整っていないことが分かるように表示する。
+            btn.textContent = '解放条件未達成';
+            btn.style.display = 'inline-block';
+            btn.classList.add('story-book-action-disabled');
         } else {
-            // book-09（未達成時）/10など、解放条件が未設定・未達成の巻
+            // book-10など、解放条件が未設定の巻
             btn.textContent = '解放条件は後日公開予定';
             btn.style.display = 'inline-block';
             btn.classList.add('story-book-action-disabled');
@@ -1609,6 +1614,13 @@ const STORY_LIBRARY_ENABLED = true; // 図書館タブから全プレイヤー�
             if (on) updateBookBattleMuteIcon();
         }
     }
+    // ボードカレーバトル（board-battle.js）からもこの「戦闘画面を前面へ持ち上げる」処理を
+    // そのまま再利用しているため、明示的にwindowへ公開しておく（このIIFE内のただのfunction宣言は
+    // window直下に出ないため。上のonBookBattleMuteToggleと同じ理由）。これが無いと
+    // applyBookBattleLiftが呼ばれず、#battleArenaが元の.page内に留まったままとなり、
+    // ボードバトル呼び出し時に表示中のタブが「対戦」タブでない場合、
+    // .page:not(.active){display:none} の影響で戦闘画面が丸ごと非表示になってしまう。
+    window.applyBookBattleLift = applyBookBattleLift;
 
     // 本のボス戦専用ミュートボタン：本体（ゲーム画面）のミュート状態・toggleMute()をそのまま流用する
     // （onStoryMuteToggle/updateStoryMuteIconと同じ考え方。二重管理はしない、アイコンだけ同期する）。
