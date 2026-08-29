@@ -649,7 +649,10 @@ function bbMoveUnitTo(unit, nodeId) {
     bbNodes.forEach(n => { n.highlight = null; });
     if (defender) {
         bbAppendLog(`${unit.name} が ${defender.name} に攻撃！`);
-        bbResolveBattle(unit, defender, nodeId, fromNodeId);
+        // 攻撃側の駒を相手のマスまで滑らせ、重なった（ぶつかった）ところで戦闘画面へ切り替える
+        bbAnimateUnitMove(unit, fromNodeId, nodeId, function () {
+            bbResolveBattle(unit, defender, nodeId);
+        });
     } else {
         bbAnimateUnitMove(unit, fromNodeId, nodeId, function () {
             unit.nodeId = nodeId;
@@ -698,7 +701,7 @@ function bbDist(a, b) { return Math.hypot(a.x - b.x, a.y - b.y); }
 //    isBoardBattle分岐）で一切触れないようにしてあるため、ボードカレーバトルの
 //    駒は勝敗にかかわらず消費されない。
 // ------------------------------------------------------------
-function bbResolveBattle(mover, defender, targetNodeId, fromNodeId) {
+function bbResolveBattle(mover, defender, targetNodeId) {
     const playerUnit = mover.team === 'player' ? mover : defender;
     const enemyUnit = mover.team === 'player' ? defender : mover;
 
@@ -712,7 +715,14 @@ function bbResolveBattle(mover, defender, targetNodeId, fromNodeId) {
         return;
     }
 
+    // 本編の戦闘画面（vsCutIn/battleArena）はz-indexの重ね順に関わらず必ず見えるよう、
+    // 盤面側のオーバーレイ（#bbRoot）を戦闘中は明示的に非表示にする（音だけ鳴って
+    // 画面が盤面のまま止まって見える不具合の対策）。
+    const bbRootEl = document.getElementById('bbRoot');
+    if (bbRootEl) bbRootEl.style.display = 'none';
+
     startExternalBoardBattle(myCurrySnapshot, oppCurrySnapshot, function (didPlayerWin, remainingPlayerHp, remainingOppHp) {
+        if (bbRootEl) bbRootEl.style.display = 'flex';
         playerUnit.hp = remainingPlayerHp;
         enemyUnit.hp = remainingOppHp;
         const moverIsPlayer = (mover.team === 'player');
@@ -721,20 +731,12 @@ function bbResolveBattle(mover, defender, targetNodeId, fromNodeId) {
         const loser = moverWon ? defender : mover;
         bbAppendLog(`${loser.name} は力尽きた。${winner.name} の勝ち（残HP ${winner.hp}/${winner.maxHp}）`);
         bbState.units = bbState.units.filter(u => u !== loser);
-        function finishTurn() {
-            mover.delay = bbComputeDelay(mover.spd);
-            bbRenderBoard();
-            setTimeout(bbScheduleNextTurn, 500);
-        }
-        if (moverWon) {
-            // 勝った駒がそのマスへスライドして進む
-            bbAnimateUnitMove(mover, fromNodeId, targetNodeId, function () {
-                mover.nodeId = targetNodeId;
-                finishTurn();
-            });
-        } else {
-            finishTurn();
-        }
+        // 勝った駒は、衝突アニメーションで既に見た目上そのマスへ来ているので、
+        // ここでは位置を確定させるだけでよい（再度スライドさせる必要はない）。
+        if (moverWon) mover.nodeId = targetNodeId;
+        mover.delay = bbComputeDelay(mover.spd);
+        bbRenderBoard();
+        setTimeout(bbScheduleNextTurn, 500);
     });
 }
 
