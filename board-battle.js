@@ -32,10 +32,14 @@ const BB_STYLE = `
     font-family: "Hiragino Kaku Gothic ProN", "Yu Gothic", sans-serif;
     overscroll-behavior: none; user-select: none;
 }
-#bbAppRoot { max-width: 720px; margin: 0 auto; width: 100%; height: 100%; display: flex; flex-direction: column; }
+#bbAppRoot { max-width: 720px; margin: 0 auto; width: 100%; height: 100%; position: relative; overflow: hidden; }
+
+/* 地図アプリのように：盤面（#bbBoardWrap）は画面いっぱいに自由にパン・ズームでき、
+   ヘッダー／行動順アイコン／メッセージウインドウは常に固定位置に浮かせて重ねて表示する。 */
+#bbTopOverlay { position: absolute; top: 0; left: 0; right: 0; z-index: 25; display: flex; flex-direction: column; }
 
 #bbHeaderBar {
-    background: #420000; padding: 10px 14px; display: flex; align-items: center; justify-content: space-between;
+    background: rgba(66,0,0,0.92); padding: 10px 14px; display: flex; align-items: center; justify-content: space-between;
     border-bottom: 2px solid #b88742; flex-shrink: 0;
 }
 #bbHeaderBar h1 { font-size: 14px; margin: 0; letter-spacing: 0.05em; color: #efdeb1; }
@@ -44,8 +48,9 @@ const BB_STYLE = `
 .bb-closeBtn { background: none; border: 1px solid #b88742; color: #efdeb1; border-radius: 6px; padding: 4px 10px; font-size: 12px; cursor: pointer; }
 
 #bbTurnQueueBar {
-    display: flex; align-items: center; gap: 6px; padding: 10px 12px; background: #3a2413;
-    border-bottom: 1px solid #6b4a26; overflow-x: auto; min-height: 62px; flex-shrink: 0;
+    display: flex; align-items: center; gap: 6px; padding: 10px 12px; background: rgba(58,36,19,0.88);
+    border-bottom: 1px solid rgba(107,74,38,0.8); overflow-x: auto; min-height: 62px; flex-shrink: 0;
+    box-shadow: 0 6px 12px rgba(0,0,0,0.25);
 }
 .bb-turnIcon {
     width: 34px; height: 34px; border-radius: 50%; flex-shrink: 0; position: relative;
@@ -57,8 +62,10 @@ const BB_STYLE = `
 .bb-turnIcon.bb-team-enemy { border-color: #e74c3c; }
 .bb-turnIcon.bb-current { width: 52px; height: 52px; opacity: 1; transform: scale(1.05); box-shadow: 0 0 12px rgba(255,255,255,0.6); }
 
-#bbBoardWrap { flex: 1; display: flex; align-items: center; justify-content: center; padding: 10px; overflow: auto; min-height: 0; }
-#bbBoardSvg { width: 100%; max-width: 640px; height: auto; }
+/* 盤面は#bbAppRoot全体に敷き詰め、ヘッダー等の下にも回り込ませる（地図アプリのタイル層と同じ考え方）。
+   ネイティブのスクロール（overflow:auto）は使わず、pointer/wheelイベントで自前のパン・ズームを実装する。 */
+#bbBoardWrap { position: absolute; inset: 0; overflow: hidden; touch-action: none; background: #2b1a0e; }
+#bbBoardSvg { width: 100%; height: 100%; display: block; }
 .bb-board-edge { stroke: #6b4a26; stroke-width: 2; }
 .bb-board-node-circle { fill: #efdeb1; stroke: #6b4a26; stroke-width: 3; cursor: default; }
 .bb-board-node-circle.bb-flag-tile { fill: #f5e9c8; stroke: #b88742; stroke-width: 4; }
@@ -79,7 +86,11 @@ const BB_STYLE = `
 .bb-board-hp-bg { fill: #222; }
 .bb-board-hp-fill { fill: #2ecc71; }
 
-#bbBottomPanel { background: #3a2413; border-top: 2px solid #b88742; padding: 12px; flex-shrink: 0; max-height: 46vh; overflow-y: auto; }
+#bbBottomPanel {
+    position: absolute; bottom: 0; left: 0; right: 0; z-index: 25;
+    background: rgba(58,36,19,0.94); border-top: 2px solid #b88742; padding: 12px;
+    max-height: 46vh; overflow-y: auto; box-shadow: 0 -6px 14px rgba(0,0,0,0.3);
+}
 #bbBottomPanel h2 { font-size: 13px; margin: 0 0 8px 0; color: #f5c469; }
 #bbBudgetLine { font-size: 12px; margin-bottom: 8px; }
 #bbBudgetLine.bb-over { color: #e74c3c; font-weight: bold; }
@@ -109,6 +120,19 @@ const BB_STYLE = `
 }
 #bbResultBox { background: #efdeb1; color: #420000; border-radius: 12px; padding: 30px 40px; text-align: center; }
 #bbResultBox h2 { font-size: 24px; margin: 0 0 12px 0; }
+
+/* 盤面バトル中に起動する本編の戦闘画面：咖喱図書館用の背景（applyBookBattleLiftが敷く
+   currylibrary_bg.png）ではなく、盤面（#bbRoot）がうっすら透けて見える半透明オーバーレイにする。
+   #battleArena.book-battle-lift と同じ詳細度（#id.class）だが、このスタイルはstory.jsより後に
+   読み込まれるため、後勝ちのCSSカスケードでこちらが優先される。 */
+#battleArena.bb-arena-overlay {
+    background: rgba(20,12,6,0.55) !important;
+}
+.battle-stage.bb-battle-bg {
+    background: rgba(10,10,10,0.32) !important;
+    border: 1px solid rgba(241,196,15,0.25) !important;
+    box-shadow: 0 20px 50px rgba(0,0,0,0.4) !important;
+}
 
 #bbLauncherBtn {
     position: fixed; right: 14px; bottom: 88px; z-index: 8000; display: none; align-items: center; gap: 6px;
@@ -308,8 +332,138 @@ function bbInit() {
     document.getElementById('bbPlacementPanel').style.display = 'block';
     document.getElementById('bbBattlePanel').style.display = 'none';
     document.getElementById('bbBattleLog').innerHTML = '';
+    // 前回の勝敗結果ポップアップが残ったままにならないよう、開く・再スタートのたびに必ず隠す
+    // （「DEFEATのまま閉じずに再度開いた」不具合の対策）。
+    document.getElementById('bbResultOverlay').style.display = 'none';
     bbRenderBoard();
     bbRenderPlacementPanel();
+    bbFitView();
+}
+
+// ------------------------------------------------------------
+// 4.5. 盤面のパン・ズーム（地図アプリのように自由に動かせる）
+//    #bbBoardWrapは画面全体に敷き詰められた固定領域で、ネイティブのスクロールは使わない。
+//    盤面の内容（辺・ノード・駒）は<g id="bbViewportG">の中に描画し、その要素へ
+//    transform: translate(x,y) scale(s) を直接適用してパン・ズームを実現する。
+//    ヘッダー／行動順バー／メッセージウインドウは別レイヤー（position:absolute）で
+//    常に画面上の同じ位置に固定表示され、この変形の影響を受けない。
+// ------------------------------------------------------------
+const BB_MIN_SCALE = 0.5, BB_MAX_SCALE = 3;
+let bbView = { x: 0, y: 0, scale: 1 };
+const bbPointers = new Map(); // pointerId -> {x,y}（#bbBoardWrap基準の座標）
+let bbDragLast = null;   // 1本指パンの直前座標
+let bbPinchLast = null;  // 2本指ピンチの直前状態 {dist,cx,cy}
+let bbGestureMoved = 0;  // このジェスチャー中に動いた量（クリックか否かの判定用）
+
+function bbBoardTotalHeight() {
+    return BB_ROW_Y_TOP + (BB_ROWS_DEF.length - 1) * BB_ROW_Y_GAP + 60;
+}
+
+function bbSyncSvgSize(w, h) {
+    const svg = document.getElementById('bbBoardSvg');
+    if (!svg) return;
+    svg.setAttribute('width', w);
+    svg.setAttribute('height', h);
+    svg.setAttribute('viewBox', `0 0 ${w} ${h}`);
+}
+
+function bbApplyView() {
+    const g = document.getElementById('bbViewportG');
+    if (g) g.setAttribute('transform', `translate(${bbView.x},${bbView.y}) scale(${bbView.scale})`);
+}
+
+// 盤面全体が画面にちょうど収まるよう、初期のパン位置・ズームを計算する（開始・リスタート時に実行）。
+function bbFitView() {
+    const wrap = document.getElementById('bbBoardWrap');
+    if (!wrap) return;
+    const wrapW = wrap.clientWidth || 360;
+    const wrapH = wrap.clientHeight || 600;
+    bbSyncSvgSize(wrapW, wrapH);
+    const totalHeight = bbBoardTotalHeight();
+    const fitScale = Math.max(BB_MIN_SCALE, Math.min(BB_MAX_SCALE,
+        Math.min(wrapW / BB_BOARD_WIDTH, wrapH / totalHeight) * 0.92));
+    bbView.scale = fitScale;
+    bbView.x = (wrapW - BB_BOARD_WIDTH * fitScale) / 2;
+    bbView.y = (wrapH - totalHeight * fitScale) / 2;
+    bbApplyView();
+}
+
+function bbGetWrapPoint(evt) {
+    const wrap = document.getElementById('bbBoardWrap');
+    const rect = wrap.getBoundingClientRect();
+    return { x: evt.clientX - rect.left, y: evt.clientY - rect.top };
+}
+
+function bbComputePinch(pts) {
+    const dx = pts[0].x - pts[1].x, dy = pts[0].y - pts[1].y;
+    return { dist: Math.hypot(dx, dy), cx: (pts[0].x + pts[1].x) / 2, cy: (pts[0].y + pts[1].y) / 2 };
+}
+
+function bbZoomAt(px, py, factor) {
+    const newScale = Math.min(BB_MAX_SCALE, Math.max(BB_MIN_SCALE, bbView.scale * factor));
+    const actualFactor = newScale / bbView.scale;
+    bbView.x = px - (px - bbView.x) * actualFactor;
+    bbView.y = py - (py - bbView.y) * actualFactor;
+    bbView.scale = newScale;
+    bbApplyView();
+}
+
+function bbOnPointerDown(evt) {
+    const wrap = document.getElementById('bbBoardWrap');
+    if (wrap.setPointerCapture) { try { wrap.setPointerCapture(evt.pointerId); } catch (e) {} }
+    bbPointers.set(evt.pointerId, bbGetWrapPoint(evt));
+    bbGestureMoved = 0;
+    if (bbPointers.size === 1) {
+        bbDragLast = bbGetWrapPoint(evt);
+        bbPinchLast = null;
+    } else if (bbPointers.size === 2) {
+        bbPinchLast = bbComputePinch(Array.from(bbPointers.values()));
+        bbDragLast = null;
+    }
+}
+function bbOnPointerMove(evt) {
+    if (!bbPointers.has(evt.pointerId)) return;
+    bbPointers.set(evt.pointerId, bbGetWrapPoint(evt));
+    if (bbPointers.size === 1 && bbDragLast) {
+        const p = bbGetWrapPoint(evt);
+        const dx = p.x - bbDragLast.x, dy = p.y - bbDragLast.y;
+        bbGestureMoved += Math.hypot(dx, dy);
+        bbView.x += dx; bbView.y += dy;
+        bbDragLast = p;
+        bbApplyView();
+    } else if (bbPointers.size === 2) {
+        const pts = Array.from(bbPointers.values());
+        const now = bbComputePinch(pts);
+        if (bbPinchLast && bbPinchLast.dist > 0) {
+            bbZoomAt(now.cx, now.cy, now.dist / bbPinchLast.dist);
+            bbGestureMoved += Math.abs(now.dist - bbPinchLast.dist);
+        }
+        bbPinchLast = now;
+    }
+}
+function bbOnPointerUpOrCancel(evt) {
+    bbPointers.delete(evt.pointerId);
+    if (bbPointers.size === 1) {
+        bbDragLast = Array.from(bbPointers.values())[0] || null;
+        bbPinchLast = null;
+    } else if (bbPointers.size === 0) {
+        bbDragLast = null; bbPinchLast = null;
+    }
+}
+function bbOnWheel(evt) {
+    evt.preventDefault();
+    const p = bbGetWrapPoint(evt);
+    const factor = evt.deltaY < 0 ? 1.12 : (1 / 1.12);
+    bbZoomAt(p.x, p.y, factor);
+}
+// パン・ピンチでそれなりに動いた後のclickは、ノードのタップ操作として扱わない
+// （地図アプリで指を滑らせただけなのに、下にあった場所を誤ってタップ判定しないのと同じ）。
+function bbOnBoardClickCapture(evt) {
+    if (bbGestureMoved > 8) {
+        evt.stopPropagation();
+        evt.preventDefault();
+    }
+    bbGestureMoved = 0;
 }
 
 // ------------------------------------------------------------
@@ -322,10 +476,8 @@ function bbFlagMarkup(x, y, color) {
 }
 
 function bbRenderBoard() {
-    const svg = document.getElementById('bbBoardSvg');
-    if (!svg) return;
-    const totalHeight = BB_ROW_Y_TOP + (BB_ROWS_DEF.length - 1) * BB_ROW_Y_GAP + 60;
-    svg.setAttribute('viewBox', `0 0 ${BB_BOARD_WIDTH} ${totalHeight}`);
+    const viewportG = document.getElementById('bbViewportG');
+    if (!viewportG) return;
     let html = '';
     // 辺（縦・斜めのみ。横方向の辺は存在しない）
     bbNodes.forEach(n => {
@@ -368,7 +520,7 @@ function bbRenderBoard() {
         }
         html += `</g>`;
     });
-    svg.innerHTML = html;
+    viewportG.innerHTML = html;
 }
 function bbEsc(s) { return String(s == null ? '' : s); }
 
@@ -590,7 +742,9 @@ function bbAnimateUnitMove(unit, fromNodeId, toNodeId, onComplete) {
     const fromNode = bbNodesById[fromNodeId];
     const toNode = bbNodesById[toNodeId];
     if (!fromNode || !toNode || fromNodeId === toNodeId) { onComplete(); return; }
-    const svg = document.getElementById('bbBoardSvg');
+    // 盤面のパン・ズーム変形を一緒に受けるよう、浮動スプライトは#bbViewportGの中に追加する
+    // （#bbBoardSvg直下に置くと変形が反映されず、パン・ズーム後にずれた位置へ移動してしまう）。
+    const viewportG = document.getElementById('bbViewportG');
     const ns = 'http://www.w3.org/2000/svg';
     const r2 = BB_NODE_R - 4;
 
@@ -607,7 +761,7 @@ function bbAnimateUnitMove(unit, fromNodeId, toNodeId, onComplete) {
     clipCircle.setAttribute('r', r2);
     clipPath.appendChild(clipCircle);
     defs.appendChild(clipPath);
-    svg.appendChild(defs);
+    viewportG.appendChild(defs);
 
     const g = document.createElementNS(ns, 'g');
     g.style.transition = `transform ${BB_MOVE_ANIM_MS}ms ease`;
@@ -622,7 +776,7 @@ function bbAnimateUnitMove(unit, fromNodeId, toNodeId, onComplete) {
     img.setAttribute('preserveAspectRatio', 'xMidYMid slice');
     img.setAttribute('clip-path', `url(#${clipId})`);
     g.appendChild(img);
-    svg.appendChild(g);
+    viewportG.appendChild(g);
 
     const dx = toNode.x - fromNode.x;
     const dy = toNode.y - fromNode.y;
@@ -636,8 +790,8 @@ function bbAnimateUnitMove(unit, fromNodeId, toNodeId, onComplete) {
     });
 
     setTimeout(() => {
-        if (svg.contains(g)) svg.removeChild(g);
-        if (svg.contains(defs)) svg.removeChild(defs);
+        if (viewportG.contains(g)) viewportG.removeChild(g);
+        if (viewportG.contains(defs)) viewportG.removeChild(defs);
         unit._animating = false;
         onComplete();
     }, BB_MOVE_ANIM_MS + 60);
@@ -715,14 +869,15 @@ function bbResolveBattle(mover, defender, targetNodeId) {
         return;
     }
 
-    // 本編の戦闘画面（vsCutIn/battleArena）はz-indexの重ね順に関わらず必ず見えるよう、
-    // 盤面側のオーバーレイ（#bbRoot）を戦闘中は明示的に非表示にする（音だけ鳴って
-    // 画面が盤面のまま止まって見える不具合の対策）。
-    const bbRootEl = document.getElementById('bbRoot');
-    if (bbRootEl) bbRootEl.style.display = 'none';
+    // 本編の戦闘画面（vsCutIn/battleArena）はapplyBookBattleLift()により盤面（#bbRoot）より
+    // 前面（z-index）へ持ち上がるので、#bbRoot自体は非表示にしない。代わりに#battleArenaへ
+    // 半透明の専用背景クラスを付け、盤面が透けて見えるオーバーレイ表示にする
+    // （通常のCSS z-index重なりだけで解決するため、表示/非表示の切り替えは不要）。
+    const arenaEl = document.getElementById('battleArena');
+    if (arenaEl) arenaEl.classList.add('bb-arena-overlay');
 
     startExternalBoardBattle(myCurrySnapshot, oppCurrySnapshot, function (didPlayerWin, remainingPlayerHp, remainingOppHp) {
-        if (bbRootEl) bbRootEl.style.display = 'flex';
+        if (arenaEl) arenaEl.classList.remove('bb-arena-overlay');
         playerUnit.hp = remainingPlayerHp;
         enemyUnit.hp = remainingOppHp;
         const moverIsPlayer = (mover.team === 'player');
@@ -802,16 +957,18 @@ function bbInjectDom() {
     rootDiv.id = 'bbRoot';
     rootDiv.innerHTML = `
         <div id="bbAppRoot">
-            <div id="bbHeaderBar">
-                <h1>ボードカレーバトル</h1>
-                <div class="bb-header-right">
-                    <span class="bb-devBadge">開発版</span>
-                    <button class="bb-closeBtn" onclick="window.__bbClose()">✕ 閉じる</button>
-                </div>
-            </div>
-            <div id="bbTurnQueueBar"></div>
             <div id="bbBoardWrap">
-                <svg id="bbBoardSvg" viewBox="0 0 600 900"></svg>
+                <svg id="bbBoardSvg" viewBox="0 0 600 900"><g id="bbViewportG"></g></svg>
+            </div>
+            <div id="bbTopOverlay">
+                <div id="bbHeaderBar">
+                    <h1>ボードカレーバトル</h1>
+                    <div class="bb-header-right">
+                        <span class="bb-devBadge">開発版</span>
+                        <button class="bb-closeBtn" onclick="window.__bbClose()">✕ 閉じる</button>
+                    </div>
+                </div>
+                <div id="bbTurnQueueBar"></div>
             </div>
             <div id="bbBottomPanel">
                 <div id="bbPlacementPanel">
@@ -838,6 +995,22 @@ function bbInjectDom() {
         </div>
     `;
     document.body.appendChild(rootDiv);
+
+    // 盤面のパン・ズーム操作の配線（マウスのドラッグ・ホイールと、指1本でのパン・
+    // 指2本でのピンチズームをPointer Eventsで統一的に扱う）。
+    const bbWrapEl = document.getElementById('bbBoardWrap');
+    bbWrapEl.addEventListener('pointerdown', bbOnPointerDown);
+    bbWrapEl.addEventListener('pointermove', bbOnPointerMove);
+    bbWrapEl.addEventListener('pointerup', bbOnPointerUpOrCancel);
+    bbWrapEl.addEventListener('pointercancel', bbOnPointerUpOrCancel);
+    bbWrapEl.addEventListener('pointerleave', bbOnPointerUpOrCancel);
+    bbWrapEl.addEventListener('wheel', bbOnWheel, { passive: false });
+    bbWrapEl.addEventListener('click', bbOnBoardClickCapture, true);
+    if (typeof window.addEventListener === 'function') {
+        window.addEventListener('resize', function () {
+            if (document.getElementById('bbRoot').style.display !== 'none') bbFitView();
+        });
+    }
 
     const launcherBtn = document.createElement('button');
     launcherBtn.id = 'bbLauncherBtn';
