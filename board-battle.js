@@ -139,7 +139,7 @@ const BB_STYLE = `
    背面に置くことで、戦闘カード幅（max-width:500px）の外側（左右の余白）も含めて
    画面全体のタップを塞ぐ。カード自体は#battleArenaが最前面のまま表示される。 */
 #bbBattleBlockOverlay {
-    position: fixed; inset: 0; z-index: 9500; background: #000; display: none;
+    position: fixed; inset: 0; z-index: 9500; background: rgba(0,0,0,0.45); display: none;
 }
 /* 盤面パン・ズームの自動追従（行動順が来た駒をセンターへ）だけ滑らかにアニメーションさせる。
    ユーザー自身のドラッグ・ピンチ操作中はこのクラスを付けない＝指の動きに1:1で追従させる。 */
@@ -283,9 +283,25 @@ function bbLoadRealCurryStock() {
     }
 }
 
-// デバッグ用：ランダムなカレーを生成する（本実装では調理と同じ抽選ロジックに差し替え予定）。
+// 敵カレーの生成：宅配カレーのダミーキャラ生成（generateRandomCurryFromPool/buildCurryFromMaterials）と
+// 全く同じ、本編の実際の調理ロジックをそのまま流用する。食材の組み合わせ次第で特殊カレー
+// （毒・マルゲリータ・ホームラン等）も同じ条件判定でそのまま出現する。
 const BB_DEBUG_RANDOM_CURRY_NAMES = ['野生のカレー', '謎のカレー', '見習いのカレー', '放浪カレー', '名もなきカレー', '荒野のカレー', '古の一皿', '通りすがりのカレー'];
 function bbGenerateDebugCurry(targetTotalHint) {
+    if (typeof generateRandomCurryFromPool === 'function' &&
+        (typeof getHighIngredientPool === 'function' || typeof getMidIngredientPool === 'function')) {
+        try {
+            const pool = (typeof getHighIngredientPool === 'function') ? getHighIngredientPool()
+                : getMidIngredientPool();
+            if (pool && pool.length > 0) {
+                // includeSpice=trueにすることでスパイスも抽選対象にし、特殊カレーが出る幅を広げる。
+                return generateRandomCurryFromPool(pool, true);
+            }
+        } catch (e) {
+            console.warn('[ボードバトル] 実際の調理ロジックでの敵カレー生成に失敗。簡易生成にフォールバックします', e);
+        }
+    }
+    // フォールバック：本編の調理関数が見つからない場合のみ、従来の簡易ランダム生成を使う。
     const total = targetTotalHint || (300 + Math.floor(Math.random() * 300));
     const weights = [Math.random(), Math.random(), Math.random(), Math.random()];
     const wsum = weights.reduce((a, b) => a + b, 0);
@@ -301,16 +317,19 @@ function bbGenerateDebugCurry(targetTotalHint) {
     };
 }
 function bbGenerateDebugEnemyTeam() {
-    // 2500の予算をランダムに5体前後へ分割して敵チームを生成
-    const count = 3 + Math.floor(Math.random() * 3); // 3〜5体
-    let remaining = BB_STAT_BUDGET;
+    // ステータス予算2500を超えないよう、実際の調理ロジックで1体ずつ生成しては足していく
+    // （食材の組み合わせ由来のステータスは狙って割り振れないため、事前配分ではなく詰め込み式にする）。
     const team = [];
-    for (let i = 0; i < count; i++) {
-        const isLast = (i === count - 1);
-        const share = isLast ? remaining : Math.round(remaining / (count - i) * (0.7 + Math.random() * 0.6));
-        const amount = Math.max(80, Math.min(remaining - (count - i - 1) * 50, share));
-        team.push(bbGenerateDebugCurry(amount));
-        remaining -= amount;
+    let remaining = BB_STAT_BUDGET;
+    let attempts = 0;
+    while (team.length < BB_MAX_UNITS && attempts < 50 && (team.length === 0 || remaining > 150)) {
+        attempts++;
+        const curry = bbGenerateDebugCurry();
+        const total = bbStatTotal(curry);
+        if (total <= remaining || team.length === 0) {
+            team.push(curry);
+            remaining -= total;
+        }
     }
     return team;
 }
@@ -384,7 +403,11 @@ function bbApplyView() {
 }
 
 // 行動順が回ってきた駒を画面中央へ自動的に移動させる（ズーム倍率は変えない）。
-// ユーザーの手動パン・ピンチ操作とは違い、ここだけは滑らかにアニメーションさせる。
+// ユーザーの手動パン・ピンチ操作とは違い、ここだけは滑らかにスクロールさせる。
+// bb-view-animatedクラスの付与とtransform変更を同じフレームで行うと、ブラウザが
+// 「変化前」の状態を描画する前に「変化後」へ飛んでしまい、トランジションが効かず
+// 瞬間移動に見えてしまう（駒移動アニメーションで踏んだのと同じ問題）。そのため
+// クラス付与→強制リフロー→次のフレームでtransform変更、の順にする。
 function bbCenterOnNode(nodeId) {
     const node = bbNodesById[nodeId];
     const wrap = document.getElementById('bbBoardWrap');
@@ -392,11 +415,18 @@ function bbCenterOnNode(nodeId) {
     if (!node || !wrap || !g) return;
     const wrapW = wrap.clientWidth || 360;
     const wrapH = wrap.clientHeight || 600;
-    bbView.x = wrapW / 2 - node.x * bbView.scale;
-    bbView.y = wrapH / 2 - node.y * bbView.scale;
+    const targetX = wrapW / 2 - node.x * bbView.scale;
+    const targetY = wrapH / 2 - node.y * bbView.scale;
     g.classList.add('bb-view-animated');
-    bbApplyView();
-    setTimeout(() => { g.classList.remove('bb-view-animated'); }, 360);
+    requestAnimationFrame(() => {
+        void g.getBoundingClientRect(); // 強制リフローで現在位置を確定させる
+        requestAnimationFrame(() => {
+            bbView.x = targetX;
+            bbView.y = targetY;
+            bbApplyView();
+        });
+    });
+    setTimeout(() => { g.classList.remove('bb-view-animated'); }, 420);
 }
 
 // 盤面全体が画面にちょうど収まるよう、初期のパン位置・ズームを計算する（開始・リスタート時に実行）。
@@ -854,18 +884,24 @@ function bbPerformEnemyTurn(unit) {
         setTimeout(bbScheduleNextTurn, 400);
         return;
     }
-    // 簡易AI：隣接に敵（プレイヤー側）がいれば最優先で攻撃、いなければ自陣旗（プレイヤー旗）に
-    // 最短距離で近づくマスを選ぶ。
-    const attackMove = moves.find(nid => bbState.units.some(u => u.nodeId === nid && u.hp > 0 && u.team !== unit.team));
+    // AI：自陣の旗（プレイヤー旗）を奪うことを最優先に動く。攻撃はあくまで前進の結果でしかない。
+    const flagNodeId = bbGetFlagNodeId('player');
     let chosen;
-    if (attackMove !== undefined) {
-        chosen = attackMove;
+    if (moves.includes(flagNodeId)) {
+        // 旗のマスへ直接進めるなら、それが最優先（そのターンで勝利）。
+        chosen = flagNodeId;
     } else {
-        const targetNode = bbNodesById[bbGetFlagNodeId('player')];
-        chosen = moves.slice().sort((a, b) => {
-            const da = bbDist(bbNodesById[a], targetNode), db = bbDist(bbNodesById[b], targetNode);
-            return da - db;
-        })[0];
+        const targetNode = bbNodesById[flagNodeId];
+        let bestDist = Infinity;
+        let bestMoves = [];
+        moves.forEach(nid => {
+            const d = bbDist(bbNodesById[nid], targetNode);
+            if (d < bestDist - 0.01) { bestDist = d; bestMoves = [nid]; }
+            else if (Math.abs(d - bestDist) <= 0.01) { bestMoves.push(nid); }
+        });
+        // 旗への距離が同着の場合のみ、進路を塞ぐ敵（プレイヤー）がいるマスを優先して排除する。
+        const blockerMove = bestMoves.find(nid => bbState.units.some(u => u.nodeId === nid && u.hp > 0 && u.team !== unit.team));
+        chosen = (blockerMove !== undefined) ? blockerMove : bestMoves[Math.floor(Math.random() * bestMoves.length)];
     }
     bbMoveUnitTo(unit, chosen);
 }
