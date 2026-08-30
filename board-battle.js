@@ -122,6 +122,21 @@ const BB_STYLE = `
 #bbResultBox { background: #efdeb1; color: #420000; border-radius: 12px; padding: 30px 40px; text-align: center; }
 #bbResultBox h2 { font-size: 24px; margin: 0 0 12px 0; }
 
+/* 盤面の駒をタップした時に出す簡易ステータスカード（配置フェーズ・戦闘フェーズ共通） */
+#bbUnitDetailOverlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.6); display: none; align-items: center; justify-content: center; z-index: 9020;
+}
+#bbUnitDetailBox { background: #2b1a0e; border: 2px solid #b88742; border-radius: 12px; padding: 20px 26px; text-align: center; width: 220px; }
+#bbUnitDetailVisual { width: 84px; height: 84px; margin: 0 auto 8px; border-radius: 50%; overflow: hidden; background: #fff; border: 3px solid #b88742; }
+#bbUnitDetailVisual img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.bb-unitDetailTeam { display: inline-block; font-size: 10px; padding: 2px 10px; border-radius: 10px; margin-bottom: 6px; background: #555; }
+.bb-unitDetailTeam.bb-team-player { background: #2980b9; }
+.bb-unitDetailTeam.bb-team-enemy { background: #c0392b; }
+#bbUnitDetailName { font-size: 15px; margin: 0 0 10px 0; color: #efdeb1; }
+#bbUnitDetailStats { font-size: 12px; text-align: left; }
+.bb-udStatRow { display: flex; justify-content: space-between; padding: 3px 4px; border-bottom: 1px solid rgba(107,74,38,0.6); }
+.bb-udStatRow.bb-udStatTotal { border-bottom: none; margin-top: 4px; font-weight: bold; color: #f1c40f; }
+
 /* 盤面バトル中に起動する本編の戦闘画面：咖喱図書館用の背景（applyBookBattleLiftが敷く
    currylibrary_bg.png）ではなく、盤面（#bbRoot）がうっすら透けて見える半透明オーバーレイにする。
    story.js側の #battleArena.book-battle-lift ルールは、咖喱図書館を開いたタイミングで
@@ -380,6 +395,8 @@ function bbInit() {
     // 前回の勝敗結果ポップアップが残ったままにならないよう、開く・再スタートのたびに必ず隠す
     // （「DEFEATのまま閉じずに再度開いた」不具合の対策）。
     document.getElementById('bbResultOverlay').style.display = 'none';
+    const detailOverlayEl = document.getElementById('bbUnitDetailOverlay');
+    if (detailOverlayEl) detailOverlayEl.style.display = 'none';
     bbRenderBoard();
     bbRenderPlacementPanel();
     bbFitView();
@@ -433,11 +450,11 @@ function bbCancelCenterAnim() {
 }
 function bbEaseInOutQuad(t) { return t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t; }
 
-function bbCenterOnNode(nodeId) {
+function bbCenterOnNode(nodeId, onComplete) {
     const node = bbNodesById[nodeId];
     const wrap = document.getElementById('bbBoardWrap');
     const g = document.getElementById('bbViewportG');
-    if (!node || !wrap || !g) return;
+    if (!node || !wrap || !g) { if (typeof onComplete === 'function') onComplete(); return; }
     const wrapW = wrap.clientWidth || 360;
     const wrapH = wrap.clientHeight || 600;
     const targetX = wrapW / 2 - node.x * bbView.scale;
@@ -445,7 +462,7 @@ function bbCenterOnNode(nodeId) {
     bbCancelCenterAnim();
     const startX = bbView.x, startY = bbView.y;
     const dist = Math.hypot(targetX - startX, targetY - startY);
-    if (dist < 0.5) { bbView.x = targetX; bbView.y = targetY; bbApplyView(); return; }
+    if (dist < 0.5) { bbView.x = targetX; bbView.y = targetY; bbApplyView(); if (typeof onComplete === 'function') onComplete(); return; }
     // 距離に応じてフレーム数を決める（60fps換算でおよそ250〜700ms相当）。
     // 実時間（Date.now）ではなくフレーム数で進行度を管理することで、
     // requestAnimationFrameが同期的に即時実行される環境（テストハーネス等）でも
@@ -462,6 +479,7 @@ function bbCenterOnNode(nodeId) {
         if (t < 1) {
             bbCenterAnimId = requestAnimationFrame(step);
         } else {
+            if (typeof onComplete === 'function') onComplete();
             bbCenterAnimId = null;
         }
     }
@@ -683,21 +701,25 @@ function bbOnPickPoolCurry(idx) {
 }
 
 function bbOnNodeClick(nodeId) {
+    const node = bbNodesById[nodeId];
     if (bbState.phase === 'placement') {
-        if (bbState.selectedPoolIndex === null) return;
-        const node = bbNodesById[nodeId];
-        if (node.highlight !== 'selectable') return;
-        const curry = bbState.playerPool[bbState.selectedPoolIndex];
-        const total = bbState.units.filter(u => u.team === 'player').reduce((s, u) => s + bbStatTotal(u.raw), 0) + bbStatTotal(curry);
-        if (total > BB_STAT_BUDGET) {
-            alert('ステータス合計が2500を超えるため配置できません。');
+        if (bbState.selectedPoolIndex !== null && node.highlight === 'selectable') {
+            const curry = bbState.playerPool[bbState.selectedPoolIndex];
+            const total = bbState.units.filter(u => u.team === 'player').reduce((s, u) => s + bbStatTotal(u.raw), 0) + bbStatTotal(curry);
+            if (total > BB_STAT_BUDGET) {
+                alert('ステータス合計が2500を超えるため配置できません。');
+                return;
+            }
+            const unit = bbMakeUnit(curry, 'player');
+            unit.nodeId = nodeId;
+            bbState.units.push(unit);
+            bbState.selectedPoolIndex = null;
+            bbRenderPlacementPanel();
             return;
         }
-        const unit = bbMakeUnit(curry, 'player');
-        unit.nodeId = nodeId;
-        bbState.units.push(unit);
-        bbState.selectedPoolIndex = null;
-        bbRenderPlacementPanel();
+        // 配置先を選ぶ操作でなければ、既に置いてある駒をタップした時に詳細を見せる
+        const placedUnit = bbState.units.find(u => u.nodeId === nodeId);
+        if (placedUnit) bbShowUnitDetail(placedUnit);
         return;
     }
     if (bbState.phase === 'battle') {
@@ -763,13 +785,17 @@ function bbScheduleNextTurn() {
     bbState.activeUnit = actor;
     bbRenderTurnQueuePreview();
     bbRenderBoard(); // ← アクティブな駒のノードを光らせるため再描画
-    bbCenterOnNode(actor.nodeId); // 行動順が回ってきた駒を画面中央へ自動的に移動
     if (actor.team === 'player') {
+        bbCenterOnNode(actor.nodeId); // 行動順が回ってきた駒を画面中央へ自動的に移動
         bbHighlightMovableTiles(actor);
         bbSetBattleStatus(`${actor.name} の番です。移動先のマスをタップしてください。`);
     } else {
         bbSetBattleStatus(`${actor.name}（敵）が行動中…`);
-        setTimeout(() => { bbPerformEnemyTurn(actor); }, 500);
+        // 敵の駒はセンタリングのスクロールが完全に終わってから、さらに一呼吸置いて
+        // 行動を開始する（スクロール中／直後にいきなり動き出すと忙しなく見えるため）。
+        bbCenterOnNode(actor.nodeId, () => {
+            setTimeout(() => { bbPerformEnemyTurn(actor); }, 450);
+        });
     }
 }
 
@@ -821,10 +847,15 @@ function bbGetMovableNeighbors(unit) {
 
 function bbOnBattleNodeClick(nodeId) {
     const actor = bbState.activeUnit;
-    if (!actor || actor.team !== 'player') return;
     const node = bbNodesById[nodeId];
-    if (node.highlight !== 'movable') return;
-    bbMoveUnitTo(actor, nodeId);
+    // 自分の手番で「移動・攻撃できるマス」をタップした場合は、これまで通り移動/戦闘を最優先する。
+    if (actor && actor.team === 'player' && node.highlight === 'movable') {
+        bbMoveUnitTo(actor, nodeId);
+        return;
+    }
+    // それ以外（相手の番中や、移動先ではない駒をタップした場合）は詳細表示のみ行う。
+    const unit = bbState.units.find(u => u.nodeId === nodeId && u.hp > 0);
+    if (unit) bbShowUnitDetail(unit);
 }
 
 // ------------------------------------------------------------
@@ -1055,6 +1086,38 @@ function bbRestart() {
 }
 
 // ------------------------------------------------------------
+// 11.5 盤面の駒をタップした時の詳細表示
+// ------------------------------------------------------------
+function bbShowUnitDetail(unit) {
+    const overlay = document.getElementById('bbUnitDetailOverlay');
+    const img = document.getElementById('bbUnitDetailImg');
+    const nameEl = document.getElementById('bbUnitDetailName');
+    const teamEl = document.getElementById('bbUnitDetailTeam');
+    const statsEl = document.getElementById('bbUnitDetailStats');
+    if (!overlay || !img || !nameEl || !statsEl) return;
+    const c = unit.raw || unit;
+    img.src = bbGetCurryImg(c);
+    nameEl.textContent = c.name || 'カレー';
+    if (teamEl) {
+        teamEl.textContent = (unit.team === 'player') ? '味方' : '敵';
+        teamEl.className = 'bb-unitDetailTeam' + (unit.team === 'player' ? ' bb-team-player' : ' bb-team-enemy');
+    }
+    const total = bbStatTotal(c);
+    statsEl.innerHTML = `
+        <div class="bb-udStatRow"><span>HP</span><span>${unit.hp != null ? unit.hp : (c.hp || 0)} / ${unit.maxHp != null ? unit.maxHp : (c.hp || 0)}</span></div>
+        <div class="bb-udStatRow"><span>ATK</span><span>${c.atk || 0}</span></div>
+        <div class="bb-udStatRow"><span>DEF</span><span>${c.def || 0}</span></div>
+        <div class="bb-udStatRow"><span>SPD</span><span>${c.spd || 0}</span></div>
+        <div class="bb-udStatRow bb-udStatTotal"><span>合計</span><span>${total}</span></div>
+    `;
+    overlay.style.display = 'flex';
+}
+function bbCloseUnitDetail() {
+    const overlay = document.getElementById('bbUnitDetailOverlay');
+    if (overlay) overlay.style.display = 'none';
+}
+
+// ------------------------------------------------------------
 // 12. DOM注入（起動時に一度だけ実行。#pageTop等の状態には依存しない）
 // ------------------------------------------------------------
 function bbInjectDom() {
@@ -1104,6 +1167,15 @@ function bbInjectDom() {
             </div>
         </div>
         <div id="bbBattleBlockOverlay"></div>
+        <div id="bbUnitDetailOverlay" onclick="if(event.target===this) window.__bbCloseUnitDetail()">
+            <div id="bbUnitDetailBox">
+                <div id="bbUnitDetailVisual"><img id="bbUnitDetailImg" src="" alt=""></div>
+                <div id="bbUnitDetailTeam" class="bb-unitDetailTeam"></div>
+                <h3 id="bbUnitDetailName"></h3>
+                <div id="bbUnitDetailStats"></div>
+                <button class="bb-actionBtn bb-secondary" onclick="window.__bbCloseUnitDetail()">閉じる</button>
+            </div>
+        </div>
     `;
     document.body.appendChild(rootDiv);
 
@@ -1145,6 +1217,7 @@ window.__bbOnStartBattleClick = bbOnStartBattleClick;
 window.__bbOnRegenerateEnemyClick = bbOnRegenerateEnemyClick;
 window.__bbClose = bbClose;
 window.__bbRestart = bbRestart;
+window.__bbCloseUnitDetail = bbCloseUnitDetail;
 window.openBoardBattle = bbOpen; // 将来、他の場所（正式な入り口ボタン等）から開けるように
 
 bbInjectDom();
