@@ -858,8 +858,9 @@ function bbRenderPlacementPanel() {
 function bbUpdateBudgetLine() {
     const placed = bbState.units.filter(u => u.team === 'player');
     const total = placed.reduce((sum, u) => sum + bbStatTotal(u.raw), 0);
+    const remaining = BB_STAT_BUDGET - total;
     const el = document.getElementById('bbBudgetLine');
-    el.textContent = `合計ステータス: ${total} / ${BB_STAT_BUDGET}　配置数: ${placed.length} / ${BB_MAX_UNITS}`;
+    el.textContent = `合計ステータス: ${total} / ${BB_STAT_BUDGET}（残り${remaining}）　配置数: ${placed.length} / ${BB_MAX_UNITS}`;
     el.classList.toggle('bb-over', total > BB_STAT_BUDGET);
     document.getElementById('bbBtnStartBattle').disabled = !(placed.length > 0 && total <= BB_STAT_BUDGET);
 }
@@ -1661,7 +1662,7 @@ function bbInjectDom() {
             <div id="bbBottomPanel">
                 <div id="bbPlacementPanel">
                     <h2>配置フェーズ（自陣の旗から2列以内・ステータス合計2500まで・最大5体）</h2>
-                    <div id="bbBudgetLine">合計ステータス: 0 / 2500　配置数: 0 / 5</div>
+                    <div id="bbBudgetLine">合計ステータス: 0 / 2500（残り2500）　配置数: 0 / 5</div>
                     <div id="bbPlaceHint">下のカレーをタップして選択 → 盤面の自陣側（青枠）マスをタップして配置します。</div>
                     <div id="bbRosterList"></div>
                     <button class="bb-actionBtn" id="bbBtnStartBattle" disabled onclick="window.__bbOnStartBattleClick()">戦闘開始</button>
@@ -1736,16 +1737,13 @@ function bbInjectDom() {
             <div id="bbOpponentSelectBox">
                 <h3>対戦相手を選ぶ</h3>
                 <div class="bb-equipOption" onclick="window.__bbSelectOpponentType('random')">
-                    <div class="bb-equipOptionName">🎲 ランダムくん</div>
-                    <div class="bb-equipOptionDesc">旗に向かうか敵と戦うかをランダムに選んで進みます。</div>
+                    <div class="bb-equipOptionName">ランダムくん</div>
                 </div>
                 <div class="bb-equipOption" onclick="window.__bbSelectOpponentType('straight')">
-                    <div class="bb-equipOptionName">🚩 直進ちゃん</div>
-                    <div class="bb-equipOptionDesc">旗に向かってまっすぐ進みます。</div>
+                    <div class="bb-equipOptionName">直進ちゃん</div>
                 </div>
                 <div class="bb-equipOption" onclick="window.__bbSelectOpponentType('combat')">
-                    <div class="bb-equipOptionName">👊 武闘派さん</div>
-                    <div class="bb-equipOptionDesc">戦闘を優先し、積極的に攻めてきます。</div>
+                    <div class="bb-equipOptionName">武闘派さん</div>
                 </div>
                 <button class="bb-actionBtn bb-secondary" onclick="window.__bbCloseOpponentSelect()">戻る</button>
             </div>
