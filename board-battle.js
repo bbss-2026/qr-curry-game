@@ -145,6 +145,7 @@ const BB_STYLE = `
     overflow-y: auto; display: none;
 }
 #bbPrepPanel h2 { font-size: 14px; margin: 0 0 10px 0; color: #f5c469; }
+#bbPrepCountLine { font-size: 11px; color: #b88742; margin-bottom: 8px; }
 #bbPrepRosterList { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
 .bb-prepBtnRow { display: flex; flex-wrap: wrap; gap: 4px; }
 
@@ -160,20 +161,31 @@ const BB_STYLE = `
 #bbRegDetailOverlay {
     position: fixed; inset: 0; background: rgba(0,0,0,0.75); display: none; align-items: center; justify-content: center; z-index: 9030;
 }
-#bbRegDetailBox { background: #2b1a0e; border: 2px solid #b88742; border-radius: 12px; padding: 20px 26px; text-align: center; width: 240px; }
+#bbRegDetailCarouselRow { display: flex; align-items: center; gap: 6px; max-width: 100%; }
+#bbRegDetailBox { background: #2b1a0e; border: 2px solid #b88742; border-radius: 12px; padding: 20px 22px; text-align: center; width: 250px; max-height: 82vh; overflow-y: auto; touch-action: pan-y; }
 #bbRegDetailVisual { width: 84px; height: 84px; margin: 0 auto 8px; border-radius: 50%; overflow: hidden; background: #fff; border: 3px solid #b88742; }
 #bbRegDetailVisual img { width: 100%; height: 100%; object-fit: cover; display: block; }
 #bbRegDetailNameInput {
     width: 100%; box-sizing: border-box; background: #1c1108; border: 1px solid #6b4a26; color: #efdeb1;
     border-radius: 6px; padding: 6px 8px; font-size: 13px; text-align: center; margin-bottom: 10px;
 }
-.bb-regEquipRow { display: flex; align-items: center; justify-content: space-between; font-size: 11px; margin-top: 8px; }
-.bb-regEquipRow select {
-    background: #1c1108; border: 1px solid #6b4a26; color: #efdeb1; border-radius: 6px; padding: 3px 6px; font-size: 11px;
-}
-.bb-regEquipDesc { font-size: 10px; color: #b88742; text-align: right; margin-top: 2px; min-height: 12px; }
-.bb-regDetailBtnRow { margin-top: 14px; display: flex; flex-wrap: wrap; justify-content: center; gap: 4px; }
+.bb-regEquipSectionLabel { font-size: 11px; color: #b88742; margin: 10px 0 4px; text-align: left; }
+.bb-regEquipOptionList { display: flex; flex-direction: column; gap: 6px; max-height: 130px; overflow-y: auto; }
+.bb-equipOption { cursor: pointer; padding: 8px 10px; border-radius: 6px; border: 2px solid #6b4a26; background: #1c1108; text-align: left; }
+.bb-equipOption.bb-equipOptionSel { border-color: #f1c40f; background: #4a3a12; }
+.bb-equipOptionName { font-weight: bold; font-size: 12px; color: #efdeb1; }
+.bb-equipOptionDesc { font-size: 10px; color: #b88742; margin-top: 2px; }
+.bb-regDetailBtnRow { margin-top: 14px; display: flex; align-items: center; justify-content: center; gap: 8px; }
 .bb-actionBtn.bb-danger { background: #7a2e2e; }
+.bb-actionBtn.bb-small { padding: 6px 12px; font-size: 11px; margin: 0; }
+/* 詳細カード左右の「次/前のカレー」プレビュー。タップで移動、本体はスワイプでも移動できる。 */
+.bb-regNavCard {
+    width: 50px; height: 70px; border-radius: 8px; background: rgba(43,26,14,0.85); border: 2px solid #6b4a26;
+    cursor: pointer; opacity: 0.65; overflow: hidden; display: flex; flex-direction: column; align-items: center;
+    justify-content: center; flex-shrink: 0; visibility: hidden;
+}
+.bb-regNavCard img { width: 32px; height: 32px; border-radius: 50%; object-fit: cover; }
+.bb-regNavCard .bb-regNavCardName { font-size: 8px; color: #efdeb1; margin-top: 2px; max-width: 44px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 /* 「カレーボードバトルとは？」ヘルプ */
 #bbHelpOverlay {
@@ -182,6 +194,14 @@ const BB_STYLE = `
 #bbHelpBox { background: #2b1a0e; border: 2px solid #b88742; border-radius: 12px; padding: 20px; text-align: left; width: 280px; max-height: 80vh; overflow-y: auto; }
 #bbHelpBox h3 { font-size: 15px; margin: 0 0 10px 0; color: #efdeb1; text-align: center; }
 #bbHelpText { font-size: 12px; line-height: 1.7; color: #efdeb1; margin-bottom: 14px; }
+
+/* 対戦相手（敵AIタイプ）の選択 */
+#bbOpponentSelectOverlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.75); display: none; align-items: center; justify-content: center; z-index: 9030;
+}
+#bbOpponentSelectBox { background: #2b1a0e; border: 2px solid #b88742; border-radius: 12px; padding: 20px; text-align: center; width: 260px; }
+#bbOpponentSelectBox h3 { font-size: 15px; margin: 0 0 12px 0; color: #efdeb1; }
+#bbOpponentSelectBox .bb-equipOption { margin-bottom: 8px; }
 
 /* 盤面バトル中に起動する本編の戦闘画面：咖喱図書館用の背景（applyBookBattleLiftが敷く
    currylibrary_bg.png）ではなく、盤面（#bbRoot）がうっすら透けて見える半透明オーバーレイにする。
@@ -435,6 +455,7 @@ const bbState = {
 //      localStorageキーで完結させる（本体には一切手を加えない、という開発方針を維持するため）。
 // ------------------------------------------------------------
 const BB_ROSTER_STORAGE_KEY = 'qr_board_battle_roster';
+const BB_ROSTER_MAX = 20; // 登録済みカレーの上限数
 let bbRegisteredRoster = [];
 
 function bbLoadRegisteredRoster() {
@@ -486,7 +507,7 @@ function bbStatDisplayWithEquip(statKey, baseVal, entry) {
 
 // 全オーバーレイ・パネルを一旦隠す共通処理（画面遷移のたびに、前の状態が残らないようにする）。
 function bbHideAllOverlaysAndPanels() {
-    ['bbResultOverlay', 'bbUnitDetailOverlay', 'bbRegisterPickerOverlay', 'bbRegDetailOverlay', 'bbHelpOverlay'].forEach(id => {
+    ['bbResultOverlay', 'bbUnitDetailOverlay', 'bbRegisterPickerOverlay', 'bbRegDetailOverlay', 'bbHelpOverlay', 'bbOpponentSelectOverlay'].forEach(id => {
         const el = document.getElementById(id);
         if (el) el.style.display = 'none';
     });
@@ -542,6 +563,26 @@ function bbOnPrepStartBattleClick() {
         alert('登録済みのカレーがありません。「カレー登録」からカレーストックのカレーを登録してください。');
         return;
     }
+    bbShowOpponentSelect();
+}
+
+// ------------------------------------------------------------
+// 4.4 対戦相手（敵AI）の選択
+//    3種類のAI行動パターンを、盤面配置に入る前に選ばせる。プレイヤー側だけでなく
+//    敵チーム全員に同じ行動パターンを適用する（1体ごとに変える機能ではない）。
+// ------------------------------------------------------------
+let bbSelectedOpponentType = 'random';
+function bbShowOpponentSelect() {
+    const el = document.getElementById('bbOpponentSelectOverlay');
+    if (el) el.style.display = 'flex';
+}
+function bbCloseOpponentSelect() {
+    const el = document.getElementById('bbOpponentSelectOverlay');
+    if (el) el.style.display = 'none';
+}
+function bbSelectOpponentType(type) {
+    bbSelectedOpponentType = type;
+    bbCloseOpponentSelect();
     bbEnterPlacementPhase();
 }
 
@@ -1119,6 +1160,44 @@ function bbMoveUnitTo(unit, nodeId) {
     }
 }
 
+// 移動可能なマスの中から、targetNodeに一番近づけるマスを選ぶ（複数候補が同着なら、
+// そこに敵がいるマスを優先して排除する。それも複数ならランダム）。
+function bbPickMoveTowardNode(unit, moves, targetNode) {
+    let bestDist = Infinity;
+    let bestMoves = [];
+    moves.forEach(nid => {
+        const d = bbDist(bbNodesById[nid], targetNode);
+        if (d < bestDist - 0.01) { bestDist = d; bestMoves = [nid]; }
+        else if (Math.abs(d - bestDist) <= 0.01) { bestMoves.push(nid); }
+    });
+    const blockerMove = bestMoves.find(nid => bbState.units.some(u => u.nodeId === nid && u.hp > 0 && u.team !== unit.team));
+    return (blockerMove !== undefined) ? blockerMove : bestMoves[Math.floor(Math.random() * bestMoves.length)];
+}
+// 生存中の自軍ユニットのうち、fromNodeに一番近い1体を返す（武闘派さんの追跡対象探し用）。
+function bbGetNearestEnemyUnit(unit, fromNode) {
+    const alive = bbState.units.filter(u => u.team !== unit.team && u.hp > 0);
+    if (alive.length === 0) return null;
+    let best = null, bestDist = Infinity;
+    alive.forEach(u => {
+        const d = bbDist(fromNode, bbNodesById[u.nodeId]);
+        if (d < bestDist) { bestDist = d; best = u; }
+    });
+    return best;
+}
+// 旗に向かって最短距離で進む（直進ちゃん・ランダムくんの「旗」側の挙動）。
+function bbPerformEnemyTurnStraight(unit, moves) {
+    const flagNodeId = bbGetFlagNodeId('player');
+    if (moves.includes(flagNodeId)) return flagNodeId; // 旗のマスへ直接進めるなら最優先（そのターンで勝利）
+    return bbPickMoveTowardNode(unit, moves, bbNodesById[flagNodeId]);
+}
+// 攻撃できるならそれを最優先、できなければ一番近い敵を追いかける（武闘派さん・ランダムくんの「戦闘」側の挙動）。
+function bbPerformEnemyTurnCombat(unit, moves) {
+    const attackable = moves.filter(nid => bbState.units.some(u => u.nodeId === nid && u.hp > 0 && u.team !== unit.team));
+    if (attackable.length > 0) return attackable[Math.floor(Math.random() * attackable.length)];
+    const target = bbGetNearestEnemyUnit(unit, bbNodesById[unit.nodeId]);
+    const targetNode = target ? bbNodesById[target.nodeId] : bbNodesById[bbGetFlagNodeId('player')];
+    return bbPickMoveTowardNode(unit, moves, targetNode);
+}
 function bbPerformEnemyTurn(unit) {
     const moves = bbGetMovableNeighbors(unit);
     if (moves.length === 0) {
@@ -1127,25 +1206,13 @@ function bbPerformEnemyTurn(unit) {
         setTimeout(bbScheduleNextTurn, 400);
         return;
     }
-    // AI：自陣の旗（プレイヤー旗）を奪うことを最優先に動く。攻撃はあくまで前進の結果でしかない。
-    const flagNodeId = bbGetFlagNodeId('player');
-    let chosen;
-    if (moves.includes(flagNodeId)) {
-        // 旗のマスへ直接進めるなら、それが最優先（そのターンで勝利）。
-        chosen = flagNodeId;
-    } else {
-        const targetNode = bbNodesById[flagNodeId];
-        let bestDist = Infinity;
-        let bestMoves = [];
-        moves.forEach(nid => {
-            const d = bbDist(bbNodesById[nid], targetNode);
-            if (d < bestDist - 0.01) { bestDist = d; bestMoves = [nid]; }
-            else if (Math.abs(d - bestDist) <= 0.01) { bestMoves.push(nid); }
-        });
-        // 旗への距離が同着の場合のみ、進路を塞ぐ敵（プレイヤー）がいるマスを優先して排除する。
-        const blockerMove = bestMoves.find(nid => bbState.units.some(u => u.nodeId === nid && u.hp > 0 && u.team !== unit.team));
-        chosen = (blockerMove !== undefined) ? blockerMove : bestMoves[Math.floor(Math.random() * bestMoves.length)];
-    }
+    // 対戦相手選択で選んだタイプに応じて行動パターンを切り替える：
+    // ・直進ちゃん(straight)：常に旗へ最短距離で進む。
+    // ・武闘派さん(combat)：攻撃できれば最優先、できなければ一番近い敵を追う。
+    // ・ランダムくん(random)：行動のたびに上記2つのどちらかをランダムに選ぶ。
+    let mode = bbSelectedOpponentType;
+    if (mode === 'random') mode = (Math.random() < 0.5) ? 'straight' : 'combat';
+    const chosen = (mode === 'combat') ? bbPerformEnemyTurnCombat(unit, moves) : bbPerformEnemyTurnStraight(unit, moves);
     bbMoveUnitTo(unit, chosen);
 }
 function bbDist(a, b) { return Math.hypot(a.x - b.x, a.y - b.y); }
@@ -1323,12 +1390,18 @@ function bbRenderPrepPanel() {
             <div class="bb-rcTotal">合計 ${bbStatTotal(eff)}</div>
         </div>`;
     }).join('') || '<div style="font-size:11px;color:#b88742;">登録済みのカレーがありません。「カレー登録」からカレーストックのカレーを登録してください。</div>';
+    const countEl = document.getElementById('bbPrepCountLine');
+    if (countEl) countEl.textContent = `登録数: ${bbRegisteredRoster.length} / ${BB_ROSTER_MAX}`;
     const startBtn = document.getElementById('bbBtnPrepStartBattle');
     if (startBtn) startBtn.disabled = (bbRegisteredRoster.length === 0);
 }
 
 // ---- 「カレー登録」：カレーストックから選んでロースターへ移す ----
 function bbOnRegisterCurryClick() {
+    if (bbRegisteredRoster.length >= BB_ROSTER_MAX) {
+        alert(`カレー登録は最大${BB_ROSTER_MAX}個までです。`);
+        return;
+    }
     bbRenderRegisterPicker();
     const el = document.getElementById('bbRegisterPickerOverlay');
     if (el) el.style.display = 'flex';
@@ -1353,6 +1426,10 @@ function bbCloseRegisterPicker() {
 }
 function bbOnConfirmRegisterCurry(stockIdx) {
     if (typeof curryStock === 'undefined' || stockIdx == null || stockIdx < 0 || stockIdx >= curryStock.length) return;
+    if (bbRegisteredRoster.length >= BB_ROSTER_MAX) {
+        alert(`カレー登録は最大${BB_ROSTER_MAX}個までです。`);
+        return;
+    }
     const curry = curryStock[stockIdx];
     const dispName = bbEsc(curry.name || 'カレー');
     const doRegister = function () {
@@ -1372,7 +1449,13 @@ function bbOnConfirmRegisterCurry(stockIdx) {
             equippedTableware: '白い皿'
         });
         bbSaveRegisteredRoster();
+        // 本編のストック一覧（冷蔵庫タブ・調理タブ・対戦カレー選択等）をリロード無しで
+        // 即座に更新する。本編で他の箇所がcurryStockを変更した時と同じ一式を呼んでおく。
         if (typeof saveGame === 'function') { try { saveGame(); } catch (e) {} }
+        if (typeof updateFridgeUI === 'function') { try { updateFridgeUI(); } catch (e) {} }
+        if (typeof updateCookSelects === 'function') { try { updateCookSelects(); } catch (e) {} }
+        if (typeof updateMatchCurrySelects === 'function') { try { updateMatchCurrySelects(); } catch (e) {} }
+        if (typeof updateShopButtons === 'function') { try { updateShopButtons(); } catch (e) {} }
         bbCloseRegisterPicker();
         bbRenderPrepPanel();
     };
@@ -1386,6 +1469,20 @@ function bbOnConfirmRegisterCurry(stockIdx) {
 // ---- 登録済みカレーの詳細（装備・名前の変更／登録削除） ----
 let bbRegDetailIndex = null;
 function bbOnTapRegisteredCurry(idx) { bbShowRegDetail(idx); }
+// ベース・食器の一覧を、選ぶ前から効果が分かるカード一覧として描画する
+// （本編のshowBaseSelectModal/showTablewareSelectModalと同じ「選ばなくても効果が見える」見せ方）。
+function bbRenderEquipOptionList(containerId, list, infoMap, currentVal, onSelectFnName) {
+    const el = document.getElementById(containerId);
+    if (!el) return;
+    el.innerHTML = list.map(name => {
+        const isSel = name === currentVal;
+        const info = (infoMap && infoMap[name]) || { desc: '' };
+        return `<div class="bb-equipOption${isSel ? ' bb-equipOptionSel' : ''}" onclick="window.${onSelectFnName}('${name}')">
+            <div class="bb-equipOptionName">${bbEsc(name)}${isSel ? '（選択中）' : ''}</div>
+            <div class="bb-equipOptionDesc">${bbEsc(info.desc || '')}</div>
+        </div>`;
+    }).join('');
+}
 function bbShowRegDetail(idx) {
     const entry = bbRegisteredRoster[idx];
     if (!entry) return;
@@ -1395,11 +1492,7 @@ function bbShowRegDetail(idx) {
     const img = document.getElementById('bbRegDetailImg');
     const nameInput = document.getElementById('bbRegDetailNameInput');
     const statsEl = document.getElementById('bbRegDetailStats');
-    const baseSel = document.getElementById('bbRegDetailBaseSelect');
-    const twSel = document.getElementById('bbRegDetailTablewareSelect');
-    const baseDescEl = document.getElementById('bbRegDetailBaseDesc');
-    const twDescEl = document.getElementById('bbRegDetailTablewareDesc');
-    if (!img || !nameInput || !statsEl || !baseSel || !twSel) return;
+    if (!img || !nameInput || !statsEl) return;
     img.src = bbGetCurryImg(eff);
     nameInput.value = entry.customName || raw.name || 'カレー';
     // 元のステータスに、装備による補正値を色付きの+-で併記する（本編の食器・ベース表示と同じ見せ方）。
@@ -1412,31 +1505,78 @@ function bbShowRegDetail(idx) {
     `;
     const bases = (typeof getUnlockedBase === 'function') ? getUnlockedBase() : ['白米'];
     const tablewares = (typeof getUnlockedTableware === 'function') ? getUnlockedTableware() : ['白い皿'];
-    baseSel.innerHTML = bases.map(b => `<option value="${bbEsc(b)}"${b === entry.equippedBase ? ' selected' : ''}>${bbEsc(b)}</option>`).join('');
-    twSel.innerHTML = tablewares.map(t => `<option value="${bbEsc(t)}"${t === entry.equippedTableware ? ' selected' : ''}>${bbEsc(t)}</option>`).join('');
-    // 選択中の装備の効果説明（本編のBASE_LIST/TABLEWARE_LISTのdescフィールドをそのまま表示）。
-    if (baseDescEl) {
-        const baseInfo = (typeof BASE_LIST !== 'undefined' && BASE_LIST[entry.equippedBase]) || {};
-        baseDescEl.textContent = baseInfo.desc || '';
-    }
-    if (twDescEl) {
-        const twInfo = (typeof TABLEWARE_LIST !== 'undefined' && TABLEWARE_LIST[entry.equippedTableware]) || {};
-        twDescEl.textContent = twInfo.desc || '';
-    }
+    const baseInfoMap = (typeof BASE_LIST !== 'undefined') ? BASE_LIST : {};
+    const twInfoMap = (typeof TABLEWARE_LIST !== 'undefined') ? TABLEWARE_LIST : {};
+    bbRenderEquipOptionList('bbRegDetailBaseList', bases, baseInfoMap, entry.equippedBase, '__bbSelectRegBase');
+    bbRenderEquipOptionList('bbRegDetailTablewareList', tablewares, twInfoMap, entry.equippedTableware, '__bbSelectRegTableware');
+    bbRenderRegDetailNavCards(idx);
     const overlay = document.getElementById('bbRegDetailOverlay');
     if (overlay) overlay.style.display = 'flex';
 }
-function bbOnChangeRegEquip() {
+function bbSelectRegBase(name) {
     if (bbRegDetailIndex === null) return;
     const entry = bbRegisteredRoster[bbRegDetailIndex];
     if (!entry) return;
-    const baseSel = document.getElementById('bbRegDetailBaseSelect');
-    const twSel = document.getElementById('bbRegDetailTablewareSelect');
-    if (baseSel) entry.equippedBase = baseSel.value;
-    if (twSel) entry.equippedTableware = twSel.value;
+    const owned = (typeof getUnlockedBase === 'function') ? getUnlockedBase() : ['白米'];
+    if (!owned.includes(name)) return;
+    entry.equippedBase = name;
     bbSaveRegisteredRoster();
     bbShowRegDetail(bbRegDetailIndex); // ステータス表示を装備反映後の値に更新
     bbRenderPrepPanel();
+}
+function bbSelectRegTableware(name) {
+    if (bbRegDetailIndex === null) return;
+    const entry = bbRegisteredRoster[bbRegDetailIndex];
+    if (!entry) return;
+    const owned = (typeof getUnlockedTableware === 'function') ? getUnlockedTableware() : ['白い皿'];
+    if (!owned.includes(name)) return;
+    entry.equippedTableware = name;
+    bbSaveRegisteredRoster();
+    bbShowRegDetail(bbRegDetailIndex);
+    bbRenderPrepPanel();
+}
+// ---- 詳細カード左右の「次/前のカレー」プレビュー＋スワイプでの移動 ----
+function bbRenderRegDetailNavCards(idx) {
+    const prevEl = document.getElementById('bbRegDetailPrevCard');
+    const nextEl = document.getElementById('bbRegDetailNextCard');
+    const prevEntry = bbRegisteredRoster[idx - 1];
+    const nextEntry = bbRegisteredRoster[idx + 1];
+    if (prevEl) {
+        if (prevEntry) {
+            const prevEff = bbGetEffectiveCurry(prevEntry);
+            prevEl.innerHTML = `<img src="${bbGetCurryImg(prevEff)}" alt=""><div class="bb-regNavCardName">${bbEsc(prevEff.name)}</div>`;
+            prevEl.style.visibility = 'visible';
+        } else {
+            prevEl.innerHTML = '';
+            prevEl.style.visibility = 'hidden';
+        }
+    }
+    if (nextEl) {
+        if (nextEntry) {
+            const nextEff = bbGetEffectiveCurry(nextEntry);
+            nextEl.innerHTML = `<img src="${bbGetCurryImg(nextEff)}" alt=""><div class="bb-regNavCardName">${bbEsc(nextEff.name)}</div>`;
+            nextEl.style.visibility = 'visible';
+        } else {
+            nextEl.innerHTML = '';
+            nextEl.style.visibility = 'hidden';
+        }
+    }
+}
+function bbRegDetailNav(delta) {
+    if (bbRegDetailIndex === null) return;
+    const newIdx = bbRegDetailIndex + delta;
+    if (newIdx < 0 || newIdx >= bbRegisteredRoster.length) return;
+    bbShowRegDetail(newIdx);
+}
+let bbRegDetailSwipeStartX = null;
+function bbOnRegDetailPointerDown(evt) { bbRegDetailSwipeStartX = evt.clientX; }
+function bbOnRegDetailPointerUp(evt) {
+    if (bbRegDetailSwipeStartX === null) return;
+    const dx = evt.clientX - bbRegDetailSwipeStartX;
+    bbRegDetailSwipeStartX = null;
+    if (Math.abs(dx) < 40) return; // 閾値未満はタップ扱い（ボタン操作等を妨げない）
+    if (dx < 0) bbRegDetailNav(1); // 左スワイプ→次のカレーへ
+    else bbRegDetailNav(-1); // 右スワイプ→前のカレーへ
 }
 function bbOnChangeRegName() {
     if (bbRegDetailIndex === null) return;
@@ -1497,10 +1637,11 @@ function bbInjectDom() {
         <div id="bbAppRoot">
             <div id="bbPrepPanel">
                 <h2>カレー準備</h2>
+                <div id="bbPrepCountLine">登録数: 0 / 20</div>
                 <div id="bbPrepRosterList"></div>
                 <div class="bb-prepBtnRow">
                     <button class="bb-actionBtn" onclick="window.__bbOnRegisterCurryClick()">カレー登録</button>
-                    <button class="bb-actionBtn" id="bbBtnPrepStartBattle" disabled onclick="window.__bbOnPrepStartBattleClick()">戦闘開始</button>
+                    <button class="bb-actionBtn" id="bbBtnPrepStartBattle" disabled onclick="window.__bbOnPrepStartBattleClick()">準備完了</button>
                     <button class="bb-actionBtn bb-secondary" onclick="window.__bbShowHelp()">カレーボードバトルとは？</button>
                 </div>
             </div>
@@ -1559,24 +1700,22 @@ function bbInjectDom() {
             </div>
         </div>
         <div id="bbRegDetailOverlay" onclick="if(event.target===this) window.__bbCloseRegDetail()">
-            <div id="bbRegDetailBox">
-                <div id="bbRegDetailVisual"><img id="bbRegDetailImg" src="" alt=""></div>
-                <input id="bbRegDetailNameInput" type="text" maxlength="20" placeholder="カレー名" onblur="window.__bbOnChangeRegName()">
-                <div id="bbRegDetailStats"></div>
-                <div class="bb-regEquipRow">
-                    <label>ベース</label>
-                    <select id="bbRegDetailBaseSelect" onchange="window.__bbOnChangeRegEquip()"></select>
+            <div id="bbRegDetailCarouselRow">
+                <div id="bbRegDetailPrevCard" class="bb-regNavCard" onclick="window.__bbRegDetailNav(-1)"></div>
+                <div id="bbRegDetailBox">
+                    <div id="bbRegDetailVisual"><img id="bbRegDetailImg" src="" alt=""></div>
+                    <input id="bbRegDetailNameInput" type="text" maxlength="20" placeholder="カレー名" onblur="window.__bbOnChangeRegName()">
+                    <div id="bbRegDetailStats"></div>
+                    <div class="bb-regEquipSectionLabel">ベース</div>
+                    <div id="bbRegDetailBaseList" class="bb-regEquipOptionList"></div>
+                    <div class="bb-regEquipSectionLabel">食器</div>
+                    <div id="bbRegDetailTablewareList" class="bb-regEquipOptionList"></div>
+                    <div class="bb-regDetailBtnRow">
+                        <button class="bb-actionBtn bb-secondary" onclick="window.__bbCloseRegDetail()">閉じる</button>
+                        <button class="bb-actionBtn bb-danger bb-small" onclick="window.__bbOnDeleteRegisteredCurry()">登録削除</button>
+                    </div>
                 </div>
-                <div id="bbRegDetailBaseDesc" class="bb-regEquipDesc"></div>
-                <div class="bb-regEquipRow">
-                    <label>食器</label>
-                    <select id="bbRegDetailTablewareSelect" onchange="window.__bbOnChangeRegEquip()"></select>
-                </div>
-                <div id="bbRegDetailTablewareDesc" class="bb-regEquipDesc"></div>
-                <div class="bb-regDetailBtnRow">
-                    <button class="bb-actionBtn bb-danger" onclick="window.__bbOnDeleteRegisteredCurry()">登録削除</button>
-                    <button class="bb-actionBtn bb-secondary" onclick="window.__bbCloseRegDetail()">閉じる</button>
-                </div>
+                <div id="bbRegDetailNextCard" class="bb-regNavCard" onclick="window.__bbRegDetailNav(1)"></div>
             </div>
         </div>
         <div id="bbHelpOverlay" onclick="if(event.target===this) window.__bbCloseHelp()">
@@ -1584,13 +1723,31 @@ function bbInjectDom() {
                 <h3>カレーボードバトルとは？</h3>
                 <div id="bbHelpText">
                     盤面の上下にある「旗」を奪うか、相手を全滅させれば勝利です。<br><br>
-                    ・「カレー登録」で、カレーストックからボードバトル専用にカレーを登録できます（登録すると通常のストックからは無くなります）。<br>
+                    ・「カレー登録」で、カレーストックからボードバトル専用にカレーを登録できます（登録すると通常のストックからは無くなります。最大20個まで）。<br>
                     ・登録したカレーは名前の変更や、ベース・食器の個別装備ができます（本編の装備とは別枠です）。<br>
-                    ・「戦闘開始」を押すと配置フェーズになります。登録済みのカレーの中から、ステータス合計2500・最大5体まで盤面の自陣側に配置してください。<br>
-                    ・配置が終わったらもう一度「戦闘開始」で戦闘スタート。SPDの高い駒から順に行動できます（行動順は敵味方共通の1本のタイムライン）。<br>
+                    ・「準備完了」を押すと対戦相手を選び、配置フェーズになります。登録済みのカレーの中から、ステータス合計2500・最大5体まで盤面の自陣側に配置してください。<br>
+                    ・配置が終わったら「戦闘開始」で戦闘スタート。SPDの高い駒から順に行動できます（行動順は敵味方共通の1本のタイムライン）。<br>
                     ・移動して相手の駒と重なると、そのまま本編の戦闘画面で1対1のバトルが始まります。
                 </div>
                 <button class="bb-actionBtn bb-secondary" onclick="window.__bbCloseHelp()">閉じる</button>
+            </div>
+        </div>
+        <div id="bbOpponentSelectOverlay" onclick="if(event.target===this) window.__bbCloseOpponentSelect()">
+            <div id="bbOpponentSelectBox">
+                <h3>対戦相手を選ぶ</h3>
+                <div class="bb-equipOption" onclick="window.__bbSelectOpponentType('random')">
+                    <div class="bb-equipOptionName">🎲 ランダムくん</div>
+                    <div class="bb-equipOptionDesc">旗に向かうか敵と戦うかをランダムに選んで進みます。</div>
+                </div>
+                <div class="bb-equipOption" onclick="window.__bbSelectOpponentType('straight')">
+                    <div class="bb-equipOptionName">🚩 直進ちゃん</div>
+                    <div class="bb-equipOptionDesc">旗に向かってまっすぐ進みます。</div>
+                </div>
+                <div class="bb-equipOption" onclick="window.__bbSelectOpponentType('combat')">
+                    <div class="bb-equipOptionName">👊 武闘派さん</div>
+                    <div class="bb-equipOptionDesc">戦闘を優先し、積極的に攻めてきます。</div>
+                </div>
+                <button class="bb-actionBtn bb-secondary" onclick="window.__bbCloseOpponentSelect()">戻る</button>
             </div>
         </div>
     `;
@@ -1606,6 +1763,15 @@ function bbInjectDom() {
     bbWrapEl.addEventListener('pointerleave', bbOnPointerUpOrCancel);
     bbWrapEl.addEventListener('wheel', bbOnWheel, { passive: false });
     bbWrapEl.addEventListener('click', bbOnBoardClickCapture, true);
+
+    // 登録済みカレー詳細カード：左右スワイプで前後のカレーへ移動できるようにする
+    // （左右のプレビューカードのタップと合わせて、2通りの操作を用意する）。
+    const bbRegDetailBoxEl = document.getElementById('bbRegDetailBox');
+    if (bbRegDetailBoxEl) {
+        bbRegDetailBoxEl.addEventListener('pointerdown', bbOnRegDetailPointerDown);
+        bbRegDetailBoxEl.addEventListener('pointerup', bbOnRegDetailPointerUp);
+    }
+
     if (typeof window.addEventListener === 'function') {
         window.addEventListener('resize', function () {
             if (document.getElementById('bbRoot').style.display !== 'none' && bbState.phase !== 'prep') bbFitView();
@@ -1641,12 +1807,16 @@ window.__bbOnRegisterCurryClick = bbOnRegisterCurryClick;
 window.__bbCloseRegisterPicker = bbCloseRegisterPicker;
 window.__bbOnConfirmRegisterCurry = bbOnConfirmRegisterCurry;
 window.__bbOnTapRegisteredCurry = bbOnTapRegisteredCurry;
-window.__bbOnChangeRegEquip = bbOnChangeRegEquip;
+window.__bbSelectRegBase = bbSelectRegBase;
+window.__bbSelectRegTableware = bbSelectRegTableware;
+window.__bbRegDetailNav = bbRegDetailNav;
 window.__bbOnChangeRegName = bbOnChangeRegName;
 window.__bbCloseRegDetail = bbCloseRegDetail;
 window.__bbOnDeleteRegisteredCurry = bbOnDeleteRegisteredCurry;
 window.__bbShowHelp = bbShowHelp;
 window.__bbCloseHelp = bbCloseHelp;
+window.__bbCloseOpponentSelect = bbCloseOpponentSelect;
+window.__bbSelectOpponentType = bbSelectOpponentType;
 window.openBoardBattle = bbOpen; // 将来、他の場所（正式な入り口ボタン等）から開けるように
 
 bbInjectDom();
