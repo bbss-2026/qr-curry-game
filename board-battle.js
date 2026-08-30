@@ -104,6 +104,7 @@ const BB_STYLE = `
 .bb-rosterCard .bb-rcVisual img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .bb-rosterCard .bb-rcName { font-size: 9px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 2px; }
 .bb-rosterCard .bb-rcStats { font-size: 8px; color: #b88742; margin-top: 2px; }
+.bb-rosterCard .bb-rcTotal { font-size: 9px; color: #f1c40f; font-weight: bold; margin-top: 2px; }
 #bbPlaceHint { font-size: 11px; color: #b88742; margin-bottom: 8px; line-height: 1.5; }
 .bb-actionBtn {
     background: #b88742; color: #efdeb1; border: none; border-radius: 6px; padding: 10px 20px;
@@ -143,7 +144,6 @@ const BB_STYLE = `
 }
 /* 盤面パン・ズームの自動追従（行動順が来た駒をセンターへ）だけ滑らかにアニメーションさせる。
    ユーザー自身のドラッグ・ピンチ操作中はこのクラスを付けない＝指の動きに1:1で追従させる。 */
-#bbViewportG.bb-view-animated { transition: transform 0.35s ease; }
 
 #bbLauncherBtn {
     position: fixed; right: 14px; bottom: 88px; z-index: 8000; display: none; align-items: center; gap: 6px;
@@ -275,11 +275,25 @@ function bbStatTotal(c) { return (c.hp || 0) + (c.atk || 0) + (c.def || 0) + (c.
 function bbLoadRealCurryStock() {
     try {
         return (typeof curryStock !== 'undefined' && Array.isArray(curryStock))
-            ? curryStock.filter(c => !c.isDelivering)
+            ? curryStock.filter(c => !c.isDelivering && !c.__isBoardBattleTemp)
             : [];
     } catch (e) {
         console.warn('[ボードバトル] カレーストックの読み込みに失敗:', e);
         return [];
+    }
+}
+
+// 何らかの理由（テスト中の中断等）でstartExternalBoardBattleが積んだ使い捨てカレーが
+// curryStockに残ってしまった場合の掃除。開くたびに必ず呼ぶことで、配置フェーズの
+// カレー一覧が幽霊エントリで際限なく増えていくことを防ぐ。
+function bbCleanupLeakedTempCurries() {
+    try {
+        if (typeof curryStock === 'undefined' || !Array.isArray(curryStock)) return;
+        for (let i = curryStock.length - 1; i >= 0; i--) {
+            if (curryStock[i] && curryStock[i].__isBoardBattleTemp) curryStock.splice(i, 1);
+        }
+    } catch (e) {
+        console.warn('[ボードバトル] 使い捨てカレーの掃除に失敗:', e);
     }
 }
 
@@ -351,6 +365,7 @@ const bbState = {
 };
 
 function bbInit() {
+    bbCleanupLeakedTempCurries();
     bbBuildBoard();
     bbState.phase = 'placement';
     bbState.playerPool = bbLoadRealCurryStock();
@@ -404,10 +419,20 @@ function bbApplyView() {
 
 // 行動順が回ってきた駒を画面中央へ自動的に移動させる（ズーム倍率は変えない）。
 // ユーザーの手動パン・ピンチ操作とは違い、ここだけは滑らかにスクロールさせる。
-// bb-view-animatedクラスの付与とtransform変更を同じフレームで行うと、ブラウザが
-// 「変化前」の状態を描画する前に「変化後」へ飛んでしまい、トランジションが効かず
-// 瞬間移動に見えてしまう（駒移動アニメーションで踏んだのと同じ問題）。そのため
-// クラス付与→強制リフロー→次のフレームでtransform変更、の順にする。
+// SVGのtransform属性はsetAttribute()で書き換えているため、CSSトランジション
+// （transition:transform）を効かせようとしてもブラウザによっては無視される
+// （駒移動アニメーションで踏んだのと同じ問題）。そのため、CSSトランジションには
+// 頼らず、requestAnimationFrameで毎フレームbbView.x/yを手動で補間して
+// bbApplyView()を呼び直す、確実なJSトゥイーンに置き換える。
+let bbCenterAnimId = null;
+function bbCancelCenterAnim() {
+    if (bbCenterAnimId !== null) {
+        if (typeof cancelAnimationFrame === 'function') { try { cancelAnimationFrame(bbCenterAnimId); } catch (e) {} }
+        bbCenterAnimId = null;
+    }
+}
+function bbEaseInOutQuad(t) { return t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t; }
+
 function bbCenterOnNode(nodeId) {
     const node = bbNodesById[nodeId];
     const wrap = document.getElementById('bbBoardWrap');
@@ -417,16 +442,30 @@ function bbCenterOnNode(nodeId) {
     const wrapH = wrap.clientHeight || 600;
     const targetX = wrapW / 2 - node.x * bbView.scale;
     const targetY = wrapH / 2 - node.y * bbView.scale;
-    g.classList.add('bb-view-animated');
-    requestAnimationFrame(() => {
-        void g.getBoundingClientRect(); // 強制リフローで現在位置を確定させる
-        requestAnimationFrame(() => {
-            bbView.x = targetX;
-            bbView.y = targetY;
-            bbApplyView();
-        });
-    });
-    setTimeout(() => { g.classList.remove('bb-view-animated'); }, 420);
+    bbCancelCenterAnim();
+    const startX = bbView.x, startY = bbView.y;
+    const dist = Math.hypot(targetX - startX, targetY - startY);
+    if (dist < 0.5) { bbView.x = targetX; bbView.y = targetY; bbApplyView(); return; }
+    // 距離に応じてフレーム数を決める（60fps換算でおよそ250〜700ms相当）。
+    // 実時間（Date.now）ではなくフレーム数で進行度を管理することで、
+    // requestAnimationFrameが同期的に即時実行される環境（テストハーネス等）でも
+    // 再帰呼び出しの回数が有限に収まり、スタックオーバーフローを避けられる。
+    const totalFrames = Math.round(Math.min(42, Math.max(15, dist / 8)));
+    let frame = 0;
+    function step() {
+        frame++;
+        const t = Math.min(1, frame / totalFrames);
+        const eased = bbEaseInOutQuad(t);
+        bbView.x = startX + (targetX - startX) * eased;
+        bbView.y = startY + (targetY - startY) * eased;
+        bbApplyView();
+        if (t < 1) {
+            bbCenterAnimId = requestAnimationFrame(step);
+        } else {
+            bbCenterAnimId = null;
+        }
+    }
+    bbCenterAnimId = requestAnimationFrame(step);
 }
 
 // 盤面全体が画面にちょうど収まるよう、初期のパン位置・ズームを計算する（開始・リスタート時に実行）。
@@ -466,6 +505,7 @@ function bbZoomAt(px, py, factor) {
 }
 
 function bbOnPointerDown(evt) {
+    bbCancelCenterAnim(); // ユーザーが手動で操作を始めたら自動センタリング演出は打ち切る
     const wrap = document.getElementById('bbBoardWrap');
     if (wrap.setPointerCapture) { try { wrap.setPointerCapture(evt.pointerId); } catch (e) {} }
     bbPointers.set(evt.pointerId, bbGetWrapPoint(evt));
@@ -508,6 +548,7 @@ function bbOnPointerUpOrCancel(evt) {
     }
 }
 function bbOnWheel(evt) {
+    bbCancelCenterAnim();
     evt.preventDefault();
     const p = bbGetWrapPoint(evt);
     const factor = evt.deltaY < 0 ? 1.12 : (1 / 1.12);
@@ -592,6 +633,7 @@ function bbRenderPlacementPanel() {
             <div class="bb-rcVisual"><img src="${bbGetCurryImg(c)}" alt=""></div>
             <div class="bb-rcName">${bbEsc(c.name || 'カレー')}</div>
             <div class="bb-rcStats">HP${c.hp||0} ATK${c.atk||0}<br>DEF${c.def||0} SPD${c.spd||0}</div>
+            <div class="bb-rcTotal">合計 ${bbStatTotal(c)}</div>
         </div>`;
     }).join('') || '<div style="font-size:11px;color:#b88742;">カレーストックにカレーがありません。カレーを調理してから開いてください。</div>';
     bbUpdateBudgetLine();
