@@ -237,34 +237,37 @@ const BB_STYLE = `
 
 // ------------------------------------------------------------
 // 1. 盤面トポロジー
-//    行ごとのマス数： 1-2-3-2-3-2-3-2-3-2-1（全11行・計24マス）
-//    5本の固定列（列0〜4、列2が中央）を使い、
-//      ・旗の行（行0=敵旗／行10=自陣旗）は列2のみ
-//      ・「外側」行（行2,4,6,8）は列0,2,4
-//      ・「内側」行（行1,3,5,7,9）は列1,3
+//    行ごとのマス数： 1-2-3-4-3-4-3-4-3-4-3-2-1（全13行・計37マス）
+//    7本の固定列（列0〜6、列3が中央）を使い、
+//      ・旗の行（行0=敵旗／行12=自陣旗）は列3のみ
+//      ・2マスの行（行1,11）は列2,4
+//      ・3マスの行（行2,4,6,8,10）は列1,3,5
+//      ・4マスの行（行3,5,7,9）は列0,2,4,6
 //    道（辺）は「縦（同じ列で2行離れたマス同士）」と
 //    「斜め（隣接する行・隣接する列同士）」のみで、
 //    同じ行内の横方向のつながりは一切作りません。
 // ------------------------------------------------------------
 const BB_ROWS_DEF = [
-    [2],       // row0  敵陣旗
-    [1, 3],    // row1
-    [0, 2, 4], // row2
-    [1, 3],    // row3
-    [0, 2, 4], // row4
-    [1, 3],    // row5
-    [0, 2, 4], // row6
-    [1, 3],    // row7
-    [0, 2, 4], // row8
-    [1, 3],    // row9
-    [2]        // row10 自陣旗
+    [3],          // row0  敵陣旗
+    [2, 4],       // row1
+    [1, 3, 5],    // row2
+    [0, 2, 4, 6], // row3
+    [1, 3, 5],    // row4
+    [0, 2, 4, 6], // row5
+    [1, 3, 5],    // row6
+    [0, 2, 4, 6], // row7
+    [1, 3, 5],    // row8
+    [0, 2, 4, 6], // row9
+    [1, 3, 5],    // row10
+    [2, 4],       // row11
+    [3]           // row12 自陣旗
 ];
 const BB_ROW_TOP = 0;
-const BB_ROW_BOTTOM = BB_ROWS_DEF.length - 1; // 10
-const BB_ENEMY_DEPLOY_ROWS = [1, 2];   // 敵旗から2行以内（2+3=5マス＝最大5体とぴったり一致）
-const BB_PLAYER_DEPLOY_ROWS = [8, 9];  // 自陣旗から2行以内（3+2=5マス＝最大5体とぴったり一致）
+const BB_ROW_BOTTOM = BB_ROWS_DEF.length - 1; // 12
+const BB_ENEMY_DEPLOY_ROWS = [1, 2];    // 敵旗から2行以内（2+3=5マス＝最大5体とぴったり一致）
+const BB_PLAYER_DEPLOY_ROWS = [10, 11]; // 自陣旗から2行以内（3+2=5マス＝最大5体とぴったり一致）
 
-const BB_COL_X = [60, 195, 300, 405, 540]; // 5列のx座標（列2が中央＝旗の列）
+const BB_COL_X = [60, 140, 220, 300, 380, 460, 540]; // 7列のx座標（列3が中央＝旗の列）
 const BB_BOARD_WIDTH = 600;
 const BB_ROW_Y_TOP = 60;
 const BB_ROW_Y_GAP = 78;
@@ -315,7 +318,7 @@ function bbBuildEdges() {
 
 function bbGetFlagNodeId(team) {
     const row = (team === 'player') ? BB_ROW_BOTTOM : BB_ROW_TOP;
-    const n = bbFindNode(row, 2);
+    const n = bbFindNode(row, 3);
     return n ? n.id : null;
 }
 
@@ -338,13 +341,8 @@ function bbMakeUnit(curry, team) {
         atk: curry.atk || 0, def: curry.def || 0, spd: curry.spd || 0,
         team: team,
         nodeId: null,
-        delay: bbComputeDelay(curry.spd || 0),
         raw: curry
     };
-}
-function bbComputeDelay(spd) {
-    const s = Math.max(0, spd || 0);
-    return Math.round(100000 / (s + 200)); // ゼロ除算防止：+200なのでspd=0でも安全
 }
 function bbStatTotal(c) { return (c.hp || 0) + (c.atk || 0) + (c.def || 0) + (c.spd || 0); }
 
@@ -948,6 +946,7 @@ function bbOnStartBattleClick() {
     });
     bbNodes.forEach(n => { n.highlight = null; });
     bbState.phase = 'battle';
+    bbRoundQueue = []; // 新しい戦闘の開始時は行動順キューをリセットする（前回の戦闘の残りを引き継がない）
     document.getElementById('bbPlacementPanel').style.display = 'none';
     document.getElementById('bbBattlePanel').style.display = 'block';
     // ここから行動順アイコンの帯を使うので表示に戻す（準備・配置フェーズでは隠していた）。
@@ -960,25 +959,29 @@ function bbOnStartBattleClick() {
 function bbShuffleArray(arr) { for (let i = arr.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [arr[i], arr[j]] = [arr[j], arr[i]]; } }
 
 // ------------------------------------------------------------
-// 7. ATB行動順エンジン
-//    ディレイ値 = round(100000 / (SPD+200))。全員から毎ステップ1ずつ減らし、
-//    0になった駒（複数なら元SPDが高い方、それも同じならランダム）に行動権を渡す。
+// 7. 行動順エンジン（周回制）
+//    待ち時間（ディレイ）の概念は廃止。敵味方の区別なく、生存中の全駒を
+//    SPDの高い順に並べた「1周分」の行動リストを作り、先頭から順に1体ずつ
+//    行動させる。1周＝生存者全員が必ず1回ずつ行動するため、行動回数は
+//    全カレー共通（SPDが低くても行動が飛ばされることはない）。
+//    同SPDの駒が複数いる場合は、周ごとにランダムな順序にする。
 //    ★敵味方の区別は一切なく、bbState.units全員（プレイヤー・敵混在）を同じ
-//    1本のタイムラインで比較しているため、「敵ターン／味方ターン」という
+//    1本のタイムラインで並べているため、「敵ターン／味方ターン」という
 //    フェーズ分けそのものが存在しません（bbPickNextActorが唯一の判定ロジック）。
 // ------------------------------------------------------------
+let bbRoundQueue = []; // 今の周でまだ行動していない駒（先頭が次の行動者）
+
 function bbPickNextActor() {
-    const alive = bbState.units.filter(u => u.hp > 0); // ← teamによる絞り込みは行わない＝敵味方混在の1本のタイムライン
-    if (alive.length === 0) return null;
-    let minDelay = Math.min(...alive.map(u => u.delay));
-    alive.forEach(u => { u.delay -= minDelay; });
-    let candidates = alive.filter(u => u.delay <= 0);
-    if (candidates.length > 1) {
-        const maxSpd = Math.max(...candidates.map(u => u.spd));
-        const topSpd = candidates.filter(u => u.spd === maxSpd);
-        candidates = [topSpd[Math.floor(Math.random() * topSpd.length)]];
+    while (bbRoundQueue.length > 0 && bbRoundQueue[0].hp <= 0) bbRoundQueue.shift(); // 倒れた駒は読み飛ばす
+    if (bbRoundQueue.length === 0) {
+        const alive = bbState.units.filter(u => u.hp > 0); // ← teamによる絞り込みは行わない＝敵味方混在の1本の周回
+        if (alive.length === 0) return null;
+        const shuffled = alive.slice();
+        bbShuffleArray(shuffled); // 同SPDの並び順をランダム化してから、SPD降順で安定ソート
+        shuffled.sort((a, b) => b.spd - a.spd);
+        bbRoundQueue = shuffled;
     }
-    return candidates[0] || alive[0];
+    return bbRoundQueue.shift() || null;
 }
 
 function bbScheduleNextTurn() {
@@ -1005,21 +1008,13 @@ function bbScheduleNextTurn() {
 }
 
 function bbRenderTurnQueuePreview() {
-    // 表示専用の簡易プレビュー：現在のdelay状態からこの先の順番を軽くシミュレートする
-    // （敵味方を分けず、同じ1本のタイムラインとしてそのまま並べる）
+    // 表示専用の簡易プレビュー：現在の行動者→今の周の残りキュー→次の周（生存者をSPD降順）
+    // の順に並べて見せる（敵味方を分けず、同じ1本のタイムラインとしてそのまま並べる）。
     const bar = document.getElementById('bbTurnQueueBar');
-    const sim = bbState.units.filter(u => u.hp > 0).map(u => ({ u, delay: u.delay }));
-    const order = [];
-    for (let step = 0; step < 8 && sim.length > 0; step++) {
-        const minD = Math.min(...sim.map(s => s.delay));
-        sim.forEach(s => s.delay -= minD);
-        let ready = sim.filter(s => s.delay <= 0);
-        ready.sort((a, b) => b.u.spd - a.u.spd);
-        const chosen = ready[0];
-        if (!chosen) break;
-        order.push(chosen.u);
-        chosen.delay = bbComputeDelay(chosen.u.spd);
-    }
+    const alive = bbState.units.filter(u => u.hp > 0);
+    const rest = bbRoundQueue.filter(u => u.hp > 0);
+    const nextRoundOrder = alive.slice().sort((a, b) => b.spd - a.spd);
+    const order = [bbState.activeUnit].concat(rest, nextRoundOrder).filter(Boolean).slice(0, 8);
     bar.innerHTML = order.map((u, i) => {
         const cls = `bb-turnIcon bb-team-${u.team}${i === 0 ? ' bb-current' : ''}`;
         return `<div class="${cls}" title="${bbEsc(u.name)}"><img src="${bbGetCurryImg(u.raw)}" alt=""></div>`;
@@ -1029,25 +1024,48 @@ function bbRenderTurnQueuePreview() {
 // ------------------------------------------------------------
 // 8. 移動・戦闘
 // ------------------------------------------------------------
+// SPDに応じた移動可能マス数：100未満は1マス、100〜199は2マス、200〜299は3マス…
+// （100ごとに1マスずつ増える。上限なし）。
+function bbGetMoveRange(spd) {
+    return Math.floor(Math.max(0, spd || 0) / 100) + 1;
+}
+
+// 移動先として到達できるマスの集合（Set<nodeId>）を返す。
+// ・他の駒（敵味方問わず）がいるマスは通過できない＝そのマスより先へは進めない。
+// ・味方がいるマスへは進入自体できない（到達可能マスにも含めない）。
+// ・敵がいるマスへは進入できる（攻撃になる）が、そこで止まりそこから先へは進めない。
+function bbGetMovableNodeIds(unit) {
+    const maxSteps = bbGetMoveRange(unit.spd);
+    const startId = unit.nodeId;
+    const visited = new Set([startId]);
+    const result = new Set();
+    let frontier = [startId];
+    for (let step = 0; step < maxSteps && frontier.length > 0; step++) {
+        const nextFrontier = [];
+        frontier.forEach(nid => {
+            const node = bbNodesById[nid];
+            node.neighbors.forEach(nnid => {
+                if (visited.has(nnid)) return;
+                visited.add(nnid);
+                const occupant = bbState.units.find(u => u.nodeId === nnid && u.hp > 0);
+                if (occupant && occupant.team === unit.team) return; // 味方のマスには入れない・通過もできない
+                result.add(nnid); // 空きマス、または敵がいるマス（攻撃対象）はここまで到達可能
+                if (!occupant) nextFrontier.push(nnid); // 空きマスのみ、さらに先へ進める（敵のマスは通過不可＝そこで止まる）
+            });
+        });
+        frontier = nextFrontier;
+    }
+    return result;
+}
+
 function bbHighlightMovableTiles(unit) {
     bbNodes.forEach(n => { n.highlight = null; });
-    const node = bbNodesById[unit.nodeId];
-    node.neighbors.forEach(nid => {
-        const target = bbNodesById[nid];
-        const occupant = bbState.units.find(u => u.nodeId === nid && u.hp > 0);
-        if (!occupant || occupant.team !== unit.team) {
-            target.highlight = 'movable';
-        }
-    });
+    bbGetMovableNodeIds(unit).forEach(nid => { bbNodesById[nid].highlight = 'movable'; });
     bbRenderBoard();
 }
 
 function bbGetMovableNeighbors(unit) {
-    const node = bbNodesById[unit.nodeId];
-    return node.neighbors.filter(nid => {
-        const occupant = bbState.units.find(u => u.nodeId === nid && u.hp > 0);
-        return !occupant || occupant.team !== unit.team;
-    });
+    return Array.from(bbGetMovableNodeIds(unit));
 }
 
 function bbOnBattleNodeClick(nodeId) {
@@ -1154,7 +1172,6 @@ function bbMoveUnitTo(unit, nodeId) {
         bbAnimateUnitMove(unit, fromNodeId, nodeId, function () {
             unit.nodeId = nodeId;
             bbAppendLog(`${unit.name} が移動した。`);
-            unit.delay = bbComputeDelay(unit.spd);
             bbRenderBoard();
             setTimeout(bbScheduleNextTurn, 500);
         });
@@ -1203,7 +1220,6 @@ function bbPerformEnemyTurn(unit) {
     const moves = bbGetMovableNeighbors(unit);
     if (moves.length === 0) {
         bbAppendLog(`${unit.name}（敵）は動けずパス。`);
-        unit.delay = bbComputeDelay(unit.spd);
         setTimeout(bbScheduleNextTurn, 400);
         return;
     }
@@ -1268,7 +1284,6 @@ function bbResolveBattle(mover, defender, targetNodeId) {
         // 勝った駒は、衝突アニメーションで既に見た目上そのマスへ来ているので、
         // ここでは位置を確定させるだけでよい（再度スライドさせる必要はない）。
         if (moverWon) mover.nodeId = targetNodeId;
-        mover.delay = bbComputeDelay(mover.spd);
         bbRenderBoard();
         setTimeout(bbScheduleNextTurn, 500);
     });
