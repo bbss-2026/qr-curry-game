@@ -123,9 +123,10 @@ const BB_STYLE = `
 
 /* 盤面バトル中に起動する本編の戦闘画面：咖喱図書館用の背景（applyBookBattleLiftが敷く
    currylibrary_bg.png）ではなく、盤面（#bbRoot）がうっすら透けて見える半透明オーバーレイにする。
-   #battleArena.book-battle-lift と同じ詳細度（#id.class）だが、このスタイルはstory.jsより後に
-   読み込まれるため、後勝ちのCSSカスケードでこちらが優先される。 */
-#battleArena.bb-arena-overlay {
+   story.js側の #battleArena.book-battle-lift ルールは、咖喱図書館を開いたタイミングで
+   後から<style>が追加されるため、CSS挿入順に頼ると負けることがある。挿入順に関係なく必ず
+   優先されるよう、book-battle-lift自体も含めて2クラス指定にし、詳細度そのものを上回らせる。 */
+#battleArena.book-battle-lift.bb-arena-overlay {
     background: rgba(20,12,6,0.55) !important;
 }
 .battle-stage.bb-battle-bg {
@@ -133,6 +134,16 @@ const BB_STYLE = `
     border: 1px solid rgba(241,196,15,0.25) !important;
     box-shadow: 0 20px 50px rgba(0,0,0,0.4) !important;
 }
+/* 戦闘中は盤面に触れられないよう、画面全体を覆う黒いブロック用オーバーレイを敷く。
+   #bbRoot（z-index:9000）より前面、本編の戦闘画面（book-battle-liftでz-index:10050）より
+   背面に置くことで、戦闘カード幅（max-width:500px）の外側（左右の余白）も含めて
+   画面全体のタップを塞ぐ。カード自体は#battleArenaが最前面のまま表示される。 */
+#bbBattleBlockOverlay {
+    position: fixed; inset: 0; z-index: 9500; background: #000; display: none;
+}
+/* 盤面パン・ズームの自動追従（行動順が来た駒をセンターへ）だけ滑らかにアニメーションさせる。
+   ユーザー自身のドラッグ・ピンチ操作中はこのクラスを付けない＝指の動きに1:1で追従させる。 */
+#bbViewportG.bb-view-animated { transition: transform 0.35s ease; }
 
 #bbLauncherBtn {
     position: fixed; right: 14px; bottom: 88px; z-index: 8000; display: none; align-items: center; gap: 6px;
@@ -370,6 +381,22 @@ function bbSyncSvgSize(w, h) {
 function bbApplyView() {
     const g = document.getElementById('bbViewportG');
     if (g) g.setAttribute('transform', `translate(${bbView.x},${bbView.y}) scale(${bbView.scale})`);
+}
+
+// 行動順が回ってきた駒を画面中央へ自動的に移動させる（ズーム倍率は変えない）。
+// ユーザーの手動パン・ピンチ操作とは違い、ここだけは滑らかにアニメーションさせる。
+function bbCenterOnNode(nodeId) {
+    const node = bbNodesById[nodeId];
+    const wrap = document.getElementById('bbBoardWrap');
+    const g = document.getElementById('bbViewportG');
+    if (!node || !wrap || !g) return;
+    const wrapW = wrap.clientWidth || 360;
+    const wrapH = wrap.clientHeight || 600;
+    bbView.x = wrapW / 2 - node.x * bbView.scale;
+    bbView.y = wrapH / 2 - node.y * bbView.scale;
+    g.classList.add('bb-view-animated');
+    bbApplyView();
+    setTimeout(() => { g.classList.remove('bb-view-animated'); }, 360);
 }
 
 // 盤面全体が画面にちょうど収まるよう、初期のパン位置・ズームを計算する（開始・リスタート時に実行）。
@@ -664,6 +691,7 @@ function bbScheduleNextTurn() {
     bbState.activeUnit = actor;
     bbRenderTurnQueuePreview();
     bbRenderBoard(); // ← アクティブな駒のノードを光らせるため再描画
+    bbCenterOnNode(actor.nodeId); // 行動順が回ってきた駒を画面中央へ自動的に移動
     if (actor.team === 'player') {
         bbHighlightMovableTiles(actor);
         bbSetBattleStatus(`${actor.name} の番です。移動先のマスをタップしてください。`);
@@ -875,9 +903,13 @@ function bbResolveBattle(mover, defender, targetNodeId) {
     // （通常のCSS z-index重なりだけで解決するため、表示/非表示の切り替えは不要）。
     const arenaEl = document.getElementById('battleArena');
     if (arenaEl) arenaEl.classList.add('bb-arena-overlay');
+    // 戦闘カード（最大幅500px）の外側も含め、盤面に一切触れられないよう画面全体を覆う。
+    const blockOverlayEl = document.getElementById('bbBattleBlockOverlay');
+    if (blockOverlayEl) blockOverlayEl.style.display = 'block';
 
     startExternalBoardBattle(myCurrySnapshot, oppCurrySnapshot, function (didPlayerWin, remainingPlayerHp, remainingOppHp) {
         if (arenaEl) arenaEl.classList.remove('bb-arena-overlay');
+        if (blockOverlayEl) blockOverlayEl.style.display = 'none';
         playerUnit.hp = remainingPlayerHp;
         enemyUnit.hp = remainingOppHp;
         const moverIsPlayer = (mover.team === 'player');
@@ -993,6 +1025,7 @@ function bbInjectDom() {
                 <button class="bb-actionBtn bb-secondary" onclick="window.__bbClose()">閉じる</button>
             </div>
         </div>
+        <div id="bbBattleBlockOverlay"></div>
     `;
     document.body.appendChild(rootDiv);
 
