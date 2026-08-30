@@ -100,6 +100,7 @@ const BB_STYLE = `
     text-align: center; cursor: pointer; font-size: 10px;
 }
 .bb-rosterCard.bb-picked { border-color: #2ecc71; background: #1f3a1f; }
+.bb-rosterCard.bb-selecting { border-color: #f1c40f; background: #4a3a12; box-shadow: 0 0 10px rgba(241,196,15,0.7); transform: scale(1.05); }
 .bb-rosterCard .bb-rcVisual { width: 40px; height: 40px; margin: 0 auto; border-radius: 50%; overflow: hidden; background: #efdeb1; }
 .bb-rosterCard .bb-rcVisual img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .bb-rosterCard .bb-rcName { font-size: 9px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 2px; }
@@ -136,6 +137,50 @@ const BB_STYLE = `
 #bbUnitDetailStats { font-size: 12px; text-align: left; }
 .bb-udStatRow { display: flex; justify-content: space-between; padding: 3px 4px; border-bottom: 1px solid rgba(107,74,38,0.6); }
 .bb-udStatRow.bb-udStatTotal { border-bottom: none; margin-top: 4px; font-weight: bold; color: #f1c40f; }
+
+/* カレー準備画面：ボードバトルを開いた時の入口。登録済みロースターの一覧と
+   カレー登録／戦闘開始／ヘルプの3ボタンだけを見せ、盤面はまだ表示しない。 */
+#bbPrepPanel {
+    position: absolute; inset: 0; z-index: 15; background: #2b1a0e; padding: 70px 14px 14px;
+    overflow-y: auto; display: none;
+}
+#bbPrepPanel h2 { font-size: 14px; margin: 0 0 10px 0; color: #f5c469; }
+#bbPrepRosterList { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
+.bb-prepBtnRow { display: flex; flex-wrap: wrap; gap: 4px; }
+
+/* カレー登録：カレーストックからの選択ピッカー */
+#bbRegisterPickerOverlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.75); display: none; align-items: center; justify-content: center; z-index: 9030;
+}
+#bbRegisterPickerBox { background: #2b1a0e; border: 2px solid #b88742; border-radius: 12px; padding: 20px; text-align: center; width: 280px; max-height: 80vh; }
+#bbRegisterPickerBox h3 { font-size: 15px; margin: 0 0 10px 0; color: #efdeb1; }
+#bbRegisterPickerList { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; max-height: 50vh; overflow-y: auto; margin-bottom: 12px; }
+
+/* 登録済みカレーの詳細（装備・名前変更・登録削除） */
+#bbRegDetailOverlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.75); display: none; align-items: center; justify-content: center; z-index: 9030;
+}
+#bbRegDetailBox { background: #2b1a0e; border: 2px solid #b88742; border-radius: 12px; padding: 20px 26px; text-align: center; width: 240px; }
+#bbRegDetailVisual { width: 84px; height: 84px; margin: 0 auto 8px; border-radius: 50%; overflow: hidden; background: #fff; border: 3px solid #b88742; }
+#bbRegDetailVisual img { width: 100%; height: 100%; object-fit: cover; display: block; }
+#bbRegDetailNameInput {
+    width: 100%; box-sizing: border-box; background: #1c1108; border: 1px solid #6b4a26; color: #efdeb1;
+    border-radius: 6px; padding: 6px 8px; font-size: 13px; text-align: center; margin-bottom: 10px;
+}
+.bb-regEquipRow { display: flex; align-items: center; justify-content: space-between; font-size: 11px; margin-top: 8px; }
+.bb-regEquipRow select {
+    background: #1c1108; border: 1px solid #6b4a26; color: #efdeb1; border-radius: 6px; padding: 3px 6px; font-size: 11px;
+}
+.bb-regDetailBtnRow { margin-top: 14px; display: flex; flex-wrap: wrap; justify-content: center; gap: 4px; }
+.bb-actionBtn.bb-danger { background: #7a2e2e; }
+
+/* 「カレーボードバトルとは？」ヘルプ */
+#bbHelpOverlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.75); display: none; align-items: center; justify-content: center; z-index: 9030;
+}
+#bbHelpBox { background: #2b1a0e; border: 2px solid #b88742; border-radius: 12px; padding: 20px; text-align: left; width: 280px; max-height: 80vh; overflow-y: auto; }
+#bbHelpBox h3 { font-size: 15px; margin: 0 0 10px 0; color: #efdeb1; text-align: center; }
+#bbHelpText { font-size: 12px; line-height: 1.7; color: #efdeb1; margin-bottom: 14px; }
 
 /* 盤面バトル中に起動する本編の戦闘画面：咖喱図書館用の背景（applyBookBattleLiftが敷く
    currylibrary_bg.png）ではなく、盤面（#bbRoot）がうっすら透けて見える半透明オーバーレイにする。
@@ -370,8 +415,8 @@ function bbGetCurryImg(curry) {
 // 4. ゲーム状態
 // ------------------------------------------------------------
 const bbState = {
-    phase: 'placement', // 'placement' | 'battle' | 'result'
-    playerPool: [],      // 配置候補（実カレーストック）
+    phase: 'prep', // 'prep'（カレー準備画面） | 'placement' | 'battle' | 'result'
+    playerPool: [],      // 配置候補（登録済みロースターの装備反映後ステータス）
     enemyPool: [],        // デバッグ生成された敵候補
     selectedPoolIndex: null,
     units: [],            // 盤面に配置された全ユニット（player/enemy混在。行動順は下記の通り完全に統一されたタイムラインで管理）
@@ -379,27 +424,107 @@ const bbState = {
     battleLogLines: []
 };
 
+// ------------------------------------------------------------
+// 3.5 登録済みカレー（ボードバトル専用ロースター）
+//    ・カレーストックとは別に、ボードバトル用に「登録」したカレーだけを集めた
+//      永続的な一覧を持つ。登録はカレーストックからの片道の移動（ストックからは消える）。
+//    ・登録済みカレーには名前の変更・ベース/食器の個別装備ができる（本編のselectedBase/
+//      selectedTableware＝全体共通の装備とは完全に独立）。
+//    ・本編（game-source-work.js）のsaveGame()には含めず、このファイル専用の
+//      localStorageキーで完結させる（本体には一切手を加えない、という開発方針を維持するため）。
+// ------------------------------------------------------------
+const BB_ROSTER_STORAGE_KEY = 'qr_board_battle_roster';
+let bbRegisteredRoster = [];
+
+function bbLoadRegisteredRoster() {
+    try {
+        const raw = localStorage.getItem(BB_ROSTER_STORAGE_KEY);
+        const parsed = raw ? JSON.parse(raw) : [];
+        bbRegisteredRoster = Array.isArray(parsed) ? parsed : [];
+    } catch (e) {
+        console.warn('[ボードバトル] 登録済みカレーの読み込みに失敗:', e);
+        bbRegisteredRoster = [];
+    }
+}
+function bbSaveRegisteredRoster() {
+    try {
+        localStorage.setItem(BB_ROSTER_STORAGE_KEY, JSON.stringify(bbRegisteredRoster));
+    } catch (e) {
+        console.warn('[ボードバトル] 登録済みカレーの保存に失敗:', e);
+    }
+}
+// ベース・食器（本編のBASE_LIST/TABLEWARE_LIST）による、登録カレー1件分のステータス補正値。
+function bbGetEquipBonus(statKey, entry) {
+    const b = (typeof BASE_LIST !== 'undefined' && BASE_LIST[entry.equippedBase]) || {};
+    const t = (typeof TABLEWARE_LIST !== 'undefined' && TABLEWARE_LIST[entry.equippedTableware]) || {};
+    return (b[statKey] || 0) + (t[statKey] || 0);
+}
+// 登録カレー1件から、装備補正・カスタム名を反映した「実際に使うカレーオブジェクト」を作る。
+// 元のraw（curryStockから移した本体）は書き換えない。特殊カレー判定に必要なmaterials/spice/
+// curryType等のフィールドはrawからそのまま引き継がれるため、装備で変わるのは数値ステータスのみ。
+function bbGetEffectiveCurry(entry) {
+    const raw = entry.raw || {};
+    return Object.assign({}, raw, {
+        name: entry.customName || raw.name || 'カレー',
+        hp: Math.max(1, (raw.hp || 0) + bbGetEquipBonus('hp', entry)),
+        atk: Math.max(0, (raw.atk || 0) + bbGetEquipBonus('atk', entry)),
+        def: Math.max(0, (raw.def || 0) + bbGetEquipBonus('def', entry)),
+        spd: Math.max(1, (raw.spd || 0) + bbGetEquipBonus('spd', entry))
+    });
+}
+
+// 全オーバーレイ・パネルを一旦隠す共通処理（画面遷移のたびに、前の状態が残らないようにする）。
+function bbHideAllOverlaysAndPanels() {
+    ['bbResultOverlay', 'bbUnitDetailOverlay', 'bbRegisterPickerOverlay', 'bbRegDetailOverlay', 'bbHelpOverlay'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.style.display = 'none';
+    });
+}
+
+// カレーボードバトルを開いた時・「バトルボードに戻る」で戻ってきた時の初期画面＝カレー準備画面。
+// （盤面はまだ表示せず、登録済みカレーの一覧と「カレー登録」「戦闘開始」だけを見せる）
 function bbInit() {
+    bbLoadRegisteredRoster();
+    bbCleanupLeakedTempCurries();
+    bbState.phase = 'prep';
+    bbState.units = [];
+    bbState.activeUnit = null;
+    bbState.battleLogLines = [];
+    bbHideAllOverlaysAndPanels();
+    document.getElementById('bbPrepPanel').style.display = 'block';
+    document.getElementById('bbBoardWrap').style.display = 'none';
+    document.getElementById('bbBottomPanel').style.display = 'none';
+    bbRenderPrepPanel();
+}
+
+// 準備画面の「戦闘開始」で呼ばれる：盤面を表示し、登録済みロースターを配置候補として配置フェーズへ。
+function bbEnterPlacementPhase() {
     bbCleanupLeakedTempCurries();
     bbBuildBoard();
     bbState.phase = 'placement';
-    bbState.playerPool = bbLoadRealCurryStock();
+    bbState.playerPool = bbRegisteredRoster.map(bbGetEffectiveCurry);
     bbState.enemyPool = bbGenerateDebugEnemyTeam();
     bbState.selectedPoolIndex = null;
     bbState.units = [];
     bbState.activeUnit = null;
     bbState.battleLogLines = [];
+    bbHideAllOverlaysAndPanels();
+    document.getElementById('bbPrepPanel').style.display = 'none';
+    document.getElementById('bbBoardWrap').style.display = 'block';
+    document.getElementById('bbBottomPanel').style.display = 'block';
     document.getElementById('bbPlacementPanel').style.display = 'block';
     document.getElementById('bbBattlePanel').style.display = 'none';
     document.getElementById('bbBattleLog').innerHTML = '';
-    // 前回の勝敗結果ポップアップが残ったままにならないよう、開く・再スタートのたびに必ず隠す
-    // （「DEFEATのまま閉じずに再度開いた」不具合の対策）。
-    document.getElementById('bbResultOverlay').style.display = 'none';
-    const detailOverlayEl = document.getElementById('bbUnitDetailOverlay');
-    if (detailOverlayEl) detailOverlayEl.style.display = 'none';
     bbRenderBoard();
     bbRenderPlacementPanel();
     bbFitView();
+}
+function bbOnPrepStartBattleClick() {
+    if (bbRegisteredRoster.length === 0) {
+        alert('登録済みのカレーがありません。「カレー登録」からカレーストックのカレーを登録してください。');
+        return;
+    }
+    bbEnterPlacementPhase();
 }
 
 // ------------------------------------------------------------
@@ -647,13 +772,25 @@ function bbRenderPlacementPanel() {
     const list = document.getElementById('bbRosterList');
     list.innerHTML = bbState.playerPool.map((c, idx) => {
         const picked = bbState.units.some(u => u.team === 'player' && u.raw === c);
-        return `<div class="bb-rosterCard${picked ? ' bb-picked' : ''}" onclick="window.__bbOnPickPoolCurry(${idx})">
+        const selecting = (bbState.selectedPoolIndex === idx);
+        const cls = 'bb-rosterCard' + (picked ? ' bb-picked' : '') + (selecting ? ' bb-selecting' : '');
+        return `<div class="${cls}" onclick="window.__bbOnPickPoolCurry(${idx})">
             <div class="bb-rcVisual"><img src="${bbGetCurryImg(c)}" alt=""></div>
             <div class="bb-rcName">${bbEsc(c.name || 'カレー')}</div>
             <div class="bb-rcStats">HP${c.hp||0} ATK${c.atk||0}<br>DEF${c.def||0} SPD${c.spd||0}</div>
             <div class="bb-rcTotal">合計 ${bbStatTotal(c)}</div>
         </div>`;
-    }).join('') || '<div style="font-size:11px;color:#b88742;">カレーストックにカレーがありません。カレーを調理してから開いてください。</div>';
+    }).join('') || '<div style="font-size:11px;color:#b88742;">登録済みのカレーがありません。準備画面の「カレー登録」からカレーを登録してください。</div>';
+    // 今どのカレーを配置しようとしているか、ヒント文言でも分かるようにする。
+    const hintEl = document.getElementById('bbPlaceHint');
+    if (hintEl) {
+        if (bbState.selectedPoolIndex !== null && bbState.playerPool[bbState.selectedPoolIndex]) {
+            const selName = bbEsc(bbState.playerPool[bbState.selectedPoolIndex].name || 'カレー');
+            hintEl.innerHTML = `「<span style="color:#f1c40f;font-weight:bold;">${selName}</span>」を配置します。盤面の緑枠のマスをタップしてください。（もう一度カードをタップで選択解除）`;
+        } else {
+            hintEl.textContent = '下のカレーをタップして選択 → 盤面の自陣側（青枠）マスをタップして配置します。';
+        }
+    }
     bbUpdateBudgetLine();
     bbHighlightDeployTiles();
     bbRenderBoard();
@@ -690,14 +827,19 @@ function bbOnPickPoolCurry(idx) {
         bbRenderPlacementPanel();
         return;
     }
+    // 同じカードをもう一度タップした場合は選択解除（配置先を選ぶ前ならキャンセルできるように）。
+    if (bbState.selectedPoolIndex === idx) {
+        bbState.selectedPoolIndex = null;
+        bbRenderPlacementPanel();
+        return;
+    }
     const placed = bbState.units.filter(u => u.team === 'player');
     if (placed.length >= BB_MAX_UNITS) {
         alert('配置できるのは最大5体までです。');
         return;
     }
     bbState.selectedPoolIndex = idx;
-    bbHighlightDeployTiles();
-    bbRenderBoard();
+    bbRenderPlacementPanel();
 }
 
 function bbOnNodeClick(nodeId) {
@@ -848,8 +990,15 @@ function bbGetMovableNeighbors(unit) {
 function bbOnBattleNodeClick(nodeId) {
     const actor = bbState.activeUnit;
     const node = bbNodesById[nodeId];
-    // 自分の手番で「移動・攻撃できるマス」をタップした場合は、これまで通り移動/戦闘を最優先する。
+    // 自分の手番で「移動・攻撃できるマス」をタップした場合。
     if (actor && actor.team === 'player' && node.highlight === 'movable') {
+        const defender = bbState.units.find(u => u.nodeId === nodeId && u.hp > 0 && u.team !== actor.team);
+        if (defender) {
+            // 敵のマスへ重ねる＝攻撃になるので、まず相手の詳細を見せてから実行するか選ばせる
+            // （見えない相手にいきなり突っ込んでしまう事故を防ぐ）。
+            bbShowUnitDetail(defender, { onConfirm: () => { bbMoveUnitTo(actor, nodeId); }, confirmLabel: 'この相手に攻撃する' });
+            return;
+        }
         bbMoveUnitTo(actor, nodeId);
         return;
     }
@@ -1088,12 +1237,16 @@ function bbRestart() {
 // ------------------------------------------------------------
 // 11.5 盤面の駒をタップした時の詳細表示
 // ------------------------------------------------------------
-function bbShowUnitDetail(unit) {
+// opts.onConfirm を渡すと、詳細カードに「攻撃する」等の実行ボタンが追加表示される
+// （敵の駒に重ねて移動＝攻撃する前に、相手の中身を見てから決められるようにするため）。
+let bbPendingDetailConfirm = null;
+function bbShowUnitDetail(unit, opts) {
     const overlay = document.getElementById('bbUnitDetailOverlay');
     const img = document.getElementById('bbUnitDetailImg');
     const nameEl = document.getElementById('bbUnitDetailName');
     const teamEl = document.getElementById('bbUnitDetailTeam');
     const statsEl = document.getElementById('bbUnitDetailStats');
+    const confirmBtn = document.getElementById('bbUnitDetailConfirmBtn');
     if (!overlay || !img || !nameEl || !statsEl) return;
     const c = unit.raw || unit;
     img.src = bbGetCurryImg(c);
@@ -1110,11 +1263,189 @@ function bbShowUnitDetail(unit) {
         <div class="bb-udStatRow"><span>SPD</span><span>${c.spd || 0}</span></div>
         <div class="bb-udStatRow bb-udStatTotal"><span>合計</span><span>${total}</span></div>
     `;
+    if (opts && typeof opts.onConfirm === 'function') {
+        bbPendingDetailConfirm = opts.onConfirm;
+        if (confirmBtn) {
+            confirmBtn.style.display = 'inline-block';
+            confirmBtn.textContent = opts.confirmLabel || '実行する';
+        }
+    } else {
+        bbPendingDetailConfirm = null;
+        if (confirmBtn) confirmBtn.style.display = 'none';
+    }
     overlay.style.display = 'flex';
 }
+function bbConfirmUnitDetailAction() {
+    const fn = bbPendingDetailConfirm;
+    bbPendingDetailConfirm = null;
+    bbCloseUnitDetail();
+    if (typeof fn === 'function') fn();
+}
 function bbCloseUnitDetail() {
+    bbPendingDetailConfirm = null;
     const overlay = document.getElementById('bbUnitDetailOverlay');
     if (overlay) overlay.style.display = 'none';
+}
+
+// ------------------------------------------------------------
+// 11.6 カレー準備画面（登録済みロースターの一覧・登録・編集）
+// ------------------------------------------------------------
+function bbRenderPrepPanel() {
+    const list = document.getElementById('bbPrepRosterList');
+    if (!list) return;
+    list.innerHTML = bbRegisteredRoster.map((entry, idx) => {
+        const eff = bbGetEffectiveCurry(entry);
+        return `<div class="bb-rosterCard" onclick="window.__bbOnTapRegisteredCurry(${idx})">
+            <div class="bb-rcVisual"><img src="${bbGetCurryImg(eff)}" alt=""></div>
+            <div class="bb-rcName">${bbEsc(eff.name)}</div>
+            <div class="bb-rcStats">HP${eff.hp||0} ATK${eff.atk||0}<br>DEF${eff.def||0} SPD${eff.spd||0}</div>
+            <div class="bb-rcTotal">合計 ${bbStatTotal(eff)}</div>
+        </div>`;
+    }).join('') || '<div style="font-size:11px;color:#b88742;">登録済みのカレーがありません。「カレー登録」からカレーストックのカレーを登録してください。</div>';
+    const startBtn = document.getElementById('bbBtnPrepStartBattle');
+    if (startBtn) startBtn.disabled = (bbRegisteredRoster.length === 0);
+}
+
+// ---- 「カレー登録」：カレーストックから選んでロースターへ移す ----
+function bbOnRegisterCurryClick() {
+    bbRenderRegisterPicker();
+    const el = document.getElementById('bbRegisterPickerOverlay');
+    if (el) el.style.display = 'flex';
+}
+function bbRenderRegisterPicker() {
+    const list = document.getElementById('bbRegisterPickerList');
+    if (!list) return;
+    const candidates = bbLoadRealCurryStock(); // isDelivering・使い捨て一時カレーは除外済み
+    list.innerHTML = candidates.map((c) => {
+        const stockIdx = curryStock.indexOf(c);
+        return `<div class="bb-rosterCard" onclick="window.__bbOnConfirmRegisterCurry(${stockIdx})">
+            <div class="bb-rcVisual"><img src="${bbGetCurryImg(c)}" alt=""></div>
+            <div class="bb-rcName">${bbEsc(c.name || 'カレー')}</div>
+            <div class="bb-rcStats">HP${c.hp||0} ATK${c.atk||0}<br>DEF${c.def||0} SPD${c.spd||0}</div>
+            <div class="bb-rcTotal">合計 ${bbStatTotal(c)}</div>
+        </div>`;
+    }).join('') || '<div style="font-size:11px;color:#b88742;">カレーストックに登録できるカレーがありません。</div>';
+}
+function bbCloseRegisterPicker() {
+    const el = document.getElementById('bbRegisterPickerOverlay');
+    if (el) el.style.display = 'none';
+}
+function bbOnConfirmRegisterCurry(stockIdx) {
+    if (typeof curryStock === 'undefined' || stockIdx == null || stockIdx < 0 || stockIdx >= curryStock.length) return;
+    const curry = curryStock[stockIdx];
+    const dispName = bbEsc(curry.name || 'カレー');
+    const doRegister = function () {
+        // 実際にストックから取り除いてからロースターへ移す（片道の移動）。
+        const idxNow = curryStock.indexOf(curry);
+        if (idxNow === -1) return; // 既に何らかの理由で無くなっていた場合は何もしない
+        curryStock.splice(idxNow, 1);
+        if (typeof selectedCurryIndex !== 'undefined') {
+            if (selectedCurryIndex === idxNow) selectedCurryIndex = -1;
+            else if (selectedCurryIndex > idxNow) selectedCurryIndex--;
+        }
+        bbRegisteredRoster.push({
+            regId: 'bb' + Date.now() + '_' + Math.floor(Math.random() * 100000),
+            raw: curry,
+            customName: null,
+            equippedBase: '白米',
+            equippedTableware: '白い皿'
+        });
+        bbSaveRegisteredRoster();
+        if (typeof saveGame === 'function') { try { saveGame(); } catch (e) {} }
+        bbCloseRegisterPicker();
+        bbRenderPrepPanel();
+    };
+    if (typeof showCustomConfirm === 'function') {
+        showCustomConfirm('🍛 カレー登録', `「${dispName}」をボードバトル用に登録しますか？<br><span style="color:#e74c3c;">登録するとカレーストックから削除されます。</span>`, doRegister);
+    } else {
+        doRegister();
+    }
+}
+
+// ---- 登録済みカレーの詳細（装備・名前の変更／登録削除） ----
+let bbRegDetailIndex = null;
+function bbOnTapRegisteredCurry(idx) { bbShowRegDetail(idx); }
+function bbShowRegDetail(idx) {
+    const entry = bbRegisteredRoster[idx];
+    if (!entry) return;
+    bbRegDetailIndex = idx;
+    const eff = bbGetEffectiveCurry(entry);
+    const img = document.getElementById('bbRegDetailImg');
+    const nameInput = document.getElementById('bbRegDetailNameInput');
+    const statsEl = document.getElementById('bbRegDetailStats');
+    const baseSel = document.getElementById('bbRegDetailBaseSelect');
+    const twSel = document.getElementById('bbRegDetailTablewareSelect');
+    if (!img || !nameInput || !statsEl || !baseSel || !twSel) return;
+    img.src = bbGetCurryImg(eff);
+    nameInput.value = entry.customName || entry.raw.name || 'カレー';
+    statsEl.innerHTML = `
+        <div class="bb-udStatRow"><span>HP</span><span>${eff.hp||0}</span></div>
+        <div class="bb-udStatRow"><span>ATK</span><span>${eff.atk||0}</span></div>
+        <div class="bb-udStatRow"><span>DEF</span><span>${eff.def||0}</span></div>
+        <div class="bb-udStatRow"><span>SPD</span><span>${eff.spd||0}</span></div>
+        <div class="bb-udStatRow bb-udStatTotal"><span>合計</span><span>${bbStatTotal(eff)}</span></div>
+    `;
+    const bases = (typeof getUnlockedBase === 'function') ? getUnlockedBase() : ['白米'];
+    const tablewares = (typeof getUnlockedTableware === 'function') ? getUnlockedTableware() : ['白い皿'];
+    baseSel.innerHTML = bases.map(b => `<option value="${bbEsc(b)}"${b === entry.equippedBase ? ' selected' : ''}>${bbEsc(b)}</option>`).join('');
+    twSel.innerHTML = tablewares.map(t => `<option value="${bbEsc(t)}"${t === entry.equippedTableware ? ' selected' : ''}>${bbEsc(t)}</option>`).join('');
+    const overlay = document.getElementById('bbRegDetailOverlay');
+    if (overlay) overlay.style.display = 'flex';
+}
+function bbOnChangeRegEquip() {
+    if (bbRegDetailIndex === null) return;
+    const entry = bbRegisteredRoster[bbRegDetailIndex];
+    if (!entry) return;
+    const baseSel = document.getElementById('bbRegDetailBaseSelect');
+    const twSel = document.getElementById('bbRegDetailTablewareSelect');
+    if (baseSel) entry.equippedBase = baseSel.value;
+    if (twSel) entry.equippedTableware = twSel.value;
+    bbSaveRegisteredRoster();
+    bbShowRegDetail(bbRegDetailIndex); // ステータス表示を装備反映後の値に更新
+    bbRenderPrepPanel();
+}
+function bbOnChangeRegName() {
+    if (bbRegDetailIndex === null) return;
+    const entry = bbRegisteredRoster[bbRegDetailIndex];
+    if (!entry) return;
+    const nameInput = document.getElementById('bbRegDetailNameInput');
+    const v = nameInput ? nameInput.value.trim() : '';
+    entry.customName = v ? v : null;
+    bbSaveRegisteredRoster();
+    bbRenderPrepPanel();
+}
+function bbCloseRegDetail() {
+    bbRegDetailIndex = null;
+    const overlay = document.getElementById('bbRegDetailOverlay');
+    if (overlay) overlay.style.display = 'none';
+}
+function bbOnDeleteRegisteredCurry() {
+    if (bbRegDetailIndex === null) return;
+    const idx = bbRegDetailIndex;
+    const entry = bbRegisteredRoster[idx];
+    if (!entry) return;
+    const dispName = bbEsc(entry.customName || entry.raw.name || 'カレー');
+    const doDelete = function () {
+        bbRegisteredRoster.splice(idx, 1);
+        bbSaveRegisteredRoster();
+        bbCloseRegDetail();
+        bbRenderPrepPanel();
+    };
+    if (typeof showCustomConfirm === 'function') {
+        showCustomConfirm('🗑 登録削除', `「${dispName}」の登録を削除しますか？<br><span style="color:#e74c3c;">削除してもカレーストックには戻りません。</span>`, doDelete);
+    } else {
+        doDelete();
+    }
+}
+
+// ---- 「カレーボードバトルとは？」ヘルプ ----
+function bbShowHelp() {
+    const el = document.getElementById('bbHelpOverlay');
+    if (el) el.style.display = 'flex';
+}
+function bbCloseHelp() {
+    const el = document.getElementById('bbHelpOverlay');
+    if (el) el.style.display = 'none';
 }
 
 // ------------------------------------------------------------
@@ -1130,6 +1461,15 @@ function bbInjectDom() {
     rootDiv.id = 'bbRoot';
     rootDiv.innerHTML = `
         <div id="bbAppRoot">
+            <div id="bbPrepPanel">
+                <h2>カレー準備</h2>
+                <div id="bbPrepRosterList"></div>
+                <div class="bb-prepBtnRow">
+                    <button class="bb-actionBtn" onclick="window.__bbOnRegisterCurryClick()">カレー登録</button>
+                    <button class="bb-actionBtn" id="bbBtnPrepStartBattle" disabled onclick="window.__bbOnPrepStartBattleClick()">戦闘開始</button>
+                    <button class="bb-actionBtn bb-secondary" onclick="window.__bbShowHelp()">カレーボードバトルとは？</button>
+                </div>
+            </div>
             <div id="bbBoardWrap">
                 <svg id="bbBoardSvg" viewBox="0 0 600 900"><g id="bbViewportG"></g></svg>
             </div>
@@ -1173,7 +1513,48 @@ function bbInjectDom() {
                 <div id="bbUnitDetailTeam" class="bb-unitDetailTeam"></div>
                 <h3 id="bbUnitDetailName"></h3>
                 <div id="bbUnitDetailStats"></div>
+                <button class="bb-actionBtn" id="bbUnitDetailConfirmBtn" style="display:none;" onclick="window.__bbConfirmUnitDetailAction()">実行する</button>
                 <button class="bb-actionBtn bb-secondary" onclick="window.__bbCloseUnitDetail()">閉じる</button>
+            </div>
+        </div>
+        <div id="bbRegisterPickerOverlay" onclick="if(event.target===this) window.__bbCloseRegisterPicker()">
+            <div id="bbRegisterPickerBox">
+                <h3>カレーを登録</h3>
+                <div id="bbRegisterPickerList"></div>
+                <button class="bb-actionBtn bb-secondary" onclick="window.__bbCloseRegisterPicker()">閉じる</button>
+            </div>
+        </div>
+        <div id="bbRegDetailOverlay" onclick="if(event.target===this) window.__bbCloseRegDetail()">
+            <div id="bbRegDetailBox">
+                <div id="bbRegDetailVisual"><img id="bbRegDetailImg" src="" alt=""></div>
+                <input id="bbRegDetailNameInput" type="text" maxlength="20" placeholder="カレー名" onblur="window.__bbOnChangeRegName()">
+                <div id="bbRegDetailStats"></div>
+                <div class="bb-regEquipRow">
+                    <label>ベース</label>
+                    <select id="bbRegDetailBaseSelect" onchange="window.__bbOnChangeRegEquip()"></select>
+                </div>
+                <div class="bb-regEquipRow">
+                    <label>食器</label>
+                    <select id="bbRegDetailTablewareSelect" onchange="window.__bbOnChangeRegEquip()"></select>
+                </div>
+                <div class="bb-regDetailBtnRow">
+                    <button class="bb-actionBtn bb-danger" onclick="window.__bbOnDeleteRegisteredCurry()">登録削除</button>
+                    <button class="bb-actionBtn bb-secondary" onclick="window.__bbCloseRegDetail()">閉じる</button>
+                </div>
+            </div>
+        </div>
+        <div id="bbHelpOverlay" onclick="if(event.target===this) window.__bbCloseHelp()">
+            <div id="bbHelpBox">
+                <h3>カレーボードバトルとは？</h3>
+                <div id="bbHelpText">
+                    盤面の上下にある「旗」を奪うか、相手を全滅させれば勝利です。<br><br>
+                    ・「カレー登録」で、カレーストックからボードバトル専用にカレーを登録できます（登録すると通常のストックからは無くなります）。<br>
+                    ・登録したカレーは名前の変更や、ベース・食器の個別装備ができます（本編の装備とは別枠です）。<br>
+                    ・「戦闘開始」を押すと配置フェーズになります。登録済みのカレーの中から、ステータス合計2500・最大5体まで盤面の自陣側に配置してください。<br>
+                    ・配置が終わったらもう一度「戦闘開始」で戦闘スタート。SPDの高い駒から順に行動できます（行動順は敵味方共通の1本のタイムライン）。<br>
+                    ・移動して相手の駒と重なると、そのまま本編の戦闘画面で1対1のバトルが始まります。
+                </div>
+                <button class="bb-actionBtn bb-secondary" onclick="window.__bbCloseHelp()">閉じる</button>
             </div>
         </div>
     `;
@@ -1191,7 +1572,7 @@ function bbInjectDom() {
     bbWrapEl.addEventListener('click', bbOnBoardClickCapture, true);
     if (typeof window.addEventListener === 'function') {
         window.addEventListener('resize', function () {
-            if (document.getElementById('bbRoot').style.display !== 'none') bbFitView();
+            if (document.getElementById('bbRoot').style.display !== 'none' && bbState.phase !== 'prep') bbFitView();
         });
     }
 
@@ -1218,6 +1599,18 @@ window.__bbOnRegenerateEnemyClick = bbOnRegenerateEnemyClick;
 window.__bbClose = bbClose;
 window.__bbRestart = bbRestart;
 window.__bbCloseUnitDetail = bbCloseUnitDetail;
+window.__bbConfirmUnitDetailAction = bbConfirmUnitDetailAction;
+window.__bbOnPrepStartBattleClick = bbOnPrepStartBattleClick;
+window.__bbOnRegisterCurryClick = bbOnRegisterCurryClick;
+window.__bbCloseRegisterPicker = bbCloseRegisterPicker;
+window.__bbOnConfirmRegisterCurry = bbOnConfirmRegisterCurry;
+window.__bbOnTapRegisteredCurry = bbOnTapRegisteredCurry;
+window.__bbOnChangeRegEquip = bbOnChangeRegEquip;
+window.__bbOnChangeRegName = bbOnChangeRegName;
+window.__bbCloseRegDetail = bbCloseRegDetail;
+window.__bbOnDeleteRegisteredCurry = bbOnDeleteRegisteredCurry;
+window.__bbShowHelp = bbShowHelp;
+window.__bbCloseHelp = bbCloseHelp;
 window.openBoardBattle = bbOpen; // 将来、他の場所（正式な入り口ボタン等）から開けるように
 
 bbInjectDom();
