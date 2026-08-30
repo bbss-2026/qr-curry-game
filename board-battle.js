@@ -171,6 +171,7 @@ const BB_STYLE = `
 .bb-regEquipRow select {
     background: #1c1108; border: 1px solid #6b4a26; color: #efdeb1; border-radius: 6px; padding: 3px 6px; font-size: 11px;
 }
+.bb-regEquipDesc { font-size: 10px; color: #b88742; text-align: right; margin-top: 2px; min-height: 12px; }
 .bb-regDetailBtnRow { margin-top: 14px; display: flex; flex-wrap: wrap; justify-content: center; gap: 4px; }
 .bb-actionBtn.bb-danger { background: #7a2e2e; }
 
@@ -472,6 +473,16 @@ function bbGetEffectiveCurry(entry) {
         spd: Math.max(1, (raw.spd || 0) + bbGetEquipBonus('spd', entry))
     });
 }
+// 本編のstatDisplayWithTableware()と同じ見た目（元の数値＋色付きの補正値）で、
+// 登録カレー1件分の装備補正を表示するための版。本編側は全体共通のselectedBase/
+// selectedTablewareを見るが、こちらは装備編集画面で選択中のentryの装備を見る。
+function bbStatDisplayWithEquip(statKey, baseVal, entry) {
+    const mod = bbGetEquipBonus(statKey, entry);
+    if (!mod) return String(baseVal || 0);
+    const color = mod > 0 ? '#2980b9' : '#e74c3c';
+    const sign = mod > 0 ? '+' : '';
+    return `${baseVal || 0}<span style="color:${color};">${sign}${mod}</span>`;
+}
 
 // 全オーバーレイ・パネルを一旦隠す共通処理（画面遷移のたびに、前の状態が残らないようにする）。
 function bbHideAllOverlaysAndPanels() {
@@ -494,6 +505,10 @@ function bbInit() {
     document.getElementById('bbPrepPanel').style.display = 'block';
     document.getElementById('bbBoardWrap').style.display = 'none';
     document.getElementById('bbBottomPanel').style.display = 'none';
+    // 行動順アイコン用の帯（#bbTurnQueueBar）は戦闘フェーズ専用。準備画面では中身が空でも
+    // 半透明の背景だけが残って見た目に重なってしまうため、明示的に隠しておく。
+    const turnQueueBarElPrep = document.getElementById('bbTurnQueueBar');
+    if (turnQueueBarElPrep) turnQueueBarElPrep.style.display = 'none';
     bbRenderPrepPanel();
 }
 
@@ -515,6 +530,9 @@ function bbEnterPlacementPhase() {
     document.getElementById('bbPlacementPanel').style.display = 'block';
     document.getElementById('bbBattlePanel').style.display = 'none';
     document.getElementById('bbBattleLog').innerHTML = '';
+    // 配置フェーズでもまだ行動順は無いので、帯は隠したまま（戦闘開始で改めて表示する）。
+    const turnQueueBarElPlacement = document.getElementById('bbTurnQueueBar');
+    if (turnQueueBarElPlacement) turnQueueBarElPlacement.style.display = 'none';
     bbRenderBoard();
     bbRenderPlacementPanel();
     bbFitView();
@@ -890,6 +908,9 @@ function bbOnStartBattleClick() {
     bbState.phase = 'battle';
     document.getElementById('bbPlacementPanel').style.display = 'none';
     document.getElementById('bbBattlePanel').style.display = 'block';
+    // ここから行動順アイコンの帯を使うので表示に戻す（準備・配置フェーズでは隠していた）。
+    const turnQueueBarElBattle = document.getElementById('bbTurnQueueBar');
+    if (turnQueueBarElBattle) turnQueueBarElBattle.style.display = 'flex';
     bbRenderBoard();
     bbAppendLog('戦闘開始！');
     bbScheduleNextTurn();
@@ -1370,25 +1391,38 @@ function bbShowRegDetail(idx) {
     if (!entry) return;
     bbRegDetailIndex = idx;
     const eff = bbGetEffectiveCurry(entry);
+    const raw = entry.raw || {};
     const img = document.getElementById('bbRegDetailImg');
     const nameInput = document.getElementById('bbRegDetailNameInput');
     const statsEl = document.getElementById('bbRegDetailStats');
     const baseSel = document.getElementById('bbRegDetailBaseSelect');
     const twSel = document.getElementById('bbRegDetailTablewareSelect');
+    const baseDescEl = document.getElementById('bbRegDetailBaseDesc');
+    const twDescEl = document.getElementById('bbRegDetailTablewareDesc');
     if (!img || !nameInput || !statsEl || !baseSel || !twSel) return;
     img.src = bbGetCurryImg(eff);
-    nameInput.value = entry.customName || entry.raw.name || 'カレー';
+    nameInput.value = entry.customName || raw.name || 'カレー';
+    // 元のステータスに、装備による補正値を色付きの+-で併記する（本編の食器・ベース表示と同じ見せ方）。
     statsEl.innerHTML = `
-        <div class="bb-udStatRow"><span>HP</span><span>${eff.hp||0}</span></div>
-        <div class="bb-udStatRow"><span>ATK</span><span>${eff.atk||0}</span></div>
-        <div class="bb-udStatRow"><span>DEF</span><span>${eff.def||0}</span></div>
-        <div class="bb-udStatRow"><span>SPD</span><span>${eff.spd||0}</span></div>
+        <div class="bb-udStatRow"><span>HP</span><span>${bbStatDisplayWithEquip('hp', raw.hp, entry)}</span></div>
+        <div class="bb-udStatRow"><span>ATK</span><span>${bbStatDisplayWithEquip('atk', raw.atk, entry)}</span></div>
+        <div class="bb-udStatRow"><span>DEF</span><span>${bbStatDisplayWithEquip('def', raw.def, entry)}</span></div>
+        <div class="bb-udStatRow"><span>SPD</span><span>${bbStatDisplayWithEquip('spd', raw.spd, entry)}</span></div>
         <div class="bb-udStatRow bb-udStatTotal"><span>合計</span><span>${bbStatTotal(eff)}</span></div>
     `;
     const bases = (typeof getUnlockedBase === 'function') ? getUnlockedBase() : ['白米'];
     const tablewares = (typeof getUnlockedTableware === 'function') ? getUnlockedTableware() : ['白い皿'];
     baseSel.innerHTML = bases.map(b => `<option value="${bbEsc(b)}"${b === entry.equippedBase ? ' selected' : ''}>${bbEsc(b)}</option>`).join('');
     twSel.innerHTML = tablewares.map(t => `<option value="${bbEsc(t)}"${t === entry.equippedTableware ? ' selected' : ''}>${bbEsc(t)}</option>`).join('');
+    // 選択中の装備の効果説明（本編のBASE_LIST/TABLEWARE_LISTのdescフィールドをそのまま表示）。
+    if (baseDescEl) {
+        const baseInfo = (typeof BASE_LIST !== 'undefined' && BASE_LIST[entry.equippedBase]) || {};
+        baseDescEl.textContent = baseInfo.desc || '';
+    }
+    if (twDescEl) {
+        const twInfo = (typeof TABLEWARE_LIST !== 'undefined' && TABLEWARE_LIST[entry.equippedTableware]) || {};
+        twDescEl.textContent = twInfo.desc || '';
+    }
     const overlay = document.getElementById('bbRegDetailOverlay');
     if (overlay) overlay.style.display = 'flex';
 }
@@ -1533,10 +1567,12 @@ function bbInjectDom() {
                     <label>ベース</label>
                     <select id="bbRegDetailBaseSelect" onchange="window.__bbOnChangeRegEquip()"></select>
                 </div>
+                <div id="bbRegDetailBaseDesc" class="bb-regEquipDesc"></div>
                 <div class="bb-regEquipRow">
                     <label>食器</label>
                     <select id="bbRegDetailTablewareSelect" onchange="window.__bbOnChangeRegEquip()"></select>
                 </div>
+                <div id="bbRegDetailTablewareDesc" class="bb-regEquipDesc"></div>
                 <div class="bb-regDetailBtnRow">
                     <button class="bb-actionBtn bb-danger" onclick="window.__bbOnDeleteRegisteredCurry()">登録削除</button>
                     <button class="bb-actionBtn bb-secondary" onclick="window.__bbCloseRegDetail()">閉じる</button>
