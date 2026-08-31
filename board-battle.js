@@ -67,12 +67,12 @@ const BB_STYLE = `
 #bbBoardWrap { position: absolute; inset: 0; overflow: hidden; touch-action: none; background: #2b1a0e; }
 #bbBoardSvg { width: 100%; height: 100%; display: block; }
 .bb-board-edge { stroke: #6b4a26; stroke-width: 2; }
-.bb-board-node-circle { fill: #efdeb1; stroke: #6b4a26; stroke-width: 3; cursor: default; }
-.bb-board-node-circle.bb-flag-tile { fill: #f5e9c8; stroke: #b88742; stroke-width: 4; }
-.bb-board-node-circle.bb-selectable { stroke: #2ecc71; stroke-width: 4; cursor: pointer; }
-.bb-board-node-circle.bb-movable { stroke: #f1c40f; stroke-width: 4; cursor: pointer; }
-.bb-board-node-circle.bb-occupied-player { stroke: #3498db; }
-.bb-board-node-circle.bb-occupied-enemy { stroke: #e74c3c; }
+.bb-board-node-tile { fill: #efdeb1; stroke: #6b4a26; stroke-width: 3; cursor: default; }
+.bb-board-node-tile.bb-flag-tile { fill: #f5e9c8; stroke: #b88742; stroke-width: 4; }
+.bb-board-node-tile.bb-selectable { stroke: #2ecc71; stroke-width: 4; cursor: pointer; }
+.bb-board-node-tile.bb-movable { stroke: #f1c40f; stroke-width: 4; cursor: pointer; }
+.bb-board-node-tile.bb-occupied-player { stroke: #3498db; }
+.bb-board-node-tile.bb-occupied-enemy { stroke: #e74c3c; }
 .bb-active-ring {
     fill: none; stroke: #ffe066; stroke-width: 4; opacity: 0.9;
     transform-box: fill-box; transform-origin: center;
@@ -82,13 +82,13 @@ const BB_STYLE = `
     0%   { transform: scale(1);   opacity: 0.9; }
     100% { transform: scale(1.45);opacity: 0; }
 }
-.bb-board-node-circle.bb-active-turn { stroke: #ffe066; stroke-width: 5; }
+.bb-board-node-tile.bb-active-turn { stroke: #ffe066; stroke-width: 5; }
 .bb-board-hp-bg { fill: #222; }
 .bb-board-hp-fill { fill: #2ecc71; }
 /* 特殊マス（画像は未整備のため、色分け＋漢字1文字で暫定表示） */
-.bb-board-node-circle.bb-terrain-rock { fill: #6b6459; }
-.bb-board-node-circle.bb-terrain-water { fill: #2e6f9e; }
-.bb-board-node-circle.bb-terrain-poison { fill: #6a2e7a; }
+.bb-board-node-tile.bb-terrain-rock { fill: #6b6459; }
+.bb-board-node-tile.bb-terrain-water { fill: #2e6f9e; }
+.bb-board-node-tile.bb-terrain-poison { fill: #6a2e7a; }
 .bb-terrain-label { font-size: 20px; font-weight: bold; fill: #efdeb1; pointer-events: none; user-select: none; }
 
 #bbBottomPanel {
@@ -259,7 +259,8 @@ const BB_BOARD_WIDTH = 600;
 const BB_ROW_Y_TOP = 44;
 const BB_ROW_Y_GAP = 64;
 const BB_COL_X = Array.from({ length: BB_GRID_SIZE }, (_, i) => 44 + i * 64); // 9列のx座標（列4が中央＝旗の列）
-const BB_NODE_R = 24;
+const BB_NODE_R = 24;   // 駒（ポートレート）の半径・毒/岩/水などの描画基準に使用
+const BB_NODE_HALF = 28; // マス（四角）の半辺の長さ＝1辺56pxの正方形
 
 // 特殊マスの地形種別。null＝通常マス。
 const BB_TERRAIN_ROCK = 'rock';   // 岩マス：わんぱくカレーのみ壊して通過できる（壊すと通常マス化）
@@ -862,11 +863,12 @@ function bbRenderBoard() {
     });
     // ノード
     bbNodes.forEach(n => {
-        const isFlag = (n.row === BB_ROW_TOP || n.row === BB_ROW_BOTTOM);
+        // 旗は各陣営とも1マスだけ（中央列＝BB_FLAG_COLの、一番奥の行のみ）。
+        const isFlag = (n.col === BB_FLAG_COL) && (n.row === BB_ROW_TOP || n.row === BB_ROW_BOTTOM);
         // 移動アニメーション中のユニットは、通常描画では一旦隠す（浮動スプライト側で表示する）
         const unit = bbState.units.find(u => u.nodeId === n.id && !u._animating);
         const isActive = !!(bbState.activeUnit && bbState.activeUnit.nodeId === n.id && bbState.activeUnit.hp > 0 && !bbState.activeUnit._animating);
-        let cls = 'bb-board-node-circle';
+        let cls = 'bb-board-node-tile';
         if (isFlag) cls += ' bb-flag-tile';
         if (n.terrain) cls += ` bb-terrain-${n.terrain}`;
         if (unit) cls += (unit.team === 'player') ? ' bb-occupied-player' : ' bb-occupied-enemy';
@@ -875,9 +877,10 @@ function bbRenderBoard() {
         if (isActive) cls += ' bb-active-turn';
         html += `<g onclick="window.__bbOnNodeClick(${n.id})">`;
         if (isActive) {
-            html += `<circle class="bb-active-ring" cx="${n.x}" cy="${n.y}" r="${BB_NODE_R + 4}"></circle>`;
+            const ringHalf = BB_NODE_HALF + 4;
+            html += `<rect class="bb-active-ring" x="${n.x - ringHalf}" y="${n.y - ringHalf}" width="${ringHalf * 2}" height="${ringHalf * 2}"></rect>`;
         }
-        html += `<circle class="${cls}" cx="${n.x}" cy="${n.y}" r="${BB_NODE_R}"></circle>`;
+        html += `<rect class="${cls}" x="${n.x - BB_NODE_HALF}" y="${n.y - BB_NODE_HALF}" width="${BB_NODE_HALF * 2}" height="${BB_NODE_HALF * 2}"></rect>`;
         if (isFlag && !unit) {
             html += bbFlagMarkup(n.x, n.y, n.row === BB_ROW_TOP ? '#e74c3c' : '#3498db');
         }
@@ -891,9 +894,9 @@ function bbRenderBoard() {
             html += `<defs><clipPath id="${clipId}"><circle cx="${n.x}" cy="${n.y}" r="${r2}"></circle></clipPath></defs>`;
             html += `<image href="${bbGetCurryImg(unit.raw)}" x="${n.x - r2}" y="${n.y - r2}" width="${r2 * 2}" height="${r2 * 2}" preserveAspectRatio="xMidYMid slice" clip-path="url(#${clipId})"></image>`;
             const pct = Math.max(0, unit.hp / unit.maxHp);
-            const barW = BB_NODE_R * 1.6;
-            html += `<rect class="bb-board-hp-bg" x="${n.x - barW / 2}" y="${n.y + BB_NODE_R + 4}" width="${barW}" height="5" rx="2"></rect>`;
-            html += `<rect class="bb-board-hp-fill" x="${n.x - barW / 2}" y="${n.y + BB_NODE_R + 4}" width="${barW * pct}" height="5" rx="2"></rect>`;
+            const barW = BB_NODE_HALF * 1.6;
+            html += `<rect class="bb-board-hp-bg" x="${n.x - barW / 2}" y="${n.y + BB_NODE_HALF + 4}" width="${barW}" height="5" rx="2"></rect>`;
+            html += `<rect class="bb-board-hp-fill" x="${n.x - barW / 2}" y="${n.y + BB_NODE_HALF + 4}" width="${barW * pct}" height="5" rx="2"></rect>`;
         }
         html += `</g>`;
     });
@@ -1204,12 +1207,15 @@ function bbOnBattleNodeClick(nodeId) {
 //    直接CSSトランジションさせるのはブラウザによって効かないことがあるため、
 //    <g>でラップしてCSSの transform:translate() をトランジションさせる
 //    （transformは各ブラウザで最も確実にアニメーションする）。
+//    盤面が上下左右のみのマス目になったため、移動先が斜め位置でも最短距離を
+//    直線で突っ切らせず、実際に通った経路（path＝bbReconstructMovePathの結果）を
+//    1マスずつ順番にスライドさせる（縦→横、のように必ずマス目に沿って進む）。
 // ------------------------------------------------------------
-const BB_MOVE_ANIM_MS = 380;
-function bbAnimateUnitMove(unit, fromNodeId, toNodeId, onComplete) {
+const BB_MOVE_ANIM_MS = 380; // 経路全体のおおよその目安（1マスあたりの時間はマス数で割って決める）
+function bbAnimateUnitMove(unit, fromNodeId, path, onComplete) {
     const fromNode = bbNodesById[fromNodeId];
-    const toNode = bbNodesById[toNodeId];
-    if (!fromNode || !toNode || fromNodeId === toNodeId) { onComplete(); return; }
+    const steps = (path || []).map(id => bbNodesById[id]).filter(Boolean);
+    if (!fromNode || steps.length === 0) { onComplete(); return; }
     // 盤面のパン・ズーム変形を一緒に受けるよう、浮動スプライトは#bbViewportGの中に追加する
     // （#bbBoardSvg直下に置くと変形が反映されず、パン・ズーム後にずれた位置へ移動してしまう）。
     const viewportG = document.getElementById('bbViewportG');
@@ -1232,7 +1238,6 @@ function bbAnimateUnitMove(unit, fromNodeId, toNodeId, onComplete) {
     viewportG.appendChild(defs);
 
     const g = document.createElementNS(ns, 'g');
-    g.style.transition = `transform ${BB_MOVE_ANIM_MS}ms ease`;
     g.style.transform = 'translate(0px, 0px)';
 
     const img = document.createElementNS(ns, 'image');
@@ -1246,23 +1251,33 @@ function bbAnimateUnitMove(unit, fromNodeId, toNodeId, onComplete) {
     g.appendChild(img);
     viewportG.appendChild(g);
 
-    const dx = toNode.x - fromNode.x;
-    const dy = toNode.y - fromNode.y;
-    // 初期状態（translate(0,0)）が実際に描画されてから動かさないとトランジションが
-    // 発火しないため、強制リフロー＋1フレーム待ってから移動先へのtransformへ切り替える。
-    requestAnimationFrame(() => {
-        void g.getBoundingClientRect();
+    // 1マスあたりの区間時間（マス数が多いほど短くし、全体としてはBB_MOVE_ANIM_MS前後に収める）。
+    const segMs = Math.max(90, Math.min(160, Math.round(BB_MOVE_ANIM_MS / steps.length)));
+    let idx = 0;
+    function runSegment() {
+        if (idx >= steps.length) {
+            if (viewportG.contains(g)) viewportG.removeChild(g);
+            if (viewportG.contains(defs)) viewportG.removeChild(defs);
+            unit._animating = false;
+            onComplete();
+            return;
+        }
+        const target = steps[idx];
+        idx++;
+        const dx = target.x - fromNode.x;
+        const dy = target.y - fromNode.y;
+        g.style.transition = `transform ${segMs}ms linear`;
         requestAnimationFrame(() => {
             g.style.transform = `translate(${dx}px, ${dy}px)`;
         });
+        setTimeout(runSegment, segMs);
+    }
+    // 初期状態（translate(0,0)）が実際に描画されてから動かし始めないとトランジションが
+    // 発火しないため、強制リフロー＋1フレーム待ってから最初の区間を開始する。
+    requestAnimationFrame(() => {
+        void g.getBoundingClientRect();
+        runSegment();
     });
-
-    setTimeout(() => {
-        if (viewportG.contains(g)) viewportG.removeChild(g);
-        if (viewportG.contains(defs)) viewportG.removeChild(defs);
-        unit._animating = false;
-        onComplete();
-    }, BB_MOVE_ANIM_MS + 60);
 }
 
 // 移動経路（bbReconstructMovePathで得た、出発地点を含まないnodeId配列）を順にたどり、
@@ -1298,8 +1313,8 @@ function bbMoveUnitTo(unit, nodeId) {
     bbNodes.forEach(n => { n.highlight = null; });
     if (defender) {
         bbAppendLog(`${unit.name} が ${defender.name} に攻撃！`);
-        // 攻撃側の駒を相手のマスまで滑らせ、重なった（ぶつかった）ところで戦闘画面へ切り替える
-        bbAnimateUnitMove(unit, fromNodeId, nodeId, function () {
+        // 攻撃側の駒を相手のマスまで（マス目に沿って）滑らせ、重なった（ぶつかった）ところで戦闘画面へ切り替える
+        bbAnimateUnitMove(unit, fromNodeId, movePath, function () {
             const diedOnTheWay = bbApplyTerrainEffectsAlongPath(unit, movePath);
             if (diedOnTheWay) {
                 // 毒で力尽きた場合は攻撃不発。戦闘を起こさずそのまま次の手番へ。
@@ -1310,7 +1325,7 @@ function bbMoveUnitTo(unit, nodeId) {
             bbResolveBattle(unit, defender, nodeId);
         });
     } else {
-        bbAnimateUnitMove(unit, fromNodeId, nodeId, function () {
+        bbAnimateUnitMove(unit, fromNodeId, movePath, function () {
             unit.nodeId = nodeId;
             bbAppendLog(`${unit.name} が移動した。`);
             bbApplyTerrainEffectsAlongPath(unit, movePath);
@@ -1344,19 +1359,72 @@ function bbGetNearestEnemyUnit(unit, fromNode) {
     });
     return best;
 }
+// destNodeIdへの経路（bbLastMoveParent＝直近のbbGetMovableNodeIds呼び出し結果）が
+// 毒マスを通るかどうかを判定する（毒系カレーはダメージを受けないため常にfalse扱い）。
+function bbPathTouchesPoison(unit, destNodeId) {
+    if (bbIsPoisonImmune(unit)) return false;
+    const path = bbReconstructMovePath(unit, destNodeId);
+    return path.some(nid => { const n = bbNodesById[nid]; return n && n.terrain === BB_TERRAIN_POISON; });
+}
+// 移動範囲とは無関係に、盤面全体で見て「毒マスを一切通らずに」targetNodeIdへ到達できる
+// 経路が存在するかどうかを判定する（岩・水はunitがそもそも通れるかどうかに従う）。
+function bbPoisonFreeRouteExists(unit, targetNodeId) {
+    if (bbIsPoisonImmune(unit)) return true; // 毒系カレーにとっては毒マスは無いものと同じ
+    const startId = unit.nodeId;
+    if (startId == null || targetNodeId == null) return false;
+    if (startId === targetNodeId) return true;
+    const visited = new Set([startId]);
+    let frontier = [startId];
+    while (frontier.length > 0) {
+        const next = [];
+        frontier.forEach(nid => {
+            bbNodesById[nid].neighbors.forEach(nnid => {
+                if (visited.has(nnid)) return;
+                const n = bbNodesById[nnid];
+                if (n.terrain === BB_TERRAIN_ROCK && !bbCanBreakRock(unit)) return;
+                if (n.terrain === BB_TERRAIN_WATER && !bbCanCrossWater(unit)) return;
+                if (n.terrain === BB_TERRAIN_POISON) return; // 毒マスは一切通らない前提で探索する
+                visited.add(nnid);
+                next.push(nnid);
+            });
+        });
+        frontier = next;
+    }
+    return visited.has(targetNodeId);
+}
+// 「毒を踏まずに移動できるならそちらを優先し、踏まないとどこにも辿り着けない場合だけ踏む」の
+// 本体：まずtargetNodeIdへ毒を一切踏まずに到達できる経路がそもそも存在するか確認し、
+// 存在する場合だけ「今回の移動候補のうち毒を踏まない物」に絞り込む（存在しない＝どのみち
+// いつかは毒を踏まないと辿り着けないなら、絞り込まずそのまま最短経路を選ばせる）。
+function bbFilterPreferNonPoison(unit, candidateIds, targetNodeId) {
+    if (!bbPoisonFreeRouteExists(unit, targetNodeId)) return candidateIds;
+    const safe = candidateIds.filter(nid => !bbPathTouchesPoison(unit, nid));
+    return safe.length > 0 ? safe : candidateIds;
+}
+// 直接攻撃できる相手（今回の移動範囲内にいる敵）の中から選ぶときだけに使う簡易版：
+// 経路探索なしで、単に「毒を踏まずに攻撃できる相手」を優先する。
+function bbFilterPreferNonPoisonSimple(unit, candidateIds) {
+    const safe = candidateIds.filter(nid => !bbPathTouchesPoison(unit, nid));
+    return safe.length > 0 ? safe : candidateIds;
+}
 // 旗に向かって最短距離で進む（直進ちゃん・ランダムくんの「旗」側の挙動）。
 function bbPerformEnemyTurnStraight(unit, moves) {
     const flagNodeId = bbGetFlagNodeId('player');
-    if (moves.includes(flagNodeId)) return flagNodeId; // 旗のマスへ直接進めるなら最優先（そのターンで勝利）
-    return bbPickMoveTowardNode(unit, moves, bbNodesById[flagNodeId]);
+    const safeMoves = bbFilterPreferNonPoison(unit, moves, flagNodeId);
+    if (safeMoves.includes(flagNodeId)) return flagNodeId; // 旗のマスへ直接進めるなら最優先（そのターンで勝利）
+    return bbPickMoveTowardNode(unit, safeMoves, bbNodesById[flagNodeId]);
 }
 // 攻撃できるならそれを最優先、できなければ一番近い敵を追いかける（武闘派さん・ランダムくんの「戦闘」側の挙動）。
 function bbPerformEnemyTurnCombat(unit, moves) {
     const attackable = moves.filter(nid => bbState.units.some(u => u.nodeId === nid && u.hp > 0 && u.team !== unit.team));
-    if (attackable.length > 0) return attackable[Math.floor(Math.random() * attackable.length)];
+    if (attackable.length > 0) {
+        const safeAttackable = bbFilterPreferNonPoisonSimple(unit, attackable);
+        return safeAttackable[Math.floor(Math.random() * safeAttackable.length)];
+    }
     const target = bbGetNearestEnemyUnit(unit, bbNodesById[unit.nodeId]);
-    const targetNode = target ? bbNodesById[target.nodeId] : bbNodesById[bbGetFlagNodeId('player')];
-    return bbPickMoveTowardNode(unit, moves, targetNode);
+    const targetNodeId = target ? target.nodeId : bbGetFlagNodeId('player');
+    const safeMoves = bbFilterPreferNonPoison(unit, moves, targetNodeId);
+    return bbPickMoveTowardNode(unit, safeMoves, bbNodesById[targetNodeId]);
 }
 function bbPerformEnemyTurn(unit) {
     const moves = bbGetMovableNeighbors(unit);
