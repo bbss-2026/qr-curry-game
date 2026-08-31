@@ -85,6 +85,11 @@ const BB_STYLE = `
 .bb-board-node-circle.bb-active-turn { stroke: #ffe066; stroke-width: 5; }
 .bb-board-hp-bg { fill: #222; }
 .bb-board-hp-fill { fill: #2ecc71; }
+/* 特殊マス（画像は未整備のため、色分け＋漢字1文字で暫定表示） */
+.bb-board-node-circle.bb-terrain-rock { fill: #6b6459; }
+.bb-board-node-circle.bb-terrain-water { fill: #2e6f9e; }
+.bb-board-node-circle.bb-terrain-poison { fill: #6a2e7a; }
+.bb-terrain-label { font-size: 20px; font-weight: bold; fill: #efdeb1; pointer-events: none; user-select: none; }
 
 #bbBottomPanel {
     position: absolute; bottom: 0; left: 0; right: 0; z-index: 25;
@@ -237,68 +242,59 @@ const BB_STYLE = `
 
 // ------------------------------------------------------------
 // 1. 盤面トポロジー
-//    行ごとのマス数： 1-2-3-4-3-4-3-4-3-4-3-2-1（全13行・計37マス）
-//    7本の固定列（列0〜6、列3が中央）を使い、
-//      ・旗の行（行0=敵旗／行12=自陣旗）は列3のみ
-//      ・2マスの行（行1,11）は列2,4
-//      ・3マスの行（行2,4,6,8,10）は列1,3,5
-//      ・4マスの行（行3,5,7,9）は列0,2,4,6
-//    道（辺）は「縦（同じ列で2行離れたマス同士）」と
-//    「斜め（隣接する行・隣接する列同士）」のみで、
-//    同じ行内の横方向のつながりは一切作りません。
+//    将棋・チェスと同じ9×9の正方形グリッド（全81マス）。
+//    移動は上下左右の隣接マスのみで、斜めのつながりは一切作らない
+//    （bbBuildEdgesが縦横4方向の辺しか張らないため、経路探索は自動的に
+//    「斜め移動不可」になる）。
+//    旗は「王将の位置」＝各陣営の一番奥の行・中央の列（列4）に置く。
 // ------------------------------------------------------------
-const BB_ROWS_DEF = [
-    [3],          // row0  敵陣旗
-    [2, 4],       // row1
-    [1, 3, 5],    // row2
-    [0, 2, 4, 6], // row3
-    [1, 3, 5],    // row4
-    [0, 2, 4, 6], // row5
-    [1, 3, 5],    // row6
-    [0, 2, 4, 6], // row7
-    [1, 3, 5],    // row8
-    [0, 2, 4, 6], // row9
-    [1, 3, 5],    // row10
-    [2, 4],       // row11
-    [3]           // row12 自陣旗
-];
+const BB_GRID_SIZE = 9; // 9×9
 const BB_ROW_TOP = 0;
-const BB_ROW_BOTTOM = BB_ROWS_DEF.length - 1; // 12
-const BB_ENEMY_DEPLOY_ROWS = [1, 2];    // 敵旗から2行以内（2+3=5マス＝最大5体とぴったり一致）
-const BB_PLAYER_DEPLOY_ROWS = [10, 11]; // 自陣旗から2行以内（3+2=5マス＝最大5体とぴったり一致）
+const BB_ROW_BOTTOM = BB_GRID_SIZE - 1; // 8
+const BB_FLAG_COL = Math.floor(BB_GRID_SIZE / 2); // 4（王将の列＝中央）
+const BB_ENEMY_DEPLOY_ROWS = [1, 2];  // 敵旗のすぐ手前2行
+const BB_PLAYER_DEPLOY_ROWS = [6, 7]; // 自陣旗のすぐ手前2行
 
-const BB_COL_X = [60, 140, 220, 300, 380, 460, 540]; // 7列のx座標（列3が中央＝旗の列）
 const BB_BOARD_WIDTH = 600;
-const BB_ROW_Y_TOP = 60;
-const BB_ROW_Y_GAP = 78;
-const BB_NODE_R = 28;
+const BB_ROW_Y_TOP = 44;
+const BB_ROW_Y_GAP = 64;
+const BB_COL_X = Array.from({ length: BB_GRID_SIZE }, (_, i) => 44 + i * 64); // 9列のx座標（列4が中央＝旗の列）
+const BB_NODE_R = 24;
 
-const BB_STAT_BUDGET = 2500;
+// 特殊マスの地形種別。null＝通常マス。
+const BB_TERRAIN_ROCK = 'rock';   // 岩マス：わんぱくカレーのみ壊して通過できる（壊すと通常マス化）
+const BB_TERRAIN_WATER = 'water'; // 水マス：海の幸カレーのみ通過・停止できる
+const BB_TERRAIN_POISON = 'poison'; // 毒マス：通過・停止で最大HP20%ダメージ（毒系カレーは無効）
+const BB_TERRAIN_LABEL = { rock: '岩', water: '水', poison: '毒' }; // 画像未整備の間は漢字1文字で表示
+const BB_SPECIAL_TILE_COUNT = 5; // 各特殊マスの初期配置数
+
+const BB_STAT_BUDGET = 3000;
 const BB_MAX_UNITS = 5;
 
-let bbNodes = [];   // {id,row,col,x,y,neighbors:[id...]}
+let bbNodes = [];   // {id,row,col,x,y,neighbors:[id...],terrain:null|'rock'|'water'|'poison'}
 let bbNodesById = {};
 
 function bbBuildBoard() {
     bbNodes = [];
     let id = 0;
-    BB_ROWS_DEF.forEach((cols, rowIdx) => {
-        cols.forEach(col => {
+    for (let row = 0; row < BB_GRID_SIZE; row++) {
+        for (let col = 0; col < BB_GRID_SIZE; col++) {
             bbNodes.push({
-                id: id, row: rowIdx, col: col,
-                x: BB_COL_X[col], y: BB_ROW_Y_TOP + rowIdx * BB_ROW_Y_GAP,
-                neighbors: []
+                id: id, row: row, col: col,
+                x: BB_COL_X[col], y: BB_ROW_Y_TOP + row * BB_ROW_Y_GAP,
+                neighbors: [], terrain: null
             });
             id++;
-        });
-    });
+        }
+    }
     bbNodesById = {};
     bbNodes.forEach(n => { bbNodesById[n.id] = n; });
     bbBuildEdges();
 }
 
 function bbFindNode(row, col) {
-    return bbNodes.find(n => n.row === row && n.col === col) || null;
+    if (row < 0 || row >= BB_GRID_SIZE || col < 0 || col >= BB_GRID_SIZE) return null;
+    return bbNodesById[row * BB_GRID_SIZE + col] || null;
 }
 
 function bbBuildEdges() {
@@ -308,22 +304,99 @@ function bbBuildEdges() {
         if (!b.neighbors.includes(a.id)) b.neighbors.push(a.id);
     };
     bbNodes.forEach(n => {
-        // 縦：同じ列で2行下のマス（間の行にはこの列のマスが無いため）
-        connect(n, bbFindNode(n.row + 2, n.col));
-        // 斜め：1行下の隣接列（横方向の接続はここでは作らない）
-        connect(n, bbFindNode(n.row + 1, n.col - 1));
-        connect(n, bbFindNode(n.row + 1, n.col + 1));
+        // 上下左右の4方向のみ（斜めのつながりは作らない＝斜め移動不可）
+        connect(n, bbFindNode(n.row - 1, n.col));
+        connect(n, bbFindNode(n.row + 1, n.col));
+        connect(n, bbFindNode(n.row, n.col - 1));
+        connect(n, bbFindNode(n.row, n.col + 1));
     });
 }
 
 function bbGetFlagNodeId(team) {
     const row = (team === 'player') ? BB_ROW_BOTTOM : BB_ROW_TOP;
-    const n = bbFindNode(row, 3);
+    const n = bbFindNode(row, BB_FLAG_COL);
     return n ? n.id : null;
 }
 
 function bbGetDeployRows(team) {
     return team === 'player' ? BB_PLAYER_DEPLOY_ROWS : BB_ENEMY_DEPLOY_ROWS;
+}
+
+// ------------------------------------------------------------
+// 1.5 特殊マス（岩・水・毒）
+//    配置フェーズ開始時（bbEnterPlacementPhase）に、旗マス・配置マスを除いた
+//    中間エリアへランダムに5マスずつ配置する。岩・水は通常のカレーにとって
+//    通行不可の地形なので、配置後に必ず「自陣旗→敵旗」の通行可能な経路が
+//    残っていることを確認し、駄目なら配置をやり直す。
+// ------------------------------------------------------------
+function bbIsTerrainBlockedForNormalCurry(node) {
+    return node.terrain === BB_TERRAIN_ROCK || node.terrain === BB_TERRAIN_WATER;
+}
+
+function bbCanBreakRock(unit) { return !!(unit.raw && unit.raw.isWanpaku); }
+function bbCanCrossWater(unit) { return !!(unit.raw && unit.raw.isSeafood); }
+function bbIsPoisonImmune(unit) { return !!(unit.raw && (unit.raw.isPoison || unit.raw.isPoisonApple)); }
+
+function bbGetSpecialTileCandidateNodes() {
+    // 旗の行・配置エリアの行は除外し、中間エリアだけを特殊マス配置の対象にする
+    // （旗の上や配置直後のマスが岩・水で塞がれる事故を防ぐため）。
+    const excludedRows = new Set([BB_ROW_TOP, BB_ROW_BOTTOM].concat(BB_ENEMY_DEPLOY_ROWS, BB_PLAYER_DEPLOY_ROWS));
+    return bbNodes.filter(n => !excludedRows.has(n.row));
+}
+
+// 通常のカレー（岩・水を通れない）基準で、自陣旗から敵旗まで到達できるかを確認する。
+// 毒マスは通行自体は妨げないのでここでは無視してよい。
+function bbCheckFlagsConnected() {
+    const startId = bbGetFlagNodeId('player');
+    const goalId = bbGetFlagNodeId('enemy');
+    if (startId == null || goalId == null) return false;
+    const visited = new Set([startId]);
+    let frontier = [startId];
+    while (frontier.length > 0) {
+        const next = [];
+        frontier.forEach(nid => {
+            bbNodesById[nid].neighbors.forEach(nnid => {
+                if (visited.has(nnid)) return;
+                const n = bbNodesById[nnid];
+                if (bbIsTerrainBlockedForNormalCurry(n)) return;
+                visited.add(nnid);
+                next.push(nnid);
+            });
+        });
+        frontier = next;
+    }
+    return visited.has(goalId);
+}
+
+function bbGenerateSpecialTiles() {
+    bbNodes.forEach(n => { n.terrain = null; });
+    const candidates = bbGetSpecialTileCandidateNodes();
+    const need = BB_SPECIAL_TILE_COUNT * 3;
+    if (candidates.length < need) {
+        console.warn('[ボードバトル] 特殊マス配置候補が不足しています。');
+        return;
+    }
+    const applyPicks = (pool) => {
+        pool.slice(0, BB_SPECIAL_TILE_COUNT).forEach(n => { n.terrain = BB_TERRAIN_ROCK; });
+        pool.slice(BB_SPECIAL_TILE_COUNT, BB_SPECIAL_TILE_COUNT * 2).forEach(n => { n.terrain = BB_TERRAIN_WATER; });
+        pool.slice(BB_SPECIAL_TILE_COUNT * 2, BB_SPECIAL_TILE_COUNT * 3).forEach(n => { n.terrain = BB_TERRAIN_POISON; });
+    };
+    const MAX_ATTEMPTS = 200;
+    for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+        candidates.forEach(n => { n.terrain = null; });
+        const pool = candidates.slice();
+        bbShuffleArray(pool);
+        applyPicks(pool);
+        if (bbCheckFlagsConnected()) return;
+    }
+    // 200回試しても通行可能な配置が見つからない場合の保険：旗と同じ列（中央列）だけは
+    // 特殊マスの対象から外し、必ず縦に抜けられる道を1本残してから配置する。
+    console.warn('[ボードバトル] ランダム配置での経路確保に失敗したため、中央列を空けて再配置します。');
+    candidates.forEach(n => { n.terrain = null; });
+    const safeCandidates = candidates.filter(n => n.col !== BB_FLAG_COL);
+    const pool2 = safeCandidates.slice();
+    bbShuffleArray(pool2);
+    applyPicks(pool2);
 }
 
 // ------------------------------------------------------------
@@ -410,7 +483,7 @@ function bbGenerateDebugCurry(targetTotalHint) {
     };
 }
 function bbGenerateDebugEnemyTeam() {
-    // ステータス予算2500を超えないよう、実際の調理ロジックで1体ずつ生成しては足していく
+    // ステータス予算（BB_STAT_BUDGET）を超えないよう、実際の調理ロジックで1体ずつ生成しては足していく
     // （食材の組み合わせ由来のステータスは狙って割り振れないため、事前配分ではなく詰め込み式にする）。
     const team = [];
     let remaining = BB_STAT_BUDGET;
@@ -535,6 +608,7 @@ function bbInit() {
 function bbEnterPlacementPhase() {
     bbCleanupLeakedTempCurries();
     bbBuildBoard();
+    bbGenerateSpecialTiles(); // 岩・水・毒マスをランダムに5マスずつ配置（自陣旗→敵旗の経路は必ず確保する）
     bbState.phase = 'placement';
     bbState.playerPool = bbRegisteredRoster.map(bbGetEffectiveCurry);
     bbState.enemyPool = bbGenerateDebugEnemyTeam();
@@ -600,7 +674,7 @@ let bbPinchLast = null;  // 2本指ピンチの直前状態 {dist,cx,cy}
 let bbGestureMoved = 0;  // このジェスチャー中に動いた量（クリックか否かの判定用）
 
 function bbBoardTotalHeight() {
-    return BB_ROW_Y_TOP + (BB_ROWS_DEF.length - 1) * BB_ROW_Y_GAP + 60;
+    return BB_ROW_Y_TOP + (BB_GRID_SIZE - 1) * BB_ROW_Y_GAP + 60;
 }
 
 function bbSyncSvgSize(w, h) {
@@ -777,7 +851,7 @@ function bbRenderBoard() {
     const viewportG = document.getElementById('bbViewportG');
     if (!viewportG) return;
     let html = '';
-    // 辺（縦・斜めのみ。横方向の辺は存在しない）
+    // 辺（上下左右の4方向のみ。斜めのつながりは存在しない）
     bbNodes.forEach(n => {
         n.neighbors.forEach(nid => {
             if (nid > n.id) {
@@ -794,6 +868,7 @@ function bbRenderBoard() {
         const isActive = !!(bbState.activeUnit && bbState.activeUnit.nodeId === n.id && bbState.activeUnit.hp > 0 && !bbState.activeUnit._animating);
         let cls = 'bb-board-node-circle';
         if (isFlag) cls += ' bb-flag-tile';
+        if (n.terrain) cls += ` bb-terrain-${n.terrain}`;
         if (unit) cls += (unit.team === 'player') ? ' bb-occupied-player' : ' bb-occupied-enemy';
         if (n.highlight === 'selectable') cls += ' bb-selectable';
         if (n.highlight === 'movable') cls += ' bb-movable';
@@ -805,6 +880,10 @@ function bbRenderBoard() {
         html += `<circle class="${cls}" cx="${n.x}" cy="${n.y}" r="${BB_NODE_R}"></circle>`;
         if (isFlag && !unit) {
             html += bbFlagMarkup(n.x, n.y, n.row === BB_ROW_TOP ? '#e74c3c' : '#3498db');
+        }
+        // 特殊マスの画像は未整備のため、暫定的に漢字1文字（岩/水/毒）で示す（駒が乗っている間は隠す）。
+        if (n.terrain && !unit) {
+            html += `<text class="bb-terrain-label" x="${n.x}" y="${n.y}" text-anchor="middle" dominant-baseline="central">${BB_TERRAIN_LABEL[n.terrain] || ''}</text>`;
         }
         if (unit) {
             const clipId = `bbClip${n.id}`;
@@ -907,7 +986,7 @@ function bbOnNodeClick(nodeId) {
             const curry = bbState.playerPool[bbState.selectedPoolIndex];
             const total = bbState.units.filter(u => u.team === 'player').reduce((s, u) => s + bbStatTotal(u.raw), 0) + bbStatTotal(curry);
             if (total > BB_STAT_BUDGET) {
-                alert('ステータス合計が2500を超えるため配置できません。');
+                alert(`ステータス合計が${BB_STAT_BUDGET}を超えるため配置できません。`);
                 return;
             }
             const unit = bbMakeUnit(curry, 'player');
@@ -1030,15 +1109,24 @@ function bbGetMoveRange(spd) {
     return Math.floor(Math.max(0, spd || 0) / 100) + 1;
 }
 
+// 直近のbbGetMovableNodeIds呼び出し結果から経路を復元するためのマップ（nodeId→そこへ来る直前のnodeId）。
+// 手番ごとに「移動可能マスの算出」→「その中から1マス選んで移動」の順で必ず呼ばれるため、
+// 同じ手番の中でだけ有効なキャッシュとして扱う。
+let bbLastMoveParent = null;
+
 // 移動先として到達できるマスの集合（Set<nodeId>）を返す。
 // ・他の駒（敵味方問わず）がいるマスは通過できない＝そのマスより先へは進めない。
 // ・味方がいるマスへは進入自体できない（到達可能マスにも含めない）。
 // ・敵がいるマスへは進入できる（攻撃になる）が、そこで止まりそこから先へは進めない。
+// ・岩マスはわんぱくカレー以外、水マスは海の幸カレー以外、進入も通過もできない。
+//   （わんぱく・海の幸カレーにとっては、その地形は「無いもの」として扱われる）
+// ・毒マスは誰でも通過・停止できる（ダメージ処理はbbMoveUnitTo側で経路をたどって行う）。
 function bbGetMovableNodeIds(unit) {
     const maxSteps = bbGetMoveRange(unit.spd);
     const startId = unit.nodeId;
     const visited = new Set([startId]);
     const result = new Set();
+    const parent = new Map();
     let frontier = [startId];
     for (let step = 0; step < maxSteps && frontier.length > 0; step++) {
         const nextFrontier = [];
@@ -1047,15 +1135,34 @@ function bbGetMovableNodeIds(unit) {
             node.neighbors.forEach(nnid => {
                 if (visited.has(nnid)) return;
                 visited.add(nnid);
+                const targetNode = bbNodesById[nnid];
+                if (targetNode.terrain === BB_TERRAIN_ROCK && !bbCanBreakRock(unit)) return; // 岩：わんぱく以外は進入も通過も不可
+                if (targetNode.terrain === BB_TERRAIN_WATER && !bbCanCrossWater(unit)) return; // 水：海の幸以外は進入も通過も不可
                 const occupant = bbState.units.find(u => u.nodeId === nnid && u.hp > 0);
                 if (occupant && occupant.team === unit.team) return; // 味方のマスには入れない・通過もできない
                 result.add(nnid); // 空きマス、または敵がいるマス（攻撃対象）はここまで到達可能
+                parent.set(nnid, nid);
                 if (!occupant) nextFrontier.push(nnid); // 空きマスのみ、さらに先へ進める（敵のマスは通過不可＝そこで止まる）
             });
         });
         frontier = nextFrontier;
     }
+    bbLastMoveParent = parent;
     return result;
+}
+
+// bbLastMoveParent（直近のbbGetMovableNodeIds呼び出し結果）から、出発地点を含まない
+// 「通過した順のnodeId配列（最後の要素が最終目的地）」を復元する。
+function bbReconstructMovePath(unit, destNodeId) {
+    const path = [];
+    let cur = destNodeId;
+    const guard = new Set();
+    while (cur !== undefined && cur !== null && cur !== unit.nodeId && !guard.has(cur)) {
+        guard.add(cur);
+        path.unshift(cur);
+        cur = bbLastMoveParent ? bbLastMoveParent.get(cur) : undefined;
+    }
+    return path;
 }
 
 function bbHighlightMovableTiles(unit) {
@@ -1158,20 +1265,55 @@ function bbAnimateUnitMove(unit, fromNodeId, toNodeId, onComplete) {
     }, BB_MOVE_ANIM_MS + 60);
 }
 
+// 移動経路（bbReconstructMovePathで得た、出発地点を含まないnodeId配列）を順にたどり、
+// 岩マスの破壊・毒マスのダメージを適用する。毒ダメージで力尽きた場合はtrueを返す
+// （その場合、呼び出し側は戦闘トリガーなど後続の処理を行わない）。
+function bbApplyTerrainEffectsAlongPath(unit, path) {
+    for (let i = 0; i < path.length; i++) {
+        const node = bbNodesById[path[i]];
+        if (!node) continue;
+        if (node.terrain === BB_TERRAIN_ROCK) {
+            // 岩マスに到達できた時点でわんぱくカレー確定（bbGetMovableNodeIdsが弾いているため）。
+            node.terrain = null;
+            bbAppendLog(`${unit.name} が岩を壊した！`);
+        }
+        if (node.terrain === BB_TERRAIN_POISON && !bbIsPoisonImmune(unit)) {
+            const dmg = Math.max(1, Math.round(unit.maxHp * 0.2));
+            unit.hp = Math.max(0, unit.hp - dmg);
+            bbAppendLog(`${unit.name} は毒マスで${dmg}ダメージを受けた！（残HP ${unit.hp}/${unit.maxHp}）`);
+            if (unit.hp <= 0) {
+                bbAppendLog(`${unit.name} は毒で力尽きた。`);
+                bbState.units = bbState.units.filter(u => u !== unit);
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
 function bbMoveUnitTo(unit, nodeId) {
     const defender = bbState.units.find(u => u.nodeId === nodeId && u.hp > 0 && u.team !== unit.team);
     const fromNodeId = unit.nodeId;
+    const movePath = bbReconstructMovePath(unit, nodeId); // 岩破壊・毒ダメージの判定に使う経路（出発地点は含まない）
     bbNodes.forEach(n => { n.highlight = null; });
     if (defender) {
         bbAppendLog(`${unit.name} が ${defender.name} に攻撃！`);
         // 攻撃側の駒を相手のマスまで滑らせ、重なった（ぶつかった）ところで戦闘画面へ切り替える
         bbAnimateUnitMove(unit, fromNodeId, nodeId, function () {
+            const diedOnTheWay = bbApplyTerrainEffectsAlongPath(unit, movePath);
+            if (diedOnTheWay) {
+                // 毒で力尽きた場合は攻撃不発。戦闘を起こさずそのまま次の手番へ。
+                bbRenderBoard();
+                setTimeout(bbScheduleNextTurn, 500);
+                return;
+            }
             bbResolveBattle(unit, defender, nodeId);
         });
     } else {
         bbAnimateUnitMove(unit, fromNodeId, nodeId, function () {
             unit.nodeId = nodeId;
             bbAppendLog(`${unit.name} が移動した。`);
+            bbApplyTerrainEffectsAlongPath(unit, movePath);
             bbRenderBoard();
             setTimeout(bbScheduleNextTurn, 500);
         });
@@ -1676,8 +1818,8 @@ function bbInjectDom() {
             </div>
             <div id="bbBottomPanel">
                 <div id="bbPlacementPanel">
-                    <h2>配置フェーズ（自陣の旗から2列以内・ステータス合計2500まで・最大5体）</h2>
-                    <div id="bbBudgetLine">合計ステータス: 0 / 2500（残り2500）　配置数: 0 / 5</div>
+                    <h2>配置フェーズ（自陣の旗から2列以内・ステータス合計3000まで・最大5体）</h2>
+                    <div id="bbBudgetLine">合計ステータス: 0 / 3000（残り3000）　配置数: 0 / 5</div>
                     <div id="bbPlaceHint">下のカレーをタップして選択 → 盤面の自陣側（青枠）マスをタップして配置します。</div>
                     <div id="bbRosterList"></div>
                     <button class="bb-actionBtn" id="bbBtnStartBattle" disabled onclick="window.__bbOnStartBattleClick()">戦闘開始</button>
@@ -1738,11 +1880,13 @@ function bbInjectDom() {
             <div id="bbHelpBox">
                 <h3>カレーボードバトルとは？</h3>
                 <div id="bbHelpText">
-                    盤面の上下にある「旗」を奪うか、相手を全滅させれば勝利です。<br><br>
+                    9×9の盤面の上下にある「旗」（王将の位置）を奪うか、相手を全滅させれば勝利です。<br><br>
                     ・「カレー登録」で、カレーストックからボードバトル専用にカレーを登録できます（登録すると通常のストックからは無くなります。最大20個まで）。<br>
                     ・登録したカレーは名前の変更や、ベース・食器の個別装備ができます（本編の装備とは別枠です）。<br>
-                    ・「準備完了」を押すと対戦相手を選び、配置フェーズになります。登録済みのカレーの中から、ステータス合計2500・最大5体まで盤面の自陣側に配置してください。<br>
-                    ・配置が終わったら「戦闘開始」で戦闘スタート。SPDの高い駒から順に行動できます（行動順は敵味方共通の1本のタイムライン）。<br>
+                    ・「準備完了」を押すと対戦相手を選び、配置フェーズになります。登録済みのカレーの中から、ステータス合計3000・最大5体まで盤面の自陣側に配置してください。<br>
+                    ・配置が終わったら「戦闘開始」で戦闘スタート。SPDの高い駒から順に、生存者全員が1周につき必ず1回行動します（行動順は敵味方共通の1本のタイムライン）。<br>
+                    ・移動は上下左右のみ（斜め移動は不可）。SPDが高いほど1回に動けるマス数が増え、他の駒がいるマスは通り抜けられません。<br>
+                    ・盤面には「岩」「水」「毒」の特殊マスがあります。岩はわんぱくカレーのみ壊して通過でき、以後は誰でも通れる普通のマスになります。水は海の幸カレーのみ通過・停止でき、他のカレーは通れません。毒は誰でも通過・停止できますが、毒系カレー以外は最大HPの20%のダメージを受けます。<br>
                     ・移動して相手の駒と重なると、そのまま本編の戦闘画面で1対1のバトルが始まります。
                 </div>
                 <button class="bb-actionBtn bb-secondary" onclick="window.__bbCloseHelp()">閉じる</button>
