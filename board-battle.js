@@ -252,8 +252,8 @@ const BB_GRID_SIZE = 9; // 9×9
 const BB_ROW_TOP = 0;
 const BB_ROW_BOTTOM = BB_GRID_SIZE - 1; // 8
 const BB_FLAG_COL = Math.floor(BB_GRID_SIZE / 2); // 4（王将の列＝中央）
-const BB_ENEMY_DEPLOY_ROWS = [1, 2];  // 敵旗のすぐ手前2行
-const BB_PLAYER_DEPLOY_ROWS = [6, 7]; // 自陣旗のすぐ手前2行
+const BB_ENEMY_DEPLOY_ROWS = [0, 1];  // 敵陣＝上から2行（敵旗の行そのものも含む）
+const BB_PLAYER_DEPLOY_ROWS = [7, 8]; // 自陣＝下から2行（自陣旗の行そのものも含む）
 
 const BB_BOARD_WIDTH = 600;
 const BB_ROW_Y_TOP = 44;
@@ -1886,7 +1886,7 @@ function bbInjectDom() {
             </div>
             <div id="bbBottomPanel">
                 <div id="bbPlacementPanel">
-                    <h2>配置フェーズ（自陣の旗から2列以内・ステータス合計3000まで・最大5体）</h2>
+                    <h2>配置フェーズ（自陣（旗の行を含む下2列）・ステータス合計3000まで・最大5体）</h2>
                     <div id="bbBudgetLine">合計ステータス: 0 / 3000（残り3000）　配置数: 0 / 5</div>
                     <div id="bbPlaceHint">下のカレーをタップして選択 → 盤面の自陣側（青枠）マスをタップして配置します。</div>
                     <div id="bbRosterList"></div>
