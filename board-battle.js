@@ -76,9 +76,12 @@ const BB_STYLE = `
     transform-origin: 50% 50%;
 }
 .bb-board-edge { stroke: #6b4a26; stroke-width: 2; }
-/* マスの背景は<image>（boardbattle/map0X.svg）で描画するため、タイル自体のfillは持たず、
+/* マスの背景は<image>（boardbattle/map0X.png）で描画するため、タイル自体のfillは持たず、
    枠線（通常時/選択可能時/移動可能時/攻撃可能時などのハイライト）だけをこのrectで担う。 */
-.bb-board-node-tile { fill: none; stroke: #6b4a26; stroke-width: 3; cursor: default; }
+/* fill:noneのSVG要素は既定（pointer-events:visiblePainted）だとstroke（枠線）部分しか
+   クリック／タップを拾わなくなる（マス中央の透明な塗りつぶし部分が反応しない不具合の原因）。
+   pointer-events:allでfillの有無に関係なくマス全体を判定対象にする。 */
+.bb-board-node-tile { fill: none; stroke: #6b4a26; stroke-width: 3; cursor: default; pointer-events: all; }
 .bb-board-tile-img { pointer-events: none; }
 .bb-board-node-tile.bb-flag-tile { stroke: #b88742; stroke-width: 4; }
 .bb-board-node-tile.bb-selectable { stroke: #2ecc71; stroke-width: 4; cursor: pointer; }
@@ -298,10 +301,12 @@ const BB_TERRAIN_POISON = 'poison'; // 毒マス：通過・停止で最大HP20%
 const BB_SPECIAL_TILE_COUNT = 5; // 各特殊マスの初期配置数
 
 // マス背景画像（通常／岩／水／毒）。四角いマスに敷き詰めるようにxMidYMid sliceで表示する。
-const BB_TILE_IMG_NORMAL = 'boardbattle/map01.svg';
-const BB_TILE_IMG_ROCK = 'boardbattle/map02.svg';
-const BB_TILE_IMG_WATER = 'boardbattle/map03.svg';
-const BB_TILE_IMG_POISON = 'boardbattle/map04.svg';
+// 元はSVG（1枚あたり数千パス規模の複雑なベクター）だったが、81マス分を毎回再描画すると
+// 重かったため、軽量なPNG（300x300）に差し替えている。
+const BB_TILE_IMG_NORMAL = 'boardbattle/map01.png';
+const BB_TILE_IMG_ROCK = 'boardbattle/map02.png';
+const BB_TILE_IMG_WATER = 'boardbattle/map03.png';
+const BB_TILE_IMG_POISON = 'boardbattle/map04.png';
 function bbGetTileImg(terrain) {
     if (terrain === BB_TERRAIN_ROCK) return BB_TILE_IMG_ROCK;
     if (terrain === BB_TERRAIN_WATER) return BB_TILE_IMG_WATER;
