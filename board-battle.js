@@ -76,8 +76,11 @@ const BB_STYLE = `
     transform-origin: 50% 50%;
 }
 .bb-board-edge { stroke: #6b4a26; stroke-width: 2; }
-.bb-board-node-tile { fill: #efdeb1; stroke: #6b4a26; stroke-width: 3; cursor: default; }
-.bb-board-node-tile.bb-flag-tile { fill: #f5e9c8; stroke: #b88742; stroke-width: 4; }
+/* マスの背景は<image>（boardbattle/map0X.svg）で描画するため、タイル自体のfillは持たず、
+   枠線（通常時/選択可能時/移動可能時/攻撃可能時などのハイライト）だけをこのrectで担う。 */
+.bb-board-node-tile { fill: none; stroke: #6b4a26; stroke-width: 3; cursor: default; }
+.bb-board-tile-img { pointer-events: none; }
+.bb-board-node-tile.bb-flag-tile { stroke: #b88742; stroke-width: 4; }
 .bb-board-node-tile.bb-selectable { stroke: #2ecc71; stroke-width: 4; cursor: pointer; }
 .bb-board-node-tile.bb-movable { stroke: #f1c40f; stroke-width: 4; cursor: pointer; }
 .bb-board-node-tile.bb-attackable { stroke: #ff4136; stroke-width: 5; cursor: pointer; }
@@ -116,11 +119,6 @@ const BB_STYLE = `
 @keyframes bbArrowMarchDown  { 0% { transform: translateY(-8px); opacity: 0.2; } 55% { opacity: 1; } 100% { transform: translateY(10px);  opacity: 0; } }
 @keyframes bbArrowMarchLeft  { 0% { transform: translateX(8px);  opacity: 0.2; } 55% { opacity: 1; } 100% { transform: translateX(-10px); opacity: 0; } }
 @keyframes bbArrowMarchRight { 0% { transform: translateX(-8px); opacity: 0.2; } 55% { opacity: 1; } 100% { transform: translateX(10px);  opacity: 0; } }
-/* 特殊マス（画像は未整備のため、色分け＋漢字1文字で暫定表示） */
-.bb-board-node-tile.bb-terrain-rock { fill: #6b6459; }
-.bb-board-node-tile.bb-terrain-water { fill: #2e6f9e; }
-.bb-board-node-tile.bb-terrain-poison { fill: #6a2e7a; }
-.bb-terrain-label { font-size: 20px; font-weight: bold; fill: #efdeb1; pointer-events: none; user-select: none; }
 
 #bbBottomPanel {
     position: absolute; bottom: 0; left: 0; right: 0; z-index: 25;
@@ -294,11 +292,26 @@ const BB_NODE_R = 24;   // 駒（ポートレート）の半径・毒/岩/水な
 const BB_NODE_HALF = 28; // マス（四角）の半辺の長さ＝1辺56pxの正方形
 
 // 特殊マスの地形種別。null＝通常マス。
-const BB_TERRAIN_ROCK = 'rock';   // 岩マス：わんぱくカレーのみ壊して通過できる（壊すと通常マス化）
+const BB_TERRAIN_ROCK = 'rock';   // 岩マス：誰も進入・通過できない（隣接マスからわんぱくカレーが「攻撃」で破壊可能）
 const BB_TERRAIN_WATER = 'water'; // 水マス：海の幸カレーのみ通過・停止できる
 const BB_TERRAIN_POISON = 'poison'; // 毒マス：通過・停止で最大HP20%ダメージ（毒系カレーは無効）
-const BB_TERRAIN_LABEL = { rock: '岩', water: '水', poison: '毒' }; // 画像未整備の間は漢字1文字で表示
 const BB_SPECIAL_TILE_COUNT = 5; // 各特殊マスの初期配置数
+
+// マス背景画像（通常／岩／水／毒）。四角いマスに敷き詰めるようにxMidYMid sliceで表示する。
+const BB_TILE_IMG_NORMAL = 'boardbattle/map01.svg';
+const BB_TILE_IMG_ROCK = 'boardbattle/map02.svg';
+const BB_TILE_IMG_WATER = 'boardbattle/map03.svg';
+const BB_TILE_IMG_POISON = 'boardbattle/map04.svg';
+function bbGetTileImg(terrain) {
+    if (terrain === BB_TERRAIN_ROCK) return BB_TILE_IMG_ROCK;
+    if (terrain === BB_TERRAIN_WATER) return BB_TILE_IMG_WATER;
+    if (terrain === BB_TERRAIN_POISON) return BB_TILE_IMG_POISON;
+    return BB_TILE_IMG_NORMAL;
+}
+
+// コマ（コイン型トークン）をマス中心よりも少し上に描き、上部がマスから軽くはみ出て
+// 「マスの上に立っている」ように見せるための引き上げ量(px)。
+const BB_COIN_Y_LIFT = 14;
 
 const BB_STAT_BUDGET = 3000;
 const BB_MAX_UNITS = 5;
@@ -964,17 +977,18 @@ function bbRenderBoard() {
             const ringHalf = BB_NODE_HALF + 4;
             html += `<rect class="bb-active-ring" x="${n.x - ringHalf}" y="${n.y - ringHalf}" width="${ringHalf * 2}" height="${ringHalf * 2}"></rect>`;
         }
+        // マスの背景画像（通常／岩／水／毒）。地形ごとの画像を敷き詰め、その上にハイライト用の
+        // 枠線（fill:noneのrect＝cls）を重ねる。
+        html += `<image class="bb-board-tile-img" href="${bbGetTileImg(n.terrain)}" x="${n.x - BB_NODE_HALF}" y="${n.y - BB_NODE_HALF}" width="${BB_NODE_HALF * 2}" height="${BB_NODE_HALF * 2}" preserveAspectRatio="xMidYMid slice"></image>`;
         html += `<rect class="${cls}" x="${n.x - BB_NODE_HALF}" y="${n.y - BB_NODE_HALF}" width="${BB_NODE_HALF * 2}" height="${BB_NODE_HALF * 2}"></rect>`;
         if (isFlag && !unit) {
             html += bbFlagMarkup(n.x, n.y, n.row === BB_ROW_TOP ? '#e74c3c' : '#3498db');
         }
-        // 特殊マスの画像は未整備のため、暫定的に漢字1文字（岩/水/毒）で示す（駒が乗っている間は隠す）。
-        if (n.terrain && !unit) {
-            html += `<text class="bb-terrain-label" x="${n.x}" y="${n.y}" text-anchor="middle" dominant-baseline="central">${BB_TERRAIN_LABEL[n.terrain] || ''}</text>`;
-        }
         if (unit) {
             const r2 = BB_NODE_R - 4;
-            html += bbCoinMarkup(n.x, n.y, r2, unit.team, bbGetCurryImg(unit.raw), `n${n.id}`);
+            // マス中心よりも少し上（BB_COIN_Y_LIFT）にコインを描き、上部がマスから軽く
+            // はみ出て「マスの上に立っている」ように見せる。
+            html += bbCoinMarkup(n.x, n.y - BB_COIN_Y_LIFT, r2, unit.team, bbGetCurryImg(unit.raw), `n${n.id}`);
             const pct = Math.max(0, unit.hp / unit.maxHp);
             const barW = BB_NODE_HALF * 1.6;
             html += `<rect class="bb-board-hp-bg" x="${n.x - barW / 2}" y="${n.y + BB_NODE_HALF + 4}" width="${barW}" height="5" rx="2"></rect>`;
@@ -1314,6 +1328,10 @@ function bbOnBattleNodeClick(nodeId) {
 //    1マスずつ順番にスライドさせる（縦→横、のように必ずマス目に沿って進む）。
 // ------------------------------------------------------------
 const BB_MOVE_ANIM_MS = 380; // 経路全体のおおよその目安（1マスあたりの時間はマス数で割って決める）
+// 敵（AI）が攻撃対象を決めてから、実際に戦闘・岩破壊を実行するまでの「予告」時間。
+// この間、対象マスへ矢印アニメーションを表示し続けることで、いきなり戦闘画面へ
+// 切り替わらないようにする。
+const BB_AI_ATTACK_TELEGRAPH_MS = 2000;
 function bbAnimateUnitMove(unit, fromNodeId, path, onComplete) {
     const fromNode = bbNodesById[fromNodeId];
     const steps = (path || []).map(id => bbNodesById[id]).filter(Boolean);
@@ -1332,7 +1350,7 @@ function bbAnimateUnitMove(unit, fromNodeId, path, onComplete) {
     // 通常描画（bbRenderBoard）と同じコイン型の見た目（上面カレーイラスト＋側面チーム色）を
     // 浮動スプライトにもそのまま使う。文字列で組み立ててinnerHTMLに流し込めば、
     // clipPath/画像などをここで個別にDOM構築する必要がない（bbRenderBoard側と同じヘルパー）。
-    g.innerHTML = bbCoinMarkup(fromNode.x, fromNode.y, r2, unit.team, bbGetCurryImg(unit.raw), `anim${unit.uid}_${Date.now()}`);
+    g.innerHTML = bbCoinMarkup(fromNode.x, fromNode.y - BB_COIN_Y_LIFT, r2, unit.team, bbGetCurryImg(unit.raw), `anim${unit.uid}_${Date.now()}`);
     viewportG.appendChild(g);
 
     // 1マスあたりの区間時間（マス数が多いほど短くし、全体としてはBB_MOVE_ANIM_MS前後に収める）。
@@ -1363,9 +1381,45 @@ function bbAnimateUnitMove(unit, fromNodeId, path, onComplete) {
     });
 }
 
+// 敗北・力尽きて盤面から消える駒を、瞬時に消すのではなくフェードアウト（縮小＋透明化）
+// させてから実際にbbState.unitsから取り除く。bbAnimateUnitMoveと同じ「浮動スプライトを
+// 重ねて、通常描画側は_animatingで隠す」やり方を流用する。
+const BB_FADE_OUT_MS = 550;
+function bbFadeOutUnit(unit, onComplete) {
+    const node = bbNodesById[unit.nodeId];
+    const viewportG = document.getElementById('bbViewportG');
+    if (!node || !viewportG) { onComplete(); return; }
+    const ns = 'http://www.w3.org/2000/svg';
+    const r2 = BB_NODE_R - 4;
+
+    unit._animating = true; // 通常描画（bbRenderBoard）側では非表示にする
+    bbRenderBoard();
+
+    const g = document.createElementNS(ns, 'g');
+    g.style.transform = 'scale(1)';
+    g.style.opacity = '1';
+    g.style.transformBox = 'fill-box';
+    g.style.transformOrigin = 'center';
+    g.innerHTML = bbCoinMarkup(node.x, node.y - BB_COIN_Y_LIFT, r2, unit.team, bbGetCurryImg(unit.raw), `fade${unit.uid}_${Date.now()}`);
+    viewportG.appendChild(g);
+
+    requestAnimationFrame(() => {
+        void g.getBoundingClientRect(); // 初期状態を確実に反映させてからトランジションを開始する
+        g.style.transition = `opacity ${BB_FADE_OUT_MS}ms ease-in, transform ${BB_FADE_OUT_MS}ms ease-in`;
+        requestAnimationFrame(() => {
+            g.style.opacity = '0';
+            g.style.transform = 'scale(0.35)';
+        });
+    });
+    setTimeout(() => {
+        if (viewportG.contains(g)) viewportG.removeChild(g);
+        onComplete();
+    }, BB_FADE_OUT_MS);
+}
+
 // 移動経路（bbReconstructMovePathで得た、出発地点を含まないnodeId配列）を順にたどり、
 // 毒マスのダメージを適用する。毒ダメージで力尽きた場合はtrueを返す
-// （その場合、呼び出し側は移動後アクションフェーズなど後続の処理を行わない）。
+// （その場合、呼び出し側はbbFadeOutUnitでフェードアウトさせてから実際に取り除く）。
 // ※岩マスは移動中は誰も通行できないため（bbGetMovableNodeIdsで除外済み）、ここでは扱わない。
 //   岩の破壊は移動後の「攻撃」アクション（bbExecuteAction）でのみ行う。
 function bbApplyTerrainEffectsAlongPath(unit, path) {
@@ -1378,7 +1432,6 @@ function bbApplyTerrainEffectsAlongPath(unit, path) {
             bbAppendLog(`${unit.name} は毒マスで${dmg}ダメージを受けた！（残HP ${unit.hp}/${unit.maxHp}）`);
             if (unit.hp <= 0) {
                 bbAppendLog(`${unit.name} は毒で力尽きた。`);
-                bbState.units = bbState.units.filter(u => u !== unit);
                 return true;
             }
         }
@@ -1396,12 +1449,16 @@ function bbMoveUnitTo(unit, nodeId) {
         unit.nodeId = nodeId;
         bbAppendLog(`${unit.name} が移動した。`);
         const diedOnTheWay = bbApplyTerrainEffectsAlongPath(unit, movePath);
-        bbRenderBoard();
         if (diedOnTheWay) {
-            // 毒で力尽きた場合はそのまま次の手番へ（行動選択は行わない）。
-            setTimeout(bbScheduleNextTurn, 500);
+            // 毒で力尽きた場合はフェードアウトさせてから盤面・次の手番へ（行動選択は行わない）。
+            bbFadeOutUnit(unit, function () {
+                bbState.units = bbState.units.filter(u => u !== unit);
+                bbRenderBoard();
+                setTimeout(bbScheduleNextTurn, 300);
+            });
             return;
         }
+        bbRenderBoard();
         bbEnterActionPhase(unit);
     });
 }
@@ -1519,7 +1576,17 @@ function bbEnterActionPhase(unit) {
         chosen = targets.rocks[Math.floor(Math.random() * targets.rocks.length)];
     }
     if (!chosen) { setTimeout(bbScheduleNextTurn, 300); return; }
-    setTimeout(() => { bbExecuteAction(unit, chosen); }, 300);
+    // 対象へ向かって進む矢印を2秒表示してから実行に移る（いきなり戦闘画面へ切り替わらないように、
+    // 「これから誰を攻撃するか」を見せる間を作る）。chosenは敵ユニット（nodeIdを持つ）か
+    // 岩マスのノード（idを持つ）のいずれか。
+    const chosenNodeId = ('nodeId' in chosen) ? chosen.nodeId : chosen.id;
+    bbNodes.forEach(n => { n.highlight = null; });
+    bbNodesById[chosenNodeId].highlight = 'attackable';
+    bbRenderBoard();
+    setTimeout(() => {
+        bbNodes.forEach(n => { n.highlight = null; });
+        bbExecuteAction(unit, chosen);
+    }, BB_AI_ATTACK_TELEGRAPH_MS);
 }
 
 // プレイヤーが移動フェーズで自分のマスをタップ＝移動しない、を選んだ場合。
@@ -1611,9 +1678,12 @@ function bbResolveBattle(mover, defender) {
         const winner = moverWon ? mover : defender;
         const loser = moverWon ? defender : mover;
         bbAppendLog(`${loser.name} は力尽きた。${winner.name} の勝ち（残HP ${winner.hp}/${winner.maxHp}）`);
-        bbState.units = bbState.units.filter(u => u !== loser);
-        bbRenderBoard();
-        setTimeout(bbScheduleNextTurn, 500);
+        // 敗北した駒は瞬時に消さず、フェードアウトしてから実際に盤面から取り除く。
+        bbFadeOutUnit(loser, function () {
+            bbState.units = bbState.units.filter(u => u !== loser);
+            bbRenderBoard();
+            setTimeout(bbScheduleNextTurn, 300);
+        });
     });
 }
 
