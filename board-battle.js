@@ -122,6 +122,17 @@ const BB_STYLE = `
 @keyframes bbArrowMarchDown  { 0% { transform: translateY(-8px); opacity: 0.2; } 55% { opacity: 1; } 100% { transform: translateY(10px);  opacity: 0; } }
 @keyframes bbArrowMarchLeft  { 0% { transform: translateX(8px);  opacity: 0.2; } 55% { opacity: 1; } 100% { transform: translateX(-10px); opacity: 0; } }
 @keyframes bbArrowMarchRight { 0% { transform: translateX(-8px); opacity: 0.2; } 55% { opacity: 1; } 100% { transform: translateX(10px);  opacity: 0; } }
+/* ダメージPOP（毒マス通過時など）：マス位置から数字が浮かび上がって消える。 */
+.bb-damage-pop-text {
+    font-size: 18px; font-weight: bold; fill: #ff4136; stroke: #3a0a06; stroke-width: 3;
+    paint-order: stroke; pointer-events: none; user-select: none;
+}
+.bb-damage-pop {
+    opacity: 1; transform: translateY(0px);
+    transform-box: fill-box; transform-origin: center;
+    transition: transform 0.7s ease-out, opacity 0.7s ease-out;
+}
+.bb-damage-pop.bb-damage-pop-anim { opacity: 0; transform: translateY(-26px); }
 
 #bbBottomPanel {
     position: absolute; bottom: 0; left: 0; right: 0; z-index: 25;
@@ -159,6 +170,25 @@ const BB_STYLE = `
 }
 #bbResultBox { background: #efdeb1; color: #420000; border-radius: 12px; padding: 30px 40px; text-align: center; }
 #bbResultBox h2 { font-size: 24px; margin: 0 0 12px 0; }
+
+/* ボードバトル開始時のタイトル演出：画面の上下左右中央に一時的に表示し、フェードイン・
+   アウトする。盤面や他のUIをブロックしないようpointer-events:noneにしておく。 */
+#bbBattleStartSplash {
+    position: fixed; inset: 0; z-index: 9025; display: none; flex-direction: column;
+    align-items: center; justify-content: center; pointer-events: none;
+    opacity: 0; transition: opacity 0.3s ease;
+    text-align: center;
+}
+#bbBattleStartSplash.bb-show { opacity: 1; }
+#bbBattleStartSplashLine1, #bbBattleStartSplashLine2 {
+    font-family: "Hiragino Kaku Gothic ProN", "Yu Gothic", sans-serif;
+    color: #ffcc33; font-weight: 900;
+    -webkit-text-stroke: 3px #1a0d00;
+    text-shadow: 0 0 14px rgba(0,0,0,0.75), 0 4px 0 rgba(0,0,0,0.35);
+    letter-spacing: 0.04em;
+}
+#bbBattleStartSplashLine1 { font-size: 26px; margin-bottom: 6px; }
+#bbBattleStartSplashLine2 { font-size: 52px; -webkit-text-stroke-width: 5px; letter-spacing: 0.1em; }
 
 /* 盤面の駒をタップした時に出す簡易ステータスカード（配置フェーズ・戦闘フェーズ共通） */
 #bbUnitDetailOverlay {
@@ -557,6 +587,13 @@ function bbGenerateDebugEnemyTeam() {
 }
 function bbGetCurryImg(curry) {
     return (typeof getCurryImage === 'function') ? getCurryImage(curry) : '';
+}
+// 本編（game.js）のplaySoundEffect(path)をそのまま利用する（ミュート設定・SEプール管理も
+// 本編側に任せられる）。本編が読み込まれていない環境でも落ちないようtypeofで守る。
+function bbPlaySfx(path) {
+    if (typeof playSoundEffect === 'function') {
+        try { playSoundEffect(path); } catch (e) { /* 効果音の再生に失敗しても対戦の進行は止めない */ }
+    }
 }
 
 // ------------------------------------------------------------
@@ -996,8 +1033,12 @@ function bbRenderBoard() {
             html += bbCoinMarkup(n.x, n.y - BB_COIN_Y_LIFT, r2, unit.team, bbGetCurryImg(unit.raw), `n${n.id}`);
             const pct = Math.max(0, unit.hp / unit.maxHp);
             const barW = BB_NODE_HALF * 1.6;
-            html += `<rect class="bb-board-hp-bg" x="${n.x - barW / 2}" y="${n.y + BB_NODE_HALF + 4}" width="${barW}" height="5" rx="2"></rect>`;
-            html += `<rect class="bb-board-hp-fill" x="${n.x - barW / 2}" y="${n.y + BB_NODE_HALF + 4}" width="${barW * pct}" height="5" rx="2"></rect>`;
+            // HPバーはマスの外（下の行のマス絵に隠れてしまう）にはみ出さないよう、
+            // コインを引き上げてできた隙間（コイン下端〜マス下端の間）に収める。
+            const coinBottomY = n.y - BB_COIN_Y_LIFT + r2;
+            const barY = coinBottomY + 4;
+            html += `<rect class="bb-board-hp-bg" x="${n.x - barW / 2}" y="${barY}" width="${barW}" height="5" rx="2"></rect>`;
+            html += `<rect class="bb-board-hp-fill" x="${n.x - barW / 2}" y="${barY}" width="${barW * pct}" height="5" rx="2"></rect>`;
         }
         // 行動選択フェーズ中、攻撃対象（隣接する敵駒・岩）のマスへ、行動主から向かって
         // 進んでいくように見える矢印を重ねて表示する。
@@ -1121,6 +1162,25 @@ function bbOnRegenerateEnemyClick() {
     bbAppendLog('敵編成を再生成しました（デバッグ）。');
 }
 
+// ボードバトル開始演出：効果音（sound/horagai.mp3）を鳴らしつつ、画面中央にタイトルを
+// 一時的に表示してからonDoneを呼ぶ（onDoneの中で実際の行動順開始＝bbScheduleNextTurnを行う）。
+const BB_BATTLE_START_SPLASH_HOLD_MS = 1400; // 表示を保持する時間（フェードイン/アウトは別途）
+const BB_BATTLE_START_SPLASH_FADE_MS = 300;
+function bbShowBattleStartSplash(onDone) {
+    const el = document.getElementById('bbBattleStartSplash');
+    bbPlaySfx('sound/horagai.mp3');
+    if (!el) { if (typeof onDone === 'function') onDone(); return; }
+    el.style.display = 'flex';
+    requestAnimationFrame(() => { el.classList.add('bb-show'); });
+    setTimeout(() => {
+        el.classList.remove('bb-show');
+        setTimeout(() => {
+            el.style.display = 'none';
+            if (typeof onDone === 'function') onDone();
+        }, BB_BATTLE_START_SPLASH_FADE_MS);
+    }, BB_BATTLE_START_SPLASH_HOLD_MS);
+}
+
 function bbOnStartBattleClick() {
     // 敵チームを自動配置（敵配置マスにランダムに割り当て。旗のあるマスは除外）
     const enemyDeployNodes = bbNodes.filter(n => bbGetDeployRows('enemy').includes(n.row) && !bbIsFlagNode(n));
@@ -1143,7 +1203,7 @@ function bbOnStartBattleClick() {
     if (turnQueueBarElBattle) turnQueueBarElBattle.style.display = 'flex';
     bbRenderBoard();
     bbAppendLog('戦闘開始！');
-    bbScheduleNextTurn();
+    bbShowBattleStartSplash(() => { bbScheduleNextTurn(); });
 }
 function bbShuffleArray(arr) { for (let i = arr.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [arr[i], arr[j]] = [arr[j], arr[i]]; } }
 
@@ -1422,6 +1482,43 @@ function bbFadeOutUnit(unit, onComplete) {
     }, BB_FADE_OUT_MS);
 }
 
+// 指定したマスの位置に、ダメージ数値が浮かび上がって消えるPOPを表示する（毒マス通過時など）。
+const BB_DAMAGE_POP_MS = 750;
+function bbShowDamagePop(nodeId, text) {
+    const node = bbNodesById[nodeId];
+    const viewportG = document.getElementById('bbViewportG');
+    if (!node || !viewportG) return;
+    const ns = 'http://www.w3.org/2000/svg';
+    const g = document.createElementNS(ns, 'g');
+    g.setAttribute('class', 'bb-damage-pop');
+    const t = document.createElementNS(ns, 'text');
+    t.setAttribute('class', 'bb-damage-pop-text');
+    t.setAttribute('x', node.x);
+    t.setAttribute('y', node.y - BB_COIN_Y_LIFT - 12);
+    t.setAttribute('text-anchor', 'middle');
+    t.textContent = text;
+    g.appendChild(t);
+    viewportG.appendChild(g);
+    requestAnimationFrame(() => {
+        void g.getBoundingClientRect(); // 初期状態を確実に反映させてからトランジションを開始する
+        g.classList.add('bb-damage-pop-anim');
+    });
+    setTimeout(() => {
+        if (viewportG.contains(g)) viewportG.removeChild(g);
+    }, BB_DAMAGE_POP_MS);
+}
+
+// 毒マスのダメージ演出：まずpoison.mp3を鳴らし、その少し後にpunch.mp3と同時に
+// ダメージ数値のPOPを駒の位置（node）に表示する。
+const BB_POISON_HIT_DELAY_MS = 450;
+function bbPlayPoisonHitEffect(nodeId, dmg) {
+    bbPlaySfx('poison.mp3');
+    setTimeout(() => {
+        bbPlaySfx('punch.mp3');
+        bbShowDamagePop(nodeId, `-${dmg}`);
+    }, BB_POISON_HIT_DELAY_MS);
+}
+
 // 移動経路（bbReconstructMovePathで得た、出発地点を含まないnodeId配列）を順にたどり、
 // 毒マスのダメージを適用する。毒ダメージで力尽きた場合はtrueを返す
 // （その場合、呼び出し側はbbFadeOutUnitでフェードアウトさせてから実際に取り除く）。
@@ -1435,6 +1532,7 @@ function bbApplyTerrainEffectsAlongPath(unit, path) {
             const dmg = Math.max(1, Math.round(unit.maxHp * 0.2));
             unit.hp = Math.max(0, unit.hp - dmg);
             bbAppendLog(`${unit.name} は毒マスで${dmg}ダメージを受けた！（残HP ${unit.hp}/${unit.maxHp}）`);
+            bbPlayPoisonHitEffect(node.id, dmg);
             if (unit.hp <= 0) {
                 bbAppendLog(`${unit.name} は毒で力尽きた。`);
                 return true;
@@ -1468,14 +1566,52 @@ function bbMoveUnitTo(unit, nodeId) {
     });
 }
 
+// 盤面全体を対象に、targetNodeIdから「そのunitにとって通行可能な地形だけ」をたどるBFSで
+// 各マスまでの歩数を求める（他の駒の位置は無視＝地形だけで見た理論上の到達可能性・距離）。
+// 岩は誰も通れない、水は海の幸カレー以外通れない、というルールに従うため、
+// 「わんぱく・海の幸なら通れるが、そうでなければ迂回や行き止まりになる」を正しく判定できる。
+// 戻り値はMap<nodeId, 歩数>。地形的にそもそも辿り着けないマスはMapに含まれない（＝距離Infinity扱い）。
+function bbComputeTerrainDistanceMap(unit, targetNodeId) {
+    const dist = new Map();
+    if (targetNodeId == null || !bbNodesById[targetNodeId]) return dist;
+    dist.set(targetNodeId, 0);
+    let frontier = [targetNodeId];
+    let step = 0;
+    while (frontier.length > 0) {
+        step++;
+        const next = [];
+        frontier.forEach(nid => {
+            bbNodesById[nid].neighbors.forEach(nnid => {
+                if (dist.has(nnid)) return;
+                const n = bbNodesById[nnid];
+                if (n.terrain === BB_TERRAIN_ROCK) return; // 岩：誰も通れない
+                if (n.terrain === BB_TERRAIN_WATER && !bbCanCrossWater(unit)) return; // 水：海の幸以外は通れない
+                dist.set(nnid, step);
+                next.push(nnid);
+            });
+        });
+        frontier = next;
+    }
+    return dist;
+}
+
 // 移動可能なマスの中から、targetNodeに一番近づけるマスを選ぶ（複数候補が同着ならランダム）。
 // ※敵がいるマスはbbGetMovableNodeIdsの時点で候補に含まれないため、ここで敵マスを優先する
 //   処理は不要（移動先として渡ってくる時点で必ず空きマス）。
+// ※直線距離ではなく、bbComputeTerrainDistanceMapで求めた「実際にそのunitが通れる地形だけを
+//   たどった歩数」で比較する。これにより、見た目の直線距離では近くても岩・水（このunitには
+//   通れない場合）で行き止まりになっている方向へ突き進んでしまうのを防ぎ、実際に旗へ
+//   たどり着ける経路がある移動先を優先する。全ての移動可能マスが行き止まり（＝どのみち
+//   目的地へ到達できない）の場合だけ、従来通り直線距離で決める。
 function bbPickMoveTowardNode(unit, moves, targetNode) {
+    const distMap = bbComputeTerrainDistanceMap(unit, targetNode.id);
+    const reachable = moves.filter(nid => distMap.has(nid));
+    const pool = reachable.length > 0 ? reachable : moves;
+    const useTerrainDist = reachable.length > 0;
     let bestDist = Infinity;
     let bestMoves = [];
-    moves.forEach(nid => {
-        const d = bbDist(bbNodesById[nid], targetNode);
+    pool.forEach(nid => {
+        const d = useTerrainDist ? distMap.get(nid) : bbDist(bbNodesById[nid], targetNode);
         if (d < bestDist - 0.01) { bestDist = d; bestMoves = [nid]; }
         else if (Math.abs(d - bestDist) <= 0.01) { bestMoves.push(nid); }
     });
@@ -1628,6 +1764,7 @@ function bbExecuteAction(unit, target) {
     if (target && target.terrain === BB_TERRAIN_ROCK) {
         target.terrain = null;
         bbAppendLog(`${unit.name} が岩を攻撃して破壊した！`);
+        bbPlaySfx('sound/gankowari.mp3');
         bbRenderBoard();
         setTimeout(bbScheduleNextTurn, 500);
         return;
@@ -2101,6 +2238,10 @@ function bbInjectDom() {
             </div>
         </div>
         <div id="bbBattleBlockOverlay"></div>
+        <div id="bbBattleStartSplash">
+            <div id="bbBattleStartSplashLine1">Curry Board Battle</div>
+            <div id="bbBattleStartSplashLine2">START</div>
+        </div>
         <div id="bbUnitDetailOverlay" onclick="if(event.target===this) window.__bbCloseUnitDetail()">
             <div id="bbUnitDetailBox">
                 <div id="bbUnitDetailVisual"><img id="bbUnitDetailImg" src="" alt=""></div>
