@@ -64,13 +64,23 @@ const BB_STYLE = `
 
 /* 盤面は#bbAppRoot全体に敷き詰め、ヘッダー等の下にも回り込ませる（地図アプリのタイル層と同じ考え方）。
    ネイティブのスクロール（overflow:auto）は使わず、pointer/wheelイベントで自前のパン・ズームを実装する。 */
-#bbBoardWrap { position: absolute; inset: 0; overflow: hidden; touch-action: none; background: #2b1a0e; }
-#bbBoardSvg { width: 100%; height: 100%; display: block; }
+/* 盤面を斜め上から見下ろしたような立体感を出すため、SVG本体だけにCSSの3D変形を掛ける。
+   パン・ズームのポインタ計算（bbGetWrapPoint等）は#bbBoardWrap自身のgetBoundingClientRect()
+   を基準にしており、#bbBoardWrapそのものは変形させていないため、ドラッグ・ピンチ・タップの
+   当たり判定には影響しない（ブラウザは3D変形後の見た目の位置からでもクリック対象を
+   正しく解決してくれるため、タイルのタップ自体も問題なく機能する）。 */
+#bbBoardWrap { position: absolute; inset: 0; overflow: hidden; touch-action: none; background: #2b1a0e; perspective: 1400px; }
+#bbBoardSvg {
+    width: 100%; height: 100%; display: block;
+    transform: rotateX(24deg);
+    transform-origin: 50% 50%;
+}
 .bb-board-edge { stroke: #6b4a26; stroke-width: 2; }
 .bb-board-node-tile { fill: #efdeb1; stroke: #6b4a26; stroke-width: 3; cursor: default; }
 .bb-board-node-tile.bb-flag-tile { fill: #f5e9c8; stroke: #b88742; stroke-width: 4; }
 .bb-board-node-tile.bb-selectable { stroke: #2ecc71; stroke-width: 4; cursor: pointer; }
 .bb-board-node-tile.bb-movable { stroke: #f1c40f; stroke-width: 4; cursor: pointer; }
+.bb-board-node-tile.bb-attackable { stroke: #ff4136; stroke-width: 5; cursor: pointer; }
 .bb-board-node-tile.bb-occupied-player { stroke: #3498db; }
 .bb-board-node-tile.bb-occupied-enemy { stroke: #e74c3c; }
 .bb-active-ring {
@@ -319,6 +329,12 @@ function bbGetFlagNodeId(team) {
     return n ? n.id : null;
 }
 
+// 旗のあるマスかどうか（各陣営とも中央列×一番奥の行の1マスのみ）。
+// カレーを配置できない・特殊マスを重ねて生成しない等、複数箇所から共通で使う。
+function bbIsFlagNode(n) {
+    return !!n && n.col === BB_FLAG_COL && (n.row === BB_ROW_TOP || n.row === BB_ROW_BOTTOM);
+}
+
 function bbGetDeployRows(team) {
     return team === 'player' ? BB_PLAYER_DEPLOY_ROWS : BB_ENEMY_DEPLOY_ROWS;
 }
@@ -514,6 +530,7 @@ const bbState = {
     selectedPoolIndex: null,
     units: [],            // 盤面に配置された全ユニット（player/enemy混在。行動順は下記の通り完全に統一されたタイムラインで管理）
     activeUnit: null,
+    subPhase: null,       // battleフェーズ中のプレイヤー手番のサブ状態：'move'（移動先選択）| 'action'（行動選択）
     battleLogLines: []
 };
 
@@ -864,7 +881,7 @@ function bbRenderBoard() {
     // ノード
     bbNodes.forEach(n => {
         // 旗は各陣営とも1マスだけ（中央列＝BB_FLAG_COLの、一番奥の行のみ）。
-        const isFlag = (n.col === BB_FLAG_COL) && (n.row === BB_ROW_TOP || n.row === BB_ROW_BOTTOM);
+        const isFlag = bbIsFlagNode(n);
         // 移動アニメーション中のユニットは、通常描画では一旦隠す（浮動スプライト側で表示する）
         const unit = bbState.units.find(u => u.nodeId === n.id && !u._animating);
         const isActive = !!(bbState.activeUnit && bbState.activeUnit.nodeId === n.id && bbState.activeUnit.hp > 0 && !bbState.activeUnit._animating);
@@ -874,6 +891,7 @@ function bbRenderBoard() {
         if (unit) cls += (unit.team === 'player') ? ' bb-occupied-player' : ' bb-occupied-enemy';
         if (n.highlight === 'selectable') cls += ' bb-selectable';
         if (n.highlight === 'movable') cls += ' bb-movable';
+        if (n.highlight === 'attackable') cls += ' bb-attackable';
         if (isActive) cls += ' bb-active-turn';
         html += `<g onclick="window.__bbOnNodeClick(${n.id})">`;
         if (isActive) {
@@ -950,7 +968,8 @@ function bbHighlightDeployTiles() {
     if (bbState.selectedPoolIndex !== null) {
         const deployRows = bbGetDeployRows('player');
         bbNodes.forEach(n => {
-            if (deployRows.includes(n.row) && !bbState.units.some(u => u.nodeId === n.id)) {
+            // 旗のあるマスにはカレーを配置できない。
+            if (deployRows.includes(n.row) && !bbIsFlagNode(n) && !bbState.units.some(u => u.nodeId === n.id)) {
                 n.highlight = 'selectable';
             }
         });
@@ -1015,8 +1034,8 @@ function bbOnRegenerateEnemyClick() {
 }
 
 function bbOnStartBattleClick() {
-    // 敵チームを自動配置（敵配置マスにランダムに割り当て）
-    const enemyDeployNodes = bbNodes.filter(n => bbGetDeployRows('enemy').includes(n.row));
+    // 敵チームを自動配置（敵配置マスにランダムに割り当て。旗のあるマスは除外）
+    const enemyDeployNodes = bbNodes.filter(n => bbGetDeployRows('enemy').includes(n.row) && !bbIsFlagNode(n));
     bbShuffleArray(enemyDeployNodes);
     let idx = 0;
     bbState.enemyPool.slice(0, BB_MAX_UNITS).forEach(curry => {
@@ -1073,12 +1092,13 @@ function bbScheduleNextTurn() {
     const actor = bbPickNextActor();
     if (!actor) return;
     bbState.activeUnit = actor;
+    bbState.subPhase = (actor.team === 'player') ? 'move' : null;
     bbRenderTurnQueuePreview();
     bbRenderBoard(); // ← アクティブな駒のノードを光らせるため再描画
     if (actor.team === 'player') {
         bbCenterOnNode(actor.nodeId); // 行動順が回ってきた駒を画面中央へ自動的に移動
         bbHighlightMovableTiles(actor);
-        bbSetBattleStatus(`${actor.name} の番です。移動先のマスをタップしてください。`);
+        bbSetBattleStatus(`${actor.name} の番です。移動先のマスをタップ（移動しないなら自分のマスをタップ）。`);
     } else {
         bbSetBattleStatus(`${actor.name}（敵）が行動中…`);
         // 敵の駒はセンタリングのスクロールが完全に終わってから、さらに一呼吸置いて
@@ -1118,35 +1138,47 @@ function bbGetMoveRange(spd) {
 let bbLastMoveParent = null;
 
 // 移動先として到達できるマスの集合（Set<nodeId>）を返す。
-// ・他の駒（敵味方問わず）がいるマスは通過できない＝そのマスより先へは進めない。
-// ・味方がいるマスへは進入自体できない（到達可能マスにも含めない）。
-// ・敵がいるマスへは進入できる（攻撃になる）が、そこで止まりそこから先へは進めない。
-// ・岩マスはわんぱくカレー以外、水マスは海の幸カレー以外、進入も通過もできない。
-//   （わんぱく・海の幸カレーにとっては、その地形は「無いもの」として扱われる）
-// ・毒マスは誰でも通過・停止できる（ダメージ処理はbbMoveUnitTo側で経路をたどって行う）。
+// ・他の駒（敵味方問わず）がいるマスには進入できない＝到達可能マスに含めない
+//   （「敵駒がいるマスは味方駒と同じで移動不可」。攻撃は移動後の別アクションで行う）。
+// ・岩マスは誰であっても進入も通過もできない（わんぱくカレーの岩破壊は移動中には効かない。
+//   隣接する岩を「攻撃」で破壊できる仕様は別途bbGetAdjacentActionTargetsで扱う）。
+// ・水マスは海の幸カレー以外、進入も通過もできない（海の幸カレーにとっては無いものとして扱う）。
+// ・毒マスは誰でも通過・停止できるが、同じ歩数で同じマスへ到達できる経路が複数ある場合は、
+//   毒マスを通る回数がより少ない経路を優先する（行動時に移動先を決めた際の移動順の話であり、
+//   遠回りしてまで毒マスそのものを避けるという意味ではない＝目的地は歩数最短のまま変えない）。
 function bbGetMovableNodeIds(unit) {
     const maxSteps = bbGetMoveRange(unit.spd);
     const startId = unit.nodeId;
-    const visited = new Set([startId]);
-    const result = new Set();
+    const poisonImmune = bbIsPoisonImmune(unit);
+    const bestPoisonCount = new Map([[startId, 0]]); // 確定済み（最短歩数で到達済み）のマスの、そこまでの最小毒通過回数
     const parent = new Map();
+    const result = new Set();
     let frontier = [startId];
     for (let step = 0; step < maxSteps && frontier.length > 0; step++) {
-        const nextFrontier = [];
+        const arrivedThisStep = new Map(); // このstep（＝歩数）で新たに到達できるマスごとの、最良（毒が最少）の毒通過回数
         frontier.forEach(nid => {
-            const node = bbNodesById[nid];
-            node.neighbors.forEach(nnid => {
-                if (visited.has(nnid)) return;
-                visited.add(nnid);
+            const curPoison = bestPoisonCount.get(nid) || 0;
+            bbNodesById[nid].neighbors.forEach(nnid => {
+                if (bestPoisonCount.has(nnid)) return; // より少ない歩数で既に確定済みのマスは対象外（歩数が最短のものを優先）
                 const targetNode = bbNodesById[nnid];
-                if (targetNode.terrain === BB_TERRAIN_ROCK && !bbCanBreakRock(unit)) return; // 岩：わんぱく以外は進入も通過も不可
-                if (targetNode.terrain === BB_TERRAIN_WATER && !bbCanCrossWater(unit)) return; // 水：海の幸以外は進入も通過も不可
+                if (targetNode.terrain === BB_TERRAIN_ROCK) return; // 岩：誰も進入・通過できない
+                if (targetNode.terrain === BB_TERRAIN_WATER && !bbCanCrossWater(unit)) return; // 水：海の幸以外は不可
                 const occupant = bbState.units.find(u => u.nodeId === nnid && u.hp > 0);
-                if (occupant && occupant.team === unit.team) return; // 味方のマスには入れない・通過もできない
-                result.add(nnid); // 空きマス、または敵がいるマス（攻撃対象）はここまで到達可能
-                parent.set(nnid, nid);
-                if (!occupant) nextFrontier.push(nnid); // 空きマスのみ、さらに先へ進める（敵のマスは通過不可＝そこで止まる）
+                if (occupant) return; // 敵味方問わず、駒がいるマスには進入も通過もできない
+                const addPoison = (!poisonImmune && targetNode.terrain === BB_TERRAIN_POISON) ? 1 : 0;
+                const candidatePoison = curPoison + addPoison;
+                const existing = arrivedThisStep.get(nnid);
+                if (existing === undefined || candidatePoison < existing) {
+                    arrivedThisStep.set(nnid, candidatePoison);
+                    parent.set(nnid, nid); // 同じ歩数の複数経路のうち、より毒の少ない経路の親で上書きする
+                }
             });
+        });
+        const nextFrontier = [];
+        arrivedThisStep.forEach((poisonCount, nid) => {
+            bestPoisonCount.set(nid, poisonCount);
+            result.add(nid);
+            nextFrontier.push(nid);
         });
         frontier = nextFrontier;
     }
@@ -1181,19 +1213,20 @@ function bbGetMovableNeighbors(unit) {
 function bbOnBattleNodeClick(nodeId) {
     const actor = bbState.activeUnit;
     const node = bbNodesById[nodeId];
-    // 自分の手番で「移動・攻撃できるマス」をタップした場合。
-    if (actor && actor.team === 'player' && node.highlight === 'movable') {
-        const defender = bbState.units.find(u => u.nodeId === nodeId && u.hp > 0 && u.team !== actor.team);
-        if (defender) {
-            // 敵のマスへ重ねる＝攻撃になるので、まず相手の詳細を見せてから実行するか選ばせる
-            // （見えない相手にいきなり突っ込んでしまう事故を防ぐ）。
-            bbShowUnitDetail(defender, { onConfirm: () => { bbMoveUnitTo(actor, nodeId); }, confirmLabel: 'この相手に攻撃する' });
-            return;
+    if (actor && actor.team === 'player' && actor.hp > 0) {
+        if (bbState.subPhase === 'move') {
+            // 自分が今いるマスをもう一度タップ＝移動しない（その場から行動選択フェーズへ）。
+            if (nodeId === actor.nodeId) { bbSkipMoveToActionPhase(actor); return; }
+            // 移動できるマスをタップした場合（敵駒がいるマスはそもそも移動可能マスに含まれない）。
+            if (node.highlight === 'movable') { bbMoveUnitTo(actor, nodeId); return; }
+        } else if (bbState.subPhase === 'action') {
+            // 行動選択フェーズ中に自分のマスをタップ＝何も行動しない。
+            if (nodeId === actor.nodeId) { bbSkipActionEndTurn(actor); return; }
+            // 攻撃対象（隣接する敵駒・岩）をタップした場合。
+            if (node.highlight === 'attackable') { bbOnPickActionTarget(actor, nodeId); return; }
         }
-        bbMoveUnitTo(actor, nodeId);
-        return;
     }
-    // それ以外（相手の番中や、移動先ではない駒をタップした場合）は詳細表示のみ行う。
+    // それ以外（相手の番中や、対象ではないマス・駒をタップした場合）は詳細表示のみ行う。
     const unit = bbState.units.find(u => u.nodeId === nodeId && u.hp > 0);
     if (unit) bbShowUnitDetail(unit);
 }
@@ -1281,17 +1314,14 @@ function bbAnimateUnitMove(unit, fromNodeId, path, onComplete) {
 }
 
 // 移動経路（bbReconstructMovePathで得た、出発地点を含まないnodeId配列）を順にたどり、
-// 岩マスの破壊・毒マスのダメージを適用する。毒ダメージで力尽きた場合はtrueを返す
-// （その場合、呼び出し側は戦闘トリガーなど後続の処理を行わない）。
+// 毒マスのダメージを適用する。毒ダメージで力尽きた場合はtrueを返す
+// （その場合、呼び出し側は移動後アクションフェーズなど後続の処理を行わない）。
+// ※岩マスは移動中は誰も通行できないため（bbGetMovableNodeIdsで除外済み）、ここでは扱わない。
+//   岩の破壊は移動後の「攻撃」アクション（bbExecuteAction）でのみ行う。
 function bbApplyTerrainEffectsAlongPath(unit, path) {
     for (let i = 0; i < path.length; i++) {
         const node = bbNodesById[path[i]];
         if (!node) continue;
-        if (node.terrain === BB_TERRAIN_ROCK) {
-            // 岩マスに到達できた時点でわんぱくカレー確定（bbGetMovableNodeIdsが弾いているため）。
-            node.terrain = null;
-            bbAppendLog(`${unit.name} が岩を壊した！`);
-        }
         if (node.terrain === BB_TERRAIN_POISON && !bbIsPoisonImmune(unit)) {
             const dmg = Math.max(1, Math.round(unit.maxHp * 0.2));
             unit.hp = Math.max(0, unit.hp - dmg);
@@ -1306,37 +1336,29 @@ function bbApplyTerrainEffectsAlongPath(unit, path) {
     return false;
 }
 
+// 移動先のマスには（bbGetMovableNodeIdsが既に除外しているため）敵味方どちらの駒もいない。
+// 移動が終わったら、そのまま移動後の行動選択フェーズ（bbEnterActionPhase）へ進む。
 function bbMoveUnitTo(unit, nodeId) {
-    const defender = bbState.units.find(u => u.nodeId === nodeId && u.hp > 0 && u.team !== unit.team);
     const fromNodeId = unit.nodeId;
-    const movePath = bbReconstructMovePath(unit, nodeId); // 岩破壊・毒ダメージの判定に使う経路（出発地点は含まない）
+    const movePath = bbReconstructMovePath(unit, nodeId); // 毒ダメージ判定に使う経路（出発地点は含まない）
     bbNodes.forEach(n => { n.highlight = null; });
-    if (defender) {
-        bbAppendLog(`${unit.name} が ${defender.name} に攻撃！`);
-        // 攻撃側の駒を相手のマスまで（マス目に沿って）滑らせ、重なった（ぶつかった）ところで戦闘画面へ切り替える
-        bbAnimateUnitMove(unit, fromNodeId, movePath, function () {
-            const diedOnTheWay = bbApplyTerrainEffectsAlongPath(unit, movePath);
-            if (diedOnTheWay) {
-                // 毒で力尽きた場合は攻撃不発。戦闘を起こさずそのまま次の手番へ。
-                bbRenderBoard();
-                setTimeout(bbScheduleNextTurn, 500);
-                return;
-            }
-            bbResolveBattle(unit, defender, nodeId);
-        });
-    } else {
-        bbAnimateUnitMove(unit, fromNodeId, movePath, function () {
-            unit.nodeId = nodeId;
-            bbAppendLog(`${unit.name} が移動した。`);
-            bbApplyTerrainEffectsAlongPath(unit, movePath);
-            bbRenderBoard();
+    bbAnimateUnitMove(unit, fromNodeId, movePath, function () {
+        unit.nodeId = nodeId;
+        bbAppendLog(`${unit.name} が移動した。`);
+        const diedOnTheWay = bbApplyTerrainEffectsAlongPath(unit, movePath);
+        bbRenderBoard();
+        if (diedOnTheWay) {
+            // 毒で力尽きた場合はそのまま次の手番へ（行動選択は行わない）。
             setTimeout(bbScheduleNextTurn, 500);
-        });
-    }
+            return;
+        }
+        bbEnterActionPhase(unit);
+    });
 }
 
-// 移動可能なマスの中から、targetNodeに一番近づけるマスを選ぶ（複数候補が同着なら、
-// そこに敵がいるマスを優先して排除する。それも複数ならランダム）。
+// 移動可能なマスの中から、targetNodeに一番近づけるマスを選ぶ（複数候補が同着ならランダム）。
+// ※敵がいるマスはbbGetMovableNodeIdsの時点で候補に含まれないため、ここで敵マスを優先する
+//   処理は不要（移動先として渡ってくる時点で必ず空きマス）。
 function bbPickMoveTowardNode(unit, moves, targetNode) {
     let bestDist = Infinity;
     let bestMoves = [];
@@ -1345,8 +1367,7 @@ function bbPickMoveTowardNode(unit, moves, targetNode) {
         if (d < bestDist - 0.01) { bestDist = d; bestMoves = [nid]; }
         else if (Math.abs(d - bestDist) <= 0.01) { bestMoves.push(nid); }
     });
-    const blockerMove = bestMoves.find(nid => bbState.units.some(u => u.nodeId === nid && u.hp > 0 && u.team !== unit.team));
-    return (blockerMove !== undefined) ? blockerMove : bestMoves[Math.floor(Math.random() * bestMoves.length)];
+    return bestMoves.length > 0 ? bestMoves[Math.floor(Math.random() * bestMoves.length)] : null;
 }
 // 生存中の自軍ユニットのうち、fromNodeに一番近い1体を返す（武闘派さんの追跡対象探し用）。
 function bbGetNearestEnemyUnit(unit, fromNode) {
@@ -1359,90 +1380,138 @@ function bbGetNearestEnemyUnit(unit, fromNode) {
     });
     return best;
 }
-// destNodeIdへの経路（bbLastMoveParent＝直近のbbGetMovableNodeIds呼び出し結果）が
-// 毒マスを通るかどうかを判定する（毒系カレーはダメージを受けないため常にfalse扱い）。
-function bbPathTouchesPoison(unit, destNodeId) {
-    if (bbIsPoisonImmune(unit)) return false;
-    const path = bbReconstructMovePath(unit, destNodeId);
-    return path.some(nid => { const n = bbNodesById[nid]; return n && n.terrain === BB_TERRAIN_POISON; });
-}
-// 移動範囲とは無関係に、盤面全体で見て「毒マスを一切通らずに」targetNodeIdへ到達できる
-// 経路が存在するかどうかを判定する（岩・水はunitがそもそも通れるかどうかに従う）。
-function bbPoisonFreeRouteExists(unit, targetNodeId) {
-    if (bbIsPoisonImmune(unit)) return true; // 毒系カレーにとっては毒マスは無いものと同じ
-    const startId = unit.nodeId;
-    if (startId == null || targetNodeId == null) return false;
-    if (startId === targetNodeId) return true;
-    const visited = new Set([startId]);
-    let frontier = [startId];
-    while (frontier.length > 0) {
-        const next = [];
-        frontier.forEach(nid => {
-            bbNodesById[nid].neighbors.forEach(nnid => {
-                if (visited.has(nnid)) return;
-                const n = bbNodesById[nnid];
-                if (n.terrain === BB_TERRAIN_ROCK && !bbCanBreakRock(unit)) return;
-                if (n.terrain === BB_TERRAIN_WATER && !bbCanCrossWater(unit)) return;
-                if (n.terrain === BB_TERRAIN_POISON) return; // 毒マスは一切通らない前提で探索する
-                visited.add(nnid);
-                next.push(nnid);
-            });
-        });
-        frontier = next;
-    }
-    return visited.has(targetNodeId);
-}
-// 「毒を踏まずに移動できるならそちらを優先し、踏まないとどこにも辿り着けない場合だけ踏む」の
-// 本体：まずtargetNodeIdへ毒を一切踏まずに到達できる経路がそもそも存在するか確認し、
-// 存在する場合だけ「今回の移動候補のうち毒を踏まない物」に絞り込む（存在しない＝どのみち
-// いつかは毒を踏まないと辿り着けないなら、絞り込まずそのまま最短経路を選ばせる）。
-function bbFilterPreferNonPoison(unit, candidateIds, targetNodeId) {
-    if (!bbPoisonFreeRouteExists(unit, targetNodeId)) return candidateIds;
-    const safe = candidateIds.filter(nid => !bbPathTouchesPoison(unit, nid));
-    return safe.length > 0 ? safe : candidateIds;
-}
-// 直接攻撃できる相手（今回の移動範囲内にいる敵）の中から選ぶときだけに使う簡易版：
-// 経路探索なしで、単に「毒を踏まずに攻撃できる相手」を優先する。
-function bbFilterPreferNonPoisonSimple(unit, candidateIds) {
-    const safe = candidateIds.filter(nid => !bbPathTouchesPoison(unit, nid));
-    return safe.length > 0 ? safe : candidateIds;
-}
 // 旗に向かって最短距離で進む（直進ちゃん・ランダムくんの「旗」側の挙動）。
+// ※毒マスをどうしても踏まずに済む経路がある場合の優先はbbGetMovableNodeIds側（パス単位の
+//   タイブレーク）で既に行われているため、ここで改めて目的地を絞り込む必要はない。
 function bbPerformEnemyTurnStraight(unit, moves) {
     const flagNodeId = bbGetFlagNodeId('player');
-    const safeMoves = bbFilterPreferNonPoison(unit, moves, flagNodeId);
-    if (safeMoves.includes(flagNodeId)) return flagNodeId; // 旗のマスへ直接進めるなら最優先（そのターンで勝利）
-    return bbPickMoveTowardNode(unit, safeMoves, bbNodesById[flagNodeId]);
+    if (moves.includes(flagNodeId)) return flagNodeId; // 旗のマスへ直接進めるなら最優先（そのターンで勝利）
+    return bbPickMoveTowardNode(unit, moves, bbNodesById[flagNodeId]);
 }
-// 攻撃できるならそれを最優先、できなければ一番近い敵を追いかける（武闘派さん・ランダムくんの「戦闘」側の挙動）。
+// 一番近い敵を追いかける（武闘派さん・ランダムくんの「戦闘」側の挙動）。
+// 攻撃そのものは移動後の行動選択フェーズ（bbEnterActionPhase）で自動的に行われるため、
+// ここでは「隣接できる位置まで近づく」ことだけを考える。
 function bbPerformEnemyTurnCombat(unit, moves) {
-    const attackable = moves.filter(nid => bbState.units.some(u => u.nodeId === nid && u.hp > 0 && u.team !== unit.team));
-    if (attackable.length > 0) {
-        const safeAttackable = bbFilterPreferNonPoisonSimple(unit, attackable);
-        return safeAttackable[Math.floor(Math.random() * safeAttackable.length)];
-    }
     const target = bbGetNearestEnemyUnit(unit, bbNodesById[unit.nodeId]);
     const targetNodeId = target ? target.nodeId : bbGetFlagNodeId('player');
-    const safeMoves = bbFilterPreferNonPoison(unit, moves, targetNodeId);
-    return bbPickMoveTowardNode(unit, safeMoves, bbNodesById[targetNodeId]);
+    return bbPickMoveTowardNode(unit, moves, bbNodesById[targetNodeId]);
 }
 function bbPerformEnemyTurn(unit) {
     const moves = bbGetMovableNeighbors(unit);
     if (moves.length === 0) {
-        bbAppendLog(`${unit.name}（敵）は動けずパス。`);
-        setTimeout(bbScheduleNextTurn, 400);
+        // 移動できる場所が無くても、隣接する敵や岩があれば行動できるかもしれないので、
+        // 移動せず行動選択フェーズへ進む（何も対象が無ければそこでパスになる）。
+        bbAppendLog(`${unit.name}（敵）は移動できないため、その場から行動を選ぶ。`);
+        bbEnterActionPhase(unit);
         return;
     }
     // 対戦相手選択で選んだタイプに応じて行動パターンを切り替える：
     // ・直進ちゃん(straight)：常に旗へ最短距離で進む。
-    // ・武闘派さん(combat)：攻撃できれば最優先、できなければ一番近い敵を追う。
+    // ・武闘派さん(combat)：一番近い敵を追う（隣接できれば行動選択フェーズで自動的に攻撃する）。
     // ・ランダムくん(random)：行動のたびに上記2つのどちらかをランダムに選ぶ。
     let mode = bbSelectedOpponentType;
     if (mode === 'random') mode = (Math.random() < 0.5) ? 'straight' : 'combat';
     const chosen = (mode === 'combat') ? bbPerformEnemyTurnCombat(unit, moves) : bbPerformEnemyTurnStraight(unit, moves);
+    if (chosen == null) { bbEnterActionPhase(unit); return; }
     bbMoveUnitTo(unit, chosen);
 }
 function bbDist(a, b) { return Math.hypot(a.x - b.x, a.y - b.y); }
+
+// ------------------------------------------------------------
+// 8.5 移動後の行動選択フェーズ
+//    移動した（または移動せずその場に留まった）後、隣接マスに敵駒がいれば「攻撃」、
+//    自分がわんぱくカレーで隣接マスに岩があれば「岩を攻撃」して破壊できる。
+//    複数の対象がいても選べる行動は1回のみ（攻撃 or 岩破壊のどちらか1つだけ）。
+// ------------------------------------------------------------
+// 隣接マス（上下左右）にいる攻撃対象をまとめて返す。
+// enemies: 隣接する敵駒（攻撃対象）の配列。rocks: 隣接する岩マスのノード（わんぱくのみ攻撃可）の配列。
+function bbGetAdjacentActionTargets(unit) {
+    const targets = { enemies: [], rocks: [] };
+    const node = bbNodesById[unit.nodeId];
+    if (!node) return targets;
+    const canBreakRock = bbCanBreakRock(unit);
+    node.neighbors.forEach(nid => {
+        const n = bbNodesById[nid];
+        const occupant = bbState.units.find(u => u.nodeId === nid && u.hp > 0);
+        if (occupant && occupant.team !== unit.team) {
+            targets.enemies.push(occupant);
+        } else if (!occupant && n.terrain === BB_TERRAIN_ROCK && canBreakRock) {
+            targets.rocks.push(n);
+        }
+    });
+    return targets;
+}
+
+function bbEnterActionPhase(unit) {
+    if (bbState.phase !== 'battle' || !bbState.units.includes(unit) || unit.hp <= 0) { bbScheduleNextTurn(); return; }
+    const targets = bbGetAdjacentActionTargets(unit);
+    const hasTargets = targets.enemies.length > 0 || targets.rocks.length > 0;
+    if (unit.team === 'player') {
+        if (!hasTargets) {
+            bbNodes.forEach(n => { n.highlight = null; });
+            bbRenderBoard();
+            setTimeout(bbScheduleNextTurn, 200);
+            return;
+        }
+        bbState.subPhase = 'action';
+        bbNodes.forEach(n => { n.highlight = null; });
+        targets.enemies.forEach(u => { bbNodesById[u.nodeId].highlight = 'attackable'; });
+        targets.rocks.forEach(n => { n.highlight = 'attackable'; });
+        bbRenderBoard();
+        bbSetBattleStatus(`${unit.name} の番です。攻撃する相手や岩をタップ（行動しないなら自分のマスをタップ）。`);
+        return;
+    }
+    // 敵（AI）：攻撃できる相手がいれば最優先、いなければわんぱくなら隣接する岩を破壊する。
+    let chosen = null;
+    if (targets.enemies.length > 0) {
+        chosen = targets.enemies[Math.floor(Math.random() * targets.enemies.length)];
+    } else if (targets.rocks.length > 0) {
+        chosen = targets.rocks[Math.floor(Math.random() * targets.rocks.length)];
+    }
+    if (!chosen) { setTimeout(bbScheduleNextTurn, 300); return; }
+    setTimeout(() => { bbExecuteAction(unit, chosen); }, 300);
+}
+
+// プレイヤーが移動フェーズで自分のマスをタップ＝移動しない、を選んだ場合。
+function bbSkipMoveToActionPhase(unit) {
+    bbNodes.forEach(n => { n.highlight = null; });
+    bbEnterActionPhase(unit);
+}
+// プレイヤーが行動選択フェーズで自分のマスをタップ＝何も行動しない、を選んだ場合。
+function bbSkipActionEndTurn(unit) {
+    bbNodes.forEach(n => { n.highlight = null; });
+    bbAppendLog(`${unit.name} は行動しなかった。`);
+    bbRenderBoard();
+    setTimeout(bbScheduleNextTurn, 300);
+}
+// プレイヤーが行動選択フェーズで、ハイライトされた対象（敵駒 or 岩マス）をタップした場合。
+function bbOnPickActionTarget(actor, nodeId) {
+    const node = bbNodesById[nodeId];
+    const defender = bbState.units.find(u => u.nodeId === nodeId && u.hp > 0 && u.team !== actor.team);
+    if (defender) {
+        bbShowUnitDetail(defender, { onConfirm: () => { bbExecuteAction(actor, defender); }, confirmLabel: 'この相手に攻撃する' });
+        return;
+    }
+    if (node && node.terrain === BB_TERRAIN_ROCK) {
+        if (typeof showCustomConfirm === 'function') {
+            showCustomConfirm('岩を攻撃', '隣接する岩マスを攻撃して破壊しますか？', () => { bbExecuteAction(actor, node); });
+        } else {
+            bbExecuteAction(actor, node);
+        }
+    }
+}
+// 選ばれた1つの行動を実行する。targetが盤面ノード（岩）ならそれを破壊、ユニットなら戦闘を行う。
+function bbExecuteAction(unit, target) {
+    bbNodes.forEach(n => { n.highlight = null; });
+    if (target && target.terrain === BB_TERRAIN_ROCK) {
+        target.terrain = null;
+        bbAppendLog(`${unit.name} が岩を攻撃して破壊した！`);
+        bbRenderBoard();
+        setTimeout(bbScheduleNextTurn, 500);
+        return;
+    }
+    bbResolveBattle(unit, target);
+}
 
 // ------------------------------------------------------------
 // 9. 戦闘解決 ＋ 戦闘画面
@@ -1455,8 +1524,10 @@ function bbDist(a, b) { return Math.hypot(a.x - b.x, a.y - b.y); }
 //    カレーストックの経済・報酬・実績・クエスト進行には本編側（done()の
 //    isBoardBattle分岐）で一切触れないようにしてあるため、ボードカレーバトルの
 //    駒は勝敗にかかわらず消費されない。
+//    ※隣接マスからの攻撃に変わったため（移動して重なる仕様は廃止）、勝った側の駒の
+//    位置を移動させる処理はもう行わない（お互い元のマスに立ったまま戦闘する）。
 // ------------------------------------------------------------
-function bbResolveBattle(mover, defender, targetNodeId) {
+function bbResolveBattle(mover, defender) {
     const playerUnit = mover.team === 'player' ? mover : defender;
     const enemyUnit = mover.team === 'player' ? defender : mover;
 
@@ -1491,9 +1562,6 @@ function bbResolveBattle(mover, defender, targetNodeId) {
         const loser = moverWon ? defender : mover;
         bbAppendLog(`${loser.name} は力尽きた。${winner.name} の勝ち（残HP ${winner.hp}/${winner.maxHp}）`);
         bbState.units = bbState.units.filter(u => u !== loser);
-        // 勝った駒は、衝突アニメーションで既に見た目上そのマスへ来ているので、
-        // ここでは位置を確定させるだけでよい（再度スライドさせる必要はない）。
-        if (moverWon) mover.nodeId = targetNodeId;
         bbRenderBoard();
         setTimeout(bbScheduleNextTurn, 500);
     });
