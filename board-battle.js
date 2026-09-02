@@ -69,10 +69,10 @@ const BB_STYLE = `
    を基準にしており、#bbBoardWrapそのものは変形させていないため、ドラッグ・ピンチ・タップの
    当たり判定には影響しない（ブラウザは3D変形後の見た目の位置からでもクリック対象を
    正しく解決してくれるため、タイルのタップ自体も問題なく機能する）。 */
-#bbBoardWrap { position: absolute; inset: 0; overflow: hidden; touch-action: none; background: #2b1a0e; perspective: 1400px; }
+#bbBoardWrap { position: absolute; inset: 0; overflow: hidden; touch-action: none; background: #2b1a0e; perspective: 1200px; }
 #bbBoardSvg {
     width: 100%; height: 100%; display: block;
-    transform: rotateX(24deg);
+    transform: rotateX(40deg);
     transform-origin: 50% 50%;
 }
 .bb-board-edge { stroke: #6b4a26; stroke-width: 2; }
@@ -95,6 +95,27 @@ const BB_STYLE = `
 .bb-board-node-tile.bb-active-turn { stroke: #ffe066; stroke-width: 5; }
 .bb-board-hp-bg { fill: #222; }
 .bb-board-hp-fill { fill: #2ecc71; }
+/* コマ＝厚みのあるコイン型トークン。上面にカレーイラスト、側面（下にずらして重ねた円）を
+   自陣＝青／敵陣＝赤で塗り分けて、コインの厚み・チーム色が一目でわかるようにする。 */
+.bb-coin-side { pointer-events: none; }
+.bb-coin-top-bg { fill: #efdeb1; pointer-events: none; }
+.bb-coin-top-ring { fill: none; stroke-width: 2.5; pointer-events: none; }
+/* 移動後の行動選択フェーズ：攻撃対象（隣接する敵駒・岩）へ向かって進んでいくような
+   矢印（三角形）アニメーション。上下左右いずれの向きでも同じ見た目になるよう、
+   4方向ぶんのキーフレームをそれぞれ用意する。 */
+.bb-attack-arrow {
+    fill: #ff4136; stroke: #7a0d06; stroke-width: 1; pointer-events: none;
+    transform-box: fill-box; transform-origin: center;
+    filter: drop-shadow(0 0 2px rgba(0,0,0,0.6));
+}
+.bb-attack-arrow.bb-arrow-up { animation: bbArrowMarchUp 0.85s ease-in-out infinite; }
+.bb-attack-arrow.bb-arrow-down { animation: bbArrowMarchDown 0.85s ease-in-out infinite; }
+.bb-attack-arrow.bb-arrow-left { animation: bbArrowMarchLeft 0.85s ease-in-out infinite; }
+.bb-attack-arrow.bb-arrow-right { animation: bbArrowMarchRight 0.85s ease-in-out infinite; }
+@keyframes bbArrowMarchUp    { 0% { transform: translateY(8px);  opacity: 0.2; } 55% { opacity: 1; } 100% { transform: translateY(-10px); opacity: 0; } }
+@keyframes bbArrowMarchDown  { 0% { transform: translateY(-8px); opacity: 0.2; } 55% { opacity: 1; } 100% { transform: translateY(10px);  opacity: 0; } }
+@keyframes bbArrowMarchLeft  { 0% { transform: translateX(8px);  opacity: 0.2; } 55% { opacity: 1; } 100% { transform: translateX(-10px); opacity: 0; } }
+@keyframes bbArrowMarchRight { 0% { transform: translateX(-8px); opacity: 0.2; } 55% { opacity: 1; } 100% { transform: translateX(10px);  opacity: 0; } }
 /* 特殊マス（画像は未整備のため、色分け＋漢字1文字で暫定表示） */
 .bb-board-node-tile.bb-terrain-rock { fill: #6b6459; }
 .bb-board-node-tile.bb-terrain-water { fill: #2e6f9e; }
@@ -865,6 +886,51 @@ function bbFlagMarkup(x, y, color) {
     return s;
 }
 
+// コマ＝厚みのあるコイン型トークンを描く。上面（cx,cy中心の円）にカレーイラストを
+// クリップ表示し、その少し下に側面色（自陣＝青／敵陣＝赤）の円を重ねてずらすことで、
+// 円柱のように厚みのある側面が下側にだけ覗いているように見せる。
+// clipKeyは同じSVG内でclipPath idが重複しないようにするための一意な文字列。
+function bbCoinMarkup(cx, cy, r, team, imgSrc, clipKey) {
+    const rim = (team === 'player') ? '#3aa0e6' : '#e5564a';
+    const rimDeep = (team === 'player') ? '#1d5c8f' : '#8f261d';
+    const rimH = Math.max(3, Math.round(r * 0.34)); // コインの厚み（側面の高さ）
+    const clipId = `bbCoinClip${clipKey}`;
+    let s = '';
+    // 側面（厚み）：奥（暗い色）→手前（明るい色）の順で少しずつ下にずらして重ね、
+    // 上面の縁からだけ色帯がのぞく円柱のように見せる。
+    s += `<circle class="bb-coin-side" cx="${cx}" cy="${cy + rimH}" r="${r}" fill="${rimDeep}"></circle>`;
+    s += `<circle class="bb-coin-side" cx="${cx}" cy="${cy + rimH * 0.55}" r="${r}" fill="${rim}"></circle>`;
+    // 上面：カレーイラスト＋チーム色のリング
+    s += `<defs><clipPath id="${clipId}"><circle cx="${cx}" cy="${cy}" r="${r}"></circle></clipPath></defs>`;
+    s += `<circle class="bb-coin-top-bg" cx="${cx}" cy="${cy}" r="${r}"></circle>`;
+    s += `<image href="${imgSrc}" x="${cx - r}" y="${cy - r}" width="${r * 2}" height="${r * 2}" preserveAspectRatio="xMidYMid slice" clip-path="url(#${clipId})"></image>`;
+    s += `<circle class="bb-coin-top-ring" cx="${cx}" cy="${cy}" r="${r}" stroke="${rim}"></circle>`;
+    return s;
+}
+
+// 移動後の行動選択フェーズ用：行動主(fromNode)から対象マス(toNode)へ向かって
+// 進んでいくように見える矢印（三角形）を対象マス寄りに描く。CSS側は上下左右
+// 4方向ぶんの march アニメーションを用意しているだけなので、ここでは実際の向き
+// （dx/dyの符号）から該当するクラス名を選ぶ。
+function bbAttackArrowMarkup(fromNode, toNode) {
+    if (!fromNode || !toNode) return '';
+    const dx = toNode.x - fromNode.x, dy = toNode.y - fromNode.y;
+    const len = Math.hypot(dx, dy) || 1;
+    const ux = dx / len, uy = dy / len;
+    const pullBack = 16; // 対象マスの中心から、出発地側へ少し引いた位置に矢印を置く
+    const cx = toNode.x - ux * pullBack, cy = toNode.y - uy * pullBack;
+    const s = 8;
+    const tipX = cx + ux * s, tipY = cy + uy * s;
+    const baseCx = cx - ux * s, baseCy = cy - uy * s;
+    const px = -uy, py = ux; // 進行方向に垂直なベクトル（底辺の広がり方向）
+    const b1x = baseCx + px * s, b1y = baseCy + py * s;
+    const b2x = baseCx - px * s, b2y = baseCy - py * s;
+    let dirClass;
+    if (Math.abs(dy) >= Math.abs(dx)) dirClass = (dy < 0) ? 'bb-arrow-up' : 'bb-arrow-down';
+    else dirClass = (dx < 0) ? 'bb-arrow-left' : 'bb-arrow-right';
+    return `<polygon class="bb-attack-arrow ${dirClass}" points="${tipX},${tipY} ${b1x},${b1y} ${b2x},${b2y}"></polygon>`;
+}
+
 function bbRenderBoard() {
     const viewportG = document.getElementById('bbViewportG');
     if (!viewportG) return;
@@ -907,14 +973,17 @@ function bbRenderBoard() {
             html += `<text class="bb-terrain-label" x="${n.x}" y="${n.y}" text-anchor="middle" dominant-baseline="central">${BB_TERRAIN_LABEL[n.terrain] || ''}</text>`;
         }
         if (unit) {
-            const clipId = `bbClip${n.id}`;
             const r2 = BB_NODE_R - 4;
-            html += `<defs><clipPath id="${clipId}"><circle cx="${n.x}" cy="${n.y}" r="${r2}"></circle></clipPath></defs>`;
-            html += `<image href="${bbGetCurryImg(unit.raw)}" x="${n.x - r2}" y="${n.y - r2}" width="${r2 * 2}" height="${r2 * 2}" preserveAspectRatio="xMidYMid slice" clip-path="url(#${clipId})"></image>`;
+            html += bbCoinMarkup(n.x, n.y, r2, unit.team, bbGetCurryImg(unit.raw), `n${n.id}`);
             const pct = Math.max(0, unit.hp / unit.maxHp);
             const barW = BB_NODE_HALF * 1.6;
             html += `<rect class="bb-board-hp-bg" x="${n.x - barW / 2}" y="${n.y + BB_NODE_HALF + 4}" width="${barW}" height="5" rx="2"></rect>`;
             html += `<rect class="bb-board-hp-fill" x="${n.x - barW / 2}" y="${n.y + BB_NODE_HALF + 4}" width="${barW * pct}" height="5" rx="2"></rect>`;
+        }
+        // 行動選択フェーズ中、攻撃対象（隣接する敵駒・岩）のマスへ、行動主から向かって
+        // 進んでいくように見える矢印を重ねて表示する。
+        if (n.highlight === 'attackable' && bbState.activeUnit) {
+            html += bbAttackArrowMarkup(bbNodesById[bbState.activeUnit.nodeId], n);
         }
         html += `</g>`;
     });
@@ -1258,30 +1327,12 @@ function bbAnimateUnitMove(unit, fromNodeId, path, onComplete) {
     unit._animating = true;
     bbRenderBoard();
 
-    const clipId = `bbAnimClip${unit.uid}_${Date.now()}`;
-    const defs = document.createElementNS(ns, 'defs');
-    const clipPath = document.createElementNS(ns, 'clipPath');
-    clipPath.setAttribute('id', clipId);
-    const clipCircle = document.createElementNS(ns, 'circle');
-    clipCircle.setAttribute('cx', fromNode.x);
-    clipCircle.setAttribute('cy', fromNode.y);
-    clipCircle.setAttribute('r', r2);
-    clipPath.appendChild(clipCircle);
-    defs.appendChild(clipPath);
-    viewportG.appendChild(defs);
-
     const g = document.createElementNS(ns, 'g');
     g.style.transform = 'translate(0px, 0px)';
-
-    const img = document.createElementNS(ns, 'image');
-    img.setAttribute('href', bbGetCurryImg(unit.raw));
-    img.setAttribute('x', fromNode.x - r2);
-    img.setAttribute('y', fromNode.y - r2);
-    img.setAttribute('width', r2 * 2);
-    img.setAttribute('height', r2 * 2);
-    img.setAttribute('preserveAspectRatio', 'xMidYMid slice');
-    img.setAttribute('clip-path', `url(#${clipId})`);
-    g.appendChild(img);
+    // 通常描画（bbRenderBoard）と同じコイン型の見た目（上面カレーイラスト＋側面チーム色）を
+    // 浮動スプライトにもそのまま使う。文字列で組み立ててinnerHTMLに流し込めば、
+    // clipPath/画像などをここで個別にDOM構築する必要がない（bbRenderBoard側と同じヘルパー）。
+    g.innerHTML = bbCoinMarkup(fromNode.x, fromNode.y, r2, unit.team, bbGetCurryImg(unit.raw), `anim${unit.uid}_${Date.now()}`);
     viewportG.appendChild(g);
 
     // 1マスあたりの区間時間（マス数が多いほど短くし、全体としてはBB_MOVE_ANIM_MS前後に収める）。
@@ -1290,7 +1341,6 @@ function bbAnimateUnitMove(unit, fromNodeId, path, onComplete) {
     function runSegment() {
         if (idx >= steps.length) {
             if (viewportG.contains(g)) viewportG.removeChild(g);
-            if (viewportG.contains(defs)) viewportG.removeChild(defs);
             unit._animating = false;
             onComplete();
             return;
