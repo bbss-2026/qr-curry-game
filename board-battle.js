@@ -122,17 +122,23 @@ const BB_STYLE = `
 @keyframes bbArrowMarchDown  { 0% { transform: translateY(-8px); opacity: 0.2; } 55% { opacity: 1; } 100% { transform: translateY(10px);  opacity: 0; } }
 @keyframes bbArrowMarchLeft  { 0% { transform: translateX(8px);  opacity: 0.2; } 55% { opacity: 1; } 100% { transform: translateX(-10px); opacity: 0; } }
 @keyframes bbArrowMarchRight { 0% { transform: translateX(-8px); opacity: 0.2; } 55% { opacity: 1; } 100% { transform: translateX(10px);  opacity: 0; } }
-/* ダメージPOP（毒マス通過時など）：マス位置から数字が浮かび上がって消える。 */
-.bb-damage-pop-text {
-    font-size: 18px; font-weight: bold; fill: #ff4136; stroke: #3a0a06; stroke-width: 3;
-    paint-order: stroke; pointer-events: none; user-select: none;
+/* ダメージPOP（毒マス通過時など）：マス位置から数字が浮かび上がって消える。
+   盤面のSVG自体はCSSの3D変形（rotateX）で傾けているため、その内部に描くと数字も
+   一緒に傾いて見えてしまう。そこで盤面と同じ画面位置に追従させつつ、見た目自体は
+   傾きの影響を受けない平面のHTMLレイヤー（#bbFxLayer、bbBoardSvgの外側の兄弟要素）に
+   数字を表示する（＝常に正面を向いたまま表示される）。 */
+#bbFxLayer { position: absolute; inset: 0; pointer-events: none; z-index: 2; overflow: hidden; }
+.bb-damage-pop-html {
+    position: absolute; left: 0; top: 0; transform: translate(-50%, -18px);
+    font-size: 18px; font-weight: 900; color: #ff4136; white-space: nowrap;
+    /* -webkit-text-strokeは太くすると文字そのものを塗りつぶして潰れて見えるため使わず、
+       文字色の下に黒を敷くように複数方向のtext-shadowを重ねて外側だけに縁取りを作る。 */
+    text-shadow:
+        -2px -2px 0 #3a0a06, 2px -2px 0 #3a0a06, -2px 2px 0 #3a0a06, 2px 2px 0 #3a0a06,
+        -2px 0 0 #3a0a06, 2px 0 0 #3a0a06, 0 -2px 0 #3a0a06, 0 2px 0 #3a0a06;
+    opacity: 1; transition: transform 0.7s ease-out, opacity 0.7s ease-out;
 }
-.bb-damage-pop {
-    opacity: 1; transform: translateY(0px);
-    transform-box: fill-box; transform-origin: center;
-    transition: transform 0.7s ease-out, opacity 0.7s ease-out;
-}
-.bb-damage-pop.bb-damage-pop-anim { opacity: 0; transform: translateY(-26px); }
+.bb-damage-pop-html.bb-damage-pop-html-anim { opacity: 0; transform: translate(-50%, -44px); }
 
 #bbBottomPanel {
     position: absolute; bottom: 0; left: 0; right: 0; z-index: 25;
@@ -180,15 +186,29 @@ const BB_STYLE = `
     text-align: center;
 }
 #bbBattleStartSplash.bb-show { opacity: 1; }
+/* -webkit-text-strokeは文字の輪郭の内外にまたがって太い線を引くため、太字と組み合わさると
+   文字そのものを塗りつぶして潰れて見えてしまう。そこで文字の縁取りは輪郭線ではなく、
+   本来の文字色の下（背面）に複数方向へずらした黒い文字を重ねて敷く方式（text-shadow）に
+   することで、外側にだけ縁取りが付き、文字自体の形は潰れなくなる。 */
 #bbBattleStartSplashLine1, #bbBattleStartSplashLine2 {
     font-family: "Hiragino Kaku Gothic ProN", "Yu Gothic", sans-serif;
     color: #ffcc33; font-weight: 900;
-    -webkit-text-stroke: 3px #1a0d00;
-    text-shadow: 0 0 14px rgba(0,0,0,0.75), 0 4px 0 rgba(0,0,0,0.35);
     letter-spacing: 0.04em;
 }
-#bbBattleStartSplashLine1 { font-size: 26px; margin-bottom: 6px; }
-#bbBattleStartSplashLine2 { font-size: 52px; -webkit-text-stroke-width: 5px; letter-spacing: 0.1em; }
+#bbBattleStartSplashLine1 {
+    font-size: 26px; margin-bottom: 6px;
+    text-shadow:
+        -3px -3px 0 #1a0d00, 3px -3px 0 #1a0d00, -3px 3px 0 #1a0d00, 3px 3px 0 #1a0d00,
+        -3px 0 0 #1a0d00, 3px 0 0 #1a0d00, 0 -3px 0 #1a0d00, 0 3px 0 #1a0d00,
+        0 4px 0 rgba(0,0,0,0.35), 0 0 14px rgba(0,0,0,0.75);
+}
+#bbBattleStartSplashLine2 {
+    font-size: 52px; letter-spacing: 0.1em;
+    text-shadow:
+        -5px -5px 0 #1a0d00, 5px -5px 0 #1a0d00, -5px 5px 0 #1a0d00, 5px 5px 0 #1a0d00,
+        -5px 0 0 #1a0d00, 5px 0 0 #1a0d00, 0 -5px 0 #1a0d00, 0 5px 0 #1a0d00,
+        0 4px 0 rgba(0,0,0,0.35), 0 0 14px rgba(0,0,0,0.75);
+}
 
 /* 盤面の駒をタップした時に出す簡易ステータスカード（配置フェーズ・戦闘フェーズ共通） */
 #bbUnitDetailOverlay {
@@ -349,7 +369,7 @@ function bbGetTileImg(terrain) {
 const BB_COIN_Y_LIFT = 14;
 
 const BB_STAT_BUDGET = 3000;
-const BB_MAX_UNITS = 5;
+const BB_MAX_UNITS = 9;
 
 let bbNodes = [];   // {id,row,col,x,y,neighbors:[id...],terrain:null|'rock'|'water'|'poison'}
 let bbNodesById = {};
@@ -1022,7 +1042,7 @@ function bbRenderBoard() {
         // マスの背景画像（通常／岩／水／毒）。地形ごとの画像を敷き詰め、その上にハイライト用の
         // 枠線（fill:noneのrect＝cls）を重ねる。
         html += `<image class="bb-board-tile-img" href="${bbGetTileImg(n.terrain)}" x="${n.x - BB_NODE_HALF}" y="${n.y - BB_NODE_HALF}" width="${BB_NODE_HALF * 2}" height="${BB_NODE_HALF * 2}" preserveAspectRatio="xMidYMid slice"></image>`;
-        html += `<rect class="${cls}" x="${n.x - BB_NODE_HALF}" y="${n.y - BB_NODE_HALF}" width="${BB_NODE_HALF * 2}" height="${BB_NODE_HALF * 2}"></rect>`;
+        html += `<rect id="bbTile${n.id}" class="${cls}" x="${n.x - BB_NODE_HALF}" y="${n.y - BB_NODE_HALF}" width="${BB_NODE_HALF * 2}" height="${BB_NODE_HALF * 2}"></rect>`;
         if (isFlag && !unit) {
             html += bbFlagMarkup(n.x, n.y, n.row === BB_ROW_TOP ? '#e74c3c' : '#3498db');
         }
@@ -1123,7 +1143,7 @@ function bbOnPickPoolCurry(idx) {
     }
     const placed = bbState.units.filter(u => u.team === 'player');
     if (placed.length >= BB_MAX_UNITS) {
-        alert('配置できるのは最大5体までです。');
+        alert('配置できるのは最大9体までです。');
         return;
     }
     bbState.selectedPoolIndex = idx;
@@ -1483,48 +1503,56 @@ function bbFadeOutUnit(unit, onComplete) {
 }
 
 // 指定したマスの位置に、ダメージ数値が浮かび上がって消えるPOPを表示する（毒マス通過時など）。
+// 盤面のSVG（#bbBoardSvg）はCSSの3D変形（rotateX）で傾けているため、その内部に描くと
+// 数字も一緒に傾いて見えてしまう。そこで#bbBoardSvgの外側の兄弟要素である平面レイヤー
+// （#bbFxLayer）にHTML要素として重ね、対象マスの実際の画面上の位置（getBoundingClientRect、
+// パン・ズーム・3D変形すべて反映済みの見た目上の位置）に配置することで、傾きの影響を
+// 受けずに常に正面を向いたまま表示する。
 const BB_DAMAGE_POP_MS = 750;
 function bbShowDamagePop(nodeId, text) {
-    const node = bbNodesById[nodeId];
-    const viewportG = document.getElementById('bbViewportG');
-    if (!node || !viewportG) return;
-    const ns = 'http://www.w3.org/2000/svg';
-    const g = document.createElementNS(ns, 'g');
-    g.setAttribute('class', 'bb-damage-pop');
-    const t = document.createElementNS(ns, 'text');
-    t.setAttribute('class', 'bb-damage-pop-text');
-    t.setAttribute('x', node.x);
-    t.setAttribute('y', node.y - BB_COIN_Y_LIFT - 12);
-    t.setAttribute('text-anchor', 'middle');
-    t.textContent = text;
-    g.appendChild(t);
-    viewportG.appendChild(g);
+    const tileEl = document.getElementById('bbTile' + nodeId);
+    const fxLayer = document.getElementById('bbFxLayer');
+    const wrapEl = document.getElementById('bbBoardWrap');
+    if (!tileEl || !fxLayer || !wrapEl) return;
+    const tileRect = tileEl.getBoundingClientRect();
+    const wrapRect = wrapEl.getBoundingClientRect();
+    const div = document.createElement('div');
+    div.className = 'bb-damage-pop-html';
+    div.textContent = text;
+    div.style.left = (tileRect.left - wrapRect.left + tileRect.width / 2) + 'px';
+    div.style.top = (tileRect.top - wrapRect.top) + 'px';
+    fxLayer.appendChild(div);
     requestAnimationFrame(() => {
-        void g.getBoundingClientRect(); // 初期状態を確実に反映させてからトランジションを開始する
-        g.classList.add('bb-damage-pop-anim');
+        void div.getBoundingClientRect(); // 初期状態を確実に反映させてからトランジションを開始する
+        div.classList.add('bb-damage-pop-html-anim');
     });
     setTimeout(() => {
-        if (viewportG.contains(g)) viewportG.removeChild(g);
+        if (fxLayer.contains(div)) fxLayer.removeChild(div);
     }, BB_DAMAGE_POP_MS);
 }
 
 // 毒マスのダメージ演出：まずpoison.mp3を鳴らし、その少し後にpunch.mp3と同時に
-// ダメージ数値のPOPを駒の位置（node）に表示する。
+// ダメージ数値のPOPを駒の位置（node）に表示する。onDoneはPOPが完全に消えた後に呼ばれる
+// （毒ダメージのPOPが表示されている最中に次の駒へ画面がスクロールしてしまわないようにするため）。
 const BB_POISON_HIT_DELAY_MS = 450;
-function bbPlayPoisonHitEffect(nodeId, dmg) {
+function bbPlayPoisonHitEffect(nodeId, dmg, onDone) {
     bbPlaySfx('poison.mp3');
     setTimeout(() => {
         bbPlaySfx('punch.mp3');
         bbShowDamagePop(nodeId, `-${dmg}`);
+        setTimeout(() => { if (onDone) onDone(); }, BB_DAMAGE_POP_MS);
     }, BB_POISON_HIT_DELAY_MS);
 }
 
 // 移動経路（bbReconstructMovePathで得た、出発地点を含まないnodeId配列）を順にたどり、
-// 毒マスのダメージを適用する。毒ダメージで力尽きた場合はtrueを返す
-// （その場合、呼び出し側はbbFadeOutUnitでフェードアウトさせてから実際に取り除く）。
+// 毒マスのダメージを適用する。ダメージ自体はここで即座に確定させるが、演出（効果音・POP）は
+// 1つずつ順番に再生し、最後のPOPが消え終わってからonDone(diedOnTheWay)を呼ぶ
+// （＝呼び出し側の次の処理・次の駒への画面スクロールは、演出がすべて終わるまで待たされる）。
 // ※岩マスは移動中は誰も通行できないため（bbGetMovableNodeIdsで除外済み）、ここでは扱わない。
 //   岩の破壊は移動後の「攻撃」アクション（bbExecuteAction）でのみ行う。
-function bbApplyTerrainEffectsAlongPath(unit, path) {
+function bbApplyTerrainEffectsAlongPath(unit, path, onDone) {
+    const hits = [];
+    let diedOnTheWay = false;
     for (let i = 0; i < path.length; i++) {
         const node = bbNodesById[path[i]];
         if (!node) continue;
@@ -1532,14 +1560,23 @@ function bbApplyTerrainEffectsAlongPath(unit, path) {
             const dmg = Math.max(1, Math.round(unit.maxHp * 0.2));
             unit.hp = Math.max(0, unit.hp - dmg);
             bbAppendLog(`${unit.name} は毒マスで${dmg}ダメージを受けた！（残HP ${unit.hp}/${unit.maxHp}）`);
-            bbPlayPoisonHitEffect(node.id, dmg);
+            hits.push({ nodeId: node.id, dmg });
             if (unit.hp <= 0) {
                 bbAppendLog(`${unit.name} は毒で力尽きた。`);
-                return true;
+                diedOnTheWay = true;
+                break;
             }
         }
     }
-    return false;
+    if (hits.length === 0) { onDone(diedOnTheWay); return; }
+    let idx = 0;
+    function playNext() {
+        if (idx >= hits.length) { onDone(diedOnTheWay); return; }
+        const hit = hits[idx];
+        idx++;
+        bbPlayPoisonHitEffect(hit.nodeId, hit.dmg, playNext);
+    }
+    playNext();
 }
 
 // 移動先のマスには（bbGetMovableNodeIdsが既に除外しているため）敵味方どちらの駒もいない。
@@ -1551,18 +1588,21 @@ function bbMoveUnitTo(unit, nodeId) {
     bbAnimateUnitMove(unit, fromNodeId, movePath, function () {
         unit.nodeId = nodeId;
         bbAppendLog(`${unit.name} が移動した。`);
-        const diedOnTheWay = bbApplyTerrainEffectsAlongPath(unit, movePath);
-        if (diedOnTheWay) {
-            // 毒で力尽きた場合はフェードアウトさせてから盤面・次の手番へ（行動選択は行わない）。
-            bbFadeOutUnit(unit, function () {
-                bbState.units = bbState.units.filter(u => u !== unit);
-                bbRenderBoard();
-                setTimeout(bbScheduleNextTurn, 300);
-            });
-            return;
-        }
-        bbRenderBoard();
-        bbEnterActionPhase(unit);
+        // 毒ダメージの演出（効果音・ダメージPOP）がすべて終わるまで、次の処理（行動選択フェーズ
+        // への移行や、次の駒への画面スクロール）は待つ。
+        bbApplyTerrainEffectsAlongPath(unit, movePath, function (diedOnTheWay) {
+            if (diedOnTheWay) {
+                // 毒で力尽きた場合はフェードアウトさせてから盤面・次の手番へ（行動選択は行わない）。
+                bbFadeOutUnit(unit, function () {
+                    bbState.units = bbState.units.filter(u => u !== unit);
+                    bbRenderBoard();
+                    setTimeout(bbScheduleNextTurn, 300);
+                });
+                return;
+            }
+            bbRenderBoard();
+            bbEnterActionPhase(unit);
+        });
     });
 }
 
@@ -1874,6 +1914,12 @@ function bbClose() {
     document.getElementById('bbRoot').style.display = 'none';
 }
 function bbRestart() {
+    document.getElementById('bbResultOverlay').style.display = 'none';
+    bbInit();
+}
+// 勝敗がついた結果画面の「戻る」：ボードバトルごと閉じてしまう（bbClose）のではなく、
+// ボードバトル内のカレー準備画面（bbInit＝bbState.phase='prep'）へ戻す。
+function bbBackToPrep() {
     document.getElementById('bbResultOverlay').style.display = 'none';
     bbInit();
 }
@@ -2203,6 +2249,7 @@ function bbInjectDom() {
             </div>
             <div id="bbBoardWrap">
                 <svg id="bbBoardSvg" viewBox="0 0 600 900"><g id="bbViewportG"></g></svg>
+                <div id="bbFxLayer"></div>
             </div>
             <div id="bbTopOverlay">
                 <div id="bbHeaderBar">
@@ -2216,8 +2263,8 @@ function bbInjectDom() {
             </div>
             <div id="bbBottomPanel">
                 <div id="bbPlacementPanel">
-                    <h2>配置フェーズ（自陣（旗の行を含む下2列）・ステータス合計3000まで・最大5体）</h2>
-                    <div id="bbBudgetLine">合計ステータス: 0 / 3000（残り3000）　配置数: 0 / 5</div>
+                    <h2>配置フェーズ（自陣（旗の行を含む下2列）・ステータス合計3000まで・最大9体）</h2>
+                    <div id="bbBudgetLine">合計ステータス: 0 / 3000（残り3000）　配置数: 0 / 9</div>
                     <div id="bbPlaceHint">下のカレーをタップして選択 → 盤面の自陣側（青枠）マスをタップして配置します。</div>
                     <div id="bbRosterList"></div>
                     <button class="bb-actionBtn" id="bbBtnStartBattle" disabled onclick="window.__bbOnStartBattleClick()">戦闘開始</button>
@@ -2234,7 +2281,7 @@ function bbInjectDom() {
                 <h2 id="bbResultTitle">VICTORY</h2>
                 <div id="bbResultDesc" style="font-size:13px; margin-bottom:16px;"></div>
                 <button class="bb-actionBtn" onclick="window.__bbRestart()">もう一度</button>
-                <button class="bb-actionBtn bb-secondary" onclick="window.__bbClose()">閉じる</button>
+                <button class="bb-actionBtn bb-secondary" onclick="window.__bbBackToPrep()">戻る</button>
             </div>
         </div>
         <div id="bbBattleBlockOverlay"></div>
@@ -2285,7 +2332,7 @@ function bbInjectDom() {
                     9×9の盤面の上下にある「旗」（王将の位置）を奪うか、相手を全滅させれば勝利です。<br><br>
                     ・「カレー登録」で、カレーストックからボードバトル専用にカレーを登録できます（登録すると通常のストックからは無くなります。最大20個まで）。<br>
                     ・登録したカレーは名前の変更や、ベース・食器の個別装備ができます（本編の装備とは別枠です）。<br>
-                    ・「準備完了」を押すと対戦相手を選び、配置フェーズになります。登録済みのカレーの中から、ステータス合計3000・最大5体まで盤面の自陣側に配置してください。<br>
+                    ・「準備完了」を押すと対戦相手を選び、配置フェーズになります。登録済みのカレーの中から、ステータス合計3000・最大9体まで盤面の自陣側に配置してください。<br>
                     ・配置が終わったら「戦闘開始」で戦闘スタート。SPDの高い駒から順に、生存者全員が1周につき必ず1回行動します（行動順は敵味方共通の1本のタイムライン）。<br>
                     ・移動は上下左右のみ（斜め移動は不可）。SPDが高いほど1回に動けるマス数が増え、他の駒がいるマスは通り抜けられません。<br>
                     ・盤面には「岩」「水」「毒」の特殊マスがあります。岩はわんぱくカレーのみ壊して通過でき、以後は誰でも通れる普通のマスになります。水は海の幸カレーのみ通過・停止でき、他のカレーは通れません。毒は誰でも通過・停止できますが、毒系カレー以外は最大HPの20%のダメージを受けます。<br>
@@ -2359,6 +2406,7 @@ window.__bbOnStartBattleClick = bbOnStartBattleClick;
 window.__bbOnRegenerateEnemyClick = bbOnRegenerateEnemyClick;
 window.__bbClose = bbClose;
 window.__bbRestart = bbRestart;
+window.__bbBackToPrep = bbBackToPrep;
 window.__bbCloseUnitDetail = bbCloseUnitDetail;
 window.__bbConfirmUnitDetailAction = bbConfirmUnitDetailAction;
 window.__bbOnPrepStartBattleClick = bbOnPrepStartBattleClick;
