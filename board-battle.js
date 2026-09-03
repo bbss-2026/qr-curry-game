@@ -312,9 +312,7 @@ const BB_STYLE = `
     border-radius: 8px; border: 2px solid #6b4a26; background: #1c1108; text-align: left; margin-bottom: 8px;
 }
 .bb-opponentBotCard img { width: 48px; height: 48px; object-fit: contain; border-radius: 6px; background: #3a2712; flex-shrink: 0; }
-.bb-opponentBotInfo { flex: 1; min-width: 0; }
-.bb-opponentBotName { font-weight: bold; font-size: 13px; color: #efdeb1; }
-.bb-opponentBotDesc { font-size: 10px; color: #b88742; margin-top: 2px; line-height: 1.4; }
+.bb-opponentBotName { flex: 1; min-width: 0; font-weight: bold; font-size: 13px; color: #efdeb1; }
 
 /* 配置プリセット（配置登録・配置呼出） */
 #bbPlacementPresetOverlay {
@@ -1013,17 +1011,15 @@ function bbCloseOpponentSelect() {
     const el = document.getElementById('bbOpponentSelectOverlay');
     if (el) el.style.display = 'none';
 }
-// 対戦相手選択：4体の固定ボットを画像付きで一覧表示する。
+// 対戦相手選択：4体の固定ボットを画像と名前だけで一覧表示する
+// （使用カレーの内訳や行動パターンの説明文はここでは出さない）。
 function bbRenderOpponentSelectList() {
     const list = document.getElementById('bbOpponentSelectList');
     if (!list) return;
     list.innerHTML = BB_OPPONENT_BOTS.map(function (bot, idx) {
         return `<div class="bb-opponentBotCard" onclick="window.__bbSelectOpponentBot(${idx})">
             <img src="${bbEsc(bot.img)}" alt="">
-            <div class="bb-opponentBotInfo">
-                <div class="bb-opponentBotName">${bbEsc(bot.name)}</div>
-                <div class="bb-opponentBotDesc">${bbEsc(bot.desc)}</div>
-            </div>
+            <div class="bb-opponentBotName">${bbEsc(bot.name)}</div>
         </div>`;
     }).join('');
 }
@@ -1717,7 +1713,14 @@ function bbScheduleNextTurn() {
     if (actor.team === 'player') {
         bbCenterOnNode(actor.nodeId); // 行動順が回ってきた駒を画面中央へ自動的に移動
         bbHighlightMovableTiles(actor);
-        bbSetBattleStatus(`${actor.name} の番です。移動先のマスをタップ（移動しないなら自分のマスをタップ）。`);
+        // 今の位置から既に攻撃・岩攻撃・種発射などが選べる場合は、移動せずそのまま
+        // 対象をタップして行動できることをヒントに含める。
+        const preMoveTargets = bbGetAdjacentActionTargets(actor);
+        const canActBeforeMove = preMoveTargets.enemies.length > 0 || preMoveTargets.rocks.length > 0;
+        const moveHint = canActBeforeMove
+            ? `${actor.name} の番です。移動先のマスをタップ、またはこのまま攻撃する相手・岩をタップ（何もしないなら自分のマスをタップ）。`
+            : `${actor.name} の番です。移動先のマスをタップ（移動しないなら自分のマスをタップ）。`;
+        bbSetBattleStatus(moveHint);
     } else {
         bbSetBattleStatus(`${actor.name}（敵）が行動中…`);
         // 敵の駒はセンタリングのスクロールが完全に終わってから、さらに一呼吸置いて
@@ -1827,6 +1830,13 @@ function bbReconstructMovePath(unit, destNodeId) {
 function bbHighlightMovableTiles(unit) {
     bbNodes.forEach(n => { n.highlight = null; });
     bbGetMovableNodeIds(unit).forEach(nid => { bbNodesById[nid].highlight = 'movable'; });
+    // 移動する前の今の位置から既に戦闘・岩攻撃・種発射などの行動が選べる場合は、
+    // 自分のマスをタップして行動選択フェーズへ切り替える手順を挟まなくても、
+    // その場で直接対象を選べるように、対象マスもこの時点でattackableとして重ねておく
+    // （移動可能マスと攻撃対象マスは定義上重ならないため、ハイライトが競合することはない）。
+    const targets = bbGetAdjacentActionTargets(unit);
+    targets.enemies.forEach(u => { bbNodesById[u.nodeId].highlight = 'attackable'; });
+    targets.rocks.forEach(n => { n.highlight = 'attackable'; });
     bbRenderBoard();
 }
 
@@ -1856,6 +1866,9 @@ function bbOnBattleNodeClick(nodeId) {
         if (bbState.subPhase === 'move') {
             // 自分が今いるマスをもう一度タップ＝移動しない（その場から行動選択フェーズへ）。
             if (nodeId === actor.nodeId) { bbSkipMoveToActionPhase(actor); return; }
+            // 移動する前の今の位置から既に選べる攻撃対象（隣接する敵駒・岩、種発射の射程内の敵）を
+            // タップした場合、自分のマスをタップする手順を挟まず直接その対象へ行動を選べる。
+            if (node.highlight === 'attackable') { bbOnPickActionTarget(actor, nodeId); return; }
             // 移動できるマスをタップした場合（敵駒がいるマスはそもそも移動可能マスに含まれない）。
             if (node.highlight === 'movable') { bbMoveUnitTo(actor, nodeId); return; }
         } else if (bbState.subPhase === 'action') {
@@ -2086,6 +2099,10 @@ function bbMoveUnitTo(unit, nodeId) {
                 return;
             }
             bbRenderBoard();
+            // 相手の旗のマスへ移動した時点で、行動選択（攻撃・岩破壊・種発射など）を挟むことなく
+            // 即座に勝敗を決定する（bbCheckWinConditionは自陣・敵陣どちらの旗に乗ったかも含めて判定する）。
+            const winner = bbCheckWinCondition();
+            if (winner) { bbEndBattle(winner); return; }
             bbEnterActionPhase(unit);
         });
     });
