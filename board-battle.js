@@ -75,6 +75,10 @@ const BB_STYLE = `
 .bb-turnIcon.bb-team-player { border-color: #3498db; }
 .bb-turnIcon.bb-team-enemy { border-color: #e74c3c; }
 .bb-turnIcon.bb-current { width: 52px; height: 52px; opacity: 1; transform: scale(1.05); box-shadow: 0 0 12px rgba(255,255,255,0.6); }
+/* 駒の詳細カードを開いている間、行動順の帯の中でその駒に対応するアイコンを光らせて、
+   行動順の中での位置がひと目で分かるようにする（bbHighlightTurnIcon参照）。 */
+.bb-turnIcon.bb-turnIcon-highlighted { border-color: #ffe066; box-shadow: 0 0 14px 4px rgba(255,224,102,0.85); opacity: 1; }
+.bb-turnIcon { cursor: pointer; }
 
 /* 配置フェーズ中だけ、本来の行動順の帯（#bbTurnQueueBar、戦闘フェーズ専用）の代わりに
    同じ位置へ「敵の出撃予定」のカレー駒アイコンを表示する。 */
@@ -252,6 +256,25 @@ const BB_STYLE = `
 #bbUnitDetailStats { font-size: 12px; text-align: left; }
 .bb-udStatRow { display: flex; justify-content: space-between; padding: 3px 4px; border-bottom: 1px solid rgba(107,74,38,0.6); }
 .bb-udStatRow.bb-udStatTotal { border-bottom: none; margin-top: 4px; font-weight: bold; color: #f1c40f; }
+/* 駒の詳細カード・カレー準備画面の詳細に共通で使う、使用できる技の一覧表示。 */
+.bb-skillList { font-size: 11px; text-align: left; margin: 6px 0 10px 0; }
+.bb-skillRow { padding: 3px 4px; border-bottom: 1px solid rgba(107,74,38,0.4); }
+.bb-skillRow:last-child { border-bottom: none; }
+.bb-skillName { font-weight: bold; color: #f1c40f; }
+.bb-skillDesc { color: #efdeb1; margin-left: 4px; }
+.bb-skillNone { color: #8a7250; }
+
+/* 駒タップ→コマンドメニュー（戦闘を挑む／特技／待機／詳細）。使用できない項目は
+   .bb-actionBtn:disabledの既存スタイル（グレーアウト）がそのまま適用される。 */
+#bbCommandMenuOverlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.55); display: none; align-items: center; justify-content: center; z-index: 9018;
+}
+#bbCommandMenuBox { background: #2b1a0e; border: 2px solid #b88742; border-radius: 12px; padding: 18px 24px; text-align: center; width: 200px; }
+#bbCommandMenuVisual { width: 64px; height: 64px; margin: 0 auto 6px; border-radius: 50%; overflow: hidden; background: #fff; border: 3px solid #b88742; }
+#bbCommandMenuVisual img { width: 100%; height: 100%; object-fit: cover; display: block; }
+#bbCommandMenuName { font-size: 14px; margin: 0 0 12px 0; color: #efdeb1; }
+.bb-cmdMenuList { display: flex; flex-direction: column; gap: 8px; }
+.bb-cmdMenuBtn { margin: 0; width: 100%; box-sizing: border-box; }
 
 /* カレー準備画面：ボードバトルを開いた時の入口。登録済みロースターの一覧と
    カレー登録／戦闘開始／ヘルプの3ボタンだけを見せ、盤面はまだ表示しない。 */
@@ -351,6 +374,38 @@ const BB_STYLE = `
     border-radius: 6px; padding: 8px 10px; font-size: 13px; text-align: center; margin-bottom: 14px;
 }
 
+/* カレー準備画面の簡易配置エディタ：実際の盤面（3D・マス画像）は使わず、自陣の配置枠
+   （旗の行を含む下2列＝2行×9列）だけをシンプルな平面グリッドで再現する。対戦相手や
+   実際の3D盤面が無い状態でも、配置プリセット（配置登録・配置呼出）を組み立てられるように
+   するためのもの。ここで使うマスのnodeId（row*BB_GRID_SIZE+col）は本編の盤面と同じ計算式
+   なので、ここで作ったプリセットはそのまま実際の配置フェーズでも読み込める。 */
+#bbPrepPlacementEditorOverlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.75); display: none; align-items: center; justify-content: center; z-index: 9030;
+}
+#bbPrepPlacementEditorBox { background: #2b1a0e; border: 2px solid #b88742; border-radius: 12px; padding: 20px; text-align: center; width: 320px; max-height: 85vh; overflow-y: auto; }
+#bbPrepPlacementEditorBox h3 { font-size: 15px; margin: 0 0 8px 0; color: #efdeb1; }
+#bbPrepEditorHint { font-size: 11px; color: #b88742; margin-bottom: 8px; line-height: 1.5; text-align: left; }
+#bbPrepEditorBudgetLine { font-size: 12px; margin-bottom: 8px; }
+#bbPrepEditorBudgetLine.bb-over { color: #e74c3c; font-weight: bold; }
+#bbPrepEditorGrid {
+    display: grid; grid-template-columns: repeat(9, 1fr); gap: 3px; margin-bottom: 12px;
+}
+.bb-prepEditorCell {
+    aspect-ratio: 1 / 1; border-radius: 4px; background: #1c1108; border: 2px solid #6b4a26;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    cursor: pointer; overflow: hidden; position: relative; padding: 1px;
+}
+.bb-prepEditorCell.bb-prepEditorCell-flag { background: #3a1414; border-color: #b88742; cursor: default; }
+.bb-prepEditorCell.bb-prepEditorCell-selectable { border-color: #2ecc71; }
+.bb-prepEditorCell.bb-prepEditorCell-occupied { border-color: #3498db; background: #142a3a; }
+.bb-prepEditorCell-flagIcon { font-size: 14px; line-height: 1; color: #e74c3c; }
+.bb-prepEditorCell img { width: 70%; height: 70%; object-fit: cover; border-radius: 50%; display: block; }
+.bb-prepEditorCell-name {
+    font-size: 7px; color: #efdeb1; max-width: 100%; overflow: hidden; text-overflow: ellipsis;
+    white-space: nowrap; line-height: 1.2;
+}
+#bbPrepEditorRosterList { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-bottom: 14px; }
+
 /* 盤面バトル中に起動する本編の戦闘画面：咖喱図書館用の背景（applyBookBattleLiftが敷く
    currylibrary_bg.png）ではなく、盤面（#bbRoot）がうっすら透けて見える半透明オーバーレイにする。
    story.js側の #battleArena.book-battle-lift ルールは、咖喱図書館を開いたタイミングで
@@ -440,7 +495,7 @@ function bbGetTileImg(terrain) {
 const BB_COIN_Y_LIFT = 14;
 
 const BB_STAT_BUDGET = 3000;
-const BB_MAX_UNITS = 9;
+const BB_MAX_UNITS = 12;
 
 let bbNodes = [];   // {id,row,col,x,y,neighbors:[id...],terrain:null|'rock'|'water'|'poison'}
 let bbNodesById = {};
@@ -520,6 +575,42 @@ function bbIsSeedShooter(unit) { return !!(unit.raw && unit.raw.isSeed); }
 function bbHasSeedGuard(unit) { return !!(unit.raw && unit.raw.isKaiTate); }
 // 種発射の対象がホームランカレー（isHomerun）の場合も打ち返してダメージ0。
 function bbIsHomerunCurry(unit) { return !!(unit.raw && unit.raw.isHomerun); }
+
+// ------------------------------------------------------------
+// 8.05 特技・特性の定義
+//    駒の詳細カード・カレー準備画面の詳細・コマンドメニュー・ヘルプ文言（「カレーボードバトル
+//    とは？」）で共通して使う、名前と説明文の一元管理テーブル。
+//    active:true は「特技」コマンドとして選択できる能動的な技（種発射・岩砕き）、
+//    active:falseは自動的に働く受動的な特性（水泳・ホームラン・盾ガード・毒耐性）。
+// ------------------------------------------------------------
+const BB_SKILLS = [
+    { key: 'seed', name: '種発射', desc: '直線3マス以内の敵への遠距離攻撃', active: true, test: bbIsSeedShooter },
+    { key: 'wanpaku', name: '岩砕き', desc: '隣接する岩を砕く', active: true, test: bbCanBreakRock },
+    { key: 'seafood', name: '水泳', desc: '水マスを通過・停止できる', active: false, test: bbCanCrossWater },
+    { key: 'homerun', name: 'ホームラン', desc: '特定の攻撃を無効化', active: false, test: bbIsHomerunCurry },
+    { key: 'kaitate', name: '盾ガード', desc: '特定の攻撃を無効化', active: false, test: bbHasSeedGuard },
+    { key: 'poison', name: '毒耐性', desc: '毒マスのダメージを受けない', active: false, test: bbIsPoisonImmune }
+];
+// unit（{raw:カレー本体}の形）・カレー本体（raw）そのもの、どちらを渡しても判定できるようにする
+// （盤面の駒はunit形、カレー準備画面の登録カレーはbbGetEffectiveCurry()の戻り値＝raw形のため）。
+function bbGetSkillsFor(unitOrCurry) {
+    if (!unitOrCurry) return [];
+    const asUnit = ('raw' in unitOrCurry) ? unitOrCurry : { raw: unitOrCurry };
+    return BB_SKILLS.filter(s => s.test(asUnit));
+}
+// 「特技」コマンド（能動的な技のみ）に絞ったバージョン。
+function bbGetActiveSkillsFor(unitOrCurry) {
+    return bbGetSkillsFor(unitOrCurry).filter(s => s.active);
+}
+// 駒の詳細カード・カレー準備画面の詳細で共通して使う、技一覧のHTMLを組み立てる。
+function bbRenderSkillsHtml(unitOrCurry) {
+    const skills = bbGetSkillsFor(unitOrCurry);
+    if (skills.length === 0) {
+        return '<div class="bb-skillList"><span class="bb-skillNone">使用できる技はありません。</span></div>';
+    }
+    const rows = skills.map(s => `<div class="bb-skillRow"><span class="bb-skillName">${bbEsc(s.name)}</span><span class="bb-skillDesc">${bbEsc(s.desc)}</span></div>`).join('');
+    return `<div class="bb-skillList">${rows}</div>`;
+}
 
 function bbGetSpecialTileCandidateNodes() {
     // 旗の行・配置エリアの行は除外し、中間エリアだけを特殊マス配置の対象にする
@@ -849,7 +940,12 @@ const bbState = {
     selectedPoolIndex: null,
     units: [],            // 盤面に配置された全ユニット（player/enemy混在。行動順は下記の通り完全に統一されたタイムラインで管理）
     activeUnit: null,
-    subPhase: null,       // battleフェーズ中のプレイヤー手番のサブ状態：'move'（移動先選択）| 'action'（行動選択）
+    // battleフェーズ中のプレイヤー手番のサブ状態：
+    // 'move'（移動先選択・コマンドメニューを開く前）| 'menu'（コマンドメニュー表示中）|
+    // 'action'（「戦闘を挑む」「特技」を選んだ後の対象選択）
+    subPhase: null,
+    hasMovedThisTurn: false, // このターン中に既に移動したか（1ターンに1回だけ移動できる）
+    pendingCommandMode: null, // 'action'サブフェーズ中の対象選択が「戦闘を挑む(melee)」か「特技(skill)」かの区別
     battleLogLines: []
 };
 
@@ -944,7 +1040,7 @@ function bbStatDisplayWithEquip(statKey, baseVal, entry) {
 
 // 全オーバーレイ・パネルを一旦隠す共通処理（画面遷移のたびに、前の状態が残らないようにする）。
 function bbHideAllOverlaysAndPanels() {
-    ['bbResultOverlay', 'bbUnitDetailOverlay', 'bbRegisterPickerOverlay', 'bbRegDetailOverlay', 'bbHelpOverlay', 'bbOpponentSelectOverlay', 'bbPlacementPresetOverlay', 'bbPlacementSaveNameOverlay'].forEach(id => {
+    ['bbResultOverlay', 'bbUnitDetailOverlay', 'bbCommandMenuOverlay', 'bbRegisterPickerOverlay', 'bbRegDetailOverlay', 'bbHelpOverlay', 'bbOpponentSelectOverlay', 'bbPlacementPresetOverlay', 'bbPlacementSaveNameOverlay', 'bbPrepPlacementEditorOverlay'].forEach(id => {
         const el = document.getElementById(id);
         if (el) el.style.display = 'none';
     });
@@ -1444,7 +1540,7 @@ function bbOnPickPoolCurry(idx) {
     }
     const placed = bbState.units.filter(u => u.team === 'player');
     if (placed.length >= BB_MAX_UNITS) {
-        alert('配置できるのは最大9体までです。');
+        alert('配置できるのは最大12体までです。');
         return;
     }
     bbState.selectedPoolIndex = idx;
@@ -1490,6 +1586,7 @@ function bbOnSavePlacementClick() {
         alert('配置されているカレーがありません。');
         return;
     }
+    bbPlacementSaveSource = 'battle';
     if (bbPlacementPresets.length >= BB_PLACEMENT_PRESET_MAX) {
         bbShowPlacementPresetOverlay('deleteForSave');
         return;
@@ -1506,8 +1603,12 @@ function bbOnLoadPlacementClick() {
     bbShowPlacementPresetOverlay('load');
 }
 
-// 一覧オーバーレイは「配置呼出」と「登録上限に達した時の削除選択」の2つのモードを兼ねる。
-let bbPlacementPresetMode = 'load'; // 'load' | 'deleteForSave'
+// 「配置登録」の保存元。'battle'なら実際の配置フェーズ（bbState.units）から、
+// 'prepEditor'ならカレー準備画面の簡易配置エディタ（bbPrepEditorPlacements）から保存する。
+let bbPlacementSaveSource = 'battle';
+// 一覧オーバーレイは「配置呼出」（本編の配置フェーズ／準備画面の簡易エディタの2箇所から使う）と
+// 「登録上限に達した時の削除選択」の計3つのモードを兼ねる。
+let bbPlacementPresetMode = 'load'; // 'load' | 'loadToPrepEditor' | 'deleteForSave'
 function bbShowPlacementPresetOverlay(mode) {
     bbPlacementPresetMode = mode;
     bbRenderPlacementPresetList();
@@ -1526,6 +1627,9 @@ function bbRenderPlacementPresetList() {
     if (bbPlacementPresetMode === 'deleteForSave') {
         if (titleEl) titleEl.textContent = '配置は5件まで登録できます';
         if (hintEl) hintEl.textContent = '削除する配置を選んでください（選ぶとすぐに削除され、新しい配置の登録名の入力に進みます）。';
+    } else if (bbPlacementPresetMode === 'loadToPrepEditor') {
+        if (titleEl) titleEl.textContent = '配置を呼び出す';
+        if (hintEl) hintEl.textContent = '呼び出す配置を選んでください（下の簡易エディタの配置は上書きされます）。ゴミ箱ボタンで削除もできます。';
     } else {
         if (titleEl) titleEl.textContent = '配置を呼び出す';
         if (hintEl) hintEl.textContent = '呼び出す配置を選んでください（現在盤面に配置している自陣のカレーは上書きされます）。ゴミ箱ボタンで削除もできます。';
@@ -1535,7 +1639,7 @@ function bbRenderPlacementPresetList() {
         return;
     }
     listEl.innerHTML = bbPlacementPresets.map((p, idx) => {
-        const delBtn = (bbPlacementPresetMode === 'load')
+        const delBtn = (bbPlacementPresetMode === 'load' || bbPlacementPresetMode === 'loadToPrepEditor')
             ? `<button class="bb-placementPresetDelBtn" onclick="window.__bbOnDeletePlacementPreset(${idx})">削除</button>`
             : '';
         return `<div class="bb-placementPresetRow">
@@ -1566,7 +1670,11 @@ function bbOnPlacementPresetRowClick(idx) {
     }
     // 呼出モード：確認なしでそのまま読み込む（現在の配置は上書きされる）。
     bbClosePlacementPresetOverlay();
-    bbApplyPlacementPreset(preset);
+    if (bbPlacementPresetMode === 'loadToPrepEditor') {
+        bbApplyPresetToPrepEditor(preset);
+    } else {
+        bbApplyPlacementPreset(preset);
+    }
 }
 function bbOnDeletePlacementPreset(idx) {
     const preset = bbPlacementPresets[idx];
@@ -1597,19 +1705,29 @@ function bbConfirmSavePlacement() {
     const input = document.getElementById('bbPlacementSaveNameInput');
     const typedName = (input && input.value || '').trim();
     const name = typedName || `配置${bbPlacementPresets.length + 1}`;
-    const placed = bbState.units.filter(u => u.team === 'player');
-    // bbState.playerPool[idx]とbbRegisteredRoster[idx]はインデックスが1対1で対応している
-    // （bbState.playerPool = bbRegisteredRoster.map(bbGetEffectiveCurry)で作られるため）。
-    // playerPool自体は配置フェーズに入るたびに作り直される一時オブジェクトなので、
-    // 保存する識別子にはロースターエントリの安定ID（regId）を使う。
-    const slots = [];
-    placed.forEach(u => {
-        const poolIdx = bbState.playerPool.indexOf(u.raw);
-        const entry = (poolIdx !== -1) ? bbRegisteredRoster[poolIdx] : null;
-        if (entry && entry.regId) {
-            slots.push({ regId: entry.regId, nodeId: u.nodeId });
-        }
-    });
+    // 保存元によって、slots（{regId, nodeId}の配列）の組み立て元が異なる。
+    // ・'battle'：実際の配置フェーズのbbState.units（本編の盤面）から。
+    // ・'prepEditor'：カレー準備画面の簡易配置エディタのbbPrepEditorPlacements（nodeId→regId）から。
+    let slots = [];
+    if (bbPlacementSaveSource === 'prepEditor') {
+        slots = Object.keys(bbPrepEditorPlacements).map(nodeId => ({
+            regId: bbPrepEditorPlacements[nodeId],
+            nodeId: Number(nodeId)
+        }));
+    } else {
+        const placed = bbState.units.filter(u => u.team === 'player');
+        // bbState.playerPool[idx]とbbRegisteredRoster[idx]はインデックスが1対1で対応している
+        // （bbState.playerPool = bbRegisteredRoster.map(bbGetEffectiveCurry)で作られるため）。
+        // playerPool自体は配置フェーズに入るたびに作り直される一時オブジェクトなので、
+        // 保存する識別子にはロースターエントリの安定ID（regId）を使う。
+        placed.forEach(u => {
+            const poolIdx = bbState.playerPool.indexOf(u.raw);
+            const entry = (poolIdx !== -1) ? bbRegisteredRoster[poolIdx] : null;
+            if (entry && entry.regId) {
+                slots.push({ regId: entry.regId, nodeId: u.nodeId });
+            }
+        });
+    }
     if (slots.length === 0) {
         alert('登録できる配置がありません。');
         return;
@@ -1643,6 +1761,180 @@ function bbApplyPlacementPreset(preset) {
         bbState.units.push(unit);
     });
     bbRenderPlacementPanel();
+    if (missing) {
+        alert('該当カレーがないマスがあり、設置できませんでした。');
+    }
+}
+
+// ------------------------------------------------------------
+// 6.6 カレー準備画面の簡易配置エディタ（2×9マス＋旗）
+//    実際の盤面（3D・マス画像・対戦相手）がまだ無いカレー準備画面でも、配置プリセット
+//    （配置登録・配置呼出）を組み立てられるようにするための、簡易的な平面グリッド。
+//    自陣の配置枠（旗の行を含む下2列）だけを再現し、マスの背景画像や3D表現は使わない。
+//    ここで使うnodeId（row*BB_GRID_SIZE+col）は本編の盤面と同じ計算式なので、
+//    ここで組んだ配置プリセットはそのまま本編の配置フェーズでも読み込める。
+// ------------------------------------------------------------
+let bbPrepEditorSelectedRegId = null; // 今タップして選択中のロースター内カレーのregId
+let bbPrepEditorPlacements = {};       // { nodeId: regId } の形で、簡易エディタ上の配置状態を保持する
+
+function bbOpenPrepPlacementEditor() {
+    bbPrepEditorSelectedRegId = null;
+    bbRenderPrepPlacementEditor();
+    const el = document.getElementById('bbPrepPlacementEditorOverlay');
+    if (el) el.style.display = 'flex';
+}
+function bbClosePrepPlacementEditor() {
+    const el = document.getElementById('bbPrepPlacementEditorOverlay');
+    if (el) el.style.display = 'none';
+}
+// { nodeId, regId, entry, eff }の配列（登録済みロースターから既に削除済みのregIdは除外する）。
+function bbGetPrepEditorPlacedEntries() {
+    return Object.keys(bbPrepEditorPlacements).map(nodeId => {
+        const regId = bbPrepEditorPlacements[nodeId];
+        const entry = bbRegisteredRoster.find(e => e.regId === regId);
+        return entry ? { nodeId: Number(nodeId), regId, entry, eff: bbGetEffectiveCurry(entry) } : null;
+    }).filter(Boolean);
+}
+function bbRenderPrepPlacementEditor() {
+    const gridEl = document.getElementById('bbPrepEditorGrid');
+    const rosterEl = document.getElementById('bbPrepEditorRosterList');
+    const budgetEl = document.getElementById('bbPrepEditorBudgetLine');
+    if (!gridEl || !rosterEl || !budgetEl) return;
+
+    const placedEntries = bbGetPrepEditorPlacedEntries();
+    const placedRegIds = new Set(placedEntries.map(p => p.regId));
+    const total = placedEntries.reduce((sum, p) => sum + bbStatTotal(p.eff), 0);
+    const remaining = BB_STAT_BUDGET - total;
+    budgetEl.textContent = `合計ステータス: ${total} / ${BB_STAT_BUDGET}（残り${remaining}）　配置数: ${placedEntries.length} / ${BB_MAX_UNITS}`;
+    budgetEl.classList.toggle('bb-over', total > BB_STAT_BUDGET);
+
+    // グリッド：自陣の配置枠（下2行）だけを、奥の行→旗のある手前の行の順に並べる。
+    let cellsHtml = '';
+    BB_PLAYER_DEPLOY_ROWS.forEach(row => {
+        for (let col = 0; col < BB_GRID_SIZE; col++) {
+            const nodeId = row * BB_GRID_SIZE + col;
+            const isFlag = (row === BB_ROW_BOTTOM && col === BB_FLAG_COL);
+            if (isFlag) {
+                cellsHtml += `<div class="bb-prepEditorCell bb-prepEditorCell-flag"><span class="bb-prepEditorCell-flagIcon">旗</span></div>`;
+                continue;
+            }
+            const placed = placedEntries.find(p => p.nodeId === nodeId);
+            if (placed) {
+                cellsHtml += `<div class="bb-prepEditorCell bb-prepEditorCell-occupied" onclick="window.__bbOnPrepEditorCellClick(${nodeId})">
+                    <img src="${bbGetCurryImg(placed.eff)}" alt="">
+                    <div class="bb-prepEditorCell-name">${bbEsc(placed.eff.name)}</div>
+                </div>`;
+            } else {
+                const selectableCls = bbPrepEditorSelectedRegId ? ' bb-prepEditorCell-selectable' : '';
+                cellsHtml += `<div class="bb-prepEditorCell${selectableCls}" onclick="window.__bbOnPrepEditorCellClick(${nodeId})"></div>`;
+            }
+        }
+    });
+    gridEl.innerHTML = cellsHtml;
+
+    // ロースター一覧：登録済みカレーをタップして配置先を選ぶ（本編の配置フェーズと同じ操作感）。
+    rosterEl.innerHTML = bbRegisteredRoster.map((entry) => {
+        const eff = bbGetEffectiveCurry(entry);
+        const picked = placedRegIds.has(entry.regId);
+        const selecting = (bbPrepEditorSelectedRegId === entry.regId);
+        const cls = 'bb-rosterCard' + (picked ? ' bb-picked' : '') + (selecting ? ' bb-selecting' : '');
+        return `<div class="${cls}" onclick="window.__bbOnPrepEditorPickRosterCurry('${entry.regId}')">
+            <div class="bb-rcVisual"><img src="${bbGetCurryImg(eff)}" alt=""></div>
+            <div class="bb-rcName">${bbEsc(eff.name)}</div>
+            <div class="bb-rcStats">HP${eff.hp||0} ATK${eff.atk||0}<br>DEF${eff.def||0} SPD${eff.spd||0}</div>
+            <div class="bb-rcTotal">合計 ${bbStatTotal(eff)}</div>
+        </div>`;
+    }).join('') || '<div style="font-size:11px;color:#b88742;">登録済みのカレーがありません。「カレー登録」からカレーを登録してください。</div>';
+}
+function bbOnPrepEditorPickRosterCurry(regId) {
+    const placedEntries = bbGetPrepEditorPlacedEntries();
+    const already = placedEntries.find(p => p.regId === regId);
+    if (already) {
+        // 既に配置済みのカードをもう一度タップ＝配置取り消し。
+        delete bbPrepEditorPlacements[already.nodeId];
+        bbPrepEditorSelectedRegId = null;
+        bbRenderPrepPlacementEditor();
+        return;
+    }
+    if (bbPrepEditorSelectedRegId === regId) {
+        bbPrepEditorSelectedRegId = null; // もう一度タップ＝選択解除
+        bbRenderPrepPlacementEditor();
+        return;
+    }
+    if (placedEntries.length >= BB_MAX_UNITS) {
+        alert(`配置できるのは最大${BB_MAX_UNITS}体までです。`);
+        return;
+    }
+    bbPrepEditorSelectedRegId = regId;
+    bbRenderPrepPlacementEditor();
+}
+function bbOnPrepEditorCellClick(nodeId) {
+    const existingRegId = bbPrepEditorPlacements[nodeId];
+    if (existingRegId) {
+        // 配置済みのマスをタップ＝そのカレーを外す。
+        delete bbPrepEditorPlacements[nodeId];
+        bbPrepEditorSelectedRegId = null;
+        bbRenderPrepPlacementEditor();
+        return;
+    }
+    if (!bbPrepEditorSelectedRegId) return; // 選択中のカレーが無ければ何もしない
+    const entry = bbRegisteredRoster.find(e => e.regId === bbPrepEditorSelectedRegId);
+    if (!entry) { bbPrepEditorSelectedRegId = null; bbRenderPrepPlacementEditor(); return; }
+    const placedEntries = bbGetPrepEditorPlacedEntries();
+    const eff = bbGetEffectiveCurry(entry);
+    const total = placedEntries.reduce((sum, p) => sum + bbStatTotal(p.eff), 0) + bbStatTotal(eff);
+    if (total > BB_STAT_BUDGET) {
+        alert(`ステータス合計が${BB_STAT_BUDGET}を超えるため配置できません。`);
+        return;
+    }
+    bbPrepEditorPlacements[nodeId] = bbPrepEditorSelectedRegId;
+    bbPrepEditorSelectedRegId = null;
+    bbRenderPrepPlacementEditor();
+}
+function bbOnPrepEditorClearClick() {
+    if (Object.keys(bbPrepEditorPlacements).length === 0) return;
+    const doClear = function () {
+        bbPrepEditorPlacements = {};
+        bbPrepEditorSelectedRegId = null;
+        bbRenderPrepPlacementEditor();
+    };
+    if (typeof showCustomConfirm === 'function') {
+        showCustomConfirm('配置をクリア', '現在の配置をすべて外しますか？', doClear);
+    } else {
+        doClear();
+    }
+}
+function bbOnPrepEditorSaveClick() {
+    if (Object.keys(bbPrepEditorPlacements).length === 0) {
+        alert('配置されているカレーがありません。');
+        return;
+    }
+    bbPlacementSaveSource = 'prepEditor';
+    if (bbPlacementPresets.length >= BB_PLACEMENT_PRESET_MAX) {
+        bbShowPlacementPresetOverlay('deleteForSave');
+        return;
+    }
+    bbShowPlacementSaveNameOverlay();
+}
+function bbOnPrepEditorLoadClick() {
+    if (bbPlacementPresets.length === 0) {
+        alert('登録済みの配置がありません。');
+        return;
+    }
+    bbShowPlacementPresetOverlay('loadToPrepEditor');
+}
+// 保存済みの配置プリセットを、簡易エディタの状態へ反映する（実際の盤面には触れない）。
+// 登録時から登録済みカレーが削除されている等でregIdが見つからない枠は、空きのままにする。
+function bbApplyPresetToPrepEditor(preset) {
+    bbPrepEditorPlacements = {};
+    bbPrepEditorSelectedRegId = null;
+    let missing = false;
+    (preset.slots || []).forEach(slot => {
+        const entry = bbRegisteredRoster.find(e => e.regId === slot.regId);
+        if (!entry) { missing = true; return; }
+        bbPrepEditorPlacements[slot.nodeId] = slot.regId;
+    });
+    bbRenderPrepPlacementEditor();
     if (missing) {
         alert('該当カレーがないマスがあり、設置できませんでした。');
     }
@@ -1746,19 +2038,16 @@ function bbScheduleNextTurn() {
     if (!actor) return;
     bbState.activeUnit = actor;
     bbState.subPhase = (actor.team === 'player') ? 'move' : null;
+    bbState.hasMovedThisTurn = false;
+    bbState.pendingCommandMode = null;
     bbRenderTurnQueuePreview();
     bbRenderBoard(); // ← アクティブな駒のノードを光らせるため再描画
     if (actor.team === 'player') {
         bbCenterOnNode(actor.nodeId); // 行動順が回ってきた駒を画面中央へ自動的に移動
         bbHighlightMovableTiles(actor);
-        // 今の位置から既に攻撃・岩攻撃・種発射などが選べる場合は、移動せずそのまま
-        // 対象をタップして行動できることをヒントに含める。
-        const preMoveTargets = bbGetAdjacentActionTargets(actor);
-        const canActBeforeMove = preMoveTargets.enemies.length > 0 || preMoveTargets.rocks.length > 0;
-        const moveHint = canActBeforeMove
-            ? `${actor.name} の番です。移動先のマスをタップ、またはこのまま攻撃する相手・岩をタップ（何もしないなら自分のマスをタップ）。`
-            : `${actor.name} の番です。移動先のマスをタップ（移動しないなら自分のマスをタップ）。`;
-        bbSetBattleStatus(moveHint);
+        // 移動しても・しなくても、自分のコマをタップした時点でコマンドメニュー
+        // （戦闘を挑む／特技／待機／詳細）が開く。
+        bbSetBattleStatus(`${actor.name} の番です。移動先のマスをタップするか、自分のコマをタップしてコマンドを選んでください。`);
     } else {
         bbSetBattleStatus(`${actor.name}（敵）が行動中…`);
         // 敵の駒はセンタリングのスクロールが完全に終わってから、さらに一呼吸置いて
@@ -1779,7 +2068,8 @@ function bbRenderTurnQueuePreview() {
     const order = [bbState.activeUnit].concat(rest, nextRoundOrder).filter(Boolean).slice(0, 8);
     bar.innerHTML = order.map((u, i) => {
         const cls = `bb-turnIcon bb-team-${u.team}${i === 0 ? ' bb-current' : ''}`;
-        return `<div class="${cls}" title="${bbEsc(u.name)}"><img src="${bbGetCurryImg(u.raw)}" alt=""></div>`;
+        // 逆に行動順の駒をタップしても、その駒の詳細（bbShowUnitDetail）が開けるようにする。
+        return `<div class="${cls}" data-bb-uid="${u.uid}" title="${bbEsc(u.name)}" onclick="window.__bbOnTapTurnIcon(${u.uid})"><img src="${bbGetCurryImg(u.raw)}" alt=""></div>`;
     }).join('');
 }
 
@@ -1868,13 +2158,6 @@ function bbReconstructMovePath(unit, destNodeId) {
 function bbHighlightMovableTiles(unit) {
     bbNodes.forEach(n => { n.highlight = null; });
     bbGetMovableNodeIds(unit).forEach(nid => { bbNodesById[nid].highlight = 'movable'; });
-    // 移動する前の今の位置から既に戦闘・岩攻撃・種発射などの行動が選べる場合は、
-    // 自分のマスをタップして行動選択フェーズへ切り替える手順を挟まなくても、
-    // その場で直接対象を選べるように、対象マスもこの時点でattackableとして重ねておく
-    // （移動可能マスと攻撃対象マスは定義上重ならないため、ハイライトが競合することはない）。
-    const targets = bbGetAdjacentActionTargets(unit);
-    targets.enemies.forEach(u => { bbNodesById[u.nodeId].highlight = 'attackable'; });
-    targets.rocks.forEach(n => { n.highlight = 'attackable'; });
     bbRenderBoard();
 }
 
@@ -1902,17 +2185,15 @@ function bbOnBattleNodeClick(nodeId) {
     const node = bbNodesById[nodeId];
     if (actor && actor.team === 'player' && actor.hp > 0) {
         if (bbState.subPhase === 'move') {
-            // 自分が今いるマスをもう一度タップ＝移動しない（その場から行動選択フェーズへ）。
-            if (nodeId === actor.nodeId) { bbSkipMoveToActionPhase(actor); return; }
-            // 移動する前の今の位置から既に選べる攻撃対象（隣接する敵駒・岩、種発射の射程内の敵）を
-            // タップした場合、自分のマスをタップする手順を挟まず直接その対象へ行動を選べる。
-            if (node.highlight === 'attackable') { bbOnPickActionTarget(actor, nodeId); return; }
-            // 移動できるマスをタップした場合（敵駒がいるマスはそもそも移動可能マスに含まれない）。
-            if (node.highlight === 'movable') { bbMoveUnitTo(actor, nodeId); return; }
+            // 自分のコマをタップ＝移動前でも移動後でも、コマンドメニュー
+            // （戦闘を挑む／特技／待機／詳細）を開く。
+            if (nodeId === actor.nodeId) { bbOpenCommandMenu(actor); return; }
+            // 移動できるマスをタップした場合（このターンでまだ移動していない時のみ有効。
+            // 敵駒がいるマスはそもそも移動可能マスに含まれない）。
+            if (!bbState.hasMovedThisTurn && node.highlight === 'movable') { bbMoveUnitTo(actor, nodeId); return; }
         } else if (bbState.subPhase === 'action') {
-            // 行動選択フェーズ中に自分のマスをタップ＝何も行動しない。
-            if (nodeId === actor.nodeId) { bbSkipActionEndTurn(actor); return; }
-            // 攻撃対象（隣接する敵駒・岩）をタップした場合。
+            // コマンドメニューで「戦闘を挑む」「特技」を選んだ後、対象（隣接する敵駒・岩、
+            // 種発射の射程内の敵）をタップした場合。
             if (node.highlight === 'attackable') { bbOnPickActionTarget(actor, nodeId); return; }
         }
     }
@@ -2141,7 +2422,16 @@ function bbMoveUnitTo(unit, nodeId) {
             // 即座に勝敗を決定する（bbCheckWinConditionは自陣・敵陣どちらの旗に乗ったかも含めて判定する）。
             const winner = bbCheckWinCondition();
             if (winner) { bbEndBattle(winner); return; }
-            bbEnterActionPhase(unit);
+            if (unit.team === 'player') {
+                // プレイヤーの移動は1ターンに1回のみ。移動後は自分のコマをタップして
+                // コマンドメニュー（戦闘を挑む／特技／待機／詳細）を開いてもらう。
+                bbState.hasMovedThisTurn = true;
+                bbNodes.forEach(n => { n.highlight = null; });
+                bbRenderBoard();
+                bbSetBattleStatus(`${unit.name} の番です。自分のコマをタップしてコマンドを選んでください。`);
+            } else {
+                bbEnterActionPhase(unit);
+            }
         });
     });
 }
@@ -2303,26 +2593,13 @@ function bbGetAdjacentActionTargets(unit) {
 
 function bbEnterActionPhase(unit) {
     if (bbState.phase !== 'battle' || !bbState.units.includes(unit) || unit.hp <= 0) { bbScheduleNextTurn(); return; }
-    const targets = bbGetAdjacentActionTargets(unit);
-    const hasTargets = targets.enemies.length > 0 || targets.rocks.length > 0;
     if (unit.team === 'player') {
-        if (!hasTargets) {
-            bbNodes.forEach(n => { n.highlight = null; });
-            bbRenderBoard();
-            setTimeout(bbScheduleNextTurn, 200);
-            return;
-        }
-        bbState.subPhase = 'action';
-        bbNodes.forEach(n => { n.highlight = null; });
-        targets.enemies.forEach(u => { bbNodesById[u.nodeId].highlight = 'attackable'; });
-        targets.rocks.forEach(n => { n.highlight = 'attackable'; });
-        bbRenderBoard();
-        const actionHint = bbIsSeedShooter(unit)
-            ? `${unit.name} の番です。「種発射」で狙う相手をタップ（行動しないなら自分のマスをタップ）。`
-            : `${unit.name} の番です。攻撃する相手や岩をタップ（行動しないなら自分のマスをタップ）。`;
-        bbSetBattleStatus(actionHint);
+        // プレイヤーの行動選択は新方式（コマンドメニュー）で行うため、こちらは念のための
+        // フォールバックとしてコマンドメニューを開くだけに留める（通常はbbOpenCommandMenuが直接呼ばれる）。
+        bbOpenCommandMenu(unit);
         return;
     }
+    const targets = bbGetAdjacentActionTargets(unit);
     // 敵（AI）：攻撃できる相手がいれば最優先、いなければわんぱくなら隣接する岩を破壊する。
     let chosen = null;
     if (targets.enemies.length > 0) {
@@ -2344,56 +2621,141 @@ function bbEnterActionPhase(unit) {
     }, BB_AI_ATTACK_TELEGRAPH_MS);
 }
 
-// プレイヤーが移動フェーズで自分のマスをタップ＝移動しない、を選んだ場合。
-function bbSkipMoveToActionPhase(unit) {
-    bbNodes.forEach(n => { n.highlight = null; });
-    bbEnterActionPhase(unit);
+// ------------------------------------------------------------
+// 8.55 駒タップ→コマンドメニュー（戦闘を挑む／特技／待機／詳細）
+//    移動後・移動せずのどちらでも、自分のコマをタップした時点でここに来る。
+//    「戦闘を挑む」は常に隣接マスへの近接戦闘（本編の対戦カットイン）で、種カレーであっても
+//    強制的に近接戦闘になる。「特技」はそのカレー固有の能動技（種発射／岩砕き）で、
+//    持っていない・対象がいない場合はボタンをグレーアウトして押せなくする。
+//    「待機」は常に選べる（何もせず手番を終える）。「詳細」は行動として消費されない。
+// ------------------------------------------------------------
+// 自分に隣接する敵駒（「戦闘を挑む」の対象。種カレーであっても射程拡張はせず、隣接のみ）。
+function bbGetMeleeAdjacentTargets(unit) {
+    const node = bbNodesById[unit.nodeId];
+    const enemies = [];
+    if (!node) return enemies;
+    node.neighbors.forEach(nid => {
+        const occupant = bbState.units.find(u => u.nodeId === nid && u.hp > 0);
+        if (occupant && occupant.team !== unit.team) enemies.push(occupant);
+    });
+    return enemies;
 }
-// プレイヤーが行動選択フェーズで自分のマスをタップ＝何も行動しない、を選んだ場合。
-function bbSkipActionEndTurn(unit) {
+// そのカレーが持つ能動技（種発射／岩砕き）と、今使える対象一覧を返す。
+// BB_SKILLSのactive:trueなものだけが「特技」コマンドの対象（水泳・ホームラン・盾ガード・
+// 毒耐性は常時発動のパッシブなので、コマンドとしては選べない）。
+function bbGetSkillTargetsFor(unit) {
+    if (bbIsSeedShooter(unit)) {
+        return { key: 'seed', name: '種発射', targets: bbGetSeedShotTargets(unit) };
+    }
+    if (bbCanBreakRock(unit)) {
+        const node = bbNodesById[unit.nodeId];
+        const rocks = [];
+        if (node) {
+            node.neighbors.forEach(nid => {
+                const n = bbNodesById[nid];
+                const occupant = bbState.units.find(u => u.nodeId === nid && u.hp > 0);
+                if (!occupant && n.terrain === BB_TERRAIN_ROCK) rocks.push(n);
+            });
+        }
+        return { key: 'wanpaku', name: '岩砕き', targets: rocks };
+    }
+    return { key: null, name: '特技', targets: [] };
+}
+// 「詳細」をコマンドメニューから開いた場合だけ、閉じた時にコマンドメニューへ自動的に戻る。
+let bbCommandMenuReopenAfterDetail = false;
+function bbOpenCommandMenu(unit) {
+    if (bbState.phase !== 'battle' || bbState.activeUnit !== unit || unit.team !== 'player' || unit.hp <= 0) return;
+    bbState.subPhase = 'menu';
     bbNodes.forEach(n => { n.highlight = null; });
-    bbAppendLog(`${unit.name} は行動しなかった。`);
+    bbRenderBoard();
+    const meleeTargets = bbGetMeleeAdjacentTargets(unit);
+    const skillInfo = bbGetSkillTargetsFor(unit);
+    const img = document.getElementById('bbCommandMenuImg');
+    const nameEl = document.getElementById('bbCommandMenuName');
+    if (img) img.src = bbGetCurryImg(unit.raw);
+    if (nameEl) nameEl.textContent = unit.name || 'カレー';
+    const challengeBtn = document.getElementById('bbCmdBtnChallenge');
+    if (challengeBtn) challengeBtn.disabled = (meleeTargets.length === 0);
+    const skillBtn = document.getElementById('bbCmdBtnSkill');
+    if (skillBtn) {
+        skillBtn.textContent = skillInfo.name;
+        skillBtn.disabled = (skillInfo.targets.length === 0);
+    }
+    const overlay = document.getElementById('bbCommandMenuOverlay');
+    if (overlay) overlay.style.display = 'flex';
+}
+function bbCloseCommandMenu() {
+    const overlay = document.getElementById('bbCommandMenuOverlay');
+    if (overlay) overlay.style.display = 'none';
+}
+// 対象が1体（1マス）だけならそのまま実行、複数いる場合だけ盤面をハイライトして
+// 対象をタップで選ばせる（bbOnBattleNodeClickのactionサブフェーズ→bbOnPickActionTarget経由）。
+function bbBeginTargetSelection(actor, targets, mode) {
+    bbCloseCommandMenu();
+    if (!targets || targets.length === 0) return;
+    if (targets.length === 1) {
+        const only = targets[0];
+        const nodeId = ('nodeId' in only) ? only.nodeId : only.id;
+        bbExecutePickedCommand(actor, nodeId, mode);
+        return;
+    }
+    bbState.subPhase = 'action';
+    bbState.pendingCommandMode = mode;
+    bbNodes.forEach(n => { n.highlight = null; });
+    targets.forEach(t => {
+        const nodeId = ('nodeId' in t) ? t.nodeId : t.id;
+        bbNodesById[nodeId].highlight = 'attackable';
+    });
+    bbRenderBoard();
+    bbSetBattleStatus(`${actor.name} の番です。対象をタップしてください。`);
+}
+function bbOnCommandChallenge() {
+    const actor = bbState.activeUnit;
+    if (!actor) return;
+    bbBeginTargetSelection(actor, bbGetMeleeAdjacentTargets(actor), 'melee');
+}
+function bbOnCommandSkill() {
+    const actor = bbState.activeUnit;
+    if (!actor) return;
+    const info = bbGetSkillTargetsFor(actor);
+    bbBeginTargetSelection(actor, info.targets, 'skill');
+}
+function bbOnCommandWait() {
+    const actor = bbState.activeUnit;
+    bbCloseCommandMenu();
+    if (!actor) return;
+    bbNodes.forEach(n => { n.highlight = null; });
+    bbAppendLog(`${actor.name} は待機した。`);
     bbRenderBoard();
     setTimeout(bbScheduleNextTurn, 300);
 }
-// 2つのノードが上下左右で隣接しているかどうか（種カレーの「種発射」は隣接に限らない射程
-// 攻撃だが、隣接している場合だけ「戦闘を挑む」という近接攻撃も選べるようにするため）。
-function bbIsAdjacentNodeId(nodeIdA, nodeIdB) {
-    const a = bbNodesById[nodeIdA], b = bbNodesById[nodeIdB];
-    if (!a || !b) return false;
-    return (Math.abs(a.row - b.row) + Math.abs(a.col - b.col)) === 1;
+// 「詳細」は行動として消費されない。閉じたら同じコマンドメニューへ自動的に戻る
+// （bbCloseUnitDetail側でbbCommandMenuReopenAfterDetailを見て再度開く）。
+function bbOnCommandDetail() {
+    const actor = bbState.activeUnit;
+    if (!actor) return;
+    bbCloseCommandMenu();
+    bbCommandMenuReopenAfterDetail = true;
+    bbShowUnitDetail(actor);
 }
-// プレイヤーが行動選択フェーズで、ハイライトされた対象（敵駒 or 岩マス）をタップした場合。
-function bbOnPickActionTarget(actor, nodeId) {
+// プレイヤーが「戦闘を挑む」「特技」を選んだ後、対象（盤面タップ、または対象1体のみの
+// 場合の自動選択）が決まった時点で実際に行動を実行する。mode='melee'なら常に近接戦闘、
+// mode='skill'ならそのカレーの能動技（種発射でダメージのみ／岩砕きで岩を破壊）を行う。
+function bbExecutePickedCommand(actor, nodeId, mode) {
     const node = bbNodesById[nodeId];
     const defender = bbState.units.find(u => u.nodeId === nodeId && u.hp > 0 && u.team !== actor.team);
+    bbNodes.forEach(n => { n.highlight = null; });
     if (defender) {
-        if (bbIsSeedShooter(actor)) {
-            const adjacent = bbIsAdjacentNodeId(actor.nodeId, defender.nodeId);
-            if (adjacent) {
-                // 隣接している種カレーは「種発射」（遠距離の簡易攻撃）と「戦闘を挑む」
-                // （本編の対戦カットインを使う通常の近接戦闘）のどちらかを選べる。
-                bbShowUnitDetail(defender, {
-                    onConfirm: () => { bbExecuteAction(actor, defender); },
-                    confirmLabel: '「種発射」で攻撃する',
-                    onConfirm2: () => { bbExecuteAction(actor, defender, true); },
-                    confirmLabel2: '戦闘を挑む'
-                });
-            } else {
-                bbShowUnitDetail(defender, { onConfirm: () => { bbExecuteAction(actor, defender); }, confirmLabel: '「種発射」で攻撃する' });
-            }
-            return;
-        }
-        bbShowUnitDetail(defender, { onConfirm: () => { bbExecuteAction(actor, defender); }, confirmLabel: '戦闘を挑む' });
+        bbExecuteAction(actor, defender, mode === 'melee');
         return;
     }
     if (node && node.terrain === BB_TERRAIN_ROCK) {
-        if (typeof showCustomConfirm === 'function') {
-            showCustomConfirm('岩を攻撃', '隣接する岩マスを攻撃して破壊しますか？', () => { bbExecuteAction(actor, node); });
-        } else {
-            bbExecuteAction(actor, node);
-        }
+        bbExecuteAction(actor, node);
     }
+}
+// プレイヤーが対象選択サブフェーズで、ハイライトされた対象（敵駒 or 岩マス）をタップした場合。
+function bbOnPickActionTarget(actor, nodeId) {
+    bbExecutePickedCommand(actor, nodeId, bbState.pendingCommandMode);
 }
 // 選ばれた1つの行動を実行する。targetが盤面ノード（岩）ならそれを破壊、ユニットなら戦闘を行う。
 // forceMelee=trueの場合、種カレーであっても「種発射」ではなく通常の近接戦闘（本編カットイン）を
@@ -2557,7 +2919,7 @@ function bbGrantWinReward() {
     if (typeof playerEXP !== 'undefined') {
         oldExp = playerEXP;
         playerEXP += BB_WIN_REWARD_EXP;
-        rewardLines.push(`✨ Exp+${BB_WIN_REWARD_EXP}`);
+        rewardLines.push(`Exp+${BB_WIN_REWARD_EXP}`);
     }
     const gainedNames = [];
     if (typeof inventory !== 'undefined' && typeof masterIngredients !== 'undefined') {
@@ -2573,7 +2935,15 @@ function bbGrantWinReward() {
         }
     }
     if (gainedNames.length > 0) {
-        rewardLines.push(`🥕 ノーマル食材：${gainedNames.map(bbEsc).join('、')}`);
+        // 絵文字は使わず、入手した食材それぞれの実アイコン画像（masterIngredients[x].icon）を表示する。
+        const iconsHtml = gainedNames.map(itm => {
+            const d = masterIngredients[itm];
+            const icon = d && d.icon
+                ? `<img src="${bbEsc(d.icon)}" alt="" style="width:1.2em;height:1.2em;vertical-align:middle;object-fit:contain;">`
+                : '';
+            return `${icon}${bbEsc(itm)}`;
+        }).join('、');
+        rewardLines.push(`ノーマル食材：${iconsHtml}`);
     }
     if (typeof saveGame === 'function') { try { saveGame(); } catch (e) { /* 保存に失敗しても対戦の進行は止めない */ } }
     if (typeof updateFridgeUI === 'function') { try { updateFridgeUI(); } catch (e) {} }
@@ -2693,6 +3063,8 @@ function bbShowUnitDetail(unit, opts) {
         <div class="bb-udStatRow"><span>SPD</span><span>${c.spd || 0}</span></div>
         <div class="bb-udStatRow bb-udStatTotal"><span>合計</span><span>${total}</span></div>
     `;
+    const skillsEl = document.getElementById('bbUnitDetailSkills');
+    if (skillsEl) skillsEl.innerHTML = bbRenderSkillsHtml(c);
     if (opts && typeof opts.onConfirm === 'function') {
         bbPendingDetailConfirm = opts.onConfirm;
         if (confirmBtn) {
@@ -2723,6 +3095,9 @@ function bbShowUnitDetail(unit, opts) {
     if (bbState.phase === 'battle' && unit.hp > 0 && unit.nodeId != null) {
         bbShowMoveRangePreview(unit);
     }
+    // 詳細表示中は、行動順の帯（#bbTurnQueueBar）の中でその駒に対応するアイコンを
+    // 光らせて、行動順の中での位置がひと目で分かるようにする（戦闘フェーズのみ意味を持つ）。
+    bbHighlightTurnIcon(unit);
 }
 function bbConfirmUnitDetailAction() {
     const fn = bbPendingDetailConfirm;
@@ -2744,13 +3119,43 @@ function bbCloseUnitDetail() {
     const overlay = document.getElementById('bbUnitDetailOverlay');
     if (overlay) overlay.style.display = 'none';
     bbClearMoveRangePreview();
+    bbClearTurnIconHighlight();
     // 移動可能範囲プレビューの計算は、手番中の駒の移動可能マス・経路復元キャッシュ
     // （bbLastMoveParent）を一時的に上書きしてしまうため、自分の移動フェーズの最中に
     // 別の駒をプレビューしていた場合は、カードを閉じたタイミングで手番中の駒の分を
-    // 必ず計算し直す（そうしないと、この後の移動先選択が誤った経路になってしまう）。
-    if (bbState.phase === 'battle' && bbState.subPhase === 'move' && bbState.activeUnit && bbState.activeUnit.hp > 0) {
+    // 必ず計算し直す（そうしないと、この後の移動先選択が誤った経路になってしまう。
+    // 既にこのターン移動済みの場合は、移動可能マスは無いので再ハイライトしない）。
+    if (bbState.phase === 'battle' && bbState.subPhase === 'move' && !bbState.hasMovedThisTurn
+        && bbState.activeUnit && bbState.activeUnit.hp > 0) {
         bbHighlightMovableTiles(bbState.activeUnit);
     }
+    // 「詳細」をコマンドメニューから開いていた場合は、閉じたタイミングで
+    // 同じコマンドメニューへ自動的に戻る（詳細は行動として消費されないため）。
+    if (bbCommandMenuReopenAfterDetail) {
+        bbCommandMenuReopenAfterDetail = false;
+        if (bbState.phase === 'battle' && bbState.activeUnit && bbState.activeUnit.hp > 0) {
+            bbOpenCommandMenu(bbState.activeUnit);
+        }
+    }
+}
+// 詳細表示中、行動順の帯（#bbTurnQueueBar）の中でその駒に対応するアイコンを光らせる。
+function bbHighlightTurnIcon(unit) {
+    bbClearTurnIconHighlight();
+    if (!unit || unit.uid == null) return;
+    const bar = document.getElementById('bbTurnQueueBar');
+    if (!bar) return;
+    const el = bar.querySelector(`[data-bb-uid="${unit.uid}"]`);
+    if (el) el.classList.add('bb-turnIcon-highlighted');
+}
+function bbClearTurnIconHighlight() {
+    const bar = document.getElementById('bbTurnQueueBar');
+    if (!bar) return;
+    bar.querySelectorAll('.bb-turnIcon-highlighted').forEach(el => el.classList.remove('bb-turnIcon-highlighted'));
+}
+// 行動順の帯のアイコンをタップした場合も、その駒の詳細を開けるようにする。
+function bbOnTapTurnIcon(uid) {
+    const unit = bbState.units.find(u => u.uid === uid && u.hp > 0);
+    if (unit) bbShowUnitDetail(unit);
 }
 
 // ------------------------------------------------------------
@@ -2881,6 +3286,8 @@ function bbShowRegDetail(idx) {
         <div class="bb-udStatRow"><span>SPD</span><span>${bbStatDisplayWithEquip('spd', raw.spd, entry)}</span></div>
         <div class="bb-udStatRow bb-udStatTotal"><span>合計</span><span>${bbStatTotal(eff)}</span></div>
     `;
+    const skillsEl = document.getElementById('bbRegDetailSkills');
+    if (skillsEl) skillsEl.innerHTML = bbRenderSkillsHtml(raw);
     const bases = (typeof getUnlockedBase === 'function') ? getUnlockedBase() : ['白米'];
     const tablewares = (typeof getUnlockedTableware === 'function') ? getUnlockedTableware() : ['白い皿'];
     const baseInfoMap = (typeof BASE_LIST !== 'undefined') ? BASE_LIST : {};
@@ -3020,6 +3427,7 @@ function bbInjectDom() {
                 <div class="bb-prepBtnRow">
                     <button class="bb-actionBtn" onclick="window.__bbOnRegisterCurryClick()">カレー登録</button>
                     <button class="bb-actionBtn" id="bbBtnPrepStartBattle" disabled onclick="window.__bbOnPrepStartBattleClick()">準備完了</button>
+                    <button class="bb-actionBtn bb-secondary" onclick="window.__bbOpenPrepPlacementEditor()">配置プリセット編集</button>
                     <button class="bb-actionBtn bb-secondary" onclick="window.__bbShowHelp()">カレーボードバトルとは？</button>
                 </div>
             </div>
@@ -3047,15 +3455,15 @@ function bbInjectDom() {
             </div>
             <div id="bbBottomPanel">
                 <div id="bbPlacementPanel">
-                    <h2>配置フェーズ（自陣（旗の行を含む下2列）・ステータス合計3000まで・最大9体）</h2>
-                    <div id="bbBudgetLine">合計ステータス: 0 / 3000（残り3000）　配置数: 0 / 9</div>
+                    <h2>配置フェーズ</h2>
+                    <div id="bbBudgetLine">合計ステータス: 0 / 3000（残り3000）　配置数: 0 / 12</div>
                     <div id="bbPlaceHint">下のカレーをタップして選択 → 盤面の自陣側（青枠）マスをタップして配置します。</div>
                     <div id="bbRosterList"></div>
                     <div class="bb-prepBtnRow">
                         <button class="bb-actionBtn bb-secondary" onclick="window.__bbOnSavePlacementClick()">配置登録</button>
                         <button class="bb-actionBtn bb-secondary" onclick="window.__bbOnLoadPlacementClick()">配置呼出</button>
+                        <button class="bb-actionBtn" id="bbBtnStartBattle" disabled onclick="window.__bbOnStartBattleClick()">バトル開始</button>
                     </div>
-                    <button class="bb-actionBtn" id="bbBtnStartBattle" disabled onclick="window.__bbOnStartBattleClick()">戦闘開始</button>
                 </div>
                 <div id="bbBattlePanel" style="display:none;">
                     <h2 id="bbBattleStatusLine">戦闘中…</h2>
@@ -3081,9 +3489,22 @@ function bbInjectDom() {
                 <div id="bbUnitDetailTeam" class="bb-unitDetailTeam"></div>
                 <h3 id="bbUnitDetailName"></h3>
                 <div id="bbUnitDetailStats"></div>
+                <div id="bbUnitDetailSkills"></div>
                 <button class="bb-actionBtn" id="bbUnitDetailConfirmBtn" style="display:none;" onclick="window.__bbConfirmUnitDetailAction()">実行する</button>
                 <button class="bb-actionBtn" id="bbUnitDetailConfirmBtn2" style="display:none;" onclick="window.__bbConfirmUnitDetailAction2()">実行する</button>
                 <button class="bb-actionBtn bb-secondary" onclick="window.__bbCloseUnitDetail()">閉じる</button>
+            </div>
+        </div>
+        <div id="bbCommandMenuOverlay">
+            <div id="bbCommandMenuBox">
+                <div id="bbCommandMenuVisual"><img id="bbCommandMenuImg" src="" alt=""></div>
+                <h3 id="bbCommandMenuName"></h3>
+                <div class="bb-cmdMenuList">
+                    <button class="bb-actionBtn bb-cmdMenuBtn" id="bbCmdBtnChallenge" onclick="window.__bbOnCommandChallenge()">戦闘を挑む</button>
+                    <button class="bb-actionBtn bb-cmdMenuBtn" id="bbCmdBtnSkill" onclick="window.__bbOnCommandSkill()">特技</button>
+                    <button class="bb-actionBtn bb-cmdMenuBtn" id="bbCmdBtnWait" onclick="window.__bbOnCommandWait()">待機</button>
+                    <button class="bb-actionBtn bb-cmdMenuBtn bb-secondary" id="bbCmdBtnDetail" onclick="window.__bbOnCommandDetail()">詳細</button>
+                </div>
             </div>
         </div>
         <div id="bbRegisterPickerOverlay" onclick="if(event.target===this) window.__bbCloseRegisterPicker()">
@@ -3100,6 +3521,7 @@ function bbInjectDom() {
                     <div id="bbRegDetailVisual"><img id="bbRegDetailImg" src="" alt=""></div>
                     <input id="bbRegDetailNameInput" type="text" maxlength="20" placeholder="カレー名" onblur="window.__bbOnChangeRegName()">
                     <div id="bbRegDetailStats"></div>
+                    <div id="bbRegDetailSkills"></div>
                     <div class="bb-regEquipSectionLabel">ベース</div>
                     <div id="bbRegDetailBaseList" class="bb-regEquipOptionList"></div>
                     <div class="bb-regEquipSectionLabel">食器</div>
@@ -3123,18 +3545,18 @@ function bbInjectDom() {
                     相手の陣地の「旗」を奪うか、相手の駒を全滅させれば勝利です。<br>
                     ・「カレー登録」で、カレーストックからボードバトル専用にカレーを登録できます（登録すると通常のストックからは無くなります。最大20個まで）。<br>
                     ・登録したカレーは名前の変更や、ベース・食器の個別装備ができます（本編の装備とは別枠です）。<br>
-                    ・「準備完了」を押すと対戦相手を選び、配置フェーズになります。登録済みのカレーの中から、ステータス合計3000・最大9体まで盤面の自陣側に配置してください。<br>
+                    ・「準備完了」を押すと対戦相手を選び、配置フェーズになります。登録済みのカレーの中から、ステータス合計3000・最大12体まで盤面の自陣側に配置してください。<br>
                     ・配置が終わったら「戦闘開始」でボードバトルスタート。<br>
                     ・移動は上下左右のみ（斜め移動は不可）。SPDが高いほど1回に動けるマス数が増え、他の駒がいるマスは通り抜けられません。<br>
                     ・盤面には「岩」「水」「毒」の特殊マスがあります。岩と水は特定のカレー以外通過できません。毒は通過時にダメージを受けます。<br>
                     ・移動後、隣接する敵駒に対戦を挑むことができ、本編同様の戦闘画面で1対1のバトルが始まります。負けた駒は消滅します。勝利した駒は盤に残りますが、減ったHPはそのままです。<br>
                     ・特技を持つ特殊カレーもいます。<br>
-                    ●わんぱくカレー：隣接する岩を破壊し、ノーマルマスにすることができます。<br>
-                    ●海の幸カレー：水マスを通過・停止できます。<br>
-                    ●毒カレー：毒マスのダメージを受けません。<br>
-                    ●連続発射カレー：直線3マス以内の敵に攻撃ができます。<br>
-                    ●ホームランカレー：種発射攻撃を無効化します。<br>
-                    ●盾カレー：種発射攻撃を無効化します。
+                    ●「種発射」：直線3マス以内の敵への遠距離攻撃<br>
+                    ●「岩砕き」：隣接する岩を砕く<br>
+                    ●「水泳」：水マスに通過・停止ができる<br>
+                    ●「ホームラン」：特定の攻撃を無効化<br>
+                    ●「盾ガード」：特定の攻撃を無効化<br>
+                    ●「毒耐性」：毒マスのダメージを受けない
                 </div>
                 <button class="bb-actionBtn bb-secondary" onclick="window.__bbCloseHelp()">閉じる</button>
             </div>
@@ -3160,6 +3582,21 @@ function bbInjectDom() {
                 <input id="bbPlacementSaveNameInput" type="text" maxlength="20" placeholder="配置の名前（未入力可）">
                 <button class="bb-actionBtn" onclick="window.__bbConfirmSavePlacement()">登録する</button>
                 <button class="bb-actionBtn bb-secondary" onclick="window.__bbClosePlacementSaveNameOverlay()">キャンセル</button>
+            </div>
+        </div>
+        <div id="bbPrepPlacementEditorOverlay" onclick="if(event.target===this) window.__bbClosePrepPlacementEditor()">
+            <div id="bbPrepPlacementEditorBox">
+                <h3>配置プリセット編集</h3>
+                <div id="bbPrepEditorHint">下のカレーをタップして選択 → マスをタップして配置します。配置済みのマスはタップで外せます（実際の対戦相手選びの前に、配置だけを組んで保存できます）。</div>
+                <div id="bbPrepEditorBudgetLine">合計ステータス: 0 / 3000（残り3000）　配置数: 0 / 12</div>
+                <div id="bbPrepEditorGrid"></div>
+                <div id="bbPrepEditorRosterList"></div>
+                <div class="bb-prepBtnRow">
+                    <button class="bb-actionBtn bb-secondary" onclick="window.__bbOnPrepEditorSaveClick()">プリセット保存</button>
+                    <button class="bb-actionBtn bb-secondary" onclick="window.__bbOnPrepEditorLoadClick()">プリセット呼出</button>
+                    <button class="bb-actionBtn bb-secondary" onclick="window.__bbOnPrepEditorClearClick()">クリア</button>
+                </div>
+                <button class="bb-actionBtn bb-secondary" onclick="window.__bbClosePrepPlacementEditor()">閉じる</button>
             </div>
         </div>
     `;
@@ -3239,6 +3676,18 @@ window.__bbShowHelp = bbShowHelp;
 window.__bbCloseHelp = bbCloseHelp;
 window.__bbCloseOpponentSelect = bbCloseOpponentSelect;
 window.__bbSelectOpponentBot = bbSelectOpponentBot;
+window.__bbOnCommandChallenge = bbOnCommandChallenge;
+window.__bbOnCommandSkill = bbOnCommandSkill;
+window.__bbOnCommandWait = bbOnCommandWait;
+window.__bbOnCommandDetail = bbOnCommandDetail;
+window.__bbOnTapTurnIcon = bbOnTapTurnIcon;
+window.__bbOpenPrepPlacementEditor = bbOpenPrepPlacementEditor;
+window.__bbClosePrepPlacementEditor = bbClosePrepPlacementEditor;
+window.__bbOnPrepEditorPickRosterCurry = bbOnPrepEditorPickRosterCurry;
+window.__bbOnPrepEditorCellClick = bbOnPrepEditorCellClick;
+window.__bbOnPrepEditorClearClick = bbOnPrepEditorClearClick;
+window.__bbOnPrepEditorSaveClick = bbOnPrepEditorSaveClick;
+window.__bbOnPrepEditorLoadClick = bbOnPrepEditorLoadClick;
 window.openBoardBattle = bbOpen; // 将来、他の場所（正式な入り口ボタン等）から開けるように
 
 bbInjectDom();
