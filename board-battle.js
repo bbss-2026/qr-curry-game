@@ -89,6 +89,11 @@ const BB_STYLE = `
 .bb-board-node-tile.bb-attackable { stroke: #ff4136; stroke-width: 5; cursor: pointer; }
 .bb-board-node-tile.bb-occupied-player { stroke: #3498db; }
 .bb-board-node-tile.bb-occupied-enemy { stroke: #e74c3c; }
+/* 駒をタップして詳細カードを開いている間、その駒の移動可能範囲を確認できるよう、
+   通常の移動先ハイライト（黄色・bb-movable）とは別枠で、その駒のチームカラーの
+   枠だけを重ねて表示する（自分の手番中の本来の移動可能ハイライトとは独立して管理する）。 */
+.bb-board-node-tile.bb-move-preview-player { stroke: #3498db; stroke-width: 4; stroke-dasharray: 6 4; }
+.bb-board-node-tile.bb-move-preview-enemy { stroke: #e74c3c; stroke-width: 4; stroke-dasharray: 6 4; }
 .bb-active-ring {
     fill: none; stroke: #ffe066; stroke-width: 4; opacity: 0.9;
     transform-box: fill-box; transform-origin: center;
@@ -442,6 +447,13 @@ function bbIsTerrainBlockedForNormalCurry(node) {
 function bbCanBreakRock(unit) { return !!(unit.raw && unit.raw.isWanpaku); }
 function bbCanCrossWater(unit) { return !!(unit.raw && unit.raw.isSeafood); }
 function bbIsPoisonImmune(unit) { return !!(unit.raw && (unit.raw.isPoison || unit.raw.isPoisonApple)); }
+// 種カレー（isSeed）：移動後、隣接に限らず直線3マス以内の敵駒1体を対象に「種発射」で
+// 攻撃できる（本編の対戦カットインは使わず、通常攻撃1回分のダメージだけをその場で与える）。
+function bbIsSeedShooter(unit) { return !!(unit.raw && unit.raw.isSeed); }
+// 種発射の対象が盾カレー（貝の盾＝isKaiTate）の場合は完全ガードでダメージ0。
+function bbHasSeedGuard(unit) { return !!(unit.raw && unit.raw.isKaiTate); }
+// 種発射の対象がホームランカレー（isHomerun）の場合も打ち返してダメージ0。
+function bbIsHomerunCurry(unit) { return !!(unit.raw && unit.raw.isHomerun); }
 
 function bbGetSpecialTileCandidateNodes() {
     // 旗の行・配置エリアの行は除外し、中間エリアだけを特殊マス配置の対象にする
@@ -1034,6 +1046,9 @@ function bbRenderBoard() {
         if (n.highlight === 'movable') cls += ' bb-movable';
         if (n.highlight === 'attackable') cls += ' bb-attackable';
         if (isActive) cls += ' bb-active-turn';
+        // 詳細カード表示中の駒の移動可能範囲プレビュー（自分の手番の移動可能ハイライトとは別枠）。
+        if (n.moveHighlight === 'player') cls += ' bb-move-preview-player';
+        else if (n.moveHighlight === 'enemy') cls += ' bb-move-preview-enemy';
         html += `<g onclick="window.__bbOnNodeClick(${n.id})">`;
         if (isActive) {
             const ringHalf = BB_NODE_HALF + 4;
@@ -1374,6 +1389,21 @@ function bbHighlightMovableTiles(unit) {
     bbRenderBoard();
 }
 
+// 駒の詳細カード（bbShowUnitDetail）を開いている間、その駒の移動可能範囲を
+// チームカラーの枠で見せておくためのプレビュー表示。手番中の本来の移動可能ハイライト
+// （n.highlight='movable'、黄色）とは別のプロパティ（n.moveHighlight）で管理するため、
+// 自分の手番の移動先選択の見た目には一切影響しない。
+function bbShowMoveRangePreview(unit) {
+    bbNodes.forEach(n => { n.moveHighlight = null; });
+    bbGetMovableNodeIds(unit).forEach(nid => { bbNodesById[nid].moveHighlight = unit.team; });
+    bbRenderBoard();
+}
+function bbClearMoveRangePreview() {
+    let changed = false;
+    bbNodes.forEach(n => { if (n.moveHighlight) { n.moveHighlight = null; changed = true; } });
+    if (changed) bbRenderBoard();
+}
+
 function bbGetMovableNeighbors(unit) {
     return Array.from(bbGetMovableNodeIds(unit));
 }
@@ -1544,6 +1574,14 @@ function bbPlayPoisonHitEffect(nodeId, dmg, onDone) {
     }, BB_POISON_HIT_DELAY_MS);
 }
 
+// 種発射のヒット演出：毒と違い前置きの効果音は無く、命中と同時に効果音＋POPを出す。
+// onDoneはPOPが完全に消えた後に呼ばれる（次の駒への画面スクロールを待たせるため）。
+function bbPlaySeedHitEffect(nodeId, popText, sfxPath, onDone) {
+    bbPlaySfx(sfxPath);
+    bbShowDamagePop(nodeId, popText);
+    setTimeout(() => { if (onDone) onDone(); }, BB_DAMAGE_POP_MS);
+}
+
 // 移動経路（bbReconstructMovePathで得た、出発地点を含まないnodeId配列）を順にたどり、
 // 毒マスのダメージを適用する。ダメージ自体はここで即座に確定させるが、演出（効果音・POP）は
 // 1つずつ順番に再生し、最後のPOPが消え終わってからonDone(diedOnTheWay)を呼ぶ
@@ -1568,6 +1606,12 @@ function bbApplyTerrainEffectsAlongPath(unit, path, onDone) {
             }
         }
     }
+    // 移動アニメーション終了直後は、直前のbbRenderBoard()呼び出し（移動開始時、
+    // その駒を通常描画から隠した状態）がまだ残っており、浮動スプライトも既に片付けられて
+    // いるため、ここで一度描き直さないと駒が一瞬（毒の演出中ずっと）盤面から消えて見える。
+    // 毒ダメージ自体はここまでで確定済みなので、力尽きていてもHPバーが0のコマとして
+    // そのまま描画される（実際に取り除くのは、この後の演出がすべて終わってから）。
+    bbRenderBoard();
     if (hits.length === 0) { onDone(diedOnTheWay); return; }
     let idx = 0;
     function playNext() {
@@ -1711,19 +1755,50 @@ function bbDist(a, b) { return Math.hypot(a.x - b.x, a.y - b.y); }
 //    自分がわんぱくカレーで隣接マスに岩があれば「岩を攻撃」して破壊できる。
 //    複数の対象がいても選べる行動は1回のみ（攻撃 or 岩破壊のどちらか1つだけ）。
 // ------------------------------------------------------------
+// 種カレー専用：上下左右4方向それぞれへ、直線上3マス以内にいる最初の駒を狙う
+// （「種」は途中の駒（味方でも）や岩に当たるとそこで止まるため、その手前は狙えない。
+// 　盤面は行・列で管理された正方グリッドなので、直線＝row/colを1方向だけ加算していく）。
+const BB_SEED_SHOT_RANGE = 3;
+function bbGetSeedShotTargets(unit) {
+    const start = bbNodesById[unit.nodeId];
+    if (!start) return [];
+    const dirs = [[-1, 0], [1, 0], [0, -1], [0, 1]];
+    const targets = [];
+    dirs.forEach(([dr, dc]) => {
+        for (let step = 1; step <= BB_SEED_SHOT_RANGE; step++) {
+            const n = bbFindNode(start.row + dr * step, start.col + dc * step);
+            if (!n) break; // 盤面の外に出た
+            if (n.terrain === BB_TERRAIN_ROCK) break; // 岩に当たって止まる
+            const occupant = bbState.units.find(u => u.nodeId === n.id && u.hp > 0);
+            if (occupant) {
+                if (occupant.team !== unit.team) targets.push(occupant);
+                break; // 誰か（味方でも）いたらそこで止まる＝その奥は狙えない
+            }
+        }
+    });
+    return targets;
+}
+
 // 隣接マス（上下左右）にいる攻撃対象をまとめて返す。
-// enemies: 隣接する敵駒（攻撃対象）の配列。rocks: 隣接する岩マスのノード（わんぱくのみ攻撃可）の配列。
+// enemies: 攻撃対象となる敵駒の配列（種カレーは隣接に限らず「種発射」の射程で判定する）。
+// rocks: 隣接する岩マスのノード（わんぱくのみ攻撃可）の配列。
 function bbGetAdjacentActionTargets(unit) {
     const targets = { enemies: [], rocks: [] };
     const node = bbNodesById[unit.nodeId];
     if (!node) return targets;
     const canBreakRock = bbCanBreakRock(unit);
+    if (bbIsSeedShooter(unit)) {
+        targets.enemies = bbGetSeedShotTargets(unit);
+    } else {
+        node.neighbors.forEach(nid => {
+            const occupant = bbState.units.find(u => u.nodeId === nid && u.hp > 0);
+            if (occupant && occupant.team !== unit.team) targets.enemies.push(occupant);
+        });
+    }
     node.neighbors.forEach(nid => {
         const n = bbNodesById[nid];
         const occupant = bbState.units.find(u => u.nodeId === nid && u.hp > 0);
-        if (occupant && occupant.team !== unit.team) {
-            targets.enemies.push(occupant);
-        } else if (!occupant && n.terrain === BB_TERRAIN_ROCK && canBreakRock) {
+        if (!occupant && n.terrain === BB_TERRAIN_ROCK && canBreakRock) {
             targets.rocks.push(n);
         }
     });
@@ -1746,7 +1821,10 @@ function bbEnterActionPhase(unit) {
         targets.enemies.forEach(u => { bbNodesById[u.nodeId].highlight = 'attackable'; });
         targets.rocks.forEach(n => { n.highlight = 'attackable'; });
         bbRenderBoard();
-        bbSetBattleStatus(`${unit.name} の番です。攻撃する相手や岩をタップ（行動しないなら自分のマスをタップ）。`);
+        const actionHint = bbIsSeedShooter(unit)
+            ? `${unit.name} の番です。「種発射」で狙う相手をタップ（行動しないなら自分のマスをタップ）。`
+            : `${unit.name} の番です。攻撃する相手や岩をタップ（行動しないなら自分のマスをタップ）。`;
+        bbSetBattleStatus(actionHint);
         return;
     }
     // 敵（AI）：攻撃できる相手がいれば最優先、いなければわんぱくなら隣接する岩を破壊する。
@@ -1787,7 +1865,8 @@ function bbOnPickActionTarget(actor, nodeId) {
     const node = bbNodesById[nodeId];
     const defender = bbState.units.find(u => u.nodeId === nodeId && u.hp > 0 && u.team !== actor.team);
     if (defender) {
-        bbShowUnitDetail(defender, { onConfirm: () => { bbExecuteAction(actor, defender); }, confirmLabel: 'この相手に攻撃する' });
+        const confirmLabel = bbIsSeedShooter(actor) ? '「種発射」で攻撃する' : 'この相手に攻撃する';
+        bbShowUnitDetail(defender, { onConfirm: () => { bbExecuteAction(actor, defender); }, confirmLabel: confirmLabel });
         return;
     }
     if (node && node.terrain === BB_TERRAIN_ROCK) {
@@ -1809,7 +1888,63 @@ function bbExecuteAction(unit, target) {
         setTimeout(bbScheduleNextTurn, 500);
         return;
     }
+    // 種カレーは隣接していなくても「種発射」で攻撃できるため、本編の対戦カットイン
+    // （bbResolveBattle）ではなく、その場で直接1回分のダメージを与える簡易処理にする。
+    if (bbIsSeedShooter(unit)) {
+        bbResolveSeedShot(unit, target);
+        return;
+    }
     bbResolveBattle(unit, target);
+}
+
+// ------------------------------------------------------------
+// 8.6 種カレーの「種発射」（隣接に限らない、通常攻撃1回分のダメージのみの簡易攻撃）
+//    本編の対戦カットイン（startExternalBoardBattle）は駒同士を隣り合わせて画面いっぱいに
+//    向き合わせる演出のため、離れた位置から撃つ「種発射」とは相性が悪い。そのため、
+//    毒マスのダメージ演出（bbShowDamagePop等）と同じ仕組みで、その場で直接ダメージを
+//    適用するだけの軽量な処理として実装する。
+//    ※本編の戦闘エンジン内部の実際のダメージ計算式はgame.js側の難読化されたコードの中にあり
+//    外部から呼び出せる形では公開されていないため（playSoundEffect等とは違い専用の
+//    グローバル関数が無い）、ここでは簡易的なATK-DEF式（DEFの半分を差し引く）で
+//    「通常攻撃1回分」を近似する。
+function bbCalcSeedShotDamage(attacker, defender) {
+    const atk = (attacker && attacker.atk) || 0;
+    const def = (defender && defender.def) || 0;
+    return Math.max(1, Math.round(atk - def * 0.5));
+}
+function bbResolveSeedShot(attacker, defender) {
+    bbAppendLog(`${attacker.name} の「種発射」！`);
+    bbRenderBoard();
+    if (bbHasSeedGuard(defender)) {
+        bbAppendLog(`${defender.name} は盾で防いだ！ ダメージ0。`);
+        bbPlaySeedHitEffect(defender.nodeId, 'Guard', 'sound/guard.mp3', function () {
+            setTimeout(bbScheduleNextTurn, 200);
+        });
+        return;
+    }
+    if (bbIsHomerunCurry(defender)) {
+        bbAppendLog(`${defender.name} が打ち返した！ ダメージ0。`);
+        bbPlaySeedHitEffect(defender.nodeId, 'Guard', 'sound/homerun.mp3', function () {
+            setTimeout(bbScheduleNextTurn, 200);
+        });
+        return;
+    }
+    const dmg = bbCalcSeedShotDamage(attacker, defender);
+    defender.hp = Math.max(0, defender.hp - dmg);
+    bbAppendLog(`${defender.name} に${dmg}ダメージ！（残HP ${defender.hp}/${defender.maxHp}）`);
+    bbRenderBoard();
+    bbPlaySeedHitEffect(defender.nodeId, `-${dmg}`, 'punch.mp3', function () {
+        if (defender.hp <= 0) {
+            bbAppendLog(`${defender.name} は力尽きた。`);
+            bbFadeOutUnit(defender, function () {
+                bbState.units = bbState.units.filter(u => u !== defender);
+                bbRenderBoard();
+                setTimeout(bbScheduleNextTurn, 300);
+            });
+            return;
+        }
+        setTimeout(bbScheduleNextTurn, 200);
+    });
 }
 
 // ------------------------------------------------------------
@@ -1964,6 +2099,15 @@ function bbShowUnitDetail(unit, opts) {
         if (confirmBtn) confirmBtn.style.display = 'none';
     }
     overlay.style.display = 'flex';
+    // 戦闘フェーズ中なら、詳細カードを開いている間だけその駒の移動可能範囲を
+    // チームカラーの枠でプレビュー表示する（配置フェーズでは移動の概念が無いため対象外）。
+    // このカードは全画面オーバーレイなので、表示中は盤面のタップ自体ができない
+    // （＝bbGetMovableNodeIdsの内部キャッシュbbLastMoveParentを一時的に書き換えても、
+    // その間に手番中の駒を実際に動かされることはない。カードを閉じる際にbbCloseUnitDetail側で
+    // 手番中の駒の移動可能範囲・キャッシュを確実に元通り計算し直す）。
+    if (bbState.phase === 'battle' && unit.hp > 0 && unit.nodeId != null) {
+        bbShowMoveRangePreview(unit);
+    }
 }
 function bbConfirmUnitDetailAction() {
     const fn = bbPendingDetailConfirm;
@@ -1975,6 +2119,14 @@ function bbCloseUnitDetail() {
     bbPendingDetailConfirm = null;
     const overlay = document.getElementById('bbUnitDetailOverlay');
     if (overlay) overlay.style.display = 'none';
+    bbClearMoveRangePreview();
+    // 移動可能範囲プレビューの計算は、手番中の駒の移動可能マス・経路復元キャッシュ
+    // （bbLastMoveParent）を一時的に上書きしてしまうため、自分の移動フェーズの最中に
+    // 別の駒をプレビューしていた場合は、カードを閉じたタイミングで手番中の駒の分を
+    // 必ず計算し直す（そうしないと、この後の移動先選択が誤った経路になってしまう）。
+    if (bbState.phase === 'battle' && bbState.subPhase === 'move' && bbState.activeUnit && bbState.activeUnit.hp > 0) {
+        bbHighlightMovableTiles(bbState.activeUnit);
+    }
 }
 
 // ------------------------------------------------------------
