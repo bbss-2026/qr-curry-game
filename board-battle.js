@@ -46,6 +46,11 @@ const BB_STYLE = `
 #bbHeaderBar .bb-header-right { display: flex; align-items: center; gap: 8px; }
 .bb-devBadge { font-size: 10px; background: #b88742; color: #420000; padding: 2px 8px; border-radius: 10px; font-weight: bold; }
 .bb-closeBtn { background: none; border: 1px solid #b88742; color: #efdeb1; border-radius: 6px; padding: 4px 10px; font-size: 12px; cursor: pointer; }
+/* 本編と同じミュート状態（toggleMute/isMuted）をそのまま流用する専用ボタン。
+   本編ヘッダーの#muteBtnは#bbRoot（z-index:9000）の下に隠れてしまうため、本のボス戦専用の
+   #bookBattleMuteBtnと同じ考え方で、ボードバトル側にも同期表示するミュートボタンを常設する。 */
+.bb-muteBtn { background: none; border: none; padding: 0; width: 26px; height: 26px; display: flex; align-items: center; justify-content: center; cursor: pointer; }
+.bb-muteBtn img { width: 22px; height: 22px; }
 
 #bbTurnQueueBar {
     display: flex; align-items: center; gap: 6px; padding: 10px 12px; background: rgba(58,36,19,0.88);
@@ -300,9 +305,16 @@ const BB_STYLE = `
 #bbOpponentSelectOverlay {
     position: fixed; inset: 0; background: rgba(0,0,0,0.75); display: none; align-items: center; justify-content: center; z-index: 9030;
 }
-#bbOpponentSelectBox { background: #2b1a0e; border: 2px solid #b88742; border-radius: 12px; padding: 20px; text-align: center; width: 260px; }
+#bbOpponentSelectBox { background: #2b1a0e; border: 2px solid #b88742; border-radius: 12px; padding: 20px; text-align: center; width: 300px; max-height: 80vh; overflow-y: auto; }
 #bbOpponentSelectBox h3 { font-size: 15px; margin: 0 0 12px 0; color: #efdeb1; }
-#bbOpponentSelectBox .bb-equipOption { margin-bottom: 8px; }
+.bb-opponentBotCard {
+    display: flex; align-items: center; gap: 10px; cursor: pointer; padding: 8px 10px;
+    border-radius: 8px; border: 2px solid #6b4a26; background: #1c1108; text-align: left; margin-bottom: 8px;
+}
+.bb-opponentBotCard img { width: 48px; height: 48px; object-fit: contain; border-radius: 6px; background: #3a2712; flex-shrink: 0; }
+.bb-opponentBotInfo { flex: 1; min-width: 0; }
+.bb-opponentBotName { font-weight: bold; font-size: 13px; color: #efdeb1; }
+.bb-opponentBotDesc { font-size: 10px; color: #b88742; margin-top: 2px; line-height: 1.4; }
 
 /* 配置プリセット（配置登録・配置呼出） */
 #bbPlacementPresetOverlay {
@@ -654,6 +666,127 @@ function bbGenerateDebugEnemyTeam() {
     }
     return team;
 }
+// 「特定の条件（種カレー・わんぱく等のフラグ、SPD条件など）を必須で含む」対戦相手ボット用の
+// チーム生成。forcedSpecs=[{test:c=>boolean, force:c=>void, count:number}, ...]の順に、
+// 条件を満たすカレーが出るまで実際の調理ロジックで繰り返し生成を試み（最大40回）、
+// それでも出なければ最後に生成したカレーへ直接フラグ/ステータスを立てて確実に条件を満たす
+// （見た目には他のカレーと同じくランダム生成のまま）。残り枠は通常のランダム生成で埋める。
+function bbGenerateEnemyTeamWithForced(forcedSpecs) {
+    const team = [];
+    let remaining = BB_STAT_BUDGET;
+    // 必須条件（forcedSpecs）で指定されたカレーは、そのボットの編成として「必ず」含まれる
+    // 必要があるため、通常の予算チェック（total<=remaining）を通さずに無条件で加える
+    // （必須分だけで予算を超えることもあり得るが、対戦バランスよりも指定の再現を優先する）。
+    (forcedSpecs || []).forEach(function (spec) {
+        for (let i = 0; i < spec.count && team.length < BB_MAX_UNITS; i++) {
+            let curry = null;
+            for (let attempt = 0; attempt < 40; attempt++) {
+                curry = bbGenerateDebugCurry();
+                if (spec.test(curry)) break;
+            }
+            if (curry && !spec.test(curry) && typeof spec.force === 'function') spec.force(curry);
+            if (curry) {
+                team.push(curry);
+                remaining -= bbStatTotal(curry);
+            }
+        }
+    });
+    // 残り枠は通常のランダム生成で埋める（予算を超えない範囲で1体ずつ積み増す、既存ロジックと同じ）。
+    let attempts = 0;
+    while (team.length < BB_MAX_UNITS && attempts < 50 && (team.length === 0 || remaining > 150)) {
+        attempts++;
+        const curry = bbGenerateDebugCurry();
+        const total = bbStatTotal(curry);
+        if (total <= remaining || team.length === 0) {
+            team.push(curry);
+            remaining -= total;
+        }
+    }
+    return team;
+}
+// 全員が特定条件（SPD100以上など）を満たす必要があるボット用の版。「必須で足りない分を無条件で
+// 足す」forcedSpecsとは違い、こちらは条件を満たすカレーだけを対象に、通常のbbGenerateDebugEnemyTeam
+// と同じ予算内で1体ずつ積み増していく（全員が条件を満たしたまま、対戦バランスの予算は維持する）。
+function bbGenerateEnemyTeamFiltered(test, force) {
+    const team = [];
+    let remaining = BB_STAT_BUDGET;
+    let attempts = 0;
+    while (team.length < BB_MAX_UNITS && attempts < 50 && (team.length === 0 || remaining > 150)) {
+        attempts++;
+        let curry = null;
+        for (let attempt = 0; attempt < 40; attempt++) {
+            curry = bbGenerateDebugCurry();
+            if (test(curry)) break;
+        }
+        if (curry && !test(curry) && typeof force === 'function') force(curry);
+        if (!curry) continue;
+        const total = bbStatTotal(curry);
+        if (total <= remaining || team.length === 0) {
+            team.push(curry);
+            remaining -= total;
+        }
+    }
+    return team;
+}
+
+// ------------------------------------------------------------
+// 4.3.5 対戦相手ボット（4体固定・画像付き）の定義
+//    行動パターン（mode）は、既存の3種類の敵AI挙動（bbPerformEnemyTurn参照）
+//    straight=旗に近づく優先／combat=敵と戦う優先／random=毎ターンどちらかをランダム、
+//    をそのまま流用する。
+// ------------------------------------------------------------
+const BB_OPPONENT_BOTS = [
+    {
+        key: 'negita',
+        name: '新入部員 ネギ太',
+        img: 'boardbattle/boardbot01.png',
+        desc: '使用カレー：ランダムに生成／行動：「旗に近づく」「敵と戦う」をランダム',
+        mode: 'random',
+        buildTeam: function () { return bbGenerateDebugEnemyTeam(); }
+    },
+    {
+        key: 'kurukku',
+        name: '部員 くるっくちゃん',
+        img: 'boardbattle/boardbot02.png',
+        desc: '使用カレー：SPD100以上のカレーのみ／行動：「旗に近づく」を優先',
+        mode: 'straight',
+        buildTeam: function () {
+            return bbGenerateEnemyTeamFiltered(
+                function (c) { return (c.spd || 0) >= 100; },
+                function (c) { c.spd = 100; }
+            );
+        }
+    },
+    {
+        key: 'yasutomoro',
+        name: '副部長 安富呂',
+        img: 'boardbattle/boardbot03.png',
+        desc: '使用カレー：種カレー3体・ホームランカレー2体・毒カレー1体は必須／行動：「旗に近づく」「敵と戦う」をランダム',
+        mode: 'random',
+        buildTeam: function () {
+            return bbGenerateEnemyTeamWithForced([
+                { test: function (c) { return !!c.isSeed; }, force: function (c) { c.isSeed = true; }, count: 3 },
+                { test: function (c) { return !!c.isHomerun; }, force: function (c) { c.isHomerun = true; }, count: 2 },
+                { test: function (c) { return !!(c.isPoison || c.isPoisonApple); }, force: function (c) { c.isPoison = true; }, count: 1 }
+            ]);
+        }
+    },
+    {
+        key: 'erisa',
+        name: '部長 エリサ',
+        img: 'boardbattle/boardbot04.png',
+        desc: '使用カレー：わんぱく2体・海の幸2体・種カレー3体は必須／行動：「敵と戦う」を優先',
+        mode: 'combat',
+        buildTeam: function () {
+            return bbGenerateEnemyTeamWithForced([
+                { test: function (c) { return !!c.isWanpaku; }, force: function (c) { c.isWanpaku = true; }, count: 2 },
+                { test: function (c) { return !!c.isSeafood; }, force: function (c) { c.isSeafood = true; }, count: 2 },
+                { test: function (c) { return !!c.isSeed; }, force: function (c) { c.isSeed = true; }, count: 3 }
+            ]);
+        }
+    }
+];
+
 function bbGetCurryImg(curry) {
     return (typeof getCurryImage === 'function') ? getCurryImage(curry) : '';
 }
@@ -663,6 +796,30 @@ function bbPlaySfx(path) {
     if (typeof playSoundEffect === 'function') {
         try { playSoundEffect(path); } catch (e) { /* 効果音の再生に失敗しても対戦の進行は止めない */ }
     }
+}
+// 本編（game.js）のplayBattleBGM(path)/stopBattleBGM()をそのまま利用する（ループ再生・
+// ミュート判定・音量・多重再生防止まで本編側に任せられる。「PCと対戦」の戦闘BGMと同じ仕組み）。
+function bbPlayBattleBgm(path) {
+    if (typeof playBattleBGM === 'function') {
+        try { playBattleBGM(path); } catch (e) { /* BGM再生に失敗しても対戦の進行は止めない */ }
+    }
+}
+function bbStopBattleBgm() {
+    if (typeof stopBattleBGM === 'function') {
+        try { stopBattleBGM(); } catch (e) { /* 何もしない */ }
+    }
+}
+// 本編ヘッダーの#muteBtn／toggleMute()／isMutedをそのまま流用する（#bookBattleMuteBtnと
+// 同じ考え方：二重管理はせず、ボードバトル側のアイコンだけ同期させる）。
+function bbToggleMute() {
+    if (typeof toggleMute === 'function') { try { toggleMute(); } catch (e) {} }
+    bbUpdateMuteIcon();
+}
+function bbUpdateMuteIcon() {
+    const icon = document.getElementById('bbMuteIcon');
+    if (!icon) return;
+    const muted = (typeof isMuted !== 'undefined') && isMuted;
+    icon.src = muted ? 'sound-off.svg' : 'sound-on.svg';
 }
 
 // ------------------------------------------------------------
@@ -796,6 +953,8 @@ function bbInit() {
     // 敵の出撃予定プレビュー帯（配置フェーズ専用）も同様に隠す。
     const enemyPreviewBarElPrep = document.getElementById('bbEnemyPreviewBar');
     if (enemyPreviewBarElPrep) enemyPreviewBarElPrep.style.display = 'none';
+    bbUpdateHeaderCloseBtnLabel();
+    bbUpdateMuteIcon();
     bbRenderPrepPanel();
 }
 
@@ -807,7 +966,7 @@ function bbEnterPlacementPhase() {
     bbGenerateSpecialTiles(); // 岩・水・毒マスをランダムに5マスずつ配置（自陣旗→敵旗の経路は必ず確保する）
     bbState.phase = 'placement';
     bbState.playerPool = bbRegisteredRoster.map(bbGetEffectiveCurry);
-    bbState.enemyPool = bbGenerateDebugEnemyTeam();
+    bbState.enemyPool = bbSelectedOpponentBot ? bbSelectedOpponentBot.buildTeam() : bbGenerateDebugEnemyTeam();
     bbState.selectedPoolIndex = null;
     bbState.units = [];
     bbState.activeUnit = null;
@@ -844,7 +1003,9 @@ function bbOnPrepStartBattleClick() {
 //    敵チーム全員に同じ行動パターンを適用する（1体ごとに変える機能ではない）。
 // ------------------------------------------------------------
 let bbSelectedOpponentType = 'random';
+let bbSelectedOpponentBot = BB_OPPONENT_BOTS[0];
 function bbShowOpponentSelect() {
+    bbRenderOpponentSelectList();
     const el = document.getElementById('bbOpponentSelectOverlay');
     if (el) el.style.display = 'flex';
 }
@@ -852,8 +1013,25 @@ function bbCloseOpponentSelect() {
     const el = document.getElementById('bbOpponentSelectOverlay');
     if (el) el.style.display = 'none';
 }
-function bbSelectOpponentType(type) {
-    bbSelectedOpponentType = type;
+// 対戦相手選択：4体の固定ボットを画像付きで一覧表示する。
+function bbRenderOpponentSelectList() {
+    const list = document.getElementById('bbOpponentSelectList');
+    if (!list) return;
+    list.innerHTML = BB_OPPONENT_BOTS.map(function (bot, idx) {
+        return `<div class="bb-opponentBotCard" onclick="window.__bbSelectOpponentBot(${idx})">
+            <img src="${bbEsc(bot.img)}" alt="">
+            <div class="bb-opponentBotInfo">
+                <div class="bb-opponentBotName">${bbEsc(bot.name)}</div>
+                <div class="bb-opponentBotDesc">${bbEsc(bot.desc)}</div>
+            </div>
+        </div>`;
+    }).join('');
+}
+function bbSelectOpponentBot(idx) {
+    const bot = BB_OPPONENT_BOTS[idx];
+    if (!bot) return;
+    bbSelectedOpponentBot = bot;
+    bbSelectedOpponentType = bot.mode;
     bbCloseOpponentSelect();
     bbEnterPlacementPhase();
 }
@@ -1436,12 +1614,6 @@ function bbApplyPlacementPreset(preset) {
     }
 }
 
-function bbOnRegenerateEnemyClick() {
-    bbState.enemyPool = bbGenerateDebugEnemyTeam();
-    bbAppendLog('敵編成を再生成しました（デバッグ）。');
-    bbRenderEnemyPreviewBar();
-}
-
 // 配置フェーズ中、行動順アイコンの帯（#bbTurnQueueBar、戦闘フェーズ専用）と同じ位置に、
 // 敵の出撃予定のカレー（bbState.enemyPool＝bbOnStartBattleClickで実際に盤面へ配置される
 // チーム）をアイコンで並べて見せる。
@@ -1495,9 +1667,14 @@ function bbOnStartBattleClick() {
     if (turnQueueBarElBattle) turnQueueBarElBattle.style.display = 'flex';
     const enemyPreviewBarElBattle = document.getElementById('bbEnemyPreviewBar');
     if (enemyPreviewBarElBattle) enemyPreviewBarElBattle.style.display = 'none';
+    bbUpdateHeaderCloseBtnLabel(); // 戦闘フェーズ中は「×閉じる」→「×降参」に変わる
     bbRenderBoard();
     bbAppendLog('戦闘開始！');
-    bbShowBattleStartSplash(() => { bbScheduleNextTurn(); });
+    // 開始演出（horagai.mp3＋タイトル表示）が終わってから、戦闘BGMを再生しつつ行動順を開始する。
+    bbShowBattleStartSplash(() => {
+        bbPlayBattleBgm('sound/boardfield.mp3');
+        bbScheduleNextTurn();
+    });
 }
 function bbShuffleArray(arr) { for (let i = arr.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [arr[i], arr[j]] = [arr[j], arr[i]]; } }
 
@@ -1625,6 +1802,11 @@ function bbGetMovableNodeIds(unit) {
         frontier = nextFrontier;
     }
     bbLastMoveParent = parent;
+    // 自陣の旗マスには移動先として「止まる」ことができない（配置フェーズで自陣旗に
+    // 配置できないのと同じ理由）。敵の旗マスに乗ることは勝利条件そのものなので、
+    // そちらは対象外のまま残す（bbCheckWinCondition参照）。
+    const ownFlagId = bbGetFlagNodeId(unit.team);
+    if (ownFlagId != null) result.delete(ownFlagId);
     return result;
 }
 
@@ -2119,13 +2301,35 @@ function bbSkipActionEndTurn(unit) {
     bbRenderBoard();
     setTimeout(bbScheduleNextTurn, 300);
 }
+// 2つのノードが上下左右で隣接しているかどうか（種カレーの「種発射」は隣接に限らない射程
+// 攻撃だが、隣接している場合だけ「戦闘を挑む」という近接攻撃も選べるようにするため）。
+function bbIsAdjacentNodeId(nodeIdA, nodeIdB) {
+    const a = bbNodesById[nodeIdA], b = bbNodesById[nodeIdB];
+    if (!a || !b) return false;
+    return (Math.abs(a.row - b.row) + Math.abs(a.col - b.col)) === 1;
+}
 // プレイヤーが行動選択フェーズで、ハイライトされた対象（敵駒 or 岩マス）をタップした場合。
 function bbOnPickActionTarget(actor, nodeId) {
     const node = bbNodesById[nodeId];
     const defender = bbState.units.find(u => u.nodeId === nodeId && u.hp > 0 && u.team !== actor.team);
     if (defender) {
-        const confirmLabel = bbIsSeedShooter(actor) ? '「種発射」で攻撃する' : 'この相手に攻撃する';
-        bbShowUnitDetail(defender, { onConfirm: () => { bbExecuteAction(actor, defender); }, confirmLabel: confirmLabel });
+        if (bbIsSeedShooter(actor)) {
+            const adjacent = bbIsAdjacentNodeId(actor.nodeId, defender.nodeId);
+            if (adjacent) {
+                // 隣接している種カレーは「種発射」（遠距離の簡易攻撃）と「戦闘を挑む」
+                // （本編の対戦カットインを使う通常の近接戦闘）のどちらかを選べる。
+                bbShowUnitDetail(defender, {
+                    onConfirm: () => { bbExecuteAction(actor, defender); },
+                    confirmLabel: '「種発射」で攻撃する',
+                    onConfirm2: () => { bbExecuteAction(actor, defender, true); },
+                    confirmLabel2: '戦闘を挑む'
+                });
+            } else {
+                bbShowUnitDetail(defender, { onConfirm: () => { bbExecuteAction(actor, defender); }, confirmLabel: '「種発射」で攻撃する' });
+            }
+            return;
+        }
+        bbShowUnitDetail(defender, { onConfirm: () => { bbExecuteAction(actor, defender); }, confirmLabel: '戦闘を挑む' });
         return;
     }
     if (node && node.terrain === BB_TERRAIN_ROCK) {
@@ -2137,7 +2341,9 @@ function bbOnPickActionTarget(actor, nodeId) {
     }
 }
 // 選ばれた1つの行動を実行する。targetが盤面ノード（岩）ならそれを破壊、ユニットなら戦闘を行う。
-function bbExecuteAction(unit, target) {
+// forceMelee=trueの場合、種カレーであっても「種発射」ではなく通常の近接戦闘（本編カットイン）を
+// 強制する（隣接時に「戦闘を挑む」を選んだ場合に使う）。
+function bbExecuteAction(unit, target, forceMelee) {
     bbNodes.forEach(n => { n.highlight = null; });
     if (target && target.terrain === BB_TERRAIN_ROCK) {
         target.terrain = null;
@@ -2149,7 +2355,8 @@ function bbExecuteAction(unit, target) {
     }
     // 種カレーは隣接していなくても「種発射」で攻撃できるため、本編の対戦カットイン
     // （bbResolveBattle）ではなく、その場で直接1回分のダメージを与える簡易処理にする。
-    if (bbIsSeedShooter(unit)) {
+    // ただしforceMeleeが指定された場合（隣接時に「戦闘を挑む」を選んだ場合）は通常戦闘を行う。
+    if (!forceMelee && bbIsSeedShooter(unit)) {
         bbResolveSeedShot(unit, target);
         return;
     }
@@ -2278,6 +2485,8 @@ function bbCheckWinCondition() {
 function bbEndBattle(winner) {
     bbState.phase = 'result';
     bbState.activeUnit = null;
+    bbStopBattleBgm();
+    bbUpdateHeaderCloseBtnLabel();
     document.getElementById('bbResultOverlay').style.display = 'flex';
     document.getElementById('bbResultTitle').textContent = winner === 'player' ? 'VICTORY' : 'DEFEAT';
     document.getElementById('bbResultDesc').textContent = winner === 'player' ? '敵の旗を奪う、または全滅させました！' : '自陣の旗を奪われる、または全滅しました…';
@@ -2305,17 +2514,42 @@ function bbOpen() {
     bbInit();
 }
 function bbClose() {
+    bbStopBattleBgm();
     document.getElementById('bbRoot').style.display = 'none';
 }
 function bbRestart() {
+    bbStopBattleBgm();
     document.getElementById('bbResultOverlay').style.display = 'none';
     bbInit();
 }
 // 勝敗がついた結果画面の「戻る」：ボードバトルごと閉じてしまう（bbClose）のではなく、
 // ボードバトル内のカレー準備画面（bbInit＝bbState.phase='prep'）へ戻す。
+// 戦闘中の「×降参」からもこれをそのまま使う。
 function bbBackToPrep() {
+    bbStopBattleBgm();
     document.getElementById('bbResultOverlay').style.display = 'none';
     bbInit();
+}
+
+// ヘッダー右上の「×閉じる」ボタン：戦闘フェーズ中だけ「×降参」表示になり、確認の上で
+// ボードバトルごと閉じる（bbClose）のではなく、カレー準備画面（bbBackToPrep）へ戻す。
+// それ以外のフェーズ（準備・配置・結果）では従来通りボードバトル自体を閉じる。
+function bbUpdateHeaderCloseBtnLabel() {
+    const btn = document.getElementById('bbCloseBtn');
+    if (!btn) return;
+    btn.textContent = (bbState.phase === 'battle') ? '✕ 降参' : '✕ 閉じる';
+}
+function bbOnHeaderCloseClick() {
+    if (bbState.phase === 'battle') {
+        const doSurrender = function () { bbBackToPrep(); };
+        if (typeof showCustomConfirm === 'function') {
+            showCustomConfirm('降参しますか？', '対戦を中断して、カレー準備画面に戻ります。', doSurrender);
+        } else {
+            doSurrender();
+        }
+        return;
+    }
+    bbClose();
 }
 
 // ------------------------------------------------------------
@@ -2324,6 +2558,9 @@ function bbBackToPrep() {
 // opts.onConfirm を渡すと、詳細カードに「攻撃する」等の実行ボタンが追加表示される
 // （敵の駒に重ねて移動＝攻撃する前に、相手の中身を見てから決められるようにするため）。
 let bbPendingDetailConfirm = null;
+// opts.onConfirm2/opts.confirmLabel2 を渡すと、2つ目の実行ボタンも表示される
+// （例：種カレーが敵駒と隣接した時に「種発射」「戦闘を挑む」の両方を選べるようにするため）。
+let bbPendingDetailConfirm2 = null;
 function bbShowUnitDetail(unit, opts) {
     const overlay = document.getElementById('bbUnitDetailOverlay');
     const img = document.getElementById('bbUnitDetailImg');
@@ -2331,6 +2568,7 @@ function bbShowUnitDetail(unit, opts) {
     const teamEl = document.getElementById('bbUnitDetailTeam');
     const statsEl = document.getElementById('bbUnitDetailStats');
     const confirmBtn = document.getElementById('bbUnitDetailConfirmBtn');
+    const confirmBtn2 = document.getElementById('bbUnitDetailConfirmBtn2');
     if (!overlay || !img || !nameEl || !statsEl) return;
     const c = unit.raw || unit;
     img.src = bbGetCurryImg(c);
@@ -2357,6 +2595,16 @@ function bbShowUnitDetail(unit, opts) {
         bbPendingDetailConfirm = null;
         if (confirmBtn) confirmBtn.style.display = 'none';
     }
+    if (opts && typeof opts.onConfirm2 === 'function') {
+        bbPendingDetailConfirm2 = opts.onConfirm2;
+        if (confirmBtn2) {
+            confirmBtn2.style.display = 'inline-block';
+            confirmBtn2.textContent = opts.confirmLabel2 || '実行する';
+        }
+    } else {
+        bbPendingDetailConfirm2 = null;
+        if (confirmBtn2) confirmBtn2.style.display = 'none';
+    }
     overlay.style.display = 'flex';
     // 戦闘フェーズ中なら、詳細カードを開いている間だけその駒の移動可能範囲を
     // チームカラーの枠でプレビュー表示する（配置フェーズでは移動の概念が無いため対象外）。
@@ -2371,11 +2619,20 @@ function bbShowUnitDetail(unit, opts) {
 function bbConfirmUnitDetailAction() {
     const fn = bbPendingDetailConfirm;
     bbPendingDetailConfirm = null;
+    bbPendingDetailConfirm2 = null;
+    bbCloseUnitDetail();
+    if (typeof fn === 'function') fn();
+}
+function bbConfirmUnitDetailAction2() {
+    const fn = bbPendingDetailConfirm2;
+    bbPendingDetailConfirm = null;
+    bbPendingDetailConfirm2 = null;
     bbCloseUnitDetail();
     if (typeof fn === 'function') fn();
 }
 function bbCloseUnitDetail() {
     bbPendingDetailConfirm = null;
+    bbPendingDetailConfirm2 = null;
     const overlay = document.getElementById('bbUnitDetailOverlay');
     if (overlay) overlay.style.display = 'none';
     bbClearMoveRangePreview();
@@ -2667,7 +2924,10 @@ function bbInjectDom() {
                     <h1>ボードカレーバトル</h1>
                     <div class="bb-header-right">
                         <span class="bb-devBadge">開発版</span>
-                        <button class="bb-closeBtn" onclick="window.__bbClose()">✕ 閉じる</button>
+                        <button class="bb-muteBtn" onclick="window.__bbToggleMute()">
+                            <img id="bbMuteIcon" src="sound-on.svg" alt="sound">
+                        </button>
+                        <button class="bb-closeBtn" id="bbCloseBtn" onclick="window.__bbOnHeaderCloseClick()">✕ 閉じる</button>
                     </div>
                 </div>
                 <div id="bbTurnQueueBar"></div>
@@ -2684,7 +2944,6 @@ function bbInjectDom() {
                         <button class="bb-actionBtn bb-secondary" onclick="window.__bbOnLoadPlacementClick()">配置呼出</button>
                     </div>
                     <button class="bb-actionBtn" id="bbBtnStartBattle" disabled onclick="window.__bbOnStartBattleClick()">戦闘開始</button>
-                    <button class="bb-actionBtn bb-secondary" onclick="window.__bbOnRegenerateEnemyClick()">敵編成を再生成（デバッグ）</button>
                 </div>
                 <div id="bbBattlePanel" style="display:none;">
                     <h2 id="bbBattleStatusLine">戦闘中…</h2>
@@ -2696,8 +2955,7 @@ function bbInjectDom() {
             <div id="bbResultBox">
                 <h2 id="bbResultTitle">VICTORY</h2>
                 <div id="bbResultDesc" style="font-size:13px; margin-bottom:16px;"></div>
-                <button class="bb-actionBtn" onclick="window.__bbRestart()">もう一度</button>
-                <button class="bb-actionBtn bb-secondary" onclick="window.__bbBackToPrep()">戻る</button>
+                <button class="bb-actionBtn" onclick="window.__bbBackToPrep()">戻る</button>
             </div>
         </div>
         <div id="bbBattleBlockOverlay"></div>
@@ -2712,6 +2970,7 @@ function bbInjectDom() {
                 <h3 id="bbUnitDetailName"></h3>
                 <div id="bbUnitDetailStats"></div>
                 <button class="bb-actionBtn" id="bbUnitDetailConfirmBtn" style="display:none;" onclick="window.__bbConfirmUnitDetailAction()">実行する</button>
+                <button class="bb-actionBtn" id="bbUnitDetailConfirmBtn2" style="display:none;" onclick="window.__bbConfirmUnitDetailAction2()">実行する</button>
                 <button class="bb-actionBtn bb-secondary" onclick="window.__bbCloseUnitDetail()">閉じる</button>
             </div>
         </div>
@@ -2760,15 +3019,7 @@ function bbInjectDom() {
         <div id="bbOpponentSelectOverlay" onclick="if(event.target===this) window.__bbCloseOpponentSelect()">
             <div id="bbOpponentSelectBox">
                 <h3>対戦相手を選ぶ</h3>
-                <div class="bb-equipOption" onclick="window.__bbSelectOpponentType('random')">
-                    <div class="bb-equipOptionName">ランダムくん</div>
-                </div>
-                <div class="bb-equipOption" onclick="window.__bbSelectOpponentType('straight')">
-                    <div class="bb-equipOptionName">直進ちゃん</div>
-                </div>
-                <div class="bb-equipOption" onclick="window.__bbSelectOpponentType('combat')">
-                    <div class="bb-equipOptionName">武闘派さん</div>
-                </div>
+                <div id="bbOpponentSelectList"></div>
                 <button class="bb-actionBtn bb-secondary" onclick="window.__bbCloseOpponentSelect()">戻る</button>
             </div>
         </div>
@@ -2835,7 +3086,6 @@ function bbInjectDom() {
 window.__bbOnNodeClick = bbOnNodeClick;
 window.__bbOnPickPoolCurry = bbOnPickPoolCurry;
 window.__bbOnStartBattleClick = bbOnStartBattleClick;
-window.__bbOnRegenerateEnemyClick = bbOnRegenerateEnemyClick;
 window.__bbOnSavePlacementClick = bbOnSavePlacementClick;
 window.__bbOnLoadPlacementClick = bbOnLoadPlacementClick;
 window.__bbClosePlacementPresetOverlay = bbClosePlacementPresetOverlay;
@@ -2846,8 +3096,11 @@ window.__bbConfirmSavePlacement = bbConfirmSavePlacement;
 window.__bbClose = bbClose;
 window.__bbRestart = bbRestart;
 window.__bbBackToPrep = bbBackToPrep;
+window.__bbToggleMute = bbToggleMute;
+window.__bbOnHeaderCloseClick = bbOnHeaderCloseClick;
 window.__bbCloseUnitDetail = bbCloseUnitDetail;
 window.__bbConfirmUnitDetailAction = bbConfirmUnitDetailAction;
+window.__bbConfirmUnitDetailAction2 = bbConfirmUnitDetailAction2;
 window.__bbOnPrepStartBattleClick = bbOnPrepStartBattleClick;
 window.__bbOnRegisterCurryClick = bbOnRegisterCurryClick;
 window.__bbCloseRegisterPicker = bbCloseRegisterPicker;
@@ -2862,7 +3115,7 @@ window.__bbOnDeleteRegisteredCurry = bbOnDeleteRegisteredCurry;
 window.__bbShowHelp = bbShowHelp;
 window.__bbCloseHelp = bbCloseHelp;
 window.__bbCloseOpponentSelect = bbCloseOpponentSelect;
-window.__bbSelectOpponentType = bbSelectOpponentType;
+window.__bbSelectOpponentBot = bbSelectOpponentBot;
 window.openBoardBattle = bbOpen; // 将来、他の場所（正式な入り口ボタン等）から開けるように
 
 bbInjectDom();
