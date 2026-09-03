@@ -52,6 +52,15 @@ const BB_STYLE = `
 .bb-muteBtn { background: none; border: none; padding: 0; width: 26px; height: 26px; display: flex; align-items: center; justify-content: center; cursor: pointer; }
 .bb-muteBtn img { width: 22px; height: 22px; }
 
+/* 配置・戦闘フェーズ中、盤面上部（ヘッダーのすぐ下）に選択中の対戦相手ボットの
+   イラストと名前を常設表示する（対戦相手選択画面を離れても誰と戦っているか分かるように）。 */
+#bbOpponentBanner {
+    display: none; align-items: center; gap: 8px; padding: 6px 12px; background: rgba(66,0,0,0.75);
+    border-bottom: 1px solid rgba(184,135,66,0.6); flex-shrink: 0;
+}
+#bbOpponentBanner img { width: 28px; height: 28px; border-radius: 50%; object-fit: cover; border: 2px solid #b88742; flex-shrink: 0; }
+#bbOpponentBanner .bb-opponentBannerName { font-size: 12px; color: #efdeb1; font-weight: bold; }
+
 #bbTurnQueueBar {
     display: flex; align-items: center; gap: 6px; padding: 10px 12px; background: rgba(58,36,19,0.88);
     border-bottom: 1px solid rgba(107,74,38,0.8); overflow-x: auto; min-height: 62px; flex-shrink: 0;
@@ -354,6 +363,16 @@ const BB_STYLE = `
     background: rgba(10,10,10,0.32) !important;
     border: 1px solid rgba(241,196,15,0.25) !important;
     box-shadow: 0 20px 50px rgba(0,0,0,0.4) !important;
+}
+/* 本編の決闘画面は、敵画像の横に「対戦相手」名（#oppOwnerText）、その下の行
+   （enemy-lower-row）に食材アイコン（#oppCurryEmojiText）とカレー名（#oppCurryNameText）を
+   表示する。ボードバトルではstartExternalBoardBattle経由でoppN（#oppOwnerText用）に
+   カレー名そのものを渡しているため、#oppOwnerTextと#oppCurryNameTextが同じ文字列で
+   重複表示されてしまう。#battleArena.bb-arena-overlay（＝ボードバトルの決闘中のみ付与される
+   クラス）に限定して#oppCurryNameTextを隠し、敵画像の下は食材アイコン4つのみが残るようにする
+   （通常のPC対戦・オンライン対戦の見た目には一切影響しない。game.js自体は変更しない）。 */
+#battleArena.bb-arena-overlay #oppCurryNameText {
+    display: none;
 }
 /* 戦闘中は盤面に触れられないよう、画面全体を覆う黒いブロック用オーバーレイを敷く。
    #bbRoot（z-index:9000）より前面、本編の戦闘画面（book-battle-liftでz-index:10050）より
@@ -951,9 +970,27 @@ function bbInit() {
     // 敵の出撃予定プレビュー帯（配置フェーズ専用）も同様に隠す。
     const enemyPreviewBarElPrep = document.getElementById('bbEnemyPreviewBar');
     if (enemyPreviewBarElPrep) enemyPreviewBarElPrep.style.display = 'none';
+    // 対戦相手バナー（配置・戦闘フェーズ専用）も、準備画面ではまだ相手が決まっていないため隠す。
+    const opponentBannerElPrep = document.getElementById('bbOpponentBanner');
+    if (opponentBannerElPrep) opponentBannerElPrep.style.display = 'none';
     bbUpdateHeaderCloseBtnLabel();
     bbUpdateMuteIcon();
     bbRenderPrepPanel();
+}
+
+// 盤面上部（ヘッダー下）に、選択中の対戦相手ボットのイラストと名前を表示する。
+// 配置フェーズ開始時に一度描画すれば、その後の戦闘フェーズでも同じ内容のまま表示され続ける
+// （対戦相手は配置フェーズに入る前に確定しており、対戦中に変わることはないため）。
+function bbRenderOpponentBanner() {
+    const banner = document.getElementById('bbOpponentBanner');
+    const img = document.getElementById('bbOpponentBannerImg');
+    const nameEl = document.getElementById('bbOpponentBannerName');
+    if (!banner || !img || !nameEl) return;
+    const bot = bbSelectedOpponentBot;
+    if (!bot) { banner.style.display = 'none'; return; }
+    img.src = bot.img;
+    nameEl.textContent = bot.name;
+    banner.style.display = 'flex';
 }
 
 // 準備画面の「戦闘開始」で呼ばれる：盤面を表示し、登録済みロースターを配置候補として配置フェーズへ。
@@ -983,6 +1020,7 @@ function bbEnterPlacementPhase() {
     const enemyPreviewBarElPlacement = document.getElementById('bbEnemyPreviewBar');
     if (enemyPreviewBarElPlacement) enemyPreviewBarElPlacement.style.display = 'flex';
     bbRenderEnemyPreviewBar();
+    bbRenderOpponentBanner();
     bbRenderBoard();
     bbRenderPlacementPanel();
     bbFitView();
@@ -2471,6 +2509,10 @@ function bbResolveBattle(mover, defender) {
     startExternalBoardBattle(myCurrySnapshot, oppCurrySnapshot, function (didPlayerWin, remainingPlayerHp, remainingOppHp) {
         if (arenaEl) arenaEl.classList.remove('bb-arena-overlay');
         if (blockOverlayEl) blockOverlayEl.style.display = 'none';
+        // 本編の決闘カットイン（done()）は自分の戦闘BGMを止めるだけで、盤面に戻ってきても
+        // ボードバトル用BGMを再生し直してはくれない。盤面へ戻った時点でここから再開する
+        // （この後すぐ全滅・旗到達などで対戦全体が終わる場合は、bbEndBattle側で改めて止まる）。
+        bbPlayBattleBgm('sound/boardfield.mp3');
         playerUnit.hp = remainingPlayerHp;
         enemyUnit.hp = remainingOppHp;
         const moverIsPlayer = (mover.team === 'player');
@@ -2499,6 +2541,50 @@ function bbCheckWinCondition() {
     return null;
 }
 
+// ------------------------------------------------------------
+// 9.5 勝利報酬（Exp+10・ノーマル食材ランダム3つ）
+//    本編の通常戦闘・咖喱図書館ボス戦等と違い、ボードカレーバトルはdone()側のisBoardBattle
+//    早期リターンでG・EXP・食材・実績・クエスト進行に一切触れない設計になっている
+//    （盤面の駒がストックの経済に影響しないようにするための意図的な仕様）。
+//    ここではその設計は変えず、盤面の対戦全体（1対1の決闘ではなく）に勝った時だけ、
+//    ボードバトル専用の小さな固定報酬を、本編（game.js）のグローバル
+//    （playerEXP/inventory/discoveredItems/saveGame等）へ直接、typeofガード付きで加算する。
+const BB_WIN_REWARD_EXP = 10;
+const BB_WIN_REWARD_MATERIAL_COUNT = 3;
+function bbGrantWinReward() {
+    const rewardLines = [];
+    let oldExp = null;
+    if (typeof playerEXP !== 'undefined') {
+        oldExp = playerEXP;
+        playerEXP += BB_WIN_REWARD_EXP;
+        rewardLines.push(`✨ Exp+${BB_WIN_REWARD_EXP}`);
+    }
+    const gainedNames = [];
+    if (typeof inventory !== 'undefined' && typeof masterIngredients !== 'undefined') {
+        const pool = (typeof getNormalIngredientPool === 'function')
+            ? getNormalIngredientPool()
+            : Object.keys(masterIngredients).filter(k => masterIngredients[k].shop === 0);
+        for (let i = 0; i < BB_WIN_REWARD_MATERIAL_COUNT; i++) {
+            if (pool.length === 0) break;
+            const itm = pool[Math.floor(Math.random() * pool.length)];
+            inventory[itm] = (inventory[itm] || 0) + 1;
+            if (typeof discoveredItems !== 'undefined') discoveredItems[itm] = true;
+            gainedNames.push(itm);
+        }
+    }
+    if (gainedNames.length > 0) {
+        rewardLines.push(`🥕 ノーマル食材：${gainedNames.map(bbEsc).join('、')}`);
+    }
+    if (typeof saveGame === 'function') { try { saveGame(); } catch (e) { /* 保存に失敗しても対戦の進行は止めない */ } }
+    if (typeof updateFridgeUI === 'function') { try { updateFridgeUI(); } catch (e) {} }
+    // 通常戦闘の勝利時と同じく、レベルアップ判定は結果表示が出た少し後に行う
+    // （checkLvUpは本編共通のレベルアップ演出モーダルをそのまま使う）。
+    if (oldExp !== null && typeof checkLvUp === 'function') {
+        setTimeout(() => { try { checkLvUp(oldExp, playerEXP); } catch (e) {} }, 800);
+    }
+    return rewardLines.join('<br>');
+}
+
 function bbEndBattle(winner) {
     bbState.phase = 'result';
     bbState.activeUnit = null;
@@ -2506,7 +2592,12 @@ function bbEndBattle(winner) {
     bbUpdateHeaderCloseBtnLabel();
     document.getElementById('bbResultOverlay').style.display = 'flex';
     document.getElementById('bbResultTitle').textContent = winner === 'player' ? 'VICTORY' : 'DEFEAT';
-    document.getElementById('bbResultDesc').textContent = winner === 'player' ? '敵の旗を奪う、または全滅させました！' : '自陣の旗を奪われる、または全滅しました…';
+    let descHtml = winner === 'player' ? '敵の旗を奪う、または全滅させました！' : '自陣の旗を奪われる、または全滅しました…';
+    if (winner === 'player') {
+        const rewardHtml = bbGrantWinReward();
+        if (rewardHtml) descHtml += '<br><br>' + rewardHtml;
+    }
+    document.getElementById('bbResultDesc').innerHTML = descHtml;
 }
 
 // ------------------------------------------------------------
@@ -2947,6 +3038,10 @@ function bbInjectDom() {
                         <button class="bb-closeBtn" id="bbCloseBtn" onclick="window.__bbOnHeaderCloseClick()">✕ 閉じる</button>
                     </div>
                 </div>
+                <div id="bbOpponentBanner">
+                    <img id="bbOpponentBannerImg" src="" alt="">
+                    <div class="bb-opponentBannerName" id="bbOpponentBannerName"></div>
+                </div>
                 <div id="bbTurnQueueBar"></div>
                 <div id="bbEnemyPreviewBar"></div>
             </div>
@@ -3021,14 +3116,25 @@ function bbInjectDom() {
             <div id="bbHelpBox">
                 <h3>カレーボードバトルとは？</h3>
                 <div id="bbHelpText">
-                    9×9の盤面の上下にある「旗」（王将の位置）を奪うか、相手を全滅させれば勝利です。<br><br>
+                    <strong>【ご注意】</strong><br>
+                    ボードカレーバトルは開発中のコンテンツです。<br>
+                    予告なく仕様は変更しますし、特別な報酬の設定などもありません。<br><br>
+                    <strong>【ルール】</strong><br>
+                    相手の陣地の「旗」を奪うか、相手の駒を全滅させれば勝利です。<br>
                     ・「カレー登録」で、カレーストックからボードバトル専用にカレーを登録できます（登録すると通常のストックからは無くなります。最大20個まで）。<br>
                     ・登録したカレーは名前の変更や、ベース・食器の個別装備ができます（本編の装備とは別枠です）。<br>
                     ・「準備完了」を押すと対戦相手を選び、配置フェーズになります。登録済みのカレーの中から、ステータス合計3000・最大9体まで盤面の自陣側に配置してください。<br>
-                    ・配置が終わったら「戦闘開始」で戦闘スタート。SPDの高い駒から順に、生存者全員が1周につき必ず1回行動します（行動順は敵味方共通の1本のタイムライン）。<br>
+                    ・配置が終わったら「戦闘開始」でボードバトルスタート。<br>
                     ・移動は上下左右のみ（斜め移動は不可）。SPDが高いほど1回に動けるマス数が増え、他の駒がいるマスは通り抜けられません。<br>
-                    ・盤面には「岩」「水」「毒」の特殊マスがあります。岩はわんぱくカレーのみ壊して通過でき、以後は誰でも通れる普通のマスになります。水は海の幸カレーのみ通過・停止でき、他のカレーは通れません。毒は誰でも通過・停止できますが、毒系カレー以外は最大HPの20%のダメージを受けます。<br>
-                    ・移動して相手の駒と重なると、そのまま本編の戦闘画面で1対1のバトルが始まります。
+                    ・盤面には「岩」「水」「毒」の特殊マスがあります。岩と水は特定のカレー以外通過できません。毒は通過時にダメージを受けます。<br>
+                    ・移動後、隣接する敵駒に対戦を挑むことができ、本編同様の戦闘画面で1対1のバトルが始まります。負けた駒は消滅します。勝利した駒は盤に残りますが、減ったHPはそのままです。<br>
+                    ・特技を持つ特殊カレーもいます。<br>
+                    ●わんぱくカレー：隣接する岩を破壊し、ノーマルマスにすることができます。<br>
+                    ●海の幸カレー：水マスを通過・停止できます。<br>
+                    ●毒カレー：毒マスのダメージを受けません。<br>
+                    ●連続発射カレー：直線3マス以内の敵に攻撃ができます。<br>
+                    ●ホームランカレー：種発射攻撃を無効化します。<br>
+                    ●盾カレー：種発射攻撃を無効化します。
                 </div>
                 <button class="bb-actionBtn bb-secondary" onclick="window.__bbCloseHelp()">閉じる</button>
             </div>
