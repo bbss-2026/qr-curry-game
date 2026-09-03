@@ -62,6 +62,15 @@ const BB_STYLE = `
 .bb-turnIcon.bb-team-enemy { border-color: #e74c3c; }
 .bb-turnIcon.bb-current { width: 52px; height: 52px; opacity: 1; transform: scale(1.05); box-shadow: 0 0 12px rgba(255,255,255,0.6); }
 
+/* 配置フェーズ中だけ、本来の行動順の帯（#bbTurnQueueBar、戦闘フェーズ専用）の代わりに
+   同じ位置へ「敵の出撃予定」のカレー駒アイコンを表示する。 */
+#bbEnemyPreviewBar {
+    display: none; align-items: center; gap: 6px; padding: 10px 12px; background: rgba(58,36,19,0.88);
+    border-bottom: 1px solid rgba(107,74,38,0.8); overflow-x: auto; min-height: 62px; flex-shrink: 0;
+    box-shadow: 0 6px 12px rgba(0,0,0,0.25);
+}
+#bbEnemyPreviewBar .bb-enemyPreviewLabel { font-size: 10px; color: #b88742; flex-shrink: 0; margin-right: 2px; white-space: nowrap; }
+
 /* 盤面は#bbAppRoot全体に敷き詰め、ヘッダー等の下にも回り込ませる（地図アプリのタイル層と同じ考え方）。
    ネイティブのスクロール（overflow:auto）は使わず、pointer/wheelイベントで自前のパン・ズームを実装する。 */
 /* 盤面を斜め上から見下ろしたような立体感を出すため、SVG本体だけにCSSの3D変形を掛ける。
@@ -294,6 +303,34 @@ const BB_STYLE = `
 #bbOpponentSelectBox { background: #2b1a0e; border: 2px solid #b88742; border-radius: 12px; padding: 20px; text-align: center; width: 260px; }
 #bbOpponentSelectBox h3 { font-size: 15px; margin: 0 0 12px 0; color: #efdeb1; }
 #bbOpponentSelectBox .bb-equipOption { margin-bottom: 8px; }
+
+/* 配置プリセット（配置登録・配置呼出） */
+#bbPlacementPresetOverlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.75); display: none; align-items: center; justify-content: center; z-index: 9030;
+}
+#bbPlacementPresetBox { background: #2b1a0e; border: 2px solid #b88742; border-radius: 12px; padding: 20px; text-align: center; width: 280px; max-height: 80vh; overflow-y: auto; }
+#bbPlacementPresetBox h3 { font-size: 15px; margin: 0 0 8px 0; color: #efdeb1; }
+#bbPlacementPresetHint { font-size: 11px; color: #b88742; margin-bottom: 12px; line-height: 1.5; }
+#bbPlacementPresetList { display: flex; flex-direction: column; gap: 8px; margin-bottom: 14px; }
+.bb-placementPresetRow {
+    display: flex; align-items: center; gap: 8px; border: 2px solid #6b4a26; border-radius: 8px; background: #1c1108; padding: 8px 10px;
+}
+.bb-placementPresetInfo { flex: 1; text-align: left; cursor: pointer; }
+.bb-placementPresetName { font-size: 13px; font-weight: bold; color: #efdeb1; }
+.bb-placementPresetMeta { font-size: 10px; color: #b88742; margin-top: 2px; }
+.bb-placementPresetDelBtn {
+    background: none; border: 1px solid #6b4a26; color: #e74c3c; border-radius: 6px; padding: 4px 8px; font-size: 12px; cursor: pointer; flex-shrink: 0;
+}
+
+#bbPlacementSaveNameOverlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.75); display: none; align-items: center; justify-content: center; z-index: 9030;
+}
+#bbPlacementSaveNameBox { background: #2b1a0e; border: 2px solid #b88742; border-radius: 12px; padding: 20px; text-align: center; width: 260px; }
+#bbPlacementSaveNameBox h3 { font-size: 15px; margin: 0 0 10px 0; color: #efdeb1; }
+#bbPlacementSaveNameInput {
+    width: 100%; box-sizing: border-box; background: #1c1108; border: 1px solid #6b4a26; color: #efdeb1;
+    border-radius: 6px; padding: 8px 10px; font-size: 13px; text-align: center; margin-bottom: 14px;
+}
 
 /* 盤面バトル中に起動する本編の戦闘画面：咖喱図書館用の背景（applyBookBattleLiftが敷く
    currylibrary_bg.png）ではなく、盤面（#bbRoot）がうっすら透けて見える半透明オーバーレイにする。
@@ -672,6 +709,35 @@ function bbSaveRegisteredRoster() {
         console.warn('[ボードバトル] 登録済みカレーの保存に失敗:', e);
     }
 }
+
+// ------------------------------------------------------------
+// 3.6 配置プリセット（配置登録・配置呼出）
+//    盤面の配置（どのカレーをどのマスへ置いたか）を名前付きで最大5件まで保存できる。
+//    プリセット1件は「登録済みカレーのregId（安定ID）とnodeIdの組」の配列として持つ
+//    （bbState.playerPool自体は配置フェーズに入るたびに作り直される一時オブジェクトの
+//    配列なので、そのインデックスやオブジェクト参照そのものは保存に使えない。
+//    bbRegisteredRosterの各エントリが持つregIdだけが、時間が経っても変わらない識別子）。
+// ------------------------------------------------------------
+const BB_PLACEMENT_PRESET_STORAGE_KEY = 'qr_board_battle_placement_presets';
+const BB_PLACEMENT_PRESET_MAX = 5;
+let bbPlacementPresets = [];
+function bbLoadPlacementPresets() {
+    try {
+        const raw = localStorage.getItem(BB_PLACEMENT_PRESET_STORAGE_KEY);
+        const parsed = raw ? JSON.parse(raw) : [];
+        bbPlacementPresets = Array.isArray(parsed) ? parsed : [];
+    } catch (e) {
+        console.warn('[ボードバトル] 配置プリセットの読み込みに失敗:', e);
+        bbPlacementPresets = [];
+    }
+}
+function bbSavePlacementPresets() {
+    try {
+        localStorage.setItem(BB_PLACEMENT_PRESET_STORAGE_KEY, JSON.stringify(bbPlacementPresets));
+    } catch (e) {
+        console.warn('[ボードバトル] 配置プリセットの保存に失敗:', e);
+    }
+}
 // ベース・食器（本編のBASE_LIST/TABLEWARE_LIST）による、登録カレー1件分のステータス補正値。
 function bbGetEquipBonus(statKey, entry) {
     const b = (typeof BASE_LIST !== 'undefined' && BASE_LIST[entry.equippedBase]) || {};
@@ -704,7 +770,7 @@ function bbStatDisplayWithEquip(statKey, baseVal, entry) {
 
 // 全オーバーレイ・パネルを一旦隠す共通処理（画面遷移のたびに、前の状態が残らないようにする）。
 function bbHideAllOverlaysAndPanels() {
-    ['bbResultOverlay', 'bbUnitDetailOverlay', 'bbRegisterPickerOverlay', 'bbRegDetailOverlay', 'bbHelpOverlay', 'bbOpponentSelectOverlay'].forEach(id => {
+    ['bbResultOverlay', 'bbUnitDetailOverlay', 'bbRegisterPickerOverlay', 'bbRegDetailOverlay', 'bbHelpOverlay', 'bbOpponentSelectOverlay', 'bbPlacementPresetOverlay', 'bbPlacementSaveNameOverlay'].forEach(id => {
         const el = document.getElementById(id);
         if (el) el.style.display = 'none';
     });
@@ -727,12 +793,16 @@ function bbInit() {
     // 半透明の背景だけが残って見た目に重なってしまうため、明示的に隠しておく。
     const turnQueueBarElPrep = document.getElementById('bbTurnQueueBar');
     if (turnQueueBarElPrep) turnQueueBarElPrep.style.display = 'none';
+    // 敵の出撃予定プレビュー帯（配置フェーズ専用）も同様に隠す。
+    const enemyPreviewBarElPrep = document.getElementById('bbEnemyPreviewBar');
+    if (enemyPreviewBarElPrep) enemyPreviewBarElPrep.style.display = 'none';
     bbRenderPrepPanel();
 }
 
 // 準備画面の「戦闘開始」で呼ばれる：盤面を表示し、登録済みロースターを配置候補として配置フェーズへ。
 function bbEnterPlacementPhase() {
     bbCleanupLeakedTempCurries();
+    bbLoadPlacementPresets();
     bbBuildBoard();
     bbGenerateSpecialTiles(); // 岩・水・毒マスをランダムに5マスずつ配置（自陣旗→敵旗の経路は必ず確保する）
     bbState.phase = 'placement';
@@ -750,8 +820,12 @@ function bbEnterPlacementPhase() {
     document.getElementById('bbBattlePanel').style.display = 'none';
     document.getElementById('bbBattleLog').innerHTML = '';
     // 配置フェーズでもまだ行動順は無いので、帯は隠したまま（戦闘開始で改めて表示する）。
+    // その代わりに、同じ位置へ敵の出撃予定カレーのプレビュー帯を表示する。
     const turnQueueBarElPlacement = document.getElementById('bbTurnQueueBar');
     if (turnQueueBarElPlacement) turnQueueBarElPlacement.style.display = 'none';
+    const enemyPreviewBarElPlacement = document.getElementById('bbEnemyPreviewBar');
+    if (enemyPreviewBarElPlacement) enemyPreviewBarElPlacement.style.display = 'flex';
+    bbRenderEnemyPreviewBar();
     bbRenderBoard();
     bbRenderPlacementPanel();
     bbFitView();
@@ -1192,9 +1266,191 @@ function bbOnNodeClick(nodeId) {
     }
 }
 
+// ------------------------------------------------------------
+// 6.5 配置プリセット（配置登録・配置呼出）
+// ------------------------------------------------------------
+// 「配置登録」ボタン：今配置中の内容を名前付きで保存する。5件登録済みなら、まず
+// 削除する1件を選ばせてから登録名の入力に進む。
+function bbOnSavePlacementClick() {
+    if (bbState.phase !== 'placement') return;
+    const placed = bbState.units.filter(u => u.team === 'player');
+    if (placed.length === 0) {
+        alert('配置されているカレーがありません。');
+        return;
+    }
+    if (bbPlacementPresets.length >= BB_PLACEMENT_PRESET_MAX) {
+        bbShowPlacementPresetOverlay('deleteForSave');
+        return;
+    }
+    bbShowPlacementSaveNameOverlay();
+}
+// 「配置呼出」ボタン：登録済みの配置一覧を開く。
+function bbOnLoadPlacementClick() {
+    if (bbState.phase !== 'placement') return;
+    if (bbPlacementPresets.length === 0) {
+        alert('登録済みの配置がありません。');
+        return;
+    }
+    bbShowPlacementPresetOverlay('load');
+}
+
+// 一覧オーバーレイは「配置呼出」と「登録上限に達した時の削除選択」の2つのモードを兼ねる。
+let bbPlacementPresetMode = 'load'; // 'load' | 'deleteForSave'
+function bbShowPlacementPresetOverlay(mode) {
+    bbPlacementPresetMode = mode;
+    bbRenderPlacementPresetList();
+    const el = document.getElementById('bbPlacementPresetOverlay');
+    if (el) el.style.display = 'flex';
+}
+function bbClosePlacementPresetOverlay() {
+    const el = document.getElementById('bbPlacementPresetOverlay');
+    if (el) el.style.display = 'none';
+}
+function bbRenderPlacementPresetList() {
+    const titleEl = document.getElementById('bbPlacementPresetTitle');
+    const hintEl = document.getElementById('bbPlacementPresetHint');
+    const listEl = document.getElementById('bbPlacementPresetList');
+    if (!listEl) return;
+    if (bbPlacementPresetMode === 'deleteForSave') {
+        if (titleEl) titleEl.textContent = '配置は5件まで登録できます';
+        if (hintEl) hintEl.textContent = '削除する配置を選んでください（選ぶとすぐに削除され、新しい配置の登録名の入力に進みます）。';
+    } else {
+        if (titleEl) titleEl.textContent = '配置を呼び出す';
+        if (hintEl) hintEl.textContent = '呼び出す配置を選んでください（現在盤面に配置している自陣のカレーは上書きされます）。ゴミ箱ボタンで削除もできます。';
+    }
+    if (bbPlacementPresets.length === 0) {
+        listEl.innerHTML = '<div style="font-size:11px;color:#b88742;">登録済みの配置がありません。</div>';
+        return;
+    }
+    listEl.innerHTML = bbPlacementPresets.map((p, idx) => {
+        const delBtn = (bbPlacementPresetMode === 'load')
+            ? `<button class="bb-placementPresetDelBtn" onclick="window.__bbOnDeletePlacementPreset(${idx})">削除</button>`
+            : '';
+        return `<div class="bb-placementPresetRow">
+            <div class="bb-placementPresetInfo" onclick="window.__bbOnPlacementPresetRowClick(${idx})">
+                <div class="bb-placementPresetName">${bbEsc(p.name)}</div>
+                <div class="bb-placementPresetMeta">${(p.slots || []).length}体配置</div>
+            </div>
+            ${delBtn}
+        </div>`;
+    }).join('');
+}
+function bbOnPlacementPresetRowClick(idx) {
+    const preset = bbPlacementPresets[idx];
+    if (!preset) return;
+    if (bbPlacementPresetMode === 'deleteForSave') {
+        const doDelete = function () {
+            bbPlacementPresets.splice(idx, 1);
+            bbSavePlacementPresets();
+            bbClosePlacementPresetOverlay();
+            bbShowPlacementSaveNameOverlay();
+        };
+        if (typeof showCustomConfirm === 'function') {
+            showCustomConfirm('配置を削除', `「${bbEsc(preset.name)}」を削除して、新しい配置の登録に進みますか？`, doDelete);
+        } else {
+            doDelete();
+        }
+        return;
+    }
+    // 呼出モード：確認なしでそのまま読み込む（現在の配置は上書きされる）。
+    bbClosePlacementPresetOverlay();
+    bbApplyPlacementPreset(preset);
+}
+function bbOnDeletePlacementPreset(idx) {
+    const preset = bbPlacementPresets[idx];
+    if (!preset) return;
+    const doDelete = function () {
+        bbPlacementPresets.splice(idx, 1);
+        bbSavePlacementPresets();
+        bbRenderPlacementPresetList();
+    };
+    if (typeof showCustomConfirm === 'function') {
+        showCustomConfirm('配置を削除', `「${bbEsc(preset.name)}」を削除しますか？`, doDelete);
+    } else {
+        doDelete();
+    }
+}
+
+function bbShowPlacementSaveNameOverlay() {
+    const input = document.getElementById('bbPlacementSaveNameInput');
+    if (input) input.value = '';
+    const el = document.getElementById('bbPlacementSaveNameOverlay');
+    if (el) el.style.display = 'flex';
+}
+function bbClosePlacementSaveNameOverlay() {
+    const el = document.getElementById('bbPlacementSaveNameOverlay');
+    if (el) el.style.display = 'none';
+}
+function bbConfirmSavePlacement() {
+    const input = document.getElementById('bbPlacementSaveNameInput');
+    const typedName = (input && input.value || '').trim();
+    const name = typedName || `配置${bbPlacementPresets.length + 1}`;
+    const placed = bbState.units.filter(u => u.team === 'player');
+    // bbState.playerPool[idx]とbbRegisteredRoster[idx]はインデックスが1対1で対応している
+    // （bbState.playerPool = bbRegisteredRoster.map(bbGetEffectiveCurry)で作られるため）。
+    // playerPool自体は配置フェーズに入るたびに作り直される一時オブジェクトなので、
+    // 保存する識別子にはロースターエントリの安定ID（regId）を使う。
+    const slots = [];
+    placed.forEach(u => {
+        const poolIdx = bbState.playerPool.indexOf(u.raw);
+        const entry = (poolIdx !== -1) ? bbRegisteredRoster[poolIdx] : null;
+        if (entry && entry.regId) {
+            slots.push({ regId: entry.regId, nodeId: u.nodeId });
+        }
+    });
+    if (slots.length === 0) {
+        alert('登録できる配置がありません。');
+        return;
+    }
+    bbPlacementPresets.push({
+        id: 'bbp' + Date.now() + '_' + Math.floor(Math.random() * 100000),
+        name: name,
+        slots: slots,
+        savedAt: Date.now()
+    });
+    bbSavePlacementPresets();
+    bbClosePlacementSaveNameOverlay();
+    alert(`「${name}」として配置を登録しました。`);
+}
+
+// 保存済みの配置を実際に盤面へ反映する（＝配置呼出の本体）。現在の自陣の配置はすべて
+// 解除してから置き直す（上書き）。登録時から登録済みカレーが削除されている等でregIdが
+// 見つからない枠は、そのマスを空きのままにしてポップアップで知らせる。
+function bbApplyPlacementPreset(preset) {
+    bbState.units = bbState.units.filter(u => u.team !== 'player');
+    bbState.selectedPoolIndex = null;
+    let missing = false;
+    (preset.slots || []).forEach(slot => {
+        const entry = bbRegisteredRoster.find(e => e.regId === slot.regId);
+        const poolIdx = entry ? bbRegisteredRoster.indexOf(entry) : -1;
+        const curry = (poolIdx !== -1) ? bbState.playerPool[poolIdx] : null;
+        if (!entry || !curry) { missing = true; return; }
+        if (bbState.units.some(u => u.nodeId === slot.nodeId)) return; // 念のための重複ガード
+        const unit = bbMakeUnit(curry, 'player');
+        unit.nodeId = slot.nodeId;
+        bbState.units.push(unit);
+    });
+    bbRenderPlacementPanel();
+    if (missing) {
+        alert('該当カレーがないマスがあり、設置できませんでした。');
+    }
+}
+
 function bbOnRegenerateEnemyClick() {
     bbState.enemyPool = bbGenerateDebugEnemyTeam();
     bbAppendLog('敵編成を再生成しました（デバッグ）。');
+    bbRenderEnemyPreviewBar();
+}
+
+// 配置フェーズ中、行動順アイコンの帯（#bbTurnQueueBar、戦闘フェーズ専用）と同じ位置に、
+// 敵の出撃予定のカレー（bbState.enemyPool＝bbOnStartBattleClickで実際に盤面へ配置される
+// チーム）をアイコンで並べて見せる。
+function bbRenderEnemyPreviewBar() {
+    const bar = document.getElementById('bbEnemyPreviewBar');
+    if (!bar) return;
+    const pool = (bbState.enemyPool || []).slice(0, BB_MAX_UNITS);
+    const icons = pool.map(c => `<div class="bb-turnIcon bb-team-enemy" title="${bbEsc(c.name || 'カレー')}"><img src="${bbGetCurryImg(c)}" alt=""></div>`).join('');
+    bar.innerHTML = `<span class="bb-enemyPreviewLabel">敵の出撃予定：</span>${icons}`;
 }
 
 // ボードバトル開始演出：効果音（sound/horagai.mp3）を鳴らしつつ、画面中央にタイトルを
@@ -1234,8 +1490,11 @@ function bbOnStartBattleClick() {
     document.getElementById('bbPlacementPanel').style.display = 'none';
     document.getElementById('bbBattlePanel').style.display = 'block';
     // ここから行動順アイコンの帯を使うので表示に戻す（準備・配置フェーズでは隠していた）。
+    // 配置フェーズ専用の敵出撃予定プレビュー帯は、代わりにここで隠す。
     const turnQueueBarElBattle = document.getElementById('bbTurnQueueBar');
     if (turnQueueBarElBattle) turnQueueBarElBattle.style.display = 'flex';
+    const enemyPreviewBarElBattle = document.getElementById('bbEnemyPreviewBar');
+    if (enemyPreviewBarElBattle) enemyPreviewBarElBattle.style.display = 'none';
     bbRenderBoard();
     bbAppendLog('戦闘開始！');
     bbShowBattleStartSplash(() => { bbScheduleNextTurn(); });
@@ -2412,6 +2671,7 @@ function bbInjectDom() {
                     </div>
                 </div>
                 <div id="bbTurnQueueBar"></div>
+                <div id="bbEnemyPreviewBar"></div>
             </div>
             <div id="bbBottomPanel">
                 <div id="bbPlacementPanel">
@@ -2419,6 +2679,10 @@ function bbInjectDom() {
                     <div id="bbBudgetLine">合計ステータス: 0 / 3000（残り3000）　配置数: 0 / 9</div>
                     <div id="bbPlaceHint">下のカレーをタップして選択 → 盤面の自陣側（青枠）マスをタップして配置します。</div>
                     <div id="bbRosterList"></div>
+                    <div class="bb-prepBtnRow">
+                        <button class="bb-actionBtn bb-secondary" onclick="window.__bbOnSavePlacementClick()">配置登録</button>
+                        <button class="bb-actionBtn bb-secondary" onclick="window.__bbOnLoadPlacementClick()">配置呼出</button>
+                    </div>
                     <button class="bb-actionBtn" id="bbBtnStartBattle" disabled onclick="window.__bbOnStartBattleClick()">戦闘開始</button>
                     <button class="bb-actionBtn bb-secondary" onclick="window.__bbOnRegenerateEnemyClick()">敵編成を再生成（デバッグ）</button>
                 </div>
@@ -2508,6 +2772,22 @@ function bbInjectDom() {
                 <button class="bb-actionBtn bb-secondary" onclick="window.__bbCloseOpponentSelect()">戻る</button>
             </div>
         </div>
+        <div id="bbPlacementPresetOverlay" onclick="if(event.target===this) window.__bbClosePlacementPresetOverlay()">
+            <div id="bbPlacementPresetBox">
+                <h3 id="bbPlacementPresetTitle">配置を呼び出す</h3>
+                <div id="bbPlacementPresetHint"></div>
+                <div id="bbPlacementPresetList"></div>
+                <button class="bb-actionBtn bb-secondary" onclick="window.__bbClosePlacementPresetOverlay()">閉じる</button>
+            </div>
+        </div>
+        <div id="bbPlacementSaveNameOverlay" onclick="if(event.target===this) window.__bbClosePlacementSaveNameOverlay()">
+            <div id="bbPlacementSaveNameBox">
+                <h3>配置を登録</h3>
+                <input id="bbPlacementSaveNameInput" type="text" maxlength="20" placeholder="配置の名前（未入力可）">
+                <button class="bb-actionBtn" onclick="window.__bbConfirmSavePlacement()">登録する</button>
+                <button class="bb-actionBtn bb-secondary" onclick="window.__bbClosePlacementSaveNameOverlay()">キャンセル</button>
+            </div>
+        </div>
     `;
     document.body.appendChild(rootDiv);
 
@@ -2556,6 +2836,13 @@ window.__bbOnNodeClick = bbOnNodeClick;
 window.__bbOnPickPoolCurry = bbOnPickPoolCurry;
 window.__bbOnStartBattleClick = bbOnStartBattleClick;
 window.__bbOnRegenerateEnemyClick = bbOnRegenerateEnemyClick;
+window.__bbOnSavePlacementClick = bbOnSavePlacementClick;
+window.__bbOnLoadPlacementClick = bbOnLoadPlacementClick;
+window.__bbClosePlacementPresetOverlay = bbClosePlacementPresetOverlay;
+window.__bbOnPlacementPresetRowClick = bbOnPlacementPresetRowClick;
+window.__bbOnDeletePlacementPreset = bbOnDeletePlacementPreset;
+window.__bbClosePlacementSaveNameOverlay = bbClosePlacementSaveNameOverlay;
+window.__bbConfirmSavePlacement = bbConfirmSavePlacement;
 window.__bbClose = bbClose;
 window.__bbRestart = bbRestart;
 window.__bbBackToPrep = bbBackToPrep;
