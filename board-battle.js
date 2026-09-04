@@ -630,9 +630,10 @@ function bbIsHomerunCurry(unit) { return !!(unit.raw && unit.raw.isHomerun); }
 // 激辛エスニック・グリーンカレー（isGreenCurry）：特技「ヒリヒリクラッシュ」＝コマンドで選択すると
 // 自分と上下左右の駒全て（敵味方関係なし）に50ダメージ。
 function bbHasHiriHiri(unit) { return !!(unit.raw && unit.raw.isGreenCurry); }
-// そんなバナナカレー（isBanana）：特技「バナナトラップ」＝配置フェーズとゲーム開始の間に
-// トラップ設置フェーズが追加され、好きなノーマルマス1つをバナナマスに変更できる。
-function bbHasBananaTrap(unit) { return !!(unit.raw && unit.raw.isBanana); }
+// そんなバナナカレー（本編でのフラグ名はisBananaCurry。isBananaではない点に注意）：
+// 特技「バナナトラップ」＝配置フェーズとゲーム開始の間にトラップ設置フェーズが追加され、
+// 好きなノーマルマス1つをバナナマスに変更できる。
+function bbHasBananaTrap(unit) { return !!(unit.raw && unit.raw.isBananaCurry); }
 
 // ------------------------------------------------------------
 // 8.05 特技・特性の定義
@@ -2859,11 +2860,18 @@ function bbGetSkillTargetsFor(unit) {
         return { key: 'wanpaku', name: '岩砕き', targets: rocks };
     }
     if (bbHasHiriHiri(unit)) {
-        // ヒリヒリクラッシュは対象選択の必要がない（常に自分＋上下左右の全駒が対象）が、
-        // 他の特技と同じく「必ずタップして確定させる」仕様に合わせるため、対象として
-        // 自分がいるマス自身を1つだけ返す（bbBeginTargetSelectionでそのマスをハイライトする）。
+        // ヒリヒリクラッシュは対象を選ぶ技ではない（常に自分＋上下左右の全駒が対象）ため、
+        // 他の特技のような「対象をタップして確定」は行わない（自分のマスしか対象にならず、
+        // 自分の駒をタップする操作はコマンドメニューの再表示に割り当てられているため、
+        // 対象選択UIとは根本的に相性が悪い＝bbOnCommandSkill側で即時実行する）。
+        // ここではコマンドボタンの有効/無効の判定にだけ使うため、上下左右に敵が1体もいない
+        // 場合は対象なし（targets:[]）を返し、コマンドをグレーアウトさせる。
         const node = bbNodesById[unit.nodeId];
-        return { key: 'hirihiri', name: 'ヒリヒリクラッシュ', targets: node ? [node] : [] };
+        const hasEnemyInRange = !!(node && node.neighbors.some(nid => {
+            const occupant = bbState.units.find(u => u.nodeId === nid && u.hp > 0);
+            return occupant && occupant.team !== unit.team;
+        }));
+        return { key: 'hirihiri', name: 'ヒリヒリクラッシュ', targets: (hasEnemyInRange && node) ? [node] : [] };
     }
     return { key: null, name: '特技', targets: [] };
 }
@@ -2993,6 +3001,18 @@ function bbOnCommandSkill() {
     const actor = bbState.activeUnit;
     if (!actor) return;
     const info = bbGetSkillTargetsFor(actor);
+    if (info.key === 'hirihiri') {
+        // ヒリヒリクラッシュは対象が常に自分のマスのみなので、他の特技のような
+        // 「対象をタップして確定」を挟まない（自分の駒をタップする操作は既に
+        // コマンドメニューの再表示に割り当てられており、対象選択タップと衝突するため）。
+        // コマンドボタン自体はbbOpenCommandMenu側でtargets.length===0の時に無効化済み。
+        if (info.targets.length === 0) return;
+        bbCloseCommandMenu();
+        bbNodes.forEach(n => { n.highlight = null; });
+        bbRenderBoard();
+        bbResolveHiriHiri(actor);
+        return;
+    }
     bbBeginTargetSelection(actor, info.targets, 'skill');
 }
 function bbOnCommandWait() {
