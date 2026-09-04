@@ -48,21 +48,34 @@ const BB_STYLE = `
 .bb-closeBtn { background: none; border: 1px solid #b88742; color: #efdeb1; border-radius: 6px; padding: 4px 10px; font-size: 12px; cursor: pointer; }
 /* 本編と同じミュート状態（toggleMute/isMuted）をそのまま流用する専用ボタン。
    本編ヘッダーの#muteBtnは#bbRoot（z-index:9000）の下に隠れてしまうため、本のボス戦専用の
-   #bookBattleMuteBtnと同じ考え方で、ボードバトル側にも同期表示するミュートボタンを常設する。 */
-.bb-muteBtn { background: none; border: none; padding: 0; width: 26px; height: 26px; display: flex; align-items: center; justify-content: center; cursor: pointer; }
-.bb-muteBtn img { width: 22px; height: 22px; }
-
-/* 配置・戦闘フェーズ中、盤の真上（行動順バー等のヘッダー要素より下、盤面のすぐ上＝
-   敵陣の赤旗のあたり）に選択中の対戦相手ボットのイラストと名前を浮かせて常設表示する
-   （対戦相手選択画面を離れても誰と戦っているか分かるように）。ヘッダー帯の一部として
-   幅いっぱいに広がるのではなく、盤の上端中央に小さなバッジとして浮かぶ見た目にする。 */
-#bbOpponentBanner {
-    display: none; align-items: center; justify-content: center; gap: 8px; padding: 5px 14px 5px 8px;
-    background: rgba(66,0,0,0.8); border: 1px solid rgba(229,86,74,0.8); border-radius: 20px;
-    margin: 6px auto 0; width: fit-content; flex-shrink: 0; box-shadow: 0 3px 8px rgba(0,0,0,0.35);
+   #bookBattleMuteBtnと同じ考え方で、ボードバトル側にも同期表示するミュートボタンを常設する。
+   sound-on.svg/sound-off.svgのアイコンはfill:#420000で、これがヘッダー背景
+   （rgba(66,0,0,0.92)＝ほぼ同じ色）に紛れて実質見えなくなっていたため、明るい円形の
+   背景を敷いてアイコンが常にはっきり見えるようにする。 */
+.bb-muteBtn {
+    background: #efdeb1; border: none; border-radius: 50%; padding: 0; width: 26px; height: 26px;
+    display: flex; align-items: center; justify-content: center; cursor: pointer; flex-shrink: 0;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.4);
 }
-#bbOpponentBanner img { width: 26px; height: 26px; border-radius: 50%; object-fit: cover; border: 2px solid #e5564a; flex-shrink: 0; }
-#bbOpponentBanner .bb-opponentBannerName { font-size: 12px; color: #efdeb1; font-weight: bold; white-space: nowrap; }
+.bb-muteBtn img { width: 18px; height: 18px; display: block; }
+
+/* 配置・戦闘フェーズ中、選択中の対戦相手ボットのイラストと名前を表示する。#bbTopOverlay
+   （固定のヘッダー帯）ではなく、盤面と同じ#bbBoardWrapの中に置き、盤のパン・ズームに
+   連動して動く「盤の一部」として、敵陣の赤旗の少し上あたりに浮かべる（bbPositionOpponentBanner
+   が毎フレームbbView.x/y/scaleに合わせて位置・拡大率を更新する）。画像を大きく、その下に
+   名前を表示する縦並びレイアウトにしている。 */
+#bbOpponentBanner {
+    display: none; position: absolute; left: 0; top: 0; flex-direction: column; align-items: center; gap: 4px;
+    pointer-events: none; z-index: 3; transform-origin: 50% 100%;
+}
+#bbOpponentBanner img {
+    width: 64px; height: 64px; border-radius: 50%; object-fit: cover; border: 3px solid #e5564a;
+    box-shadow: 0 3px 8px rgba(0,0,0,0.5); background: #fff; flex-shrink: 0;
+}
+#bbOpponentBanner .bb-opponentBannerName {
+    font-size: 12px; color: #efdeb1; font-weight: bold; white-space: nowrap;
+    background: rgba(66,0,0,0.85); border: 1px solid rgba(229,86,74,0.8); border-radius: 10px; padding: 2px 10px;
+}
 
 #bbTurnQueueBar {
     display: flex; align-items: center; gap: 6px; padding: 10px 12px; background: rgba(58,36,19,0.88);
@@ -383,8 +396,12 @@ const BB_STYLE = `
     background: none; border: 1px solid #6b4a26; color: #e74c3c; border-radius: 6px; padding: 4px 8px; font-size: 12px; cursor: pointer; flex-shrink: 0;
 }
 
+/* カレー準備画面の簡易配置エディタ（#bbPrepPlacementEditorOverlay、z-index:9030）を開いた
+   状態のまま「プリセット保存」を押しても、この名前入力ウインドウが必ず一番手前に出るよう、
+   同じz-index帯の中でも一段高くしておく（同じz-indexだと後からDOMに置かれた方が上に来て
+   しまい、エディタの下に隠れることがあった）。 */
 #bbPlacementSaveNameOverlay {
-    position: fixed; inset: 0; background: rgba(0,0,0,0.75); display: none; align-items: center; justify-content: center; z-index: 9030;
+    position: fixed; inset: 0; background: rgba(0,0,0,0.75); display: none; align-items: center; justify-content: center; z-index: 9032;
 }
 #bbPlacementSaveNameBox { background: #2b1a0e; border: 2px solid #b88742; border-radius: 12px; padding: 20px; text-align: center; width: 260px; }
 #bbPlacementSaveNameBox h3 { font-size: 15px; margin: 0 0 10px 0; color: #efdeb1; }
@@ -392,6 +409,14 @@ const BB_STYLE = `
     width: 100%; box-sizing: border-box; background: #1c1108; border: 1px solid #6b4a26; color: #efdeb1;
     border-radius: 6px; padding: 8px 10px; font-size: 13px; text-align: center; margin-bottom: 14px;
 }
+
+/* alert()ではなく、他のカードと見た目を合わせた簡易な通知ポップ（OKのみ・確認不要な
+   お知らせ用）。showCustomConfirmのように確認/キャンセルの分岐は無いメッセージ向け。 */
+#bbInfoPopupOverlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.75); display: none; align-items: center; justify-content: center; z-index: 9040;
+}
+#bbInfoPopupBox { background: #2b1a0e; border: 2px solid #b88742; border-radius: 12px; padding: 20px; text-align: center; width: 260px; }
+#bbInfoPopupText { font-size: 13px; color: #efdeb1; margin-bottom: 14px; line-height: 1.5; white-space: pre-wrap; }
 
 /* カレー準備画面の簡易配置エディタ：実際の盤面（3D・マス画像）は使わず、自陣の配置枠
    （旗の行を含む下2列＝2行×9列）だけをシンプルな平面グリッドで再現する。対戦相手や
@@ -793,11 +818,23 @@ function bbGenerateDebugEnemyTeam() {
     }
     return team;
 }
+// カレーの「調理ルール由来」の特殊フラグ一覧。本編の調理ロジック（generateRandomCurryFromPool等）
+// が食材の組み合わせから正しく立てるものなので、この一覧に含まれるフラグを既に持っている
+// カレーへ、別のフラグを無理やり追加で立ててしまうと、実際には作れない組み合わせ
+// （例：わんぱく要素ゼロの「種連発トンカツナスレンコンカレー」が水泳を持つ、等）が
+// 生まれてしまう。bbGenerateEnemyTeamWithForcedの強制付与で、これを避けるために使う。
+const BB_SPECIAL_FLAG_KEYS = ['isWanpaku', 'isSeafood', 'isSeed', 'isHomerun', 'isKaitate', 'isPoison', 'isPoisonApple'];
+function bbCountSpecialFlags(c) {
+    return BB_SPECIAL_FLAG_KEYS.filter(k => !!c[k]).length;
+}
 // 「特定の条件（種カレー・わんぱく等のフラグ、SPD条件など）を必須で含む」対戦相手ボット用の
 // チーム生成。forcedSpecs=[{test:c=>boolean, force:c=>void, count:number}, ...]の順に、
-// 条件を満たすカレーが出るまで実際の調理ロジックで繰り返し生成を試み（最大40回）、
-// それでも出なければ最後に生成したカレーへ直接フラグ/ステータスを立てて確実に条件を満たす
-// （見た目には他のカレーと同じくランダム生成のまま）。残り枠は通常のランダム生成で埋める。
+// 条件を満たすカレーが出るまで実際の調理ロジックで繰り返し生成を試みる（最大40回）。
+// それでも自然には出なかった場合、他の特殊フラグを一切持たない「無地」なカレーが40回の
+// 試行中に1つでもあれば、そのカレーへ直接フラグを立てる（他の特殊フラグと衝突しないように
+// するため）。無地な候補が無かった場合のみ、やむを得ず最後に生成したカレーへ強制的に
+// フラグを立てる（見た目には他のカレーと同じくランダム生成のまま）。残り枠は通常の
+// ランダム生成で埋める。
 function bbGenerateEnemyTeamWithForced(forcedSpecs) {
     const team = [];
     let remaining = BB_STAT_BUDGET;
@@ -807,11 +844,18 @@ function bbGenerateEnemyTeamWithForced(forcedSpecs) {
     (forcedSpecs || []).forEach(function (spec) {
         for (let i = 0; i < spec.count && team.length < BB_MAX_UNITS; i++) {
             let curry = null;
+            let neutralCandidate = null; // 他の特殊フラグを持たない、強制付与しても安全な候補
             for (let attempt = 0; attempt < 40; attempt++) {
                 curry = bbGenerateDebugCurry();
                 if (spec.test(curry)) break;
+                if (!neutralCandidate && bbCountSpecialFlags(curry) === 0) neutralCandidate = curry;
             }
-            if (curry && !spec.test(curry) && typeof spec.force === 'function') spec.force(curry);
+            if (curry && !spec.test(curry) && typeof spec.force === 'function') {
+                // 既に他の特技フラグを持つカレーへ上書きしてしまうと、実際の調理では
+                // ありえない組み合わせになるため、無地な候補があればそちらを優先して使う。
+                if (neutralCandidate) curry = neutralCandidate;
+                spec.force(curry);
+            }
             if (curry) {
                 team.push(curry);
                 remaining -= bbStatTotal(curry);
@@ -1059,7 +1103,7 @@ function bbStatDisplayWithEquip(statKey, baseVal, entry) {
 
 // 全オーバーレイ・パネルを一旦隠す共通処理（画面遷移のたびに、前の状態が残らないようにする）。
 function bbHideAllOverlaysAndPanels() {
-    ['bbResultOverlay', 'bbUnitDetailOverlay', 'bbCommandMenuOverlay', 'bbRegisterPickerOverlay', 'bbRegDetailOverlay', 'bbHelpOverlay', 'bbOpponentSelectOverlay', 'bbPlacementPresetOverlay', 'bbPlacementSaveNameOverlay', 'bbPrepPlacementEditorOverlay'].forEach(id => {
+    ['bbResultOverlay', 'bbUnitDetailOverlay', 'bbCommandMenuOverlay', 'bbRegisterPickerOverlay', 'bbRegDetailOverlay', 'bbHelpOverlay', 'bbOpponentSelectOverlay', 'bbPlacementPresetOverlay', 'bbPlacementSaveNameOverlay', 'bbInfoPopupOverlay', 'bbPrepPlacementEditorOverlay'].forEach(id => {
         const el = document.getElementById(id);
         if (el) el.style.display = 'none';
     });
@@ -1106,6 +1150,7 @@ function bbRenderOpponentBanner() {
     img.src = bot.img;
     nameEl.textContent = bot.name;
     banner.style.display = 'flex';
+    bbPositionOpponentBanner();
 }
 
 // 準備画面の「戦闘開始」で呼ばれる：盤面を表示し、登録済みロースターを配置候補として配置フェーズへ。
@@ -1212,9 +1257,24 @@ function bbSyncSvgSize(w, h) {
     svg.setAttribute('viewBox', `0 0 ${w} ${h}`);
 }
 
+// 敵バナー（画像+名前）を#bbBoardWrapの中に置きつつ、盤面と全く同じtranslate/scale
+// （bbViewportGに適用しているのと同じ計算式）を自前で当てることで、SVG内部の駒などと
+// 同じ「盤の階層」にいるかのように、パン・ズームと連動して敵陣の旗の少し上に浮かび続ける
+// ようにする（SVGの中に直接置くと3D傾き(rotateX)で名前の文字も傾いて読みにくくなるため、
+// あえてSVGの外＝#bbBoardWrap直下のHTML要素として、同じ変形だけを計算して当てている）。
+function bbPositionOpponentBanner() {
+    const el = document.getElementById('bbOpponentBanner');
+    if (!el) return;
+    const worldX = BB_COL_X[BB_FLAG_COL];
+    const worldY = BB_ROW_Y_TOP - BB_NODE_HALF - 10; // 旗マスの少し上
+    const screenX = worldX * bbView.scale + bbView.x;
+    const screenY = worldY * bbView.scale + bbView.y;
+    el.style.transform = `translate(${screenX}px, ${screenY}px) translate(-50%, -100%) scale(${bbView.scale})`;
+}
 function bbApplyView() {
     const g = document.getElementById('bbViewportG');
     if (g) g.setAttribute('transform', `translate(${bbView.x},${bbView.y}) scale(${bbView.scale})`);
+    bbPositionOpponentBanner();
 }
 
 // 行動順が回ってきた駒を画面中央へ自動的に移動させる（ズーム倍率は変えない）。
@@ -1720,6 +1780,18 @@ function bbClosePlacementSaveNameOverlay() {
     const el = document.getElementById('bbPlacementSaveNameOverlay');
     if (el) el.style.display = 'none';
 }
+// ブラウザ標準のalert()ではなく、他のカード類と見た目を合わせた簡易な通知ポップを出す。
+// 確認/キャンセルの分岐がない「お知らせ」だけのメッセージ向け（showCustomConfirmの代わり）。
+function bbShowInfoPopup(text) {
+    const textEl = document.getElementById('bbInfoPopupText');
+    if (textEl) textEl.textContent = text;
+    const overlay = document.getElementById('bbInfoPopupOverlay');
+    if (overlay) overlay.style.display = 'flex';
+}
+function bbCloseInfoPopup() {
+    const overlay = document.getElementById('bbInfoPopupOverlay');
+    if (overlay) overlay.style.display = 'none';
+}
 function bbConfirmSavePlacement() {
     const input = document.getElementById('bbPlacementSaveNameInput');
     const typedName = (input && input.value || '').trim();
@@ -1759,7 +1831,7 @@ function bbConfirmSavePlacement() {
     });
     bbSavePlacementPresets();
     bbClosePlacementSaveNameOverlay();
-    alert(`「${name}」として配置を登録しました。`);
+    bbShowInfoPopup(`「${name}」として配置を登録しました。`);
 }
 
 // 保存済みの配置を実際に盤面へ反映する（＝配置呼出の本体）。現在の自陣の配置はすべて
@@ -2751,9 +2823,10 @@ function bbOpenCommandMenu(unit) {
         skillBtn.textContent = skillInfo.name;
         skillBtn.disabled = (skillInfo.targets.length === 0);
     }
-    // 「戻す」は、このターン中に移動済みの場合のみ選べる（移動していなければ戻す必要がない）。
+    // 「戻す」は、移動済みなら移動を取り消して元の位置へ、移動していなければコマンドメニューを
+    // 閉じて移動選択からやり直せるように、常に押せるようにしておく（bbOnCommandUndo側で分岐）。
     const undoBtn = document.getElementById('bbCmdBtnUndo');
-    if (undoBtn) undoBtn.disabled = !bbState.hasMovedThisTurn;
+    if (undoBtn) undoBtn.disabled = false;
     const overlay = document.getElementById('bbCommandMenuOverlay');
     if (overlay) {
         overlay.style.display = 'flex';
@@ -2764,21 +2837,25 @@ function bbCloseCommandMenu() {
     const overlay = document.getElementById('bbCommandMenuOverlay');
     if (overlay) overlay.style.display = 'none';
 }
-// 移動をキャンセルし、このターン開始時点の位置（bbState.turnStartNodeId）へ駒を戻して
-// 再度移動フェーズからやり直せるようにする。
+// コマンドメニューを閉じて移動選択のやり直しへ戻す。移動済みなら、このターン開始時点の
+// 位置（bbState.turnStartNodeId）へ駒を戻す（＝移動そのものを取り消す）。移動せずに
+// 自分のコマをタップしてコマンドメニューを開いただけの場合は、位置は変えずコマンドメニューを
+// 閉じるだけで移動選択に戻れる（どちらのケースでも「戻す」を押せるようにしてある）。
 function bbOnCommandUndo() {
     const actor = bbState.activeUnit;
-    if (!actor || !bbState.hasMovedThisTurn || bbState.turnStartNodeId == null) return;
+    if (!actor) return;
     bbCloseCommandMenu();
-    actor.nodeId = bbState.turnStartNodeId;
-    bbState.hasMovedThisTurn = false;
+    if (bbState.hasMovedThisTurn && bbState.turnStartNodeId != null) {
+        actor.nodeId = bbState.turnStartNodeId;
+        bbState.hasMovedThisTurn = false;
+        bbAppendLog(`${actor.name} は移動をやり直すことにした。`);
+    }
     bbState.subPhase = 'move';
     bbState.pendingCommandMode = null;
     bbNodes.forEach(n => { n.highlight = null; });
     bbRenderBoard();
     bbCenterOnNode(actor.nodeId);
     bbHighlightMovableTiles(actor);
-    bbAppendLog(`${actor.name} は移動をやり直すことにした。`);
     bbSetBattleStatus(`${actor.name} の番です。移動先のマスをタップするか、自分のコマをタップしてコマンドを選んでください。`);
 }
 // 対象（隣接する敵駒・岩、種発射の射程内の敵など）は、たとえ1体しかいなくても必ず盤面を
@@ -3531,6 +3608,10 @@ function bbInjectDom() {
             <div id="bbBoardWrap">
                 <svg id="bbBoardSvg" viewBox="0 0 600 900"><g id="bbViewportG"></g></svg>
                 <div id="bbFxLayer"></div>
+                <div id="bbOpponentBanner">
+                    <img id="bbOpponentBannerImg" src="" alt="">
+                    <div class="bb-opponentBannerName" id="bbOpponentBannerName"></div>
+                </div>
             </div>
             <div id="bbTopOverlay">
                 <div id="bbHeaderBar">
@@ -3545,10 +3626,6 @@ function bbInjectDom() {
                 </div>
                 <div id="bbTurnQueueBar"></div>
                 <div id="bbEnemyPreviewBar"></div>
-                <div id="bbOpponentBanner">
-                    <img id="bbOpponentBannerImg" src="" alt="">
-                    <div class="bb-opponentBannerName" id="bbOpponentBannerName"></div>
-                </div>
             </div>
             <div id="bbBottomPanel">
                 <div id="bbPlacementPanel">
@@ -3682,6 +3759,12 @@ function bbInjectDom() {
                 <button class="bb-actionBtn bb-secondary" onclick="window.__bbClosePlacementSaveNameOverlay()">キャンセル</button>
             </div>
         </div>
+        <div id="bbInfoPopupOverlay" onclick="if(event.target===this) window.__bbCloseInfoPopup()">
+            <div id="bbInfoPopupBox">
+                <div id="bbInfoPopupText"></div>
+                <button class="bb-actionBtn" onclick="window.__bbCloseInfoPopup()">OK</button>
+            </div>
+        </div>
         <div id="bbPrepPlacementEditorOverlay" onclick="if(event.target===this) window.__bbClosePrepPlacementEditor()">
             <div id="bbPrepPlacementEditorBox">
                 <h3>配置プリセット編集</h3>
@@ -3754,6 +3837,7 @@ window.__bbClosePlacementPresetOverlay = bbClosePlacementPresetOverlay;
 window.__bbOnPlacementPresetRowClick = bbOnPlacementPresetRowClick;
 window.__bbOnDeletePlacementPreset = bbOnDeletePlacementPreset;
 window.__bbClosePlacementSaveNameOverlay = bbClosePlacementSaveNameOverlay;
+window.__bbCloseInfoPopup = bbCloseInfoPopup;
 window.__bbConfirmSavePlacement = bbConfirmSavePlacement;
 window.__bbClose = bbClose;
 window.__bbRestart = bbRestart;
