@@ -130,6 +130,7 @@ const BB_STYLE = `
 .bb-board-node-tile.bb-selectable { stroke: #2ecc71; stroke-width: 4; cursor: pointer; }
 .bb-board-node-tile.bb-movable { stroke: #f1c40f; stroke-width: 4; cursor: pointer; }
 .bb-board-node-tile.bb-attackable { stroke: #ff4136; stroke-width: 5; cursor: pointer; }
+.bb-board-node-tile.bb-trapSelectable { stroke: #f1c40f; stroke-width: 3; stroke-dasharray: 6 4; cursor: pointer; }
 .bb-board-node-tile.bb-occupied-player { stroke: #3498db; }
 .bb-board-node-tile.bb-occupied-enemy { stroke: #e74c3c; }
 /* 駒をタップして詳細カードを開いている間、その駒の移動可能範囲を確認できるよう、
@@ -518,19 +519,26 @@ const BB_NODE_HALF = 28; // マス（四角）の半辺の長さ＝1辺56pxの�
 const BB_TERRAIN_ROCK = 'rock';   // 岩マス：誰も進入・通過できない（隣接マスからわんぱくカレーが「攻撃」で破壊可能）
 const BB_TERRAIN_WATER = 'water'; // 水マス：海の幸カレーのみ通過・停止できる
 const BB_TERRAIN_POISON = 'poison'; // 毒マス：通過・停止で最大HP20%ダメージ（毒系カレーは無効）
+// バナナマス：そんなバナナカレー（バナナトラップ）の効果で、トラップ設置フェーズにプレイヤーが
+// 1マスだけ好きな場所に設置できる。他の特殊マスと違いランダム初期配置はされない（0個スタート）。
+// 「必ず停止しなくてはならないマス」＝bbGetMovableNodeIdsでここを踏み台にした先への移動範囲を
+// 打ち切ることで実現し、実際に乗ったらbbMoveUnitTo側でノーマルマスに戻す（踏んだら1回限り）。
+const BB_TERRAIN_BANANA = 'banana';
 const BB_SPECIAL_TILE_COUNT = 5; // 各特殊マスの初期配置数
 
-// マス背景画像（通常／岩／水／毒）。四角いマスに敷き詰めるようにxMidYMid sliceで表示する。
+// マス背景画像（通常／岩／水／毒／バナナ）。四角いマスに敷き詰めるようにxMidYMid sliceで表示する。
 // 元はSVG（1枚あたり数千パス規模の複雑なベクター）だったが、81マス分を毎回再描画すると
 // 重かったため、軽量なPNG（300x300）に差し替えている。
 const BB_TILE_IMG_NORMAL = 'boardbattle/map01.png';
 const BB_TILE_IMG_ROCK = 'boardbattle/map02.png';
 const BB_TILE_IMG_WATER = 'boardbattle/map03.png';
 const BB_TILE_IMG_POISON = 'boardbattle/map04.png';
+const BB_TILE_IMG_BANANA = 'boardbattle/map05.png';
 function bbGetTileImg(terrain) {
     if (terrain === BB_TERRAIN_ROCK) return BB_TILE_IMG_ROCK;
     if (terrain === BB_TERRAIN_WATER) return BB_TILE_IMG_WATER;
     if (terrain === BB_TERRAIN_POISON) return BB_TILE_IMG_POISON;
+    if (terrain === BB_TERRAIN_BANANA) return BB_TILE_IMG_BANANA;
     return BB_TILE_IMG_NORMAL;
 }
 
@@ -619,6 +627,12 @@ function bbIsSeedShooter(unit) { return !!(unit.raw && unit.raw.isSeed); }
 function bbHasSeedGuard(unit) { return !!(unit.raw && unit.raw.isKaiTate); }
 // 種発射の対象がホームランカレー（isHomerun）の場合も打ち返してダメージ0。
 function bbIsHomerunCurry(unit) { return !!(unit.raw && unit.raw.isHomerun); }
+// 激辛エスニック・グリーンカレー（isGreenCurry）：特技「ヒリヒリクラッシュ」＝コマンドで選択すると
+// 自分と上下左右の駒全て（敵味方関係なし）に50ダメージ。
+function bbHasHiriHiri(unit) { return !!(unit.raw && unit.raw.isGreenCurry); }
+// そんなバナナカレー（isBanana）：特技「バナナトラップ」＝配置フェーズとゲーム開始の間に
+// トラップ設置フェーズが追加され、好きなノーマルマス1つをバナナマスに変更できる。
+function bbHasBananaTrap(unit) { return !!(unit.raw && unit.raw.isBanana); }
 
 // ------------------------------------------------------------
 // 8.05 特技・特性の定義
@@ -633,7 +647,11 @@ const BB_SKILLS = [
     { key: 'seafood', name: '水泳', desc: '水マスを通過・停止できる', active: false, test: bbCanCrossWater },
     { key: 'homerun', name: 'ホームラン', desc: '特定の攻撃を無効化', active: false, test: bbIsHomerunCurry },
     { key: 'kaitate', name: '盾ガード', desc: '特定の攻撃を無効化', active: false, test: bbHasSeedGuard },
-    { key: 'poison', name: '毒耐性', desc: '毒マスのダメージを受けない', active: false, test: bbIsPoisonImmune }
+    { key: 'poison', name: '毒耐性', desc: '毒マスのダメージを受けない', active: false, test: bbIsPoisonImmune },
+    { key: 'hirihiri', name: 'ヒリヒリクラッシュ', desc: '自分と上下左右の全ての駒に50ダメージ', active: true, test: bbHasHiriHiri },
+    // トラップ設置は戦闘中のコマンドではなく配置後の専用フェーズで行うため、
+    // 「特技」コマンドの対象にはしない（active:falseの他の受動特性と同じ扱い）。
+    { key: 'banana', name: 'バナナトラップ', desc: 'バナナトラップを設置できる。', active: false, test: bbHasBananaTrap }
 ];
 // unit（{raw:カレー本体}の形）・カレー本体（raw）そのもの、どちらを渡しても判定できるようにする
 // （盤面の駒はunit形、カレー準備画面の登録カレーはbbGetEffectiveCurry()の戻り値＝raw形のため）。
@@ -1172,6 +1190,8 @@ function bbEnterPlacementPhase() {
     document.getElementById('bbBottomPanel').style.display = 'block';
     document.getElementById('bbPlacementPanel').style.display = 'block';
     document.getElementById('bbBattlePanel').style.display = 'none';
+    const trapPanelElPlacement = document.getElementById('bbTrapPanel');
+    if (trapPanelElPlacement) trapPanelElPlacement.style.display = 'none';
     document.getElementById('bbBattleLog').innerHTML = '';
     // 配置フェーズでもまだ行動順は無いので、帯は隠したまま（戦闘開始で改めて表示する）。
     // その代わりに、同じ位置へ敵の出撃予定カレーのプレビュー帯を表示する。
@@ -1506,6 +1526,7 @@ function bbRenderBoard() {
         if (n.highlight === 'selectable') cls += ' bb-selectable';
         if (n.highlight === 'movable') cls += ' bb-movable';
         if (n.highlight === 'attackable') cls += ' bb-attackable';
+        if (n.highlight === 'trapSelectable') cls += ' bb-trapSelectable';
         if (isActive) cls += ' bb-active-turn';
         // 詳細カード表示中の駒の移動可能範囲プレビュー（自分の手番の移動可能ハイライトとは別枠）。
         if (n.moveHighlight === 'player') cls += ' bb-move-preview-player';
@@ -1646,6 +1667,10 @@ function bbOnNodeClick(nodeId) {
         // 配置先を選ぶ操作でなければ、既に置いてある駒をタップした時に詳細を見せる
         const placedUnit = bbState.units.find(u => u.nodeId === nodeId);
         if (placedUnit) bbShowUnitDetail(placedUnit);
+        return;
+    }
+    if (bbState.phase === 'trap') {
+        bbOnTrapNodeClick(nodeId);
         return;
     }
     if (bbState.phase === 'battle') {
@@ -2074,9 +2099,78 @@ function bbOnStartBattleClick() {
         idx++;
     });
     bbNodes.forEach(n => { n.highlight = null; });
+    // 自軍にそんなバナナカレー（バナナトラップ持ち）が1体でもいれば、配置フェーズと
+    // 戦闘開始の間にトラップ設置フェーズを挟む。いなければ従来通りそのまま戦闘開始。
+    const hasBananaTrapUnit = bbState.units.some(u => u.team === 'player' && bbHasBananaTrap(u));
+    if (hasBananaTrapUnit) {
+        bbEnterTrapPhase();
+    } else {
+        bbStartBattlePhaseActual();
+    }
+}
+function bbShuffleArray(arr) { for (let i = arr.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [arr[i], arr[j]] = [arr[j], arr[i]]; } }
+
+// ------------------------------------------------------------
+// 6.6 バナナトラップ設置フェーズ（配置フェーズと戦闘開始の間）
+//    バナナトラップ持ちのカレーが編成にいる場合のみ発生する。盤面の好きなノーマルマス1つを
+//    タップしてバナナマスに変更できる（設置は任意＝しなくても戦闘開始できる。もう一度
+//    タップすれば移動でき、設置済みのバナナマスをタップすると撤去できる）。
+// ------------------------------------------------------------
+function bbEnterTrapPhase() {
+    bbState.phase = 'trap';
+    bbHideAllOverlaysAndPanels();
+    document.getElementById('bbPlacementPanel').style.display = 'none';
+    document.getElementById('bbBattlePanel').style.display = 'none';
+    const trapPanelElEnter = document.getElementById('bbTrapPanel');
+    if (trapPanelElEnter) trapPanelElEnter.style.display = 'block';
+    bbNodes.forEach(n => { n.highlight = null; });
+    bbUpdateHeaderCloseBtnLabel();
+    bbRenderTrapPhasePanel();
+}
+// トラップ設置の対象にできるマス＝旗マスでなく、駒もおらず、他の特殊地形（岩・水・毒）でもない
+// 通常マス（既に設置済みのバナナマス自身も、撤去操作の対象としてタップ可能にする）。
+function bbIsTrapPlaceableNode(n) {
+    if (!n) return false;
+    if (bbIsFlagNode(n)) return false;
+    if (bbState.units.some(u => u.nodeId === n.id)) return false;
+    return n.terrain === null || n.terrain === BB_TERRAIN_BANANA;
+}
+function bbRenderTrapPhasePanel() {
+    bbNodes.forEach(n => { n.highlight = bbIsTrapPlaceableNode(n) ? 'trapSelectable' : null; });
+    const hasBanana = bbNodes.some(n => n.terrain === BB_TERRAIN_BANANA);
+    const hintEl = document.getElementById('bbTrapHint');
+    if (hintEl) {
+        hintEl.textContent = hasBanana
+            ? 'バナナマスを設置しました。タップすると移動・撤去できます。設置しなくても「バトル開始」で始められます。'
+            : '好きなノーマルマスをタップすると、そこにバナナトラップ（バナナマス）を1つ設置できます。設置しなくても「バトル開始」で始められます。';
+    }
+    bbRenderBoard();
+}
+function bbOnTrapNodeClick(nodeId) {
+    const node = bbNodesById[nodeId];
+    if (!bbIsTrapPlaceableNode(node)) return;
+    if (node.terrain === BB_TERRAIN_BANANA) {
+        // 既に設置済みのバナナマスをタップ＝撤去。
+        node.terrain = null;
+    } else {
+        // バナナマスは常に1つだけ＝新しく置く前に、既存のものがあれば取り除く（＝移動扱い）。
+        bbNodes.forEach(n => { if (n.terrain === BB_TERRAIN_BANANA) n.terrain = null; });
+        node.terrain = BB_TERRAIN_BANANA;
+    }
+    bbRenderTrapPhasePanel();
+}
+function bbOnTrapStartBattleClick() {
+    if (bbState.phase !== 'trap') return;
+    bbStartBattlePhaseActual();
+}
+// 実際に戦闘フェーズへ入る処理本体（トラップ設置フェーズを経由してもしなくても、最終的に
+// ここへ合流する）。
+function bbStartBattlePhaseActual() {
     bbState.phase = 'battle';
     bbRoundQueue = []; // 新しい戦闘の開始時は行動順キューをリセットする（前回の戦闘の残りを引き継がない）
     document.getElementById('bbPlacementPanel').style.display = 'none';
+    const trapPanelElStart = document.getElementById('bbTrapPanel');
+    if (trapPanelElStart) trapPanelElStart.style.display = 'none';
     document.getElementById('bbBattlePanel').style.display = 'block';
     // ここから行動順アイコンの帯を使うので表示に戻す（準備・配置フェーズでは隠していた）。
     // 配置フェーズ専用の敵出撃予定プレビュー帯は、代わりにここで隠す。
@@ -2084,6 +2178,7 @@ function bbOnStartBattleClick() {
     if (turnQueueBarElBattle) turnQueueBarElBattle.style.display = 'flex';
     const enemyPreviewBarElBattle = document.getElementById('bbEnemyPreviewBar');
     if (enemyPreviewBarElBattle) enemyPreviewBarElBattle.style.display = 'none';
+    bbNodes.forEach(n => { n.highlight = null; });
     bbUpdateHeaderCloseBtnLabel(); // 戦闘フェーズ中は「×閉じる」→「×降参」に変わる
     bbRenderBoard();
     bbAppendLog('戦闘開始！');
@@ -2093,7 +2188,6 @@ function bbOnStartBattleClick() {
         bbScheduleNextTurn();
     });
 }
-function bbShuffleArray(arr) { for (let i = arr.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [arr[i], arr[j]] = [arr[j], arr[i]]; } }
 
 // ------------------------------------------------------------
 // 7. 行動順エンジン（周回制）
@@ -2220,7 +2314,9 @@ function bbGetMovableNodeIds(unit) {
         arrivedThisStep.forEach((poisonCount, nid) => {
             bestPoisonCount.set(nid, poisonCount);
             result.add(nid);
-            nextFrontier.push(nid);
+            // バナナマスは「必ず停止しなくてはならないマス」。到達・停止はできるが、
+            // そこを踏み台にしてさらに先へ移動範囲を広げることはできない（強制的な行き止まり）。
+            if (bbNodesById[nid].terrain !== BB_TERRAIN_BANANA) nextFrontier.push(nid);
         });
         frontier = nextFrontier;
     }
@@ -2512,6 +2608,14 @@ function bbMoveUnitTo(unit, nodeId) {
                 });
                 return;
             }
+            // バナナマスに乗った場合：本編対戦でバナナですべった時と同じ効果音を鳴らし、
+            // そのマスをノーマルマスへ戻す（誰かが1度乗ったらトラップとしての役目は終わる）。
+            const landedNode = bbNodesById[unit.nodeId];
+            if (landedNode && landedNode.terrain === BB_TERRAIN_BANANA) {
+                landedNode.terrain = null;
+                bbAppendLog(`${unit.name} はバナナトラップを踏んでしまった！`);
+                bbPlaySfx('poincyo.mp3');
+            }
             bbRenderBoard();
             // 相手の旗のマスへ移動した時点で、行動選択（攻撃・岩破壊・種発射など）を挟むことなく
             // 即座に勝敗を決定する（bbCheckWinConditionは自陣・敵陣どちらの旗に乗ったかも含めて判定する）。
@@ -2754,6 +2858,13 @@ function bbGetSkillTargetsFor(unit) {
         }
         return { key: 'wanpaku', name: '岩砕き', targets: rocks };
     }
+    if (bbHasHiriHiri(unit)) {
+        // ヒリヒリクラッシュは対象選択の必要がない（常に自分＋上下左右の全駒が対象）が、
+        // 他の特技と同じく「必ずタップして確定させる」仕様に合わせるため、対象として
+        // 自分がいるマス自身を1つだけ返す（bbBeginTargetSelectionでそのマスをハイライトする）。
+        const node = bbNodesById[unit.nodeId];
+        return { key: 'hirihiri', name: 'ヒリヒリクラッシュ', targets: node ? [node] : [] };
+    }
     return { key: null, name: '特技', targets: [] };
 }
 // 盤の上に表示するカード（コマンドメニュー・詳細画面）は、ヘッダー部分に限らずカード全体を
@@ -2909,6 +3020,12 @@ function bbExecutePickedCommand(actor, nodeId, mode) {
     const node = bbNodesById[nodeId];
     const defender = bbState.units.find(u => u.nodeId === nodeId && u.hp > 0 && u.team !== actor.team);
     bbNodes.forEach(n => { n.highlight = null; });
+    // ヒリヒリクラッシュ：対象は常に自分自身のマス（敵味方関係なく上下左右にまとめてダメージが飛ぶため、
+    // 個別の対象を選ぶのではなく「自分のマスをタップして確定する」だけの自己対象コマンド）。
+    if (mode === 'skill' && nodeId === actor.nodeId && bbHasHiriHiri(actor)) {
+        bbResolveHiriHiri(actor);
+        return;
+    }
     if (defender) {
         bbExecuteAction(actor, defender, mode === 'melee');
         return;
@@ -2992,6 +3109,63 @@ function bbResolveSeedShot(attacker, defender) {
         }
         setTimeout(bbScheduleNextTurn, 200);
     });
+}
+
+// ------------------------------------------------------------
+// 8.65 激辛エスニック・グリーンカレーの「ヒリヒリクラッシュ」
+//    コマンドで選択すると、自分と上下左右に隣接する駒全て（敵味方関係なし）に
+//    固定50ダメージを与える。効果音（hirihiri.mp3）は最初に1回だけ鳴らし、
+//    その後は毒マスの多段ヒット演出（bbApplyTerrainEffectsAlongPath）と同じ考え方で、
+//    対象ごとに順番にダメージPOPを表示してから次へ進む。自分自身も対象に含まれるため、
+//    自分のHPが50以下なら自分も力尽きうる。
+// ------------------------------------------------------------
+const BB_HIRIHIRI_DAMAGE = 50;
+function bbResolveHiriHiri(actor) {
+    bbAppendLog(`${actor.name} の「ヒリヒリクラッシュ」！`);
+    const node = bbNodesById[actor.nodeId];
+    const targets = [actor];
+    if (node) {
+        node.neighbors.forEach(nid => {
+            const occupant = bbState.units.find(u => u.nodeId === nid && u.hp > 0);
+            if (occupant) targets.push(occupant);
+        });
+    }
+    bbPlaySfx('hirihiri.mp3');
+    bbRenderBoard();
+    const dead = [];
+    let idx = 0;
+    function playNext() {
+        if (idx >= targets.length) { finishUp(); return; }
+        const t = targets[idx];
+        idx++;
+        if (t.hp <= 0) { playNext(); return; } // 念のための保険（対象同士の重複は本来起こらない）
+        t.hp = Math.max(0, t.hp - BB_HIRIHIRI_DAMAGE);
+        bbAppendLog(`${t.name} に${BB_HIRIHIRI_DAMAGE}ダメージ！（残HP ${t.hp}/${t.maxHp}）`);
+        bbShowDamagePop(t.nodeId, `-${BB_HIRIHIRI_DAMAGE}`);
+        bbRenderBoard();
+        if (t.hp <= 0) {
+            bbAppendLog(`${t.name} は力尽きた。`);
+            dead.push(t);
+        }
+        setTimeout(playNext, BB_DAMAGE_POP_MS);
+    }
+    function finishUp() {
+        if (dead.length === 0) { afterAllResolved(); return; }
+        let dIdx = 0;
+        function fadeNext() {
+            if (dIdx >= dead.length) { afterAllResolved(); return; }
+            const u = dead[dIdx];
+            dIdx++;
+            bbFadeOutUnit(u, fadeNext);
+        }
+        fadeNext();
+    }
+    function afterAllResolved() {
+        bbState.units = bbState.units.filter(u => !dead.includes(u));
+        bbRenderBoard();
+        setTimeout(bbScheduleNextTurn, 300);
+    }
+    setTimeout(playNext, 150);
 }
 
 // ------------------------------------------------------------
@@ -3639,6 +3813,13 @@ function bbInjectDom() {
                         <button class="bb-actionBtn" id="bbBtnStartBattle" disabled onclick="window.__bbOnStartBattleClick()">バトル開始</button>
                     </div>
                 </div>
+                <div id="bbTrapPanel" style="display:none;">
+                    <h2>トラップ設置フェーズ</h2>
+                    <div id="bbTrapHint">好きなノーマルマスをタップすると、そこにバナナトラップ（バナナマス）を1つ設置できます。設置しなくても「バトル開始」で始められます。</div>
+                    <div class="bb-prepBtnRow">
+                        <button class="bb-actionBtn" id="bbBtnTrapStartBattle" onclick="window.__bbOnTrapStartBattleClick()">バトル開始</button>
+                    </div>
+                </div>
                 <div id="bbBattlePanel" style="display:none;">
                     <h2 id="bbBattleStatusLine">戦闘中…</h2>
                     <div id="bbBattleLog"></div>
@@ -3724,6 +3905,7 @@ function bbInjectDom() {
                     ・配置が終わったら「戦闘開始」でボードバトルスタート。<br>
                     ・移動は上下左右のみ（斜め移動は不可）。SPDが高いほど1回に動けるマス数が増え、他の駒がいるマスは通り抜けられません。<br>
                     ・盤面には「岩」「水」「毒」の特殊マスがあります。岩と水は特定のカレー以外通過できません。毒は通過時にダメージを受けます。<br>
+                    ・バナナトラップ持ちのカレーが編成にいる場合、配置後に「バナナマス」を盤面の好きなノーマルマスに1つ設置できます。バナナマスは必ず停止しなくてはならないマスで、誰かが乗ると効果音とともにノーマルマスに戻ります。<br>
                     ・移動後、隣接する敵駒に対戦を挑むことができ、本編同様の戦闘画面で1対1のバトルが始まります。負けた駒は消滅します。勝利した駒は盤に残りますが、減ったHPはそのままです。<br>
                     ・特技を持つ特殊カレーもいます。<br>
                     ●「種発射」：直線3マス以内の敵への遠距離攻撃<br>
@@ -3731,7 +3913,9 @@ function bbInjectDom() {
                     ●「水泳」：水マスに通過・停止ができる<br>
                     ●「ホームラン」：特定の攻撃を無効化<br>
                     ●「盾ガード」：特定の攻撃を無効化<br>
-                    ●「毒耐性」：毒マスのダメージを受けない
+                    ●「毒耐性」：毒マスのダメージを受けない<br>
+                    ●「ヒリヒリクラッシュ」：自分と上下左右の全ての駒に50ダメージ<br>
+                    ●「バナナトラップ」：バナナトラップを設置できる
                 </div>
                 <button class="bb-actionBtn bb-secondary" onclick="window.__bbCloseHelp()">閉じる</button>
             </div>
@@ -3875,6 +4059,7 @@ window.__bbOnPrepEditorCellClick = bbOnPrepEditorCellClick;
 window.__bbOnPrepEditorClearClick = bbOnPrepEditorClearClick;
 window.__bbOnPrepEditorSaveClick = bbOnPrepEditorSaveClick;
 window.__bbOnPrepEditorLoadClick = bbOnPrepEditorLoadClick;
+window.__bbOnTrapStartBattleClick = bbOnTrapStartBattleClick;
 window.openBoardBattle = bbOpen; // 将来、他の場所（正式な入り口ボタン等）から開けるように
 
 bbInjectDom();
