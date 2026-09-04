@@ -842,7 +842,7 @@ function bbGenerateDebugEnemyTeam() {
 // カレーへ、別のフラグを無理やり追加で立ててしまうと、実際には作れない組み合わせ
 // （例：わんぱく要素ゼロの「種連発トンカツナスレンコンカレー」が水泳を持つ、等）が
 // 生まれてしまう。bbGenerateEnemyTeamWithForcedの強制付与で、これを避けるために使う。
-const BB_SPECIAL_FLAG_KEYS = ['isWanpaku', 'isSeafood', 'isSeed', 'isHomerun', 'isKaitate', 'isPoison', 'isPoisonApple'];
+const BB_SPECIAL_FLAG_KEYS = ['isWanpaku', 'isSeafood', 'isSeed', 'isHomerun', 'isKaitate', 'isPoison', 'isPoisonApple', 'isGreenCurry', 'isBananaCurry'];
 function bbCountSpecialFlags(c) {
     return BB_SPECIAL_FLAG_KEYS.filter(k => !!c[k]).length;
 }
@@ -965,11 +965,11 @@ const BB_OPPONENT_BOTS = [
         key: 'erisa',
         name: '部長 エリサ',
         img: 'boardbattle/boardbot04.png',
-        desc: '使用カレー：わんぱく2体・海の幸2体・種カレー3体は必須／行動：「敵と戦う」を優先',
+        desc: '使用カレー：グリーンカレー2体・海の幸2体・種カレー3体は必須（残りはランダムに生成）／行動：「敵と戦う」を優先',
         mode: 'combat',
         buildTeam: function () {
             return bbGenerateEnemyTeamWithForced([
-                { test: function (c) { return !!c.isWanpaku; }, force: function (c) { c.isWanpaku = true; }, count: 2 },
+                { test: function (c) { return !!c.isGreenCurry; }, force: function (c) { c.isGreenCurry = true; }, count: 2 },
                 { test: function (c) { return !!c.isSeafood; }, force: function (c) { c.isSeafood = true; }, count: 2 },
                 { test: function (c) { return !!c.isSeed; }, force: function (c) { c.isSeed = true; }, count: 3 }
             ]);
@@ -2128,11 +2128,14 @@ function bbEnterTrapPhase() {
     bbUpdateHeaderCloseBtnLabel();
     bbRenderTrapPhasePanel();
 }
-// トラップ設置の対象にできるマス＝旗マスでなく、駒もおらず、他の特殊地形（岩・水・毒）でもない
-// 通常マス（既に設置済みのバナナマス自身も、撤去操作の対象としてタップ可能にする）。
+// トラップ設置の対象にできるマス＝旗マスでなく、敵味方どちらの陣地（配置マス）でもなく、
+// 駒もおらず、他の特殊地形（岩・水・毒）でもない通常マス（既に設置済みのバナナマス自身も、
+// 撤去操作の対象としてタップ可能にする）。
 function bbIsTrapPlaceableNode(n) {
     if (!n) return false;
     if (bbIsFlagNode(n)) return false;
+    // 自陣・敵陣（配置マス）には設置できない。
+    if (BB_ENEMY_DEPLOY_ROWS.includes(n.row) || BB_PLAYER_DEPLOY_ROWS.includes(n.row)) return false;
     if (bbState.units.some(u => u.nodeId === n.id)) return false;
     return n.terrain === null || n.terrain === BB_TERRAIN_BANANA;
 }
