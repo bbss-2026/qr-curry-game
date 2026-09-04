@@ -52,14 +52,17 @@ const BB_STYLE = `
 .bb-muteBtn { background: none; border: none; padding: 0; width: 26px; height: 26px; display: flex; align-items: center; justify-content: center; cursor: pointer; }
 .bb-muteBtn img { width: 22px; height: 22px; }
 
-/* 配置・戦闘フェーズ中、盤面上部（ヘッダーのすぐ下）に選択中の対戦相手ボットの
-   イラストと名前を常設表示する（対戦相手選択画面を離れても誰と戦っているか分かるように）。 */
+/* 配置・戦闘フェーズ中、盤の真上（行動順バー等のヘッダー要素より下、盤面のすぐ上＝
+   敵陣の赤旗のあたり）に選択中の対戦相手ボットのイラストと名前を浮かせて常設表示する
+   （対戦相手選択画面を離れても誰と戦っているか分かるように）。ヘッダー帯の一部として
+   幅いっぱいに広がるのではなく、盤の上端中央に小さなバッジとして浮かぶ見た目にする。 */
 #bbOpponentBanner {
-    display: none; align-items: center; gap: 8px; padding: 6px 12px; background: rgba(66,0,0,0.75);
-    border-bottom: 1px solid rgba(184,135,66,0.6); flex-shrink: 0;
+    display: none; align-items: center; justify-content: center; gap: 8px; padding: 5px 14px 5px 8px;
+    background: rgba(66,0,0,0.8); border: 1px solid rgba(229,86,74,0.8); border-radius: 20px;
+    margin: 6px auto 0; width: fit-content; flex-shrink: 0; box-shadow: 0 3px 8px rgba(0,0,0,0.35);
 }
-#bbOpponentBanner img { width: 28px; height: 28px; border-radius: 50%; object-fit: cover; border: 2px solid #b88742; flex-shrink: 0; }
-#bbOpponentBanner .bb-opponentBannerName { font-size: 12px; color: #efdeb1; font-weight: bold; }
+#bbOpponentBanner img { width: 26px; height: 26px; border-radius: 50%; object-fit: cover; border: 2px solid #e5564a; flex-shrink: 0; }
+#bbOpponentBanner .bb-opponentBannerName { font-size: 12px; color: #efdeb1; font-weight: bold; white-space: nowrap; }
 
 #bbTurnQueueBar {
     display: flex; align-items: center; gap: 6px; padding: 10px 12px; background: rgba(58,36,19,0.88);
@@ -242,11 +245,21 @@ const BB_STYLE = `
         0 4px 0 rgba(0,0,0,0.35), 0 0 14px rgba(0,0,0,0.75);
 }
 
+/* 盤の上に表示するカード（コマンドメニュー・詳細画面）共通：盤が見えないと困るため
+   背景を透過し、カード自体もドラッグでどかせるようにする。 */
+.bb-cardCloseX {
+    position: absolute; top: 6px; right: 8px; width: 26px; height: 26px; line-height: 24px;
+    background: transparent; border: none; color: #fff; font-size: 20px; font-weight: bold;
+    cursor: pointer; padding: 0; z-index: 2;
+}
+.bb-boardCard { position: relative; cursor: grab; touch-action: none; }
+.bb-boardCard.bb-dragging { cursor: grabbing; }
+
 /* 盤面の駒をタップした時に出す簡易ステータスカード（配置フェーズ・戦闘フェーズ共通） */
 #bbUnitDetailOverlay {
-    position: fixed; inset: 0; background: rgba(0,0,0,0.6); display: none; align-items: center; justify-content: center; z-index: 9020;
+    position: fixed; inset: 0; background: rgba(0,0,0,0.2); display: none; align-items: center; justify-content: center; z-index: 9020; pointer-events: none;
 }
-#bbUnitDetailBox { background: #2b1a0e; border: 2px solid #b88742; border-radius: 12px; padding: 20px 26px; text-align: center; width: 220px; }
+#bbUnitDetailBox { background: rgba(43,26,14,0.82); border: 2px solid #b88742; border-radius: 12px; padding: 20px 26px; text-align: center; width: 220px; pointer-events: auto; }
 #bbUnitDetailVisual { width: 84px; height: 84px; margin: 0 auto 8px; border-radius: 50%; overflow: hidden; background: #fff; border: 3px solid #b88742; }
 #bbUnitDetailVisual img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .bb-unitDetailTeam { display: inline-block; font-size: 10px; padding: 2px 10px; border-radius: 10px; margin-bottom: 6px; background: #555; }
@@ -267,14 +280,20 @@ const BB_STYLE = `
 /* 駒タップ→コマンドメニュー（戦闘を挑む／特技／待機／詳細）。使用できない項目は
    .bb-actionBtn:disabledの既存スタイル（グレーアウト）がそのまま適用される。 */
 #bbCommandMenuOverlay {
-    position: fixed; inset: 0; background: rgba(0,0,0,0.55); display: none; align-items: center; justify-content: center; z-index: 9018;
+    position: fixed; inset: 0; background: rgba(0,0,0,0.2); display: none; align-items: center; justify-content: center; z-index: 9018; pointer-events: none;
 }
-#bbCommandMenuBox { background: #2b1a0e; border: 2px solid #b88742; border-radius: 12px; padding: 18px 24px; text-align: center; width: 200px; }
+#bbCommandMenuBox { background: rgba(43,26,14,0.82); border: 2px solid #b88742; border-radius: 12px; padding: 18px 24px; text-align: center; width: 200px; pointer-events: auto; transform-origin: center bottom; }
 #bbCommandMenuVisual { width: 64px; height: 64px; margin: 0 auto 6px; border-radius: 50%; overflow: hidden; background: #fff; border: 3px solid #b88742; }
 #bbCommandMenuVisual img { width: 100%; height: 100%; object-fit: cover; display: block; }
 #bbCommandMenuName { font-size: 14px; margin: 0 0 12px 0; color: #efdeb1; }
 .bb-cmdMenuList { display: flex; flex-direction: column; gap: 8px; }
 .bb-cmdMenuBtn { margin: 0; width: 100%; box-sizing: border-box; }
+/* コマンドメニューが駒の位置から拡大されるように出現するアニメーション。 */
+@keyframes bbCmdMenuPopIn {
+    from { transform: translate(var(--bbCmdPopDx, 0px), var(--bbCmdPopDy, 0px)) scale(0.15); opacity: 0; }
+    to { transform: translate(0px, 0px) scale(1); opacity: 1; }
+}
+#bbCommandMenuBox.bb-cmdMenuPopIn { animation: bbCmdMenuPopIn 0.28s cubic-bezier(0.2, 0.8, 0.3, 1.2); }
 
 /* カレー準備画面：ボードバトルを開いた時の入口。登録済みロースターの一覧と
    カレー登録／戦闘開始／ヘルプの3ボタンだけを見せ、盤面はまだ表示しない。 */
@@ -300,7 +319,7 @@ const BB_STYLE = `
     position: fixed; inset: 0; background: rgba(0,0,0,0.75); display: none; align-items: center; justify-content: center; z-index: 9030;
 }
 #bbRegDetailCarouselRow { display: flex; align-items: center; gap: 6px; max-width: 100%; }
-#bbRegDetailBox { background: #2b1a0e; border: 2px solid #b88742; border-radius: 12px; padding: 20px 22px; text-align: center; width: 250px; max-height: 82vh; overflow-y: auto; touch-action: pan-y; }
+#bbRegDetailBox { position: relative; background: #2b1a0e; border: 2px solid #b88742; border-radius: 12px; padding: 20px 22px; text-align: center; width: 250px; max-height: 82vh; overflow-y: auto; touch-action: pan-y; }
 #bbRegDetailVisual { width: 84px; height: 84px; margin: 0 auto 8px; border-radius: 50%; overflow: hidden; background: #fff; border: 3px solid #b88742; }
 #bbRegDetailVisual img { width: 100%; height: 100%; object-fit: cover; display: block; }
 #bbRegDetailNameInput {
@@ -2032,21 +2051,22 @@ function bbPickNextActor() {
 
 function bbScheduleNextTurn() {
     if (bbState.phase !== 'battle') return;
-    const winner = bbCheckWinCondition();
-    if (winner) { bbEndBattle(winner); return; }
+    const winResult = bbCheckWinCondition();
+    if (winResult) { bbEndBattle(winResult.winner, winResult.reason); return; }
     const actor = bbPickNextActor();
     if (!actor) return;
     bbState.activeUnit = actor;
     bbState.subPhase = (actor.team === 'player') ? 'move' : null;
     bbState.hasMovedThisTurn = false;
     bbState.pendingCommandMode = null;
+    bbState.turnStartNodeId = actor.nodeId; // 「戻す」で移動前の位置に戻せるよう、手番開始時の位置を覚えておく
     bbRenderTurnQueuePreview();
     bbRenderBoard(); // ← アクティブな駒のノードを光らせるため再描画
     if (actor.team === 'player') {
         bbCenterOnNode(actor.nodeId); // 行動順が回ってきた駒を画面中央へ自動的に移動
         bbHighlightMovableTiles(actor);
-        // 移動しても・しなくても、自分のコマをタップした時点でコマンドメニュー
-        // （戦闘を挑む／特技／待機／詳細）が開く。
+        // 移動しなければ、自分のコマをタップした時点でコマンドメニューが開く
+        // （移動した場合はbbMoveUnitTo側で自動的に開くため、タップの手順は不要）。
         bbSetBattleStatus(`${actor.name} の番です。移動先のマスをタップするか、自分のコマをタップしてコマンドを選んでください。`);
     } else {
         bbSetBattleStatus(`${actor.name}（敵）が行動中…`);
@@ -2192,6 +2212,9 @@ function bbOnBattleNodeClick(nodeId) {
             // 敵駒がいるマスはそもそも移動可能マスに含まれない）。
             if (!bbState.hasMovedThisTurn && node.highlight === 'movable') { bbMoveUnitTo(actor, nodeId); return; }
         } else if (bbState.subPhase === 'action') {
+            // ターゲット選択中に行動中の駒自身をタップした場合は、コマンドメニューを
+            // 再表示して行動をやり直せるようにする。
+            if (nodeId === actor.nodeId) { bbOpenCommandMenu(actor); return; }
             // コマンドメニューで「戦闘を挑む」「特技」を選んだ後、対象（隣接する敵駒・岩、
             // 種発射の射程内の敵）をタップした場合。
             if (node.highlight === 'attackable') { bbOnPickActionTarget(actor, nodeId); return; }
@@ -2420,15 +2443,15 @@ function bbMoveUnitTo(unit, nodeId) {
             bbRenderBoard();
             // 相手の旗のマスへ移動した時点で、行動選択（攻撃・岩破壊・種発射など）を挟むことなく
             // 即座に勝敗を決定する（bbCheckWinConditionは自陣・敵陣どちらの旗に乗ったかも含めて判定する）。
-            const winner = bbCheckWinCondition();
-            if (winner) { bbEndBattle(winner); return; }
+            const winResult = bbCheckWinCondition();
+            if (winResult) { bbEndBattle(winResult.winner, winResult.reason); return; }
             if (unit.team === 'player') {
-                // プレイヤーの移動は1ターンに1回のみ。移動後は自分のコマをタップして
-                // コマンドメニュー（戦闘を挑む／特技／待機／詳細）を開いてもらう。
+                // プレイヤーの移動は1ターンに1回のみ。移動後はタップを待たず、
+                // 自動的にコマンドメニュー（戦闘を挑む／特技／待機／詳細）を開く。
                 bbState.hasMovedThisTurn = true;
                 bbNodes.forEach(n => { n.highlight = null; });
                 bbRenderBoard();
-                bbSetBattleStatus(`${unit.name} の番です。自分のコマをタップしてコマンドを選んでください。`);
+                bbOpenCommandMenu(unit);
             } else {
                 bbEnterActionPhase(unit);
             }
@@ -2661,6 +2684,53 @@ function bbGetSkillTargetsFor(unit) {
     }
     return { key: null, name: '特技', targets: [] };
 }
+// 盤の上に表示するカード（コマンドメニュー・詳細画面）は、ヘッダー部分に限らずカード全体を
+// ドラッグして自由な位置に動かせるようにする（盤が見えないと困る場面があるため）。
+// ボタン等クリック可能な要素の上から始めたドラッグは誤操作防止のため無視する。
+function bbMakeCardDraggable(boxEl) {
+    if (!boxEl || boxEl._bbDragBound) return;
+    boxEl._bbDragBound = true;
+    let dragging = false, startX = 0, startY = 0, baseX = 0, baseY = 0;
+    boxEl.addEventListener('pointerdown', function (evt) {
+        if (evt.target && evt.target.closest && evt.target.closest('button,input,a')) return;
+        dragging = true;
+        boxEl.classList.add('bb-dragging');
+        startX = evt.clientX; startY = evt.clientY;
+        const m = /translate\(([-\d.]+)px,\s*([-\d.]+)px\)/.exec(boxEl.style.transform || '');
+        baseX = m ? parseFloat(m[1]) : 0;
+        baseY = m ? parseFloat(m[2]) : 0;
+        if (boxEl.setPointerCapture) { try { boxEl.setPointerCapture(evt.pointerId); } catch (e) {} }
+    });
+    boxEl.addEventListener('pointermove', function (evt) {
+        if (!dragging) return;
+        const dx = evt.clientX - startX, dy = evt.clientY - startY;
+        boxEl.style.transform = `translate(${baseX + dx}px, ${baseY + dy}px)`;
+    });
+    boxEl.addEventListener('pointerup', function () { dragging = false; boxEl.classList.remove('bb-dragging'); });
+    boxEl.addEventListener('pointercancel', function () { dragging = false; boxEl.classList.remove('bb-dragging'); });
+}
+// コマンドメニューが開くたびに、行動中の駒の位置から拡大されるように出現させ、
+// 効果音（sound/menu.mp3）を鳴らす。
+function bbPlayCommandMenuOpenEffect(unit) {
+    bbPlaySfx('sound/menu.mp3');
+    const box = document.getElementById('bbCommandMenuBox');
+    if (!box) return;
+    const tileEl = unit ? document.getElementById('bbTile' + unit.nodeId) : null;
+    box.classList.remove('bb-cmdMenuPopIn');
+    box.style.transform = ''; // ドラッグでずらしていた位置はリセットし、駒の位置から出す
+    if (tileEl && box.getBoundingClientRect) {
+        const tileRect = tileEl.getBoundingClientRect();
+        const boxRect = box.getBoundingClientRect();
+        const dx = (tileRect.left + tileRect.width / 2) - (boxRect.left + boxRect.width / 2);
+        const dy = (tileRect.top + tileRect.height / 2) - (boxRect.top + boxRect.height / 2);
+        if (box.style.setProperty) {
+            box.style.setProperty('--bbCmdPopDx', dx + 'px');
+            box.style.setProperty('--bbCmdPopDy', dy + 'px');
+        }
+    }
+    if (box.getBoundingClientRect) void box.getBoundingClientRect(); // 初期状態を反映させてからアニメーション開始
+    box.classList.add('bb-cmdMenuPopIn');
+}
 // 「詳細」をコマンドメニューから開いた場合だけ、閉じた時にコマンドメニューへ自動的に戻る。
 let bbCommandMenuReopenAfterDetail = false;
 function bbOpenCommandMenu(unit) {
@@ -2681,24 +2751,41 @@ function bbOpenCommandMenu(unit) {
         skillBtn.textContent = skillInfo.name;
         skillBtn.disabled = (skillInfo.targets.length === 0);
     }
+    // 「戻す」は、このターン中に移動済みの場合のみ選べる（移動していなければ戻す必要がない）。
+    const undoBtn = document.getElementById('bbCmdBtnUndo');
+    if (undoBtn) undoBtn.disabled = !bbState.hasMovedThisTurn;
     const overlay = document.getElementById('bbCommandMenuOverlay');
-    if (overlay) overlay.style.display = 'flex';
+    if (overlay) {
+        overlay.style.display = 'flex';
+        bbPlayCommandMenuOpenEffect(unit);
+    }
 }
 function bbCloseCommandMenu() {
     const overlay = document.getElementById('bbCommandMenuOverlay');
     if (overlay) overlay.style.display = 'none';
 }
-// 対象が1体（1マス）だけならそのまま実行、複数いる場合だけ盤面をハイライトして
-// 対象をタップで選ばせる（bbOnBattleNodeClickのactionサブフェーズ→bbOnPickActionTarget経由）。
+// 移動をキャンセルし、このターン開始時点の位置（bbState.turnStartNodeId）へ駒を戻して
+// 再度移動フェーズからやり直せるようにする。
+function bbOnCommandUndo() {
+    const actor = bbState.activeUnit;
+    if (!actor || !bbState.hasMovedThisTurn || bbState.turnStartNodeId == null) return;
+    bbCloseCommandMenu();
+    actor.nodeId = bbState.turnStartNodeId;
+    bbState.hasMovedThisTurn = false;
+    bbState.subPhase = 'move';
+    bbState.pendingCommandMode = null;
+    bbNodes.forEach(n => { n.highlight = null; });
+    bbRenderBoard();
+    bbCenterOnNode(actor.nodeId);
+    bbHighlightMovableTiles(actor);
+    bbAppendLog(`${actor.name} は移動をやり直すことにした。`);
+    bbSetBattleStatus(`${actor.name} の番です。移動先のマスをタップするか、自分のコマをタップしてコマンドを選んでください。`);
+}
+// 対象（隣接する敵駒・岩、種発射の射程内の敵など）は、たとえ1体しかいなくても必ず盤面を
+// ハイライトし、プレイヤー自身にタップで選択・確定してもらう（誤操作防止のため自動実行はしない）。
 function bbBeginTargetSelection(actor, targets, mode) {
     bbCloseCommandMenu();
     if (!targets || targets.length === 0) return;
-    if (targets.length === 1) {
-        const only = targets[0];
-        const nodeId = ('nodeId' in only) ? only.nodeId : only.id;
-        bbExecutePickedCommand(actor, nodeId, mode);
-        return;
-    }
     bbState.subPhase = 'action';
     bbState.pendingCommandMode = mode;
     bbNodes.forEach(n => { n.highlight = null; });
@@ -2891,15 +2978,17 @@ function bbResolveBattle(mover, defender) {
     });
 }
 
+// 勝敗が決まった場合、誰が勝ったか（winner）に加えて、旗を奪って勝ったのか（'flag'）
+// 敵を全滅させて勝ったのか（'elimination'）も一緒に返す（bbEndBattle側の勝因/敗因表示に使う）。
 function bbCheckWinCondition() {
     const playerUnits = bbState.units.filter(u => u.team === 'player' && u.hp > 0);
     const enemyUnits = bbState.units.filter(u => u.team === 'enemy' && u.hp > 0);
-    if (enemyUnits.length === 0) return 'player';
-    if (playerUnits.length === 0) return 'enemy';
+    if (enemyUnits.length === 0) return { winner: 'player', reason: 'elimination' };
+    if (playerUnits.length === 0) return { winner: 'enemy', reason: 'elimination' };
     const playerOnEnemyFlag = playerUnits.some(u => u.nodeId === bbGetFlagNodeId('enemy'));
-    if (playerOnEnemyFlag) return 'player';
+    if (playerOnEnemyFlag) return { winner: 'player', reason: 'flag' };
     const enemyOnPlayerFlag = enemyUnits.some(u => u.nodeId === bbGetFlagNodeId('player'));
-    if (enemyOnPlayerFlag) return 'enemy';
+    if (enemyOnPlayerFlag) return { winner: 'enemy', reason: 'flag' };
     return null;
 }
 
@@ -2943,7 +3032,7 @@ function bbGrantWinReward() {
                 : '';
             return `${icon}${bbEsc(itm)}`;
         }).join('、');
-        rewardLines.push(`ノーマル食材：${iconsHtml}`);
+        rewardLines.push(`勝利報酬：${iconsHtml}`);
     }
     if (typeof saveGame === 'function') { try { saveGame(); } catch (e) { /* 保存に失敗しても対戦の進行は止めない */ } }
     if (typeof updateFridgeUI === 'function') { try { updateFridgeUI(); } catch (e) {} }
@@ -2955,14 +3044,22 @@ function bbGrantWinReward() {
     return rewardLines.join('<br>');
 }
 
-function bbEndBattle(winner) {
+// reasonは'flag'（旗を奪った／奪われた）か'elimination'（全滅させた／させられた）。
+// bbCheckWinConditionから受け取った理由をそのまま勝敗テキストに反映し、どちらの方法で
+// 決着したのかを明確にする。
+function bbEndBattle(winner, reason) {
     bbState.phase = 'result';
     bbState.activeUnit = null;
     bbStopBattleBgm();
     bbUpdateHeaderCloseBtnLabel();
     document.getElementById('bbResultOverlay').style.display = 'flex';
     document.getElementById('bbResultTitle').textContent = winner === 'player' ? 'VICTORY' : 'DEFEAT';
-    let descHtml = winner === 'player' ? '敵の旗を奪う、または全滅させました！' : '自陣の旗を奪われる、または全滅しました…';
+    let descHtml;
+    if (winner === 'player') {
+        descHtml = (reason === 'flag') ? '敵の旗を奪い、勝利！' : '敵の駒を全滅させ、勝利！';
+    } else {
+        descHtml = (reason === 'flag') ? '自陣の旗を奪われ、敗北…' : '自陣の駒を全滅させられ、敗北…';
+    }
     if (winner === 'player') {
         const rewardHtml = bbGrantWinReward();
         if (rewardHtml) descHtml += '<br><br>' + rewardHtml;
@@ -3446,12 +3543,12 @@ function bbInjectDom() {
                         <button class="bb-closeBtn" id="bbCloseBtn" onclick="window.__bbOnHeaderCloseClick()">✕ 閉じる</button>
                     </div>
                 </div>
+                <div id="bbTurnQueueBar"></div>
+                <div id="bbEnemyPreviewBar"></div>
                 <div id="bbOpponentBanner">
                     <img id="bbOpponentBannerImg" src="" alt="">
                     <div class="bb-opponentBannerName" id="bbOpponentBannerName"></div>
                 </div>
-                <div id="bbTurnQueueBar"></div>
-                <div id="bbEnemyPreviewBar"></div>
             </div>
             <div id="bbBottomPanel">
                 <div id="bbPlacementPanel">
@@ -3484,7 +3581,8 @@ function bbInjectDom() {
             <div id="bbBattleStartSplashLine2">START</div>
         </div>
         <div id="bbUnitDetailOverlay" onclick="if(event.target===this) window.__bbCloseUnitDetail()">
-            <div id="bbUnitDetailBox">
+            <div id="bbUnitDetailBox" class="bb-boardCard">
+                <button class="bb-cardCloseX" onclick="window.__bbCloseUnitDetail()" aria-label="閉じる">×</button>
                 <div id="bbUnitDetailVisual"><img id="bbUnitDetailImg" src="" alt=""></div>
                 <div id="bbUnitDetailTeam" class="bb-unitDetailTeam"></div>
                 <h3 id="bbUnitDetailName"></h3>
@@ -3492,11 +3590,10 @@ function bbInjectDom() {
                 <div id="bbUnitDetailSkills"></div>
                 <button class="bb-actionBtn" id="bbUnitDetailConfirmBtn" style="display:none;" onclick="window.__bbConfirmUnitDetailAction()">実行する</button>
                 <button class="bb-actionBtn" id="bbUnitDetailConfirmBtn2" style="display:none;" onclick="window.__bbConfirmUnitDetailAction2()">実行する</button>
-                <button class="bb-actionBtn bb-secondary" onclick="window.__bbCloseUnitDetail()">閉じる</button>
             </div>
         </div>
         <div id="bbCommandMenuOverlay">
-            <div id="bbCommandMenuBox">
+            <div id="bbCommandMenuBox" class="bb-boardCard">
                 <div id="bbCommandMenuVisual"><img id="bbCommandMenuImg" src="" alt=""></div>
                 <h3 id="bbCommandMenuName"></h3>
                 <div class="bb-cmdMenuList">
@@ -3504,6 +3601,7 @@ function bbInjectDom() {
                     <button class="bb-actionBtn bb-cmdMenuBtn" id="bbCmdBtnSkill" onclick="window.__bbOnCommandSkill()">特技</button>
                     <button class="bb-actionBtn bb-cmdMenuBtn" id="bbCmdBtnWait" onclick="window.__bbOnCommandWait()">待機</button>
                     <button class="bb-actionBtn bb-cmdMenuBtn bb-secondary" id="bbCmdBtnDetail" onclick="window.__bbOnCommandDetail()">詳細</button>
+                    <button class="bb-actionBtn bb-cmdMenuBtn bb-secondary" id="bbCmdBtnUndo" onclick="window.__bbOnCommandUndo()">戻す</button>
                 </div>
             </div>
         </div>
@@ -3518,6 +3616,7 @@ function bbInjectDom() {
             <div id="bbRegDetailCarouselRow">
                 <div id="bbRegDetailPrevCard" class="bb-regNavCard" onclick="window.__bbRegDetailNav(-1)"></div>
                 <div id="bbRegDetailBox">
+                    <button class="bb-cardCloseX" onclick="window.__bbCloseRegDetail()" aria-label="閉じる">×</button>
                     <div id="bbRegDetailVisual"><img id="bbRegDetailImg" src="" alt=""></div>
                     <input id="bbRegDetailNameInput" type="text" maxlength="20" placeholder="カレー名" onblur="window.__bbOnChangeRegName()">
                     <div id="bbRegDetailStats"></div>
@@ -3527,7 +3626,6 @@ function bbInjectDom() {
                     <div class="bb-regEquipSectionLabel">食器</div>
                     <div id="bbRegDetailTablewareList" class="bb-regEquipOptionList"></div>
                     <div class="bb-regDetailBtnRow">
-                        <button class="bb-actionBtn bb-secondary" onclick="window.__bbCloseRegDetail()">閉じる</button>
                         <button class="bb-actionBtn bb-danger bb-small" onclick="window.__bbOnDeleteRegisteredCurry()">登録削除</button>
                     </div>
                 </div>
@@ -3621,6 +3719,10 @@ function bbInjectDom() {
         bbRegDetailBoxEl.addEventListener('pointerup', bbOnRegDetailPointerUp);
     }
 
+    // 盤の上に表示されるカード（コマンドメニュー・駒の詳細）はドラッグで動かせるようにする。
+    bbMakeCardDraggable(document.getElementById('bbCommandMenuBox'));
+    bbMakeCardDraggable(document.getElementById('bbUnitDetailBox'));
+
     if (typeof window.addEventListener === 'function') {
         window.addEventListener('resize', function () {
             if (document.getElementById('bbRoot').style.display !== 'none' && bbState.phase !== 'prep') bbFitView();
@@ -3680,6 +3782,7 @@ window.__bbOnCommandChallenge = bbOnCommandChallenge;
 window.__bbOnCommandSkill = bbOnCommandSkill;
 window.__bbOnCommandWait = bbOnCommandWait;
 window.__bbOnCommandDetail = bbOnCommandDetail;
+window.__bbOnCommandUndo = bbOnCommandUndo;
 window.__bbOnTapTurnIcon = bbOnTapTurnIcon;
 window.__bbOpenPrepPlacementEditor = bbOpenPrepPlacementEditor;
 window.__bbClosePrepPlacementEditor = bbClosePrepPlacementEditor;
