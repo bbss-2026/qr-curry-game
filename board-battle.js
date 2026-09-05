@@ -674,6 +674,9 @@ function bbHasSunBlessing(unit) { return !!(unit.raw && unit.raw.isRatatouille);
 // ふわとろオムカレー（isFluffyOmelette）：特技「ふわとろバリア」＝自分と隣接する仲間が、
 // 盤上の技（種発射・ヒリヒリクラッシュ・ネバネバクダン等）で受けるダメージを50%にする常時パッシブ。
 function bbHasFluffyBarrier(unit) { return !!(unit.raw && unit.raw.isFluffyOmelette); }
+// ふわとろバリアで軽減が発動した際、軽減の効果音(taiyou.mp3)とその直後のヒット音が
+// 完全に同時に鳴らないよう、ヒット音側にわずかな間を空けるための遅延（ミリ秒）。
+const BB_FLUFFY_SFX_STAGGER_MS = 250;
 // defenderが受ける盤上技のダメージ倍率を返す（ふわとろバリアの影響を受けるなら0.5、
 // それ以外は1）。defender自身がふわとろバリア持ちの場合に加えて、隣接する生存中の
 // 味方（同チーム）がふわとろバリアを持っている場合も軽減の対象になる。
@@ -1560,6 +1563,26 @@ function bbAttackArrowMarkup(fromNode, toNode) {
     return `<polygon class="bb-attack-arrow ${dirClass}" points="${tipX},${tipY} ${b1x},${b1y} ${b2x},${b2y}"></polygon>`;
 }
 
+// 種発射のように行動主から対象まで複数マス離れている場合、間のマスにも矢印を1つずつ
+// 並べて表示し、狙っている経路全体が▶▶▶と連なって見えるようにする（隣接1マスの通常攻撃・
+// 岩砕きの場合はこれまで通り矢印1つだけになる）。fromNodeとtoNodeは行または列が一致する
+// 直線上にある前提（盤面は斜め移動が無いグリッドのため）。
+function bbAttackArrowChainMarkup(fromNode, toNode) {
+    if (!fromNode || !toNode) return '';
+    const dRow = toNode.row - fromNode.row, dCol = toNode.col - fromNode.col;
+    if (dRow !== 0 && dCol !== 0) return bbAttackArrowMarkup(fromNode, toNode); // 想定外（斜め）は従来通り単発表示
+    const steps = Math.max(Math.abs(dRow), Math.abs(dCol));
+    if (steps <= 1) return bbAttackArrowMarkup(fromNode, toNode);
+    const stepRow = dRow === 0 ? 0 : (dRow > 0 ? 1 : -1);
+    const stepCol = dCol === 0 ? 0 : (dCol > 0 ? 1 : -1);
+    let chainHtml = '';
+    for (let s = 1; s <= steps; s++) {
+        const mid = bbFindNode(fromNode.row + stepRow * s, fromNode.col + stepCol * s);
+        if (mid) chainHtml += bbAttackArrowMarkup(fromNode, mid);
+    }
+    return chainHtml;
+}
+
 function bbRenderBoard() {
     const viewportG = document.getElementById('bbViewportG');
     if (!viewportG) return;
@@ -1623,13 +1646,19 @@ function bbRenderBoard() {
                 html += `<text class="bb-skip-badge" x="${n.x + r2 * 0.6}" y="${n.y - BB_COIN_Y_LIFT - r2 * 0.6}">❌</text>`;
             }
         }
-        // 行動選択フェーズ中、攻撃対象（隣接する敵駒・岩）のマスへ、行動主から向かって
-        // 進んでいくように見える矢印を重ねて表示する。
-        if (n.highlight === 'attackable' && bbState.activeUnit) {
-            html += bbAttackArrowMarkup(bbNodesById[bbState.activeUnit.nodeId], n);
-        }
         html += `</g>`;
     });
+    // 行動選択フェーズ中、攻撃対象（隣接する敵駒・岩、種発射の射程内の敵など）へ向かって
+    // 進んでいくように見える矢印を表示する。マスごとの<g onclick>とは別レイヤー（クリック
+    // 領域を持たない）として最後にまとめて追加する。種発射のように間に複数マスある場合は
+    // bbAttackArrowChainMarkupが経路の各マスにも矢印を1つずつ並べ、▶▶▶と連なって見せる。
+    if (bbState.activeUnit) {
+        bbNodes.forEach(n => {
+            if (n.highlight === 'attackable') {
+                html += bbAttackArrowChainMarkup(bbNodesById[bbState.activeUnit.nodeId], n);
+            }
+        });
+    }
     viewportG.innerHTML = html;
 }
 function bbEsc(s) { return String(s == null ? '' : s); }
@@ -3273,18 +3302,29 @@ function bbResolveSeedShot(attacker, defender) {
     bbAppendLog(`${defender.name} に${dmg}ダメージ！（残HP ${defender.hp}/${defender.maxHp}）`);
     if (fluffyMul < 1) bbPlaySfx('taiyou.mp3');
     bbRenderBoard();
-    bbPlaySeedHitEffect(defender.nodeId, `-${dmg}`, 'punch.mp3', function () {
-        if (defender.hp <= 0) {
-            bbAppendLog(`${defender.name} は力尽きた。`);
-            bbFadeOutUnit(defender, function () {
-                bbState.units = bbState.units.filter(u => u !== defender);
-                bbRenderBoard();
-                setTimeout(bbScheduleNextTurn, 300);
-            });
-            return;
-        }
-        setTimeout(bbScheduleNextTurn, 200);
-    });
+    const playSeedHit = function () {
+        bbPlaySeedHitEffect(defender.nodeId, `-${dmg}`, 'punch.mp3', function () {
+            if (defender.hp <= 0) {
+                bbAppendLog(`${defender.name} は力尽きた。`);
+                bbFadeOutUnit(defender, function () {
+                    bbState.units = bbState.units.filter(u => u !== defender);
+                    bbRenderBoard();
+                    setTimeout(bbScheduleNextTurn, 300);
+                });
+                return;
+            }
+            setTimeout(bbScheduleNextTurn, 200);
+        });
+    };
+    // ふわとろバリアで軽減した場合、軽減の効果音(taiyou.mp3)とヒット音(punch.mp3)が
+    // 同じタイミングで重なって鳴ってしまい軽減演出が聞き取りづらいため、軽減音の再生後に
+    // 少し間を空けてからヒット音・ダメージPOPを出す（軽減が発動していない通常時は
+    // これまで通り即座に鳴らす）。
+    if (fluffyMul < 1) {
+        setTimeout(playSeedHit, BB_FLUFFY_SFX_STAGGER_MS);
+    } else {
+        playSeedHit();
+    }
 }
 
 // ------------------------------------------------------------
