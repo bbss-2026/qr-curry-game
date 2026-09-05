@@ -188,6 +188,16 @@ const BB_STYLE = `
     opacity: 1; transition: transform 0.7s ease-out, opacity 0.7s ease-out;
 }
 .bb-damage-pop-html.bb-damage-pop-html-anim { opacity: 0; transform: translate(-50%, -44px); }
+/* 太陽の恵みの回復POP（緑）／ネバネバクダンで1回休みになった駒が、行動順到来時に
+   ❌が上へ消えていく演出（bb-heal-popと同じ仕組みを流用し、色だけ変える）。*/
+.bb-damage-pop-html.bb-heal-pop { color: #2ecc71; text-shadow: -2px 0 0 #0b3a1c, 2px 0 0 #0b3a1c, 0 -2px 0 #0b3a1c, 0 2px 0 #0b3a1c; }
+.bb-damage-pop-html.bb-skip-pop { color: #ff4136; font-size: 22px; }
+/* 1回休み中の駒（盤上のコマ・行動順バーのアイコン）に常時重ねて表示する❌マーク。 */
+.bb-skip-badge { font-size: 20px; font-weight: 900; fill: #ff4136; text-anchor: middle; dominant-baseline: central; paint-order: stroke; stroke: #3a0a06; stroke-width: 3px; pointer-events: none; }
+.bb-turnIcon { position: relative; }
+.bb-turnIcon.bb-skip-pending::after {
+    content: '❌'; position: absolute; right: -2px; top: -4px; font-size: 12px; line-height: 1;
+}
 
 #bbBottomPanel {
     position: absolute; bottom: 0; left: 0; right: 0; z-index: 25;
@@ -617,7 +627,9 @@ function bbIsTerrainBlockedForNormalCurry(node) {
     return node.terrain === BB_TERRAIN_ROCK || node.terrain === BB_TERRAIN_WATER;
 }
 
-function bbCanBreakRock(unit) { return !!(unit.raw && unit.raw.isWanpaku); }
+// 岩砕き：わんぱくカレー（isWanpaku）に加えて、3匹のわんぱく兄弟（isTonTonTon。本編では
+// isWanpakuとは別の独立したフラグ）も同じく岩を砕ける。
+function bbCanBreakRock(unit) { return !!(unit.raw && (unit.raw.isWanpaku || unit.raw.isTonTonTon)); }
 function bbCanCrossWater(unit) { return !!(unit.raw && unit.raw.isSeafood); }
 function bbIsPoisonImmune(unit) { return !!(unit.raw && (unit.raw.isPoison || unit.raw.isPoisonApple)); }
 // 種カレー（isSeed）：移動後、隣接に限らず直線3マス以内の敵駒1体を対象に「種発射」で
@@ -634,6 +646,32 @@ function bbHasHiriHiri(unit) { return !!(unit.raw && unit.raw.isGreenCurry); }
 // 特技「バナナトラップ」＝配置フェーズとゲーム開始の間にトラップ設置フェーズが追加され、
 // 好きなノーマルマス1つをバナナマスに変更できる。
 function bbHasBananaTrap(unit) { return !!(unit.raw && unit.raw.isBananaCurry); }
+// ネバネバカレー（isSticky）：特技「ネバネバクダン」＝隣接する敵1体に通常攻撃＋1回休みを
+// 付与できる（戦闘中1回のみ使用可）。unit.bbUsedNebaNebaで使用済みかどうかを個体ごとに管理する
+// （盤上の駒オブジェクトは対戦開始のたびに作り直されるため、対戦をまたいで残ることはない）。
+function bbHasNebaNebaKudan(unit) { return !!(unit.raw && unit.raw.isSticky && !unit.bbUsedNebaNeba); }
+// 太陽のラタトゥイユカレー（isRatatouille）：特技「太陽の恵み」＝行動順が回ってきた時に
+// 最大HPの20%を自動回復する常時パッシブ。
+function bbHasSunBlessing(unit) { return !!(unit.raw && unit.raw.isRatatouille); }
+// ふわとろオムカレー（isFluffyOmelette）：特技「ふわとろバリア」＝自分と隣接する仲間が、
+// 盤上の技（種発射・ヒリヒリクラッシュ・ネバネバクダン等）で受けるダメージを50%にする常時パッシブ。
+function bbHasFluffyBarrier(unit) { return !!(unit.raw && unit.raw.isFluffyOmelette); }
+// defenderが受ける盤上技のダメージ倍率を返す（ふわとろバリアの影響を受けるなら0.5、
+// それ以外は1）。defender自身がふわとろバリア持ちの場合に加えて、隣接する生存中の
+// 味方（同チーム）がふわとろバリアを持っている場合も軽減の対象になる。
+function bbGetFluffyBarrierMultiplier(defender) {
+    if (!defender) return 1;
+    if (bbHasFluffyBarrier(defender)) return 0.5;
+    const node = bbNodesById[defender.nodeId];
+    if (node) {
+        const hasNearbyBarrier = node.neighbors.some(nid => {
+            const occupant = bbState.units.find(u => u.nodeId === nid && u.hp > 0 && u.team === defender.team);
+            return occupant && bbHasFluffyBarrier(occupant);
+        });
+        if (hasNearbyBarrier) return 0.5;
+    }
+    return 1;
+}
 
 // ------------------------------------------------------------
 // 8.05 特技・特性の定義
@@ -652,7 +690,10 @@ const BB_SKILLS = [
     { key: 'hirihiri', name: 'ヒリヒリクラッシュ', desc: '自分と上下左右の全ての駒に50ダメージ', active: true, test: bbHasHiriHiri },
     // トラップ設置は戦闘中のコマンドではなく配置後の専用フェーズで行うため、
     // 「特技」コマンドの対象にはしない（active:falseの他の受動特性と同じ扱い）。
-    { key: 'banana', name: 'バナナトラップ', desc: 'バナナトラップを設置できる。', active: false, test: bbHasBananaTrap }
+    { key: 'banana', name: 'バナナトラップ', desc: 'バナナトラップを設置できる。', active: false, test: bbHasBananaTrap },
+    { key: 'nebaneba', name: 'ネバネバクダン', desc: '1度だけダメージ+1回休みを付与できる。', active: true, test: bbHasNebaNebaKudan },
+    { key: 'sunblessing', name: '太陽の恵み', desc: '毎ターンHPを少し回復。', active: false, test: bbHasSunBlessing },
+    { key: 'fluffybarrier', name: 'ふわとろバリア', desc: '自分と隣接する仲間のダメージを軽減', active: false, test: bbHasFluffyBarrier }
 ];
 // unit（{raw:カレー本体}の形）・カレー本体（raw）そのもの、どちらを渡しても判定できるようにする
 // （盤面の駒はunit形、カレー準備画面の登録カレーはbbGetEffectiveCurry()の戻り値＝raw形のため）。
@@ -842,7 +883,7 @@ function bbGenerateDebugEnemyTeam() {
 // カレーへ、別のフラグを無理やり追加で立ててしまうと、実際には作れない組み合わせ
 // （例：わんぱく要素ゼロの「種連発トンカツナスレンコンカレー」が水泳を持つ、等）が
 // 生まれてしまう。bbGenerateEnemyTeamWithForcedの強制付与で、これを避けるために使う。
-const BB_SPECIAL_FLAG_KEYS = ['isWanpaku', 'isSeafood', 'isSeed', 'isHomerun', 'isKaitate', 'isPoison', 'isPoisonApple', 'isGreenCurry', 'isBananaCurry'];
+const BB_SPECIAL_FLAG_KEYS = ['isWanpaku', 'isSeafood', 'isSeed', 'isHomerun', 'isKaitate', 'isPoison', 'isPoisonApple', 'isGreenCurry', 'isBananaCurry', 'isTonTonTon', 'isSticky', 'isRatatouille', 'isFluffyOmelette'];
 function bbCountSpecialFlags(c) {
     return BB_SPECIAL_FLAG_KEYS.filter(k => !!c[k]).length;
 }
@@ -1557,6 +1598,11 @@ function bbRenderBoard() {
             const barY = coinBottomY + 4;
             html += `<rect class="bb-board-hp-bg" x="${n.x - barW / 2}" y="${barY}" width="${barW}" height="5" rx="2"></rect>`;
             html += `<rect class="bb-board-hp-fill" x="${n.x - barW / 2}" y="${barY}" width="${barW * pct}" height="5" rx="2"></rect>`;
+            // ネバネバクダンで「1回休み」になっている駒には、行動順が回ってくるまでの間、
+            // コインの右上あたりに常時❌マークを重ねて表示する。
+            if (unit.bbSkipNextTurn) {
+                html += `<text class="bb-skip-badge" x="${n.x + r2 * 0.6}" y="${n.y - BB_COIN_Y_LIFT - r2 * 0.6}">❌</text>`;
+            }
         }
         // 行動選択フェーズ中、攻撃対象（隣接する敵駒・岩）のマスへ、行動主から向かって
         // 進んでいくように見える矢印を重ねて表示する。
@@ -2232,6 +2278,23 @@ function bbScheduleNextTurn() {
     bbState.turnStartNodeId = actor.nodeId; // 「戻す」で移動前の位置に戻せるよう、手番開始時の位置を覚えておく
     bbRenderTurnQueuePreview();
     bbRenderBoard(); // ← アクティブな駒のノードを光らせるため再描画
+    // ネバネバクダンで「1回休み」になっている駒は、移動・行動を一切行わせず、
+    // 画面中央へスクロールしてきたところで❌が上へ消えていく演出だけを見せて手番を終える。
+    if (actor.bbSkipNextTurn) {
+        bbCenterOnNode(actor.nodeId, () => { bbResolveSkipTurn(actor); });
+        return;
+    }
+    // 太陽のラタトゥイユカレー「太陽の恵み」：行動順が回ってきた時点で最大HPの20%を自動回復する
+    // （満タンの時は回復のしようがないため、無意味な演出を出さないようスキップする）。
+    if (bbHasSunBlessing(actor) && actor.hp > 0 && actor.hp < actor.maxHp) {
+        bbCenterOnNode(actor.nodeId, () => { bbApplySunBlessing(actor, function () { bbProceedTurnAfterPassives(actor); }); });
+        return;
+    }
+    bbProceedTurnAfterPassives(actor);
+}
+// 上記2つのパッシブ（1回休み・太陽の恵み）の処理が終わった後（あるいは元々どちらも
+// 発動しない場合）に行う、これまで通りの移動・行動選択フェーズへの遷移。
+function bbProceedTurnAfterPassives(actor) {
     if (actor.team === 'player') {
         bbCenterOnNode(actor.nodeId); // 行動順が回ってきた駒を画面中央へ自動的に移動
         bbHighlightMovableTiles(actor);
@@ -2247,6 +2310,30 @@ function bbScheduleNextTurn() {
         });
     }
 }
+// ネバネバクダンで1回休みになっている駒の手番：❌が上へ移動しながらフェードアウトする
+// 演出（毒・種発射などと同じbbShowDamagePopの仕組みを流用）を見せてから、フラグを消費して
+// 次の手番へ進む（このターンは移動も行動も一切行わない）。
+function bbResolveSkipTurn(actor) {
+    bbAppendLog(`${actor.name} は1回休みだった。`);
+    bbShowDamagePop(actor.nodeId, '❌', 'bb-skip-pop');
+    setTimeout(function () {
+        actor.bbSkipNextTurn = false;
+        bbRenderBoard();
+        bbRenderTurnQueuePreview();
+        bbScheduleNextTurn();
+    }, BB_DAMAGE_POP_MS);
+}
+// 太陽のラタトゥイユカレー「太陽の恵み」：最大HPの20%を回復し、回復POP（緑）とtaiyou.mp3を再生する。
+const BB_SUN_BLESSING_HEAL_RATE = 0.2;
+function bbApplySunBlessing(actor, onDone) {
+    const heal = Math.max(1, Math.round(actor.maxHp * BB_SUN_BLESSING_HEAL_RATE));
+    actor.hp = Math.min(actor.maxHp, actor.hp + heal);
+    bbAppendLog(`${actor.name} は太陽の恵みでHPが${heal}回復した！（残HP ${actor.hp}/${actor.maxHp}）`);
+    bbPlaySfx('taiyou.mp3');
+    bbShowDamagePop(actor.nodeId, `+${heal}`, 'bb-heal-pop');
+    bbRenderBoard();
+    setTimeout(function () { if (onDone) onDone(); }, BB_DAMAGE_POP_MS);
+}
 
 function bbRenderTurnQueuePreview() {
     // 表示専用の簡易プレビュー：現在の行動者→今の周の残りキュー→次の周（生存者をSPD降順）
@@ -2257,7 +2344,8 @@ function bbRenderTurnQueuePreview() {
     const nextRoundOrder = alive.slice().sort((a, b) => b.spd - a.spd);
     const order = [bbState.activeUnit].concat(rest, nextRoundOrder).filter(Boolean).slice(0, 8);
     bar.innerHTML = order.map((u, i) => {
-        const cls = `bb-turnIcon bb-team-${u.team}${i === 0 ? ' bb-current' : ''}`;
+        // ネバネバクダンで1回休みになっている駒は、行動順バーのアイコンにも❌マークを重ねる。
+        const cls = `bb-turnIcon bb-team-${u.team}${i === 0 ? ' bb-current' : ''}${u.bbSkipNextTurn ? ' bb-skip-pending' : ''}`;
         // 逆に行動順の駒をタップしても、その駒の詳細（bbShowUnitDetail）が開けるようにする。
         return `<div class="${cls}" data-bb-uid="${u.uid}" title="${bbEsc(u.name)}" onclick="window.__bbOnTapTurnIcon(${u.uid})"><img src="${bbGetCurryImg(u.raw)}" alt=""></div>`;
     }).join('');
@@ -2507,7 +2595,9 @@ function bbFadeOutUnit(unit, onComplete) {
 // パン・ズーム・3D変形すべて反映済みの見た目上の位置）に配置することで、傾きの影響を
 // 受けずに常に正面を向いたまま表示する。
 const BB_DAMAGE_POP_MS = 750;
-function bbShowDamagePop(nodeId, text) {
+// extraClassを指定すると、通常の赤いダメージ数字とは別の見た目（回復＝緑、❌マーク等）にできる
+// （太陽の恵みの回復POP・ネバネバクダンの1回休み演出で使用）。
+function bbShowDamagePop(nodeId, text, extraClass) {
     const tileEl = document.getElementById('bbTile' + nodeId);
     const fxLayer = document.getElementById('bbFxLayer');
     const wrapEl = document.getElementById('bbBoardWrap');
@@ -2515,7 +2605,7 @@ function bbShowDamagePop(nodeId, text) {
     const tileRect = tileEl.getBoundingClientRect();
     const wrapRect = wrapEl.getBoundingClientRect();
     const div = document.createElement('div');
-    div.className = 'bb-damage-pop-html';
+    div.className = 'bb-damage-pop-html' + (extraClass ? (' ' + extraClass) : '');
     div.textContent = text;
     div.style.left = (tileRect.left - wrapRect.left + tileRect.width / 2) + 'px';
     div.style.top = (tileRect.top - wrapRect.top) + 'px';
@@ -2876,6 +2966,12 @@ function bbGetSkillTargetsFor(unit) {
         }));
         return { key: 'hirihiri', name: 'ヒリヒリクラッシュ', targets: (hasEnemyInRange && node) ? [node] : [] };
     }
+    if (bbHasNebaNebaKudan(unit)) {
+        // ネバネバクダン：隣接する敵1体を対象に選ぶ通常の技（種発射・岩砕きと同じ対象選択UI）。
+        // 使用済み（unit.bbUsedNebaNeba）の場合はbbHasNebaNebaKudan自体がfalseを返すため、
+        // ここには到達しない＝この関数を呼ぶ前の時点でコマンドがグレーアウトされる。
+        return { key: 'nebaneba', name: 'ネバネバクダン', targets: bbGetMeleeAdjacentTargets(unit) };
+    }
     return { key: null, name: '特技', targets: [] };
 }
 // 盤の上に表示するカード（コマンドメニュー・詳細画面）は、ヘッダー部分に限らずカード全体を
@@ -3049,6 +3145,12 @@ function bbExecutePickedCommand(actor, nodeId, mode) {
         bbResolveHiriHiri(actor);
         return;
     }
+    // ネバネバクダン：種発射と同じ「対象を選んでその場で解決」する能動技だが、通常戦闘
+    // （本編の対戦カットイン）には進まないため、defenderの一般分岐より先に専用処理へ渡す。
+    if (mode === 'skill' && defender && bbHasNebaNebaKudan(actor)) {
+        bbResolveNebaNebaKudan(actor, defender);
+        return;
+    }
     if (defender) {
         bbExecuteAction(actor, defender, mode === 'melee');
         return;
@@ -3116,9 +3218,12 @@ function bbResolveSeedShot(attacker, defender) {
         });
         return;
     }
-    const dmg = bbCalcSeedShotDamage(attacker, defender);
+    // ふわとろオムカレー「ふわとろバリア」：自分・隣接する仲間が対象の場合、ダメージを50%にする。
+    const fluffyMul = bbGetFluffyBarrierMultiplier(defender);
+    const dmg = Math.max(1, Math.round(bbCalcSeedShotDamage(attacker, defender) * fluffyMul));
     defender.hp = Math.max(0, defender.hp - dmg);
     bbAppendLog(`${defender.name} に${dmg}ダメージ！（残HP ${defender.hp}/${defender.maxHp}）`);
+    if (fluffyMul < 1) bbPlaySfx('taiyou.mp3');
     bbRenderBoard();
     bbPlaySeedHitEffect(defender.nodeId, `-${dmg}`, 'punch.mp3', function () {
         if (defender.hp <= 0) {
@@ -3162,9 +3267,13 @@ function bbResolveHiriHiri(actor) {
         const t = targets[idx];
         idx++;
         if (t.hp <= 0) { playNext(); return; } // 念のための保険（対象同士の重複は本来起こらない）
-        t.hp = Math.max(0, t.hp - BB_HIRIHIRI_DAMAGE);
-        bbAppendLog(`${t.name} に${BB_HIRIHIRI_DAMAGE}ダメージ！（残HP ${t.hp}/${t.maxHp}）`);
-        bbShowDamagePop(t.nodeId, `-${BB_HIRIHIRI_DAMAGE}`);
+        // ふわとろオムカレー「ふわとろバリア」：t自身、またはtに隣接する仲間が持っていればダメージ半減。
+        const fluffyMul = bbGetFluffyBarrierMultiplier(t);
+        const dmg = Math.max(1, Math.round(BB_HIRIHIRI_DAMAGE * fluffyMul));
+        t.hp = Math.max(0, t.hp - dmg);
+        bbAppendLog(`${t.name} に${dmg}ダメージ！（残HP ${t.hp}/${t.maxHp}）`);
+        bbShowDamagePop(t.nodeId, `-${dmg}`);
+        if (fluffyMul < 1) bbPlaySfx('taiyou.mp3');
         bbRenderBoard();
         if (t.hp <= 0) {
             bbAppendLog(`${t.name} は力尽きた。`);
@@ -3189,6 +3298,46 @@ function bbResolveHiriHiri(actor) {
         setTimeout(bbScheduleNextTurn, 300);
     }
     setTimeout(playNext, 150);
+}
+
+// ------------------------------------------------------------
+// 8.66 ネバネバカレーの「ネバネバクダン」
+//    隣接する敵1体に通常攻撃1回分のダメージ（種発射と同じ簡易ATK-DEF式）を与え、
+//    さらに「1回休み」（unit.bbSkipNextTurn）を付与する。1体につき戦闘中1回のみ使用可能
+//    （使用後はunit.bbUsedNebaNebaがtrueになり、bbHasNebaNebaKudanがfalseを返すため、
+//    以後コマンドメニューの「特技」ボタンが自動的にグレーアウトする）。
+// ------------------------------------------------------------
+function bbResolveNebaNebaKudan(actor, defender) {
+    actor.bbUsedNebaNeba = true;
+    bbAppendLog(`${actor.name} の「ネバネバクダン」！`);
+    bbRenderBoard();
+    bbPlaySfx('sound/nebaneba.mp3');
+    // ふわとろオムカレー「ふわとろバリア」：defender自身、またはdefenderに隣接する仲間が
+    // 持っていればダメージを半減する。
+    const fluffyMul = bbGetFluffyBarrierMultiplier(defender);
+    const dmg = Math.max(1, Math.round(bbCalcSeedShotDamage(actor, defender) * fluffyMul));
+    defender.hp = Math.max(0, defender.hp - dmg);
+    bbAppendLog(`${defender.name} に${dmg}ダメージ！（残HP ${defender.hp}/${defender.maxHp}）`);
+    if (fluffyMul < 1) bbPlaySfx('taiyou.mp3');
+    bbRenderBoard();
+    bbShowDamagePop(defender.nodeId, `-${dmg}`);
+    setTimeout(function () {
+        if (defender.hp <= 0) {
+            bbAppendLog(`${defender.name} は力尽きた。`);
+            bbFadeOutUnit(defender, function () {
+                bbState.units = bbState.units.filter(u => u !== defender);
+                bbRenderBoard();
+                setTimeout(bbScheduleNextTurn, 300);
+            });
+            return;
+        }
+        // 倒れなかった場合のみ「1回休み」を付与する（力尽きた駒に付与しても意味がないため）。
+        defender.bbSkipNextTurn = true;
+        bbAppendLog(`${defender.name} は1回休み状態になった！`);
+        bbRenderBoard();
+        bbRenderTurnQueuePreview();
+        setTimeout(bbScheduleNextTurn, 300);
+    }, BB_DAMAGE_POP_MS);
 }
 
 // ------------------------------------------------------------
