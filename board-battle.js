@@ -327,6 +327,10 @@ const BB_STYLE = `
 }
 #bbPrepPanel h2 { font-size: 14px; margin: 0 0 10px 0; color: #f5c469; }
 #bbPrepCountLine { font-size: 11px; color: #b88742; margin-bottom: 8px; }
+#bbPrepRankLine { font-size: 12px; color: #f1c40f; font-weight: bold; margin-bottom: 8px; }
+/* 管理者（FEST_ADMIN_EXCLUDED_IDS本人）専用のランク直接設定UI。通常は非表示。 */
+#bbAdminRankEditor { display: none; align-items: center; gap: 6px; margin-bottom: 8px; }
+#bbAdminRankEditor select { font-size: 11px; padding: 2px 4px; }
 #bbPrepRosterList { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
 .bb-prepBtnRow { display: flex; flex-wrap: wrap; gap: 4px; }
 
@@ -375,6 +379,20 @@ const BB_STYLE = `
 #bbHelpBox { background: #2b1a0e; border: 2px solid #b88742; border-radius: 12px; padding: 20px; text-align: left; width: 280px; max-height: 80vh; overflow-y: auto; }
 #bbHelpBox h3 { font-size: 15px; margin: 0 0 10px 0; color: #efdeb1; text-align: center; }
 #bbHelpText { font-size: 12px; line-height: 1.7; color: #efdeb1; margin-bottom: 14px; }
+
+/* ランクアップ報酬（BETA） */
+#bbRankRewardsOverlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.75); display: none; align-items: center; justify-content: center; z-index: 9030;
+}
+#bbRankRewardsBox { background: #2b1a0e; border: 2px solid #b88742; border-radius: 12px; padding: 20px; text-align: left; width: 300px; max-height: 80vh; overflow-y: auto; }
+#bbRankRewardsBox h3 { font-size: 15px; margin: 0 0 12px 0; color: #efdeb1; text-align: center; }
+.bb-rankRewardRow {
+    display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-radius: 8px;
+    border: 1px solid #6b4a26; background: #1c1108; margin-bottom: 6px;
+}
+.bb-rankRewardRow.bb-rankRewardLocked { opacity: 0.5; }
+.bb-rankRewardName { font-size: 13px; font-weight: bold; color: #f1c40f; width: 28px; flex-shrink: 0; }
+.bb-rankRewardDesc { font-size: 11px; color: #efdeb1; flex: 1; }
 
 /* 対戦相手（敵AIタイプ）の選択 */
 #bbOpponentSelectOverlay {
@@ -1163,7 +1181,7 @@ function bbStatDisplayWithEquip(statKey, baseVal, entry) {
 
 // 全オーバーレイ・パネルを一旦隠す共通処理（画面遷移のたびに、前の状態が残らないようにする）。
 function bbHideAllOverlaysAndPanels() {
-    ['bbResultOverlay', 'bbUnitDetailOverlay', 'bbCommandMenuOverlay', 'bbRegisterPickerOverlay', 'bbRegDetailOverlay', 'bbHelpOverlay', 'bbOpponentSelectOverlay', 'bbPlacementPresetOverlay', 'bbPlacementSaveNameOverlay', 'bbInfoPopupOverlay', 'bbPrepPlacementEditorOverlay'].forEach(id => {
+    ['bbResultOverlay', 'bbUnitDetailOverlay', 'bbCommandMenuOverlay', 'bbRegisterPickerOverlay', 'bbRegDetailOverlay', 'bbHelpOverlay', 'bbOpponentSelectOverlay', 'bbPlacementPresetOverlay', 'bbPlacementSaveNameOverlay', 'bbInfoPopupOverlay', 'bbPrepPlacementEditorOverlay', 'bbRankRewardsOverlay'].forEach(id => {
         const el = document.getElementById(id);
         if (el) el.style.display = 'none';
     });
@@ -1173,6 +1191,7 @@ function bbHideAllOverlaysAndPanels() {
 // （盤面はまだ表示せず、登録済みカレーの一覧と「カレー登録」「戦闘開始」だけを見せる）
 function bbInit() {
     bbLoadRegisteredRoster();
+    bbLoadRankState();
     bbCleanupLeakedTempCurries();
     bbState.phase = 'prep';
     bbState.units = [];
@@ -2884,6 +2903,19 @@ function bbGetAdjacentActionTargets(unit) {
     return targets;
 }
 
+// 対象のマスへ向かって進む矢印を2秒表示してから実行に移る共通処理（通常攻撃・岩破壊・
+// 各種特技のいずれでも使う。いきなり戦闘画面／技の演出へ切り替わらないように、
+// 「これから何を狙うか」を見せる間を作る）。
+function bbTelegraphAiAction(unit, targetNodeId, onExecute) {
+    bbNodes.forEach(n => { n.highlight = null; });
+    bbNodesById[targetNodeId].highlight = 'attackable';
+    bbRenderBoard();
+    setTimeout(() => {
+        bbNodes.forEach(n => { n.highlight = null; });
+        onExecute();
+    }, BB_AI_ATTACK_TELEGRAPH_MS);
+}
+
 function bbEnterActionPhase(unit) {
     if (bbState.phase !== 'battle' || !bbState.units.includes(unit) || unit.hp <= 0) { bbScheduleNextTurn(); return; }
     if (unit.team === 'player') {
@@ -2892,8 +2924,32 @@ function bbEnterActionPhase(unit) {
         bbOpenCommandMenu(unit);
         return;
     }
+    // ヒリヒリクラッシュ：隣接する敵が2体以上いる場合、通常攻撃よりも優先して使う
+    // （複数体を同時に巻き込める状況でのみ使う、というAIの簡易的な判断基準。
+    // 　1体以下しかいない場合はこの下の通常の隣接攻撃にフォールバックする）。
+    if (bbHasHiriHiri(unit)) {
+        const hhNode = bbNodesById[unit.nodeId];
+        const adjacentEnemyCount = hhNode ? hhNode.neighbors.filter(nid => {
+            const occ = bbState.units.find(u => u.nodeId === nid && u.hp > 0);
+            return occ && occ.team !== unit.team;
+        }).length : 0;
+        if (adjacentEnemyCount >= 2) {
+            bbTelegraphAiAction(unit, unit.nodeId, () => bbResolveHiriHiri(unit));
+            return;
+        }
+    }
+    // ネバネバクダン：隣接する敵が1体でもいれば（未使用の場合のみ）通常攻撃よりも優先して使う
+    // （ダメージに加えて「1回休み」を付与できる分、通常攻撃より価値が高いとみなす）。
+    if (bbHasNebaNebaKudan(unit)) {
+        const nebaTargets = bbGetMeleeAdjacentTargets(unit);
+        if (nebaTargets.length > 0) {
+            const nebaTarget = nebaTargets[Math.floor(Math.random() * nebaTargets.length)];
+            bbTelegraphAiAction(unit, nebaTarget.nodeId, () => bbResolveNebaNebaKudan(unit, nebaTarget));
+            return;
+        }
+    }
     const targets = bbGetAdjacentActionTargets(unit);
-    // 敵（AI）：攻撃できる相手がいれば最優先、いなければわんぱくなら隣接する岩を破壊する。
+    // 敵（AI）：攻撃できる相手がいれば最優先、いなければわんぱく系（岩砕き）なら隣接する岩を破壊する。
     let chosen = null;
     if (targets.enemies.length > 0) {
         chosen = targets.enemies[Math.floor(Math.random() * targets.enemies.length)];
@@ -2901,17 +2957,9 @@ function bbEnterActionPhase(unit) {
         chosen = targets.rocks[Math.floor(Math.random() * targets.rocks.length)];
     }
     if (!chosen) { setTimeout(bbScheduleNextTurn, 300); return; }
-    // 対象へ向かって進む矢印を2秒表示してから実行に移る（いきなり戦闘画面へ切り替わらないように、
-    // 「これから誰を攻撃するか」を見せる間を作る）。chosenは敵ユニット（nodeIdを持つ）か
-    // 岩マスのノード（idを持つ）のいずれか。
+    // chosenは敵ユニット（nodeIdを持つ）か岩マスのノード（idを持つ）のいずれか。
     const chosenNodeId = ('nodeId' in chosen) ? chosen.nodeId : chosen.id;
-    bbNodes.forEach(n => { n.highlight = null; });
-    bbNodesById[chosenNodeId].highlight = 'attackable';
-    bbRenderBoard();
-    setTimeout(() => {
-        bbNodes.forEach(n => { n.highlight = null; });
-        bbExecuteAction(unit, chosen);
-    }, BB_AI_ATTACK_TELEGRAPH_MS);
+    bbTelegraphAiAction(unit, chosenNodeId, () => bbExecuteAction(unit, chosen));
 }
 
 // ------------------------------------------------------------
@@ -3421,23 +3469,16 @@ function bbCheckWinCondition() {
 }
 
 // ------------------------------------------------------------
-// 9.5 勝利報酬（Exp+10・ノーマル食材ランダム3つ）
+// 9.5 勝利報酬（ノーマル食材ランダム3つ。EXPはランクシステム導入に伴い廃止）
 //    本編の通常戦闘・咖喱図書館ボス戦等と違い、ボードカレーバトルはdone()側のisBoardBattle
 //    早期リターンでG・EXP・食材・実績・クエスト進行に一切触れない設計になっている
 //    （盤面の駒がストックの経済に影響しないようにするための意図的な仕様）。
 //    ここではその設計は変えず、盤面の対戦全体（1対1の決闘ではなく）に勝った時だけ、
 //    ボードバトル専用の小さな固定報酬を、本編（game.js）のグローバル
-//    （playerEXP/inventory/discoveredItems/saveGame等）へ直接、typeofガード付きで加算する。
-const BB_WIN_REWARD_EXP = 10;
+//    （inventory/discoveredItems/saveGame等）へ直接、typeofガード付きで加算する。
 const BB_WIN_REWARD_MATERIAL_COUNT = 3;
 function bbGrantWinReward() {
     const rewardLines = [];
-    let oldExp = null;
-    if (typeof playerEXP !== 'undefined') {
-        oldExp = playerEXP;
-        playerEXP += BB_WIN_REWARD_EXP;
-        rewardLines.push(`Exp+${BB_WIN_REWARD_EXP}`);
-    }
     const gainedNames = [];
     if (typeof inventory !== 'undefined' && typeof masterIngredients !== 'undefined') {
         const pool = (typeof getNormalIngredientPool === 'function')
@@ -3464,12 +3505,196 @@ function bbGrantWinReward() {
     }
     if (typeof saveGame === 'function') { try { saveGame(); } catch (e) { /* 保存に失敗しても対戦の進行は止めない */ } }
     if (typeof updateFridgeUI === 'function') { try { updateFridgeUI(); } catch (e) {} }
-    // 通常戦闘の勝利時と同じく、レベルアップ判定は結果表示が出た少し後に行う
-    // （checkLvUpは本編共通のレベルアップ演出モーダルをそのまま使う）。
-    if (oldExp !== null && typeof checkLvUp === 'function') {
-        setTimeout(() => { try { checkLvUp(oldExp, playerEXP); } catch (e) {} }, 800);
-    }
     return rewardLines.join('<br>');
+}
+
+// ------------------------------------------------------------
+// 9.6 ランクシステム（BETA）
+//    F→E→D→C→B→A→S→SSの8段階。対戦（盤面全体の勝敗）1回ごとに★が1つ増減する。
+//    ★4つで1つ上のランクへ（★は0にリセット）、★0で1つ下のランクへ（★は3にリセット＝
+//    降格直後にもう一度勝てばすぐ元のランクに戻れるよう、下のランクの「満タン」から始まる）。
+//    F(最低)・SS(最高)はそれ以上下がらない／上がらない（★は0または3で頭打ち）。
+//    本編のsaveGame()には含めず、このファイル専用のlocalStorageキーで完結させる
+//    （bbRegisteredRoster等と同じ設計方針）。
+// ------------------------------------------------------------
+const BB_RANKS = ['F', 'E', 'D', 'C', 'B', 'A', 'S', 'SS'];
+const BB_RANK_STORAGE_KEY = 'qr_board_battle_rank';
+let bbRankState = { rank: 'F', stars: 0, highestRank: 'F', claimed: [] };
+function bbLoadRankState() {
+    try {
+        const raw = localStorage.getItem(BB_RANK_STORAGE_KEY);
+        const parsed = raw ? JSON.parse(raw) : null;
+        if (parsed && typeof parsed === 'object') {
+            const rank = BB_RANKS.includes(parsed.rank) ? parsed.rank : 'F';
+            bbRankState = {
+                rank: rank,
+                stars: (typeof parsed.stars === 'number' && parsed.stars >= 0 && parsed.stars <= 3) ? parsed.stars : 0,
+                highestRank: BB_RANKS.includes(parsed.highestRank) ? parsed.highestRank : rank,
+                claimed: Array.isArray(parsed.claimed) ? parsed.claimed.filter(r => BB_RANKS.includes(r)) : []
+            };
+            return;
+        }
+    } catch (e) {
+        console.warn('[ボードバトル] ランク情報の読み込みに失敗:', e);
+    }
+    bbRankState = { rank: 'F', stars: 0, highestRank: 'F', claimed: [] };
+}
+function bbSaveRankState() {
+    try { localStorage.setItem(BB_RANK_STORAGE_KEY, JSON.stringify(bbRankState)); }
+    catch (e) { console.warn('[ボードバトル] ランク情報の保存に失敗:', e); }
+}
+// 対戦結果（didWin）に応じてbbRankStateを更新し、変化内容を返す。
+function bbApplyRankResult(didWin) {
+    const oldRank = bbRankState.rank, oldStars = bbRankState.stars;
+    let rankChanged = null;
+    const idx = BB_RANKS.indexOf(bbRankState.rank);
+    if (didWin) {
+        bbRankState.stars += 1;
+        if (bbRankState.stars >= 4) {
+            if (idx < BB_RANKS.length - 1) {
+                bbRankState.rank = BB_RANKS[idx + 1];
+                bbRankState.stars = 0;
+                rankChanged = 'up';
+                if (BB_RANKS.indexOf(bbRankState.rank) > BB_RANKS.indexOf(bbRankState.highestRank)) {
+                    bbRankState.highestRank = bbRankState.rank;
+                }
+            } else {
+                bbRankState.stars = 3; // 最高ランク(SS)で頭打ち
+            }
+        }
+    } else {
+        bbRankState.stars -= 1;
+        if (bbRankState.stars <= 0) {
+            if (idx > 0) {
+                bbRankState.rank = BB_RANKS[idx - 1];
+                bbRankState.stars = 3;
+                rankChanged = 'down';
+            } else {
+                bbRankState.stars = 0; // 最低ランク(F)で床
+            }
+        }
+    }
+    bbSaveRankState();
+    return { rankChanged: rankChanged, oldRank: oldRank, oldStars: oldStars, newRank: bbRankState.rank, newStars: bbRankState.stars };
+}
+function bbFormatRank(rank, stars) { return (rank || 'F') + '★'.repeat(Math.max(0, stars || 0)); }
+function bbIsRankAchieved(rank) { return BB_RANKS.indexOf(bbRankState.highestRank) >= BB_RANKS.indexOf(rank); }
+// カレー準備画面・結果画面のランク表示テキストを共通で更新する。
+function bbRenderRankLine(elId) {
+    const el = document.getElementById(elId);
+    if (el) el.textContent = `ランク: ${bbFormatRank(bbRankState.rank, bbRankState.stars)}`;
+}
+
+// ---- 管理者専用：カレー準備画面でランク・★を直接設定できるデバッグ機能 ----
+//    本編のFEST_ADMIN_EXCLUDED_IDS（開発・検証用の管理者3キャラのプレイヤーID一覧）を
+//    そのまま流用する。ボードカレーバトル自体の入口（bbInjectDom内の起動ボタン）は
+//    isDebugModeが有効な間だけ表示されるが、それだけだと動作確認中のテスターにも
+//    ランク編集ができてしまうため、より狭い「管理者3キャラ本人かどうか」で絞り込む。
+function bbIsAdminUser() {
+    return typeof FEST_ADMIN_EXCLUDED_IDS !== 'undefined' && Array.isArray(FEST_ADMIN_EXCLUDED_IDS)
+        && typeof playerId !== 'undefined' && FEST_ADMIN_EXCLUDED_IDS.includes(playerId);
+}
+function bbRenderAdminRankEditor() {
+    const wrap = document.getElementById('bbAdminRankEditor');
+    if (!wrap) return;
+    if (!bbIsAdminUser()) { wrap.style.display = 'none'; return; }
+    wrap.style.display = 'flex';
+    const rankSel = document.getElementById('bbAdminRankSelect');
+    const starsSel = document.getElementById('bbAdminStarsSelect');
+    if (rankSel) {
+        rankSel.innerHTML = BB_RANKS.map(r => `<option value="${r}"${r === bbRankState.rank ? ' selected' : ''}>${bbEsc(r)}</option>`).join('');
+        rankSel.value = bbRankState.rank;
+    }
+    if (starsSel) {
+        starsSel.innerHTML = [0, 1, 2, 3].map(s => `<option value="${s}"${s === bbRankState.stars ? ' selected' : ''}>★${s}</option>`).join('');
+        starsSel.value = String(bbRankState.stars);
+    }
+}
+function bbOnAdminSetRank() {
+    if (!bbIsAdminUser()) return;
+    const rankSel = document.getElementById('bbAdminRankSelect');
+    const starsSel = document.getElementById('bbAdminStarsSelect');
+    const rank = rankSel ? rankSel.value : bbRankState.rank;
+    const starsNum = starsSel ? parseInt(starsSel.value, 10) : bbRankState.stars;
+    if (!BB_RANKS.includes(rank)) return;
+    bbRankState.rank = rank;
+    bbRankState.stars = (starsNum >= 0 && starsNum <= 3) ? starsNum : 0;
+    if (BB_RANKS.indexOf(rank) > BB_RANKS.indexOf(bbRankState.highestRank)) {
+        bbRankState.highestRank = rank;
+    }
+    bbSaveRankState();
+    bbRenderRankLine('bbPrepRankLine');
+    bbRenderAdminRankEditor();
+    bbShowInfoPopup(`（管理者）ランクを${bbEsc(bbFormatRank(bbRankState.rank, bbRankState.stars))}に設定しました。`);
+}
+
+// ---- ランクアップ報酬（typeofガード付きで本編のグローバルへ直接加算する。bbGrantWinRewardと同じ方針） ----
+function bbGrantGold(amount) {
+    if (typeof playerG === 'undefined') return;
+    playerG += amount;
+    const goldEl = document.getElementById('globalG');
+    if (goldEl) goldEl.innerText = playerG;
+}
+function bbGrantSpicyCoin(amount) {
+    if (typeof spicyCoin === 'undefined') return;
+    spicyCoin = (spicyCoin || 0) + amount;
+}
+function bbGrantFoodSample(amount) {
+    if (typeof foodSampleCount === 'undefined') return;
+    foodSampleCount = (foodSampleCount || 0) + amount;
+}
+function bbGrantPlayerIcon() {
+    if (typeof unlockIcon !== 'function') return;
+    try { unlockIcon('myimageicon/mayimage13.png'); } catch (e) {}
+}
+const BB_RANK_REWARDS = {
+    SS: { desc: 'スパイシーコイン3個', grant: () => bbGrantSpicyCoin(3) },
+    S: { desc: '食品サンプル5個', grant: () => bbGrantFoodSample(5) },
+    A: { desc: 'スパイシーコイン1個', grant: () => bbGrantSpicyCoin(1) },
+    B: { desc: '2000G', grant: () => bbGrantGold(2000) },
+    C: { desc: '食品サンプル5個', grant: () => bbGrantFoodSample(5) },
+    D: { desc: 'スパイシーコイン1個', grant: () => bbGrantSpicyCoin(1) },
+    E: { desc: 'プレイヤーアイコン', grant: () => bbGrantPlayerIcon() },
+    F: { desc: '500G', grant: () => bbGrantGold(500) }
+};
+function bbShowRankRewards() {
+    bbRenderRankRewardsList();
+    const el = document.getElementById('bbRankRewardsOverlay');
+    if (el) el.style.display = 'flex';
+}
+function bbCloseRankRewards() {
+    const el = document.getElementById('bbRankRewardsOverlay');
+    if (el) el.style.display = 'none';
+}
+function bbRenderRankRewardsList() {
+    const list = document.getElementById('bbRankRewardsList');
+    if (!list) return;
+    // SS→Fの順（ユーザーが指定した並び）で表示する。
+    list.innerHTML = BB_RANKS.slice().reverse().map(rank => {
+        const reward = BB_RANK_REWARDS[rank];
+        const achieved = bbIsRankAchieved(rank);
+        const claimed = bbRankState.claimed.includes(rank);
+        let btnLabel = '未達成', btnDisabled = true;
+        if (achieved && claimed) { btnLabel = '受取済み'; btnDisabled = true; }
+        else if (achieved && !claimed) { btnLabel = '受け取る'; btnDisabled = false; }
+        return `<div class="bb-rankRewardRow${achieved ? '' : ' bb-rankRewardLocked'}">
+            <div class="bb-rankRewardName">${bbEsc(rank)}</div>
+            <div class="bb-rankRewardDesc">${bbEsc(reward.desc)}</div>
+            <button class="bb-actionBtn bb-small" ${btnDisabled ? 'disabled' : ''} onclick="window.__bbOnClaimRankReward('${rank}')">${btnLabel}</button>
+        </div>`;
+    }).join('');
+}
+function bbOnClaimRankReward(rank) {
+    const reward = BB_RANK_REWARDS[rank];
+    if (!reward) return;
+    if (!bbIsRankAchieved(rank) || bbRankState.claimed.includes(rank)) return;
+    try { reward.grant(); } catch (e) { console.warn('[ボードバトル] ランク報酬の付与に失敗:', e); }
+    bbRankState.claimed.push(rank);
+    bbSaveRankState();
+    if (typeof saveGame === 'function') { try { saveGame(); } catch (e) {} }
+    if (typeof updateFridgeUI === 'function') { try { updateFridgeUI(); } catch (e) {} }
+    bbRenderRankRewardsList();
+    bbShowInfoPopup(`「${bbEsc(rank)}ランク報酬」として${bbEsc(reward.desc)}を受け取りました！`);
 }
 
 // reasonは'flag'（旗を奪った／奪われた）か'elimination'（全滅させた／させられた）。
@@ -3493,6 +3718,20 @@ function bbEndBattle(winner, reason) {
         if (rewardHtml) descHtml += '<br><br>' + rewardHtml;
     }
     document.getElementById('bbResultDesc').innerHTML = descHtml;
+    // ランク（BETA）：勝敗にかかわらず★が増減し、条件を満たせばランクアップ／ダウンする。
+    const rankResult = bbApplyRankResult(winner === 'player');
+    const rankLineEl = document.getElementById('bbResultRankLine');
+    if (rankLineEl) {
+        let rankText = `ランク：${bbFormatRank(rankResult.newRank, rankResult.newStars)}`;
+        if (rankResult.rankChanged === 'up') {
+            rankText += '　ランクアップ！';
+            bbPlaySfx('omedeto.mp3');
+        } else if (rankResult.rankChanged === 'down') {
+            rankText += '　ランクダウン…';
+            bbPlaySfx('chin.mp3');
+        }
+        rankLineEl.textContent = rankText;
+    }
 }
 
 // ------------------------------------------------------------
@@ -3700,6 +3939,8 @@ function bbRenderPrepPanel() {
     }).join('') || '<div style="font-size:11px;color:#b88742;">登録済みのカレーがありません。「カレー登録」からカレーストックのカレーを登録してください。</div>';
     const countEl = document.getElementById('bbPrepCountLine');
     if (countEl) countEl.textContent = `登録数: ${bbRegisteredRoster.length} / ${BB_ROSTER_MAX}`;
+    bbRenderRankLine('bbPrepRankLine');
+    bbRenderAdminRankEditor();
     const startBtn = document.getElementById('bbBtnPrepStartBattle');
     if (startBtn) startBtn.disabled = (bbRegisteredRoster.length === 0);
 }
@@ -3948,11 +4189,18 @@ function bbInjectDom() {
             <div id="bbPrepPanel">
                 <h2>カレー準備</h2>
                 <div id="bbPrepCountLine">登録数: 0 / 20</div>
+                <div id="bbPrepRankLine">ランク: F</div>
+                <div id="bbAdminRankEditor">
+                    <select id="bbAdminRankSelect"></select>
+                    <select id="bbAdminStarsSelect"></select>
+                    <button class="bb-actionBtn bb-small" onclick="window.__bbOnAdminSetRank()">（管理者）ランク設定</button>
+                </div>
                 <div id="bbPrepRosterList"></div>
                 <div class="bb-prepBtnRow">
                     <button class="bb-actionBtn" onclick="window.__bbOnRegisterCurryClick()">カレー登録</button>
                     <button class="bb-actionBtn" id="bbBtnPrepStartBattle" disabled onclick="window.__bbOnPrepStartBattleClick()">準備完了</button>
                     <button class="bb-actionBtn bb-secondary" onclick="window.__bbOpenPrepPlacementEditor()">配置プリセット編集</button>
+                    <button class="bb-actionBtn bb-secondary" onclick="window.__bbShowRankRewards()">ランクアップ報酬</button>
                     <button class="bb-actionBtn bb-secondary" onclick="window.__bbShowHelp()">カレーボードバトルとは？</button>
                 </div>
             </div>
@@ -3968,7 +4216,7 @@ function bbInjectDom() {
                 <div id="bbHeaderBar">
                     <h1>ボードカレーバトル</h1>
                     <div class="bb-header-right">
-                        <span class="bb-devBadge">開発版</span>
+                        <span class="bb-devBadge">BETA版</span>
                         <button class="bb-muteBtn" onclick="window.__bbToggleMute()">
                             <img id="bbMuteIcon" src="sound-on.svg" alt="sound">
                         </button>
@@ -4007,6 +4255,7 @@ function bbInjectDom() {
             <div id="bbResultBox">
                 <h2 id="bbResultTitle">VICTORY</h2>
                 <div id="bbResultDesc" style="font-size:13px; margin-bottom:16px;"></div>
+                <div id="bbResultRankLine" style="font-size:12px; margin-bottom:16px; color:#f1c40f; font-weight:bold;"></div>
                 <button class="bb-actionBtn" onclick="window.__bbBackToPrep()">戻る</button>
             </div>
         </div>
@@ -4072,8 +4321,9 @@ function bbInjectDom() {
                 <h3>カレーボードバトルとは？</h3>
                 <div id="bbHelpText">
                     <strong>【ご注意】</strong><br>
-                    ボードカレーバトルは開発中のコンテンツです。<br>
-                    予告なく仕様は変更しますし、特別な報酬の設定などもありません。<br><br>
+                    ボードカレーバトルはBETA版のコンテンツです。予告なく仕様は変更します。<br><br>
+                    <strong>【ランク】</strong><br>
+                    F→E→D→C→B→A→S→SSの8段階のランクがあります。対戦に勝つと★が1つ増え、負けると★が1つ減ります。★4つで1つ上のランクに、★0で1つ下のランクになります。現在のランクはカレー準備画面で確認でき、「ランクアップ報酬」から到達済みランクの報酬を受け取れます。<br><br>
                     <strong>【ルール】</strong><br>
                     相手の陣地の「旗」を奪うか、相手の駒を全滅させれば勝利です。<br>
                     ・「カレー登録」で、カレーストックからボードバトル専用にカレーを登録できます（登録すると通常のストックからは無くなります。最大20個まで）。<br>
@@ -4092,9 +4342,19 @@ function bbInjectDom() {
                     ●「盾ガード」：特定の攻撃を無効化<br>
                     ●「毒耐性」：毒マスのダメージを受けない<br>
                     ●「ヒリヒリクラッシュ」：自分と上下左右の全ての駒に50ダメージ<br>
-                    ●「バナナトラップ」：バナナトラップを設置できる
+                    ●「バナナトラップ」：バナナトラップを設置できる<br>
+                    ●「ネバネバクダン」：1度だけダメージ+1回休みを付与できる<br>
+                    ●「太陽の恵み」：毎ターンHPを少し回復<br>
+                    ●「ふわとろバリア」：自分と隣接する仲間のダメージを軽減
                 </div>
                 <button class="bb-actionBtn bb-secondary" onclick="window.__bbCloseHelp()">閉じる</button>
+            </div>
+        </div>
+        <div id="bbRankRewardsOverlay" onclick="if(event.target===this) window.__bbCloseRankRewards()">
+            <div id="bbRankRewardsBox">
+                <h3>ランクアップ報酬</h3>
+                <div id="bbRankRewardsList"></div>
+                <button class="bb-actionBtn bb-secondary" onclick="window.__bbCloseRankRewards()">閉じる</button>
             </div>
         </div>
         <div id="bbOpponentSelectOverlay" onclick="if(event.target===this) window.__bbCloseOpponentSelect()">
@@ -4221,6 +4481,10 @@ window.__bbCloseRegDetail = bbCloseRegDetail;
 window.__bbOnDeleteRegisteredCurry = bbOnDeleteRegisteredCurry;
 window.__bbShowHelp = bbShowHelp;
 window.__bbCloseHelp = bbCloseHelp;
+window.__bbShowRankRewards = bbShowRankRewards;
+window.__bbCloseRankRewards = bbCloseRankRewards;
+window.__bbOnClaimRankReward = bbOnClaimRankReward;
+window.__bbOnAdminSetRank = bbOnAdminSetRank;
 window.__bbCloseOpponentSelect = bbCloseOpponentSelect;
 window.__bbSelectOpponentBot = bbSelectOpponentBot;
 window.__bbOnCommandChallenge = bbOnCommandChallenge;
