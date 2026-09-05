@@ -3582,6 +3582,19 @@ function bbLoadRankState() {
 function bbSaveRankState() {
     try { localStorage.setItem(BB_RANK_STORAGE_KEY, JSON.stringify(bbRankState)); }
     catch (e) { console.warn('[ボードバトル] ランク情報の保存に失敗:', e); }
+    bbSyncRankToCloud();
+}
+// 管理ツールの「プレイヤー進行度」でランク別の人数を集計できるよう、現在のランク（文字のみ、
+// ★は対象外）をFirebaseへ同期する。本編のsavedata（players/<id>/savedata）には含めず
+// （上のコメント通りローカル完結の設計方針のため）、players/<id>/boardBattleRank という
+// 独立したフィールドに直接書き込む（players/<id>/debugModeと同じ扱い）。database・playerIdは
+// 本編（game.js）側のグローバルをそのまま使うため、両方とも未定義／未認証の場合は何もしない。
+function bbSyncRankToCloud() {
+    if (typeof database === 'undefined' || !database) return;
+    if (typeof playerId === 'undefined' || !playerId) return;
+    try {
+        database.ref('players/' + playerId + '/boardBattleRank').set(bbRankState.rank).catch(function () {});
+    } catch (e) { /* 通信不調等でもボードバトル自体の進行は止めない */ }
 }
 // 対戦結果（didWin）に応じてbbRankStateを更新し、変化内容を返す。
 function bbApplyRankResult(didWin) {
@@ -3745,6 +3758,10 @@ function bbEndBattle(winner, reason) {
     bbState.activeUnit = null;
     bbStopBattleBgm();
     bbUpdateHeaderCloseBtnLabel();
+    // アナリティクス「⚔️バトル」：勝敗にかかわらず、対戦が最後まで終わった回数として1回分カウントする
+    // （PC戦・タッグ戦等、他のバトル種別と同じ考え方。本編のincrementGlobalStatをそのまま流用するため、
+    // デバッグモード中・アナリティクス除外設定のプレイヤーは本編側の仕組みで自動的に除外される）。
+    if (typeof incrementGlobalStat === 'function') { try { incrementGlobalStat('battle/board'); } catch (e) {} }
     document.getElementById('bbResultOverlay').style.display = 'flex';
     document.getElementById('bbResultTitle').textContent = winner === 'player' ? 'VICTORY' : 'DEFEAT';
     let descHtml;

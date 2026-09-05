@@ -1055,6 +1055,7 @@ function actAnalytics() {
             + row('タッグ戦', battle.tag)
             + row('ルーム対戦', battle.room)
             + row('🎪 フェス参加（対戦数ではなく参加回数）', battle.festJoin)
+            + row('🗺️ ボードバトル（勝敗問わず対戦実施回数）', battle.board)
             + '</div>';
 
         showCustomAlert('📊 アナリティクス', html);
@@ -1078,11 +1079,22 @@ function actPlayerProgress() {
             6: 'たまねぎ', 7: '火を絶やすな', 8: '港のおっちゃん', 9: 'ぼくのヒーロー', 10: '？？？？？'
         };
         const bookCount = {}; Object.keys(BOOK_TITLES).forEach(function(n){ bookCount[n] = 0; });
+        // ボードカレーバトル(BETA)のランク別人数（★は対象外、文字ランクのみ集計）。
+        // ボードランクは players/{id}/boardBattleRank に savedata とは別の独立フィールドとして
+        // 保存されているため、savedata の有無に関わらず独自に集計する（母数もこのセクション専用）。
+        const BOARD_RANKS = ['F', 'E', 'D', 'C', 'B', 'A', 'S', 'SS'];
+        const boardRankCount = {}; BOARD_RANKS.forEach(function(r){ boardRankCount[r] = 0; });
+        let boardRankTotal = 0;
         let totalPlayers = 0;
         Object.keys(players).forEach(function(pid) {
+            if(players[pid].debugMode === true) return; // デバッグモード中のキャラは集計から除外（表示文言と一致させる）
+            const boardRank = players[pid].boardBattleRank;
+            if(boardRank && boardRankCount.hasOwnProperty(boardRank)) {
+                boardRankCount[boardRank]++;
+                boardRankTotal++;
+            }
             const sd = players[pid].savedata;
             if(!sd) return;
-            if(players[pid].debugMode === true) return; // デバッグモード中のキャラは集計から除外（表示文言と一致させる）
             totalPlayers++;
             let stats = {};
             try { stats = typeof sd.stats === 'string' ? JSON.parse(sd.stats) : (sd.stats || {}); } catch(e) {}
@@ -1112,6 +1124,18 @@ function actPlayerProgress() {
                 + '<div style="color:#b88742;font-size:10px;letter-spacing:1px;">' + bar + '</div>'
                 + '</div>';
         }
+        // ボードランクは対戦本編とは別母数（ボードバトルをプレイしたことがある人数）でパーセント表示する。
+        function boardRankRow(label, count) {
+            const pct = boardRankTotal > 0 ? Math.round(count / boardRankTotal * 100) : 0;
+            const bar = '█'.repeat(Math.min(Math.round(pct / 5), 20));
+            return '<div style="padding:5px 0;border-bottom:1px solid #f0e8d0;font-size:12px;">'
+                + '<div style="display:flex;justify-content:space-between;margin-bottom:2px;">'
+                + '<span style="color:#5a3a1a;">' + label + '</span>'
+                + '<span style="font-weight:bold;color:#420000;">' + count + '人 <span style="color:#999;font-weight:normal;">(' + pct + '%)</span></span>'
+                + '</div>'
+                + '<div style="color:#b88742;font-size:10px;letter-spacing:1px;">' + bar + '</div>'
+                + '</div>';
+        }
         const html = '<div style="text-align:left;max-height:65vh;overflow-y:auto;">'
             + '<div style="font-size:12px;color:#888;margin-bottom:4px;">集計対象: ' + totalPlayers + '人（デバッグ・未保存プレイヤーを除く）</div>'
             + section('⚔️ PC戦（初級）')
@@ -1125,6 +1149,8 @@ function actPlayerProgress() {
                 const numStr = String(n).padStart(2, '0');
                 return row(numStr + '.' + BOOK_TITLES[n], bookCount[n]);
             }).join('')
+            + section('🗺️ ボードランク（ボードバトル経験者 ' + boardRankTotal + '人中）')
+            + BOARD_RANKS.map(function(r){ return boardRankRow(r + 'ランク', boardRankCount[r]); }).join('')
             + '</div>';
         showCustomAlert('🗺️ プレイヤー進行度', html);
     }).catch(function(e) {
