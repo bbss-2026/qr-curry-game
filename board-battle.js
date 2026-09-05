@@ -3210,8 +3210,13 @@ function bbResolveBattle(mover, defender) {
     const enemyUnit = mover.team === 'player' ? defender : mover;
 
     bbSetBattleStatus('戦闘画面を起動中…');
-    const myCurrySnapshot = Object.assign({}, playerUnit.raw, { hp: playerUnit.hp });
-    const oppCurrySnapshot = Object.assign({}, enemyUnit.raw, { hp: enemyUnit.hp, name: enemyUnit.name });
+    // hpはraw（本来の最大HP）のまま渡し、盤上ですでに減っている現在HPはstartHpとして別に渡す。
+    // 本編のstartBattleScene側がstartHpに対応済みなら、最大HPは正しいまま現在HPだけ減った状態で
+    // 決闘が始まり、決闘中の回復も本来の最大HPを基準に計算される（本編game.jsが未対応の古い
+    // ビルドの場合はstartHpが単に無視され、従来通りraw.hpがそのままフルHPとして使われるだけなので、
+    // 後方互換的に安全）。
+    const myCurrySnapshot = Object.assign({}, playerUnit.raw, { startHp: playerUnit.hp });
+    const oppCurrySnapshot = Object.assign({}, enemyUnit.raw, { startHp: enemyUnit.hp, name: enemyUnit.name });
 
     if (typeof startExternalBoardBattle !== 'function') {
         console.error('[ボードバトル] startExternalBoardBattleが見つかりません（本編game.jsの反映が必要です）');
@@ -4084,6 +4089,12 @@ window.__bbOnPrepEditorSaveClick = bbOnPrepEditorSaveClick;
 window.__bbOnPrepEditorLoadClick = bbOnPrepEditorLoadClick;
 window.__bbOnTrapStartBattleClick = bbOnTrapStartBattleClick;
 window.openBoardBattle = bbOpen; // 将来、他の場所（正式な入り口ボタン等）から開けるように
+
+// board-battle.js自体は本編game.htmlの読み込み時に常に読み込まれるスクリプトなので、
+// ここで無条件に一度呼んでおくことで「異常終了（決闘中にページを閉じる／リロードする等）で
+// 一時カレー（__isBoardBattleTemp）がcurryStockに残ってしまう」問題を、
+// ボードカレーバトルを開き直すのを待たず、次にページを開いた瞬間に掃除できるようにする。
+bbCleanupLeakedTempCurries();
 
 bbInjectDom();
 
