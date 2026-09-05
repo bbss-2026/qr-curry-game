@@ -3647,6 +3647,7 @@ function bbGrantPlayerIcon() {
     if (typeof unlockIcon !== 'function') return;
     try { unlockIcon('myimageicon/mayimage13.png'); } catch (e) {}
 }
+// Fランクには報酬なし（誰でも最初から到達している状態のため）。報酬はEランクから。
 const BB_RANK_REWARDS = {
     SS: { desc: 'スパイシーコイン3個', grant: () => bbGrantSpicyCoin(3) },
     S: { desc: '食品サンプル5個', grant: () => bbGrantFoodSample(5) },
@@ -3654,8 +3655,7 @@ const BB_RANK_REWARDS = {
     B: { desc: '2000G', grant: () => bbGrantGold(2000) },
     C: { desc: '食品サンプル5個', grant: () => bbGrantFoodSample(5) },
     D: { desc: 'スパイシーコイン1個', grant: () => bbGrantSpicyCoin(1) },
-    E: { desc: 'プレイヤーアイコン', grant: () => bbGrantPlayerIcon() },
-    F: { desc: '500G', grant: () => bbGrantGold(500) }
+    E: { desc: 'プレイヤーアイコン', grant: () => bbGrantPlayerIcon() }
 };
 function bbShowRankRewards() {
     bbRenderRankRewardsList();
@@ -3669,8 +3669,8 @@ function bbCloseRankRewards() {
 function bbRenderRankRewardsList() {
     const list = document.getElementById('bbRankRewardsList');
     if (!list) return;
-    // SS→Fの順（ユーザーが指定した並び）で表示する。
-    list.innerHTML = BB_RANKS.slice().reverse().map(rank => {
+    // SS→Eの順（ユーザーが指定した並び）で表示する。Fランクには報酬が無いため一覧から除外する。
+    list.innerHTML = BB_RANKS.slice().reverse().filter(rank => !!BB_RANK_REWARDS[rank]).map(rank => {
         const reward = BB_RANK_REWARDS[rank];
         const achieved = bbIsRankAchieved(rank);
         const claimed = bbRankState.claimed.includes(rank);
@@ -3722,7 +3722,9 @@ function bbEndBattle(winner, reason) {
     const rankResult = bbApplyRankResult(winner === 'player');
     const rankLineEl = document.getElementById('bbResultRankLine');
     if (rankLineEl) {
-        let rankText = `ランク：${bbFormatRank(rankResult.newRank, rankResult.newStars)}`;
+        // 元の状態から何に変わったかが一目でわかるよう、常に「変化前 → 変化後」の形式で表示する
+        // （ランクそのものは変わらず★だけ増減した場合も含む。例：F★ → F★★）。
+        let rankText = `ランク：${bbFormatRank(rankResult.oldRank, rankResult.oldStars)} → ${bbFormatRank(rankResult.newRank, rankResult.newStars)}`;
         if (rankResult.rankChanged === 'up') {
             rankText += '　ランクアップ！';
             bbPlaySfx('omedeto.mp3');
@@ -3783,15 +3785,38 @@ function bbUpdateHeaderCloseBtnLabel() {
 }
 function bbOnHeaderCloseClick() {
     if (bbState.phase === 'battle') {
-        const doSurrender = function () { bbBackToPrep(); };
+        // 降参は「負け」として扱い、通常の勝敗結果と同じくランク（★）を減らす。
+        // 結果画面は出さずカレー準備画面に戻すため、変化内容は代わりにポップで知らせる。
+        const doSurrender = function () {
+            const rankResult = bbApplyRankResult(false);
+            bbBackToPrep();
+            let msg = `降参しました。ランク：${bbFormatRank(rankResult.oldRank, rankResult.oldStars)} → ${bbFormatRank(rankResult.newRank, rankResult.newStars)}`;
+            if (rankResult.rankChanged === 'down') {
+                msg += '　ランクダウン…';
+                bbPlaySfx('chin.mp3');
+            }
+            bbShowInfoPopup(msg);
+        };
         if (typeof showCustomConfirm === 'function') {
-            showCustomConfirm('降参しますか？', '対戦を中断して、カレー準備画面に戻ります。', doSurrender);
+            showCustomConfirm('降参しますか？', '対戦を中断して、カレー準備画面に戻ります。（★を1つ失います）', doSurrender);
         } else {
             doSurrender();
         }
         return;
     }
     bbClose();
+}
+// ボードバトル中（決闘フェーズ）にブラウザを閉じたりページをリロードしたりして対戦を
+// 中断した場合も、降参と同様に「負け」として扱いランク（★）を減らす。beforeunloadは
+// ページが実際に閉じる直前に呼ばれるため、確認ダイアログや演出は出さず、bbApplyRankResult
+// 内部のlocalStorage.setItem（try/catch付き・同期処理）による状態保存だけを行う。
+// （addEventListenerが存在しない実行環境向けにtypeofガードを付けておく）
+if (typeof window !== 'undefined' && typeof window.addEventListener === 'function') {
+    window.addEventListener('beforeunload', function () {
+        if (typeof bbState !== 'undefined' && bbState.phase === 'battle') {
+            bbApplyRankResult(false);
+        }
+    });
 }
 
 // ------------------------------------------------------------
@@ -4255,7 +4280,7 @@ function bbInjectDom() {
             <div id="bbResultBox">
                 <h2 id="bbResultTitle">VICTORY</h2>
                 <div id="bbResultDesc" style="font-size:13px; margin-bottom:16px;"></div>
-                <div id="bbResultRankLine" style="font-size:12px; margin-bottom:16px; color:#f1c40f; font-weight:bold;"></div>
+                <div id="bbResultRankLine" style="font-size:12px; margin-bottom:16px; color:#5c3a1e; font-weight:bold;"></div>
                 <button class="bb-actionBtn" onclick="window.__bbBackToPrep()">戻る</button>
             </div>
         </div>
