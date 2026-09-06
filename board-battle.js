@@ -1182,6 +1182,110 @@ function bbStatDisplayWithEquip(statKey, baseVal, entry) {
     return `${baseVal || 0}<span style="color:${color};">${sign}${mod}</span>`;
 }
 
+// ------------------------------------------------------------
+// 3.7 初回ウェルカムギフト
+//    カレー準備画面に初めて入った時、1度だけボードバトル用のカレーを5個（種・わんぱく・海鮮
+//    各1つ＋ノーマル2つ）無償で登録済みロースターに加える。食材はそのプレイヤーが実際に入手済み
+//    （discoveredItems）のものだけを使い、未入手食材は一切使わない。本編のsavedataには含めず、
+//    このファイル専用のlocalStorageキー1つで「渡したかどうか」だけを憶えておく
+//    （bbRegisteredRoster等と同じ設計方針）。
+// ------------------------------------------------------------
+const BB_WELCOME_GIFT_STORAGE_KEY = 'qr_board_battle_welcome_gift_given';
+// buildCurryFromMaterials()が返すカレーが、特殊効果を一切持たない完全な「ノーマルカレー」かどうかを
+// 判定する。本編の特殊カレー用フラグを網羅的に列挙してチェックする（isCritical＝💎至高のも、
+// 「ノーマル」の趣旨からは外れるため合わせて除外する）。
+function bbIsPlainNormalCurry(c) {
+    if (!c) return false;
+    const specialFlags = ['isPoison', 'hasGold', 'isMargherita', 'isTonTonTon', 'isSeafood', 'isIllusion', 'isSticky',
+        'isSeed', 'isWanpaku', 'isRatatouille', 'isHomerun', 'isPoisonApple', 'isFluffyOmelette', 'isGreenCurry',
+        'isTriCaviar', 'isKaiTate', 'isKyoyasai', 'isCheeseCurry', 'isShrimpCurry', 'isBananaCurry', 'isCritical'];
+    return !specialFlags.some(k => c[k]);
+}
+// プレイヤーが実際に入手済みの「食材」（スパイスは除く）だけを集めた抽選プールを作る。
+// discoveredItems・masterIngredientsは本編（game-source-work.js）側のグローバルをそのまま使う。
+function bbGetOwnedIngredientPool() {
+    if (typeof discoveredItems === 'undefined' || typeof masterIngredients === 'undefined') return [];
+    return Object.keys(discoveredItems).filter(k => discoveredItems[k] && masterIngredients[k]);
+}
+// 条件(testFn)を満たすカレーが出るまでbuildCurryFromMaterials()をリトライ生成する共通ヘルパー。
+// 本編のgenerateGuaranteedSeedCurry等（game-source-work.js）と同じ「ランダムに3つ選ぶ→条件判定→
+// ダメなら再抽選」という考え方を、プレゼントカレー生成にもそのまま踏襲する（本編の判定ロジックを
+// 複製せず、本編のbuildCurryFromMaterialsを直接呼ぶことで、将来の特殊カレー追加にも自動追従する）。
+// typeListを渡した場合、まずtypeListに属する（かつ入手済みの）食材だけから3つ選ぼうとすることで、
+// 例えば「海鮮」のように厳しい条件（3つ全てが海鮮食材）でも現実的な回数で成立させやすくする。
+function bbGenerateGuaranteedCurry(pool, typeList, testFn, maxRetry) {
+    if (typeof buildCurryFromMaterials !== 'function' || !pool || pool.length === 0) return null;
+    maxRetry = maxRetry || 80;
+    const typePool = (typeList && typeList.length) ? pool.filter(x => typeList.indexOf(x) !== -1) : [];
+    const sourcePool = typePool.length > 0 ? typePool : pool;
+    for (let i = 0; i < maxRetry; i++) {
+        const materials = [];
+        for (let j = 0; j < 3; j++) {
+            materials.push(sourcePool[Math.floor(Math.random() * sourcePool.length)]);
+        }
+        const curry = buildCurryFromMaterials(materials, '');
+        if (testFn(curry)) return curry;
+    }
+    return null; // 食材の偏り等でどうしても条件を満たせなかった場合はそのカレーだけ諦める（他は影響しない）
+}
+// プレゼント対象の5カレー（種・わんぱく・海鮮・ノーマル×2）を生成する。入手済み食材が極端に
+// 少ない等の理由で条件を満たすカレーが作れなかった枠は、配列から単純に欠ける（5個未満になり得る）。
+function bbBuildWelcomeGiftCurries(ownedPool) {
+    const results = [];
+    const seedList = (typeof SEED_LIST !== 'undefined') ? SEED_LIST : [];
+    const wanpakuList = (typeof WANPAKU_LIST !== 'undefined') ? WANPAKU_LIST : [];
+    const seafoodList = (typeof SEAFOOD_LIST !== 'undefined') ? SEAFOOD_LIST : [];
+    const seedC = bbGenerateGuaranteedCurry(ownedPool, seedList, c => !!(c && c.isSeed));
+    if (seedC) results.push(seedC);
+    const wanpakuC = bbGenerateGuaranteedCurry(ownedPool, wanpakuList, c => !!(c && c.isWanpaku));
+    if (wanpakuC) results.push(wanpakuC);
+    const seafoodC = bbGenerateGuaranteedCurry(ownedPool, seafoodList, c => !!(c && c.isSeafood));
+    if (seafoodC) results.push(seafoodC);
+    for (let i = 0; i < 2; i++) {
+        const normalC = bbGenerateGuaranteedCurry(ownedPool, [], bbIsPlainNormalCurry);
+        if (normalC) results.push(normalC);
+    }
+    return results;
+}
+function bbHasReceivedWelcomeGift() {
+    try { return localStorage.getItem(BB_WELCOME_GIFT_STORAGE_KEY) === '1'; }
+    catch (e) { return false; }
+}
+function bbMarkWelcomeGiftReceived() {
+    try { localStorage.setItem(BB_WELCOME_GIFT_STORAGE_KEY, '1'); } catch (e) { /* 保存に失敗しても進行は止めない */ }
+}
+// カレー準備画面に入った時に呼ぶ。まだ受け取っていなければ、その場でロースターへ登録しポップを出す。
+// 成否や結果（何個登録できたか）に関わらず「受け取り済み」フラグは必ず立てる＝この処理は
+// プレイヤー1人につき生涯で1回だけ試行される（次回以降は無条件でreturnする）。
+function bbMaybeGiveWelcomeGift() {
+    if (bbHasReceivedWelcomeGift()) return;
+    bbMarkWelcomeGiftReceived();
+    const slots = BB_ROSTER_MAX - bbRegisteredRoster.length;
+    if (slots <= 0) return; // 既に20個登録済みなら何も起きない
+    const ownedPool = bbGetOwnedIngredientPool();
+    if (ownedPool.length === 0) return; // 食材を1つも入手していない状態（通常は起こらない想定）
+    const giftCurries = bbBuildWelcomeGiftCurries(ownedPool).slice(0, slots); // 空き枠数だけ登録
+    if (giftCurries.length === 0) return;
+    giftCurries.forEach((curry, i) => {
+        bbRegisteredRoster.push({
+            regId: 'bbgift' + Date.now() + '_' + i + '_' + Math.floor(Math.random() * 100000),
+            raw: curry,
+            customName: null,
+            equippedBase: '白米',
+            equippedTableware: '白い皿'
+        });
+    });
+    bbSaveRegisteredRoster();
+    bbRenderPrepPanel(); // 登録数・一覧表示を最新化
+    const imgsHtml = giftCurries.map(c =>
+        `<img src="${bbGetCurryImg(c)}" alt="${bbEsc(c.name || 'カレー')}" style="width:52px;height:52px;object-fit:contain;margin:4px;border-radius:8px;background:#fff8ee;">`
+    ).join('');
+    bbShowInfoPopupHtml(
+        'ボードカレーバトル(BETA)用のカレーをプレゼントします。' +
+        `<div style="display:flex;flex-wrap:wrap;justify-content:center;margin-top:10px;">${imgsHtml}</div>`
+    );
+}
+
 // 全オーバーレイ・パネルを一旦隠す共通処理（画面遷移のたびに、前の状態が残らないようにする）。
 function bbHideAllOverlaysAndPanels() {
     ['bbResultOverlay', 'bbUnitDetailOverlay', 'bbCommandMenuOverlay', 'bbRegisterPickerOverlay', 'bbRegDetailOverlay', 'bbHelpOverlay', 'bbOpponentSelectOverlay', 'bbPlacementPresetOverlay', 'bbPlacementSaveNameOverlay', 'bbInfoPopupOverlay', 'bbPrepPlacementEditorOverlay', 'bbRankRewardsOverlay'].forEach(id => {
@@ -1217,6 +1321,7 @@ function bbInit() {
     bbUpdateHeaderCloseBtnLabel();
     bbUpdateMuteIcon();
     bbRenderPrepPanel();
+    bbMaybeGiveWelcomeGift(); // 初回のみ、ボードバトル用カレーを5個プレゼントする（内部で再描画・ポップ表示まで行う）
 }
 
 // 盤面上部（ヘッダー下）に、選択中の対戦相手ボットのイラストと名前を表示する。
@@ -1905,6 +2010,14 @@ function bbClosePlacementSaveNameOverlay() {
 function bbShowInfoPopup(text) {
     const textEl = document.getElementById('bbInfoPopupText');
     if (textEl) textEl.textContent = text;
+    const overlay = document.getElementById('bbInfoPopupOverlay');
+    if (overlay) overlay.style.display = 'flex';
+}
+// bbShowInfoPopupと同じポップだが、textContentではなくinnerHTMLとして描画する版。
+// プレゼントされたカレーの画像一覧など、テキスト以外の要素も一緒に表示したい場合に使う。
+function bbShowInfoPopupHtml(html) {
+    const textEl = document.getElementById('bbInfoPopupText');
+    if (textEl) textEl.innerHTML = html;
     const overlay = document.getElementById('bbInfoPopupOverlay');
     if (overlay) overlay.style.display = 'flex';
 }
