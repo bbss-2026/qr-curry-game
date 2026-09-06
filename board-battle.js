@@ -3671,6 +3671,9 @@ function bbGrantWinReward() {
 //    （bbRegisteredRoster等と同じ設計方針）。
 // ------------------------------------------------------------
 const BB_RANKS = ['F', 'E', 'D', 'C', 'B', 'A', 'S', 'SS'];
+// 敗北による★減少が発生する最低ランク。これより下（F・E・D）の間は負けても★が減らない
+// （＝一度Cランク未満に落ちることはあっても、そこから先はもう★を失わない安全圏になる）。
+const BB_RANK_LOSS_PENALTY_FROM = 'C';
 const BB_RANK_STORAGE_KEY = 'qr_board_battle_rank';
 let bbRankState = { rank: 'F', stars: 0, highestRank: 'F', claimed: [] };
 function bbLoadRankState() {
@@ -3728,7 +3731,8 @@ function bbApplyRankResult(didWin) {
                 bbRankState.stars = 3; // 最高ランク(SS)で頭打ち
             }
         }
-    } else {
+    } else if (idx >= BB_RANKS.indexOf(BB_RANK_LOSS_PENALTY_FROM)) {
+        // 敗北による★減少はCランク以上でのみ発生する（F・E・Dランクの間は負けても★は減らない）。
         bbRankState.stars -= 1;
         if (bbRankState.stars <= 0) {
             if (idx > 0) {
@@ -3967,8 +3971,11 @@ function bbOnHeaderCloseClick() {
             }
             bbShowInfoPopup(msg);
         };
+        // Cランク未満（F・E・D）の間は敗北扱いになっても★は減らないため、確認文言もそれに合わせる。
+        const willLoseStar = BB_RANKS.indexOf(bbRankState.rank) >= BB_RANKS.indexOf(BB_RANK_LOSS_PENALTY_FROM);
+        const confirmMsg = '対戦を中断して、カレー準備画面に戻ります。' + (willLoseStar ? '（★を1つ失います）' : '');
         if (typeof showCustomConfirm === 'function') {
-            showCustomConfirm('降参しますか？', '対戦を中断して、カレー準備画面に戻ります。（★を1つ失います）', doSurrender);
+            showCustomConfirm('降参しますか？', confirmMsg, doSurrender);
         } else {
             doSurrender();
         }
