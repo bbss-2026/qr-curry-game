@@ -1099,12 +1099,24 @@ const bbState = {
 //      永続的な一覧を持つ。登録はカレーストックからの片道の移動（ストックからは消える）。
 //    ・登録済みカレーには名前の変更・ベース/食器の個別装備ができる（本編のselectedBase/
 //      selectedTableware＝全体共通の装備とは完全に独立）。
-//    ・本編（game-source-work.js）のsaveGame()には含めず、このファイル専用の
-//      localStorageキーで完結させる（本体には一切手を加えない、という開発方針を維持するため）。
+//    ・保存自体はこのファイル専用のlocalStorageキーで完結させる。ただし本編のクラウド保存
+//      （players/<id>/savedata）にも生データのまま含まれ、端末間の引き継ぎ・バックアップの
+//      対象になる（game-source-work.jsのbuildSaveDataObject/applySaveDataObjectを参照。
+//      このファイル側での対応は「保存の都度saveGame()を呼び、反映を早める」のみでよい）。
 // ------------------------------------------------------------
 const BB_ROSTER_STORAGE_KEY = 'qr_board_battle_roster';
 const BB_ROSTER_MAX = 20; // 登録済みカレーの上限数
 let bbRegisteredRoster = [];
+// 登録カレー・配置プリセット・ランク等、このファイルがlocalStorageへ保存した内容を
+// 本編のクラウド保存にも早めに反映するための共通ヘルパー。本編未読込・未ログイン等で
+// saveGame()が存在しない場合は何もしない（ローカル保存自体は各Save関数側で既に完了している）。
+function bbTriggerCloudSave() {
+    try {
+        if (typeof saveGame === 'function') saveGame();
+    } catch (e) {
+        console.warn('[ボードバトル] クラウド保存の呼び出しに失敗:', e);
+    }
+}
 
 function bbLoadRegisteredRoster() {
     try {
@@ -1122,6 +1134,7 @@ function bbSaveRegisteredRoster() {
     } catch (e) {
         console.warn('[ボードバトル] 登録済みカレーの保存に失敗:', e);
     }
+    bbTriggerCloudSave();
 }
 
 // ------------------------------------------------------------
@@ -1151,6 +1164,7 @@ function bbSavePlacementPresets() {
     } catch (e) {
         console.warn('[ボードバトル] 配置プリセットの保存に失敗:', e);
     }
+    bbTriggerCloudSave();
 }
 // ベース・食器（本編のBASE_LIST/TABLEWARE_LIST）による、登録カレー1件分のステータス補正値。
 function bbGetEquipBonus(statKey, entry) {
@@ -1253,6 +1267,7 @@ function bbHasReceivedWelcomeGift() {
 }
 function bbMarkWelcomeGiftReceived() {
     try { localStorage.setItem(BB_WELCOME_GIFT_STORAGE_KEY, '1'); } catch (e) { /* 保存に失敗しても進行は止めない */ }
+    bbTriggerCloudSave();
 }
 // カレー準備画面に入った時に呼ぶ。まだ受け取っていなければ、その場でロースターへ登録しポップを出す。
 // 成否や結果（何個登録できたか）に関わらず「受け取り済み」フラグは必ず立てる＝この処理は
@@ -3699,11 +3714,13 @@ function bbSaveRankState() {
     try { localStorage.setItem(BB_RANK_STORAGE_KEY, JSON.stringify(bbRankState)); }
     catch (e) { console.warn('[ボードバトル] ランク情報の保存に失敗:', e); }
     bbSyncRankToCloud();
+    bbTriggerCloudSave();
 }
-// 管理ツールの「プレイヤー進行度」でランク別の人数を集計できるよう、現在のランク（文字のみ、
-// ★は対象外）をFirebaseへ同期する。本編のsavedata（players/<id>/savedata）には含めず
-// （上のコメント通りローカル完結の設計方針のため）、players/<id>/boardBattleRank という
-// 独立したフィールドに直接書き込む（players/<id>/debugModeと同じ扱い）。database・playerIdは
+// 管理ツールの「プレイヤー進行度」でランク別の人数を軽量に集計できるよう、現在のランク
+// （文字のみ、★は対象外）を players/<id>/boardBattleRank という独立したフィールドへ直接
+// 書き込む（players/<id>/debugModeと同じ扱い）。★や最高到達ランクを含む完全な状態は
+// 上のbbTriggerCloudSave()経由でplayers/<id>/savedataにも保存されるため、この関数は
+// あくまで管理ツール用の軽量な集計フィールドの更新に限定する。database・playerIdは
 // 本編（game.js）側のグローバルをそのまま使うため、両方とも未定義／未認証の場合は何もしない。
 function bbSyncRankToCloud() {
     if (typeof database === 'undefined' || !database) return;
