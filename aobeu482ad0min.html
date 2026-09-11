@@ -307,8 +307,8 @@ const CUM_EXP_TABLE = (function(){
 const LV_UNLOCK_ICONS = { 2: "mayimage04.png", 3: "mayimage05.png", 4: "mayimage06.png", 7: "mayimage08.png", 9: "mayimage09.png" };
 // Lv11〜20で解放されるベースアイテム（game-dev.js側のBASE_UNLOCK_FLAG_MAPと対応）
 const LV_BASE_UNLOCK_MAP = { 11: { flag: 'qr_unlock_genmai_base', name: '玄米' }, 13: { flag: 'qr_unlock_saffron_rice_base', name: 'サフランライス' }, 16: { flag: 'qr_unlock_jasmine_rice_base', name: 'ジャスミンライス' }, 18: { flag: 'qr_unlock_nan_base', name: 'ナン' } };
-const EVENT_MONSTER_DATA = { hp: 5000, name: "水面カレーシャーク" };
-const EVENT_MONSTER_DATA_PREV = { hp: 5000, name: "浪花のカレーライスベイビー" }; // 第一弾（過去の記録参照用）
+const EVENT_MONSTER_DATA = { hp: 5000, name: "大地より生まれし打者" };
+const EVENT_MONSTER_DATA_PREV = { hp: 5000, name: "水面カレーシャーク" }; // 第二弾（過去の記録参照用）
 
 // ============================================================
 // localStorage操作（このブラウザ自身のセーブデータに対する操作）
@@ -880,7 +880,7 @@ function actExcludeKnownSuspiciousAccounts() {
 function actEventToggle() {
     if(!database) { showCustomAlert("❌ エラー", "通信に問題があります。"); return; }
     eventEnabled = !eventEnabled;
-    database.ref('events/tokumori002/enabled').set(eventEnabled).then(function(){
+    database.ref('events/tokumori003/enabled').set(eventEnabled).then(function(){
         updateButtonLabels();
         showCustomAlert("✅ 設定完了", "特盛りイベントを " + (eventEnabled ? "ON" : "OFF") + " にしました。");
     });
@@ -1203,14 +1203,14 @@ function actCheckPassword() {
 
 function actEventSetHp() {
     if(!database) { showCustomAlert("❌ エラー", "通信に問題があります。"); return; }
-    database.ref('events/tokumori002/currentHp').once('value').then(function(snap){
+    database.ref('events/tokumori003/currentHp').once('value').then(function(snap){
         const curHp = snap.val();
         const input = prompt("🩹 " + EVENT_MONSTER_DATA.name + "の現在HPを入力してください（最大: " + EVENT_MONSTER_DATA.hp + "）\n現在値: " + (curHp === null ? "未設定（満タン扱い）" : curHp));
         if(input === null) return;
         const newHp = parseInt(input, 10);
         if(isNaN(newHp) || newHp < 1) { showCustomAlert("❌ 入力エラー", "1以上の数値を入力してください。"); return; }
         const clamped = Math.min(EVENT_MONSTER_DATA.hp, newHp);
-        database.ref('events/tokumori002/currentHp').set(clamped).then(function(){
+        database.ref('events/tokumori003/currentHp').set(clamped).then(function(){
             showCustomAlert("✅ 設定完了", "モンスターHPを " + clamped + " に設定しました。");
         }).catch(function(e){
             showCustomAlert("❌ エラー", "設定に失敗しました: " + e.message);
@@ -1236,7 +1236,7 @@ function isEventDamageSuspicious(stats) {
 }
 
 // eventKeyのダメージ集計（上位15位）のHTML行と参加人数・不審件数サマリーをまとめて返す。
-// 新旧どちらのイベント（tokumori002／tokumori001）でも同じ形式で組み立てられるよう共通化。
+// 新旧どちらのイベント（tokumori003／tokumori002）でも同じ形式で組み立てられるよう共通化。
 function fetchEventDamageSection(eventKey) {
     return database.ref('events/' + eventKey + '/damages').once('value').then(function(snap){
         const data = snap.val() || {};
@@ -1284,13 +1284,13 @@ function fetchEventDamageSection(eventKey) {
 function actEventDamage() {
     if(!database) { showCustomAlert("❌ エラー", "通信に問題があります。"); return; }
     Promise.all([
-        fetchEventDamageSection('tokumori002'),
-        fetchEventDamageSection('tokumori001')
+        fetchEventDamageSection('tokumori003'),
+        fetchEventDamageSection('tokumori002')
     ]).then(function(results){
         const cur = results[0];
         const old = results[1];
         showCustomAlert('📊 特盛りイベント ダメージ集計',
-            '<div style="margin-bottom:4px;font-size:13px;font-weight:bold;color:#420000;">🦈 ' + EVENT_MONSTER_DATA.name + '（現行）</div>'
+            '<div style="margin-bottom:4px;font-size:13px;font-weight:bold;color:#420000;">🥕 ' + EVENT_MONSTER_DATA.name + '（現行）</div>'
             + '<div style="margin-bottom:4px;font-size:13px;font-weight:bold;color:#420000;">参加人数: ' + cur.totalParticipants + '人</div>'
             + '<div style="margin-bottom:10px;font-size:11px;color:#888;">上位15位まで表示</div>'
             + cur.warnSummary
@@ -1383,7 +1383,7 @@ function updateButtonLabels() {
 
 function loadInitialData() {
     if(database) {
-        database.ref('events/tokumori002/enabled').once('value').then(function(snap){
+        database.ref('events/tokumori003/enabled').once('value').then(function(snap){
             eventEnabled = (snap.val() === true);
             updateButtonLabels();
         });

@@ -672,11 +672,31 @@
         .battle-stage.event-mode .hp-container.enemy-hp .hp-bar-bg { width: 80% !important; max-width: 80% !important; }
         .battle-stage.event-mode #oHpText { display: none; }
         .battle-stage.event-mode .enemy-lower-row { display: none; }
-        .battle-stage.event-mode .event-bg-wrap { width: 100%; padding-top: 6px; }
+        .battle-stage.event-mode .event-bg-wrap { width: 100%; padding-top: 6px; position: relative; }
         .battle-stage.event-mode .event-bg-wrap img { width: 100%; display: block; border-radius: 6px; }
         .battle-stage.event-mode .player-zone { margin-top: 8px; align-items: center; }
         .battle-stage.event-mode .player-zone > div:nth-child(2) { max-width: 56% !important; }
         .battle-stage.event-mode .player-zone .hp-container:not(.enemy-hp) { width: 26% !important; }
+
+        /* 特盛モンスター第三弾「大地より生まれし打者」のセリフ吹き出し */
+        .event-boss-speech {
+            position: absolute; top: 4%; left: 50%; transform: translateX(-50%);
+            max-width: 78%; background: #fffaf0; color: #420000;
+            border: 2px solid #b88742; border-radius: 14px;
+            padding: 6px 12px; font-size: 12px; font-weight: bold; line-height: 1.4;
+            text-align: center; box-shadow: 0 2px 8px rgba(0,0,0,0.35);
+            z-index: 5; white-space: normal;
+        }
+        .event-boss-speech::after {
+            content: ""; position: absolute; left: 50%; bottom: -8px; transform: translateX(-50%);
+            border-width: 8px 7px 0 7px; border-style: solid;
+            border-color: #b88742 transparent transparent transparent;
+        }
+        .event-boss-speech::before {
+            content: ""; position: absolute; left: 50%; bottom: -5.5px; transform: translateX(-50%);
+            border-width: 6px 6px 0 6px; border-style: solid;
+            border-color: #fffaf0 transparent transparent transparent; z-index: 1;
+        }
 
         /* アイコン獲得演出 */
         #iconGetOverlay { position:fixed; top:0; left:0; width:100%; height:100%; height:100dvh; background:rgba(0,0,0,0.75); z-index:99999; display:none; justify-content:center; align-items:center; flex-direction:column; }
@@ -1030,7 +1050,7 @@
     <div>SPD：<span id="festFixedPreviewSPD">0</span></div>
 </div>
 <div id="eventMovieOverlay" style="position:fixed;top:0;left:0;width:100%;height:100%;height:100dvh;background:#000;z-index:99998;display:none;justify-content:center;align-items:center;flex-direction:column;">
-    <video id="eventMovieVideo" src="tokumoritoujyo002.mp4" playsinline style="max-width:100%;max-height:100%;"></video>
+    <video id="eventMovieVideo" src="tokumoritoujyo003.mp4" playsinline style="max-width:100%;max-height:100%;"></video>
     <button id="eventMovieSkipBtn" onclick="skipEventMovie()" style="position:absolute;bottom:24px;right:20px;padding:8px 18px;background:rgba(255,255,255,0.15);color:#fff;border:1px solid rgba(255,255,255,0.6);border-radius:20px;font-size:12px;font-weight:bold;cursor:pointer;">スキップ ▶</button>
 </div>
 <div id="iconGetOverlay">
@@ -2034,13 +2054,13 @@
     <div id="pageBattle" class="page">
         <div id="battleSetup">
             <button id="eventBannerBtn" class="btn-bot-img" onclick="startEventBattle()" style="width:100%; margin-bottom:8px;">
-                <img id="eventBannerImg" src="eventbanner02.jpg" class="event-banner" style="margin-bottom:0;" alt="イベント">
+                <img id="eventBannerImg" src="eventbanner03.jpg" class="event-banner" style="margin-bottom:0;" alt="イベント">
             </button>
             <div id="eventBtnRow" style="display:flex;gap:6px;margin-bottom:8px;">
                 <button id="eventReplayBtn" style="display:none;flex:1;padding:8px;background:transparent;color:#b88742;border:1px solid #b88742;border-radius:4px;font-size:12px;font-weight:bold;cursor:pointer;" onclick="replayEventMovie()">OPムービー再生</button>
                 <button id="eventInfoBtn" style="display:none;flex:1;padding:8px;background:transparent;color:#b88742;border:1px solid #b88742;border-radius:4px;font-size:12px;font-weight:bold;cursor:pointer;" onclick="showEventInfo()">特盛モンスターについて</button>
             </div>
-            <button id="tokumori001ResultsBtn" style="width:100%;margin-bottom:12px;padding:8px;background:transparent;color:#b88742;border:1px solid #b88742;border-radius:4px;font-size:12px;font-weight:bold;cursor:pointer;" onclick="showTokumori001Results()">🏆 第1弾 浪花のカレーライスベイビー 結果</button>
+            <button id="tokumori002ResultsBtn" style="width:100%;margin-bottom:12px;padding:8px;background:transparent;color:#b88742;border:1px solid #b88742;border-radius:4px;font-size:12px;font-weight:bold;cursor:pointer;" onclick="showTokumori002Results()">🏆 第2弾 水面カレーシャーク 結果</button>
             <button id="btnBoardBattleEntry" style="width:100%;margin-bottom:12px;padding:0;border:0;background:none;cursor:pointer;display:block;" onclick="openBoardBattle()"><img src="boardbattle/Bata_banner.png" alt="ボードカレーバトル(BETA)" style="width:100%; display:block; border-radius:6px;"></button>
             <div style="padding: 16px 0 0 0; display:flex; gap:6px;">
                 <button id="btnBotNormal" class="btn-bot-img" onclick="openBotDifficultyChooser()"><img src="pssen-01.png" alt="PCと対戦する"></button>
@@ -2099,6 +2119,7 @@
                         </div>
                     </div>
                     <div class="event-bg-wrap" id="eventBgWrap" style="display:none;">
+                        <div id="eventBossSpeechBubble" class="event-boss-speech" style="display:none;"><span id="eventBossSpeechText"></span></div>
                         <img id="eventBgImg" src="" alt="">
                     </div>
                     <div class="enemy-lower-row">
@@ -2221,7 +2242,7 @@
         <div class="copyright-footer">©2026 Battle Curry All Rights Reserved.<br>QRコードは株式会社デンソーウェーブの登録商標です</div>
     </div>
 </div>
-<script src="game.js?v=130"></script>
+<script src="game.js?v=131"></script>
 <!-- 咖喱図書館（ストーリーモード）。図書館タブのボタン（openStoryLibrary()呼び出し）以外は
      game.html側を触る必要はない（詳細はstory.js冒頭コメント参照）。
      story-scripts.jsは各巻の本文データのみを持つファイル。本文の追加・修正はそちらの中身を
