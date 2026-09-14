@@ -152,6 +152,39 @@
         .tutorial-image-wrap img {
             width: 100%; max-width: 521px; height: auto; display: block;
         }
+
+        /* 利用規約ビューアー本文（テキスト表示のため.tutorial-image-wrapの代わりに専用クラスを使用） */
+        .tos-text-wrap {
+            flex: 1; overflow-y: auto; background: #1a1a1a; -webkit-overflow-scrolling: touch;
+            padding: 18px 20px 40px; box-sizing: border-box;
+        }
+        .tos-text-wrap h3 { color: #efdeb1; font-size: 14px; margin: 22px 0 8px; letter-spacing: 0.04em; }
+        .tos-text-wrap h3:first-child { margin-top: 0; }
+        .tos-text-wrap p, .tos-text-wrap li { color: #d8cdb8; font-size: 12.5px; line-height: 1.8; }
+        .tos-text-wrap p { margin: 0 0 12px; }
+        .tos-text-wrap ol { margin: 0 0 12px; padding-left: 1.4em; }
+        .tos-text-wrap ol ol { margin: 6px 0; }
+
+        /* 利用規約 同意ゲート（未同意の全プレイヤーを完全にブロックする最優先オーバーレイ） */
+        #tosGateOverlay {
+            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; height: 100dvh;
+            background: #1a1a1a; z-index: 999999; flex-direction: column;
+        }
+        #tosGateOverlay.active { display: flex; }
+        .tos-gate-footer {
+            flex-shrink: 0; background: #420000; padding: 14px 16px calc(14px + env(safe-area-inset-bottom));
+            box-sizing: border-box;
+        }
+        .tos-gate-check-row {
+            display: flex; align-items: center; gap: 8px; color: #efdeb1; font-size: 13px; font-weight: bold;
+            margin-bottom: 12px; cursor: pointer;
+        }
+        .tos-gate-check-row input[type="checkbox"] { width: 20px; height: 20px; flex-shrink: 0; }
+        .tos-gate-agree-btn {
+            width: 100%; padding: 13px; background: #b88742; color: #efdeb1; border: none; border-radius: 4px;
+            font-weight: bold; font-size: 14px; cursor: pointer; box-sizing: border-box;
+        }
+        .tos-gate-agree-btn:disabled { background: #6b5a3f; color: #a39a8a; cursor: not-allowed; }
         .tutorial-nav {
             display: flex; align-items: center; justify-content: space-between;
             padding: 10px 12px; background: #420000; flex-shrink: 0; gap: 8px;
@@ -1030,6 +1063,21 @@
 <div id="postToast" style="display:none; position:fixed; top:0; left:50%; transform:translateX(-50%); z-index:100000; background:#420000; color:#efdeb1; padding:10px 18px; border-radius:0 0 10px 10px; font-size:13px; font-weight:bold; box-shadow:0 4px 10px rgba(0,0,0,0.3); cursor:pointer; max-width:90vw; text-align:center; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" onclick="onPostToastClick()">
     <span id="postToastIcon" style="margin-right:6px;">📩</span><span id="postToastText"></span>
 </div>
+<!-- 利用規約 初回同意ゲート：未同意の利用者（既存・新規問わず）に対し、同意するまでゲーム操作を一切不可にする最優先オーバーレイ。
+     閉じるボタンは意図的に設置していない（agreeTos()でチェックボックスON時のみ閉じられる）。 -->
+<div id="tosGateOverlay">
+    <div class="tutorial-header">
+        <div class="tutorial-page-indicator">利用規約への同意のお願い</div>
+    </div>
+    <div class="tos-text-wrap" id="tosGateBody"></div>
+    <div class="tos-gate-footer">
+        <label class="tos-gate-check-row">
+            <input type="checkbox" id="tosGateCheckbox" onchange="onTosGateCheckboxChange()">
+            利用規約に同意します
+        </label>
+        <button class="tos-gate-agree-btn" id="tosGateAgreeBtn" onclick="agreeTos()" disabled>同意して始める</button>
+    </div>
+</div>
 <div id="statusFlashOverlay" class="status-flash-overlay"></div>
 <div id="bingoPreviewOverlay" class="bingo-preview-overlay">
     <div class="bingo-preview-box">
@@ -1257,6 +1305,7 @@
         <div class="top-notice" id="topInfoTextBox" style="margin-top:12px;"></div>
         <a href="https://x.com/BattleCurryGame" target="_blank" style="display:block;width:88%;max-width:360px;margin-top:16px;padding:10px;background:transparent;color:#420000;border:1px solid #b88742;border-radius:4px;font-size:12px;font-weight:bold;cursor:pointer;text-align:center;text-decoration:none;box-sizing:border-box;">𝕏 @BattleCurryGame</a>
         <a href="https://www.instagram.com/battlecurry/" target="_blank" style="display:block;width:88%;max-width:360px;margin-top:10px;padding:10px;background:transparent;color:#420000;border:1px solid #b88742;border-radius:4px;font-size:12px;font-weight:bold;cursor:pointer;text-align:center;text-decoration:none;box-sizing:border-box;">Instagram @battlecurry</a>
+        <button type="button" onclick="openTosViewer()" style="display:block;width:88%;max-width:360px;margin-top:10px;padding:10px;background:transparent;color:#420000;border:1px solid #b88742;border-radius:4px;font-size:12px;font-weight:bold;cursor:pointer;text-align:center;box-sizing:border-box;">利用規約</button>
         <div class="copyright-footer">©2026 Battle Curry All Rights Reserved.<br>QRコードは株式会社デンソーウェーブの登録商標です</div>
     </div>
 
@@ -1403,6 +1452,9 @@
                     <div style="margin-top:8px;">
                         <button class="btn-sm" style="width:100%;padding:10px 6px;background:#7a5c1e;color:#efdeb1;border:none;border-radius:4px;font-weight:bold;font-size:12px;cursor:pointer;" onclick="showCurrentAuthUidDebug()">🆔 現在のUIDを表示（サポート用）</button>
                     </div>
+                    <div style="margin-top:8px;">
+                        <button class="btn-sm" style="width:100%;padding:10px 6px;background:#7a5c1e;color:#efdeb1;border:none;border-radius:4px;font-weight:bold;font-size:12px;cursor:pointer;" onclick="openTosViewer()">📜 利用規約</button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -1423,6 +1475,15 @@
             <div class="tutorial-dots" id="tutorialDots"></div>
             <button class="tutorial-nav-btn" id="tutorialNextBtn" onclick="tutorialGoNext()">次へ ▶</button>
         </div>
+    </div>
+
+    <!-- 利用規約ビューアー（TOPページ・システム設定の両ボタンから開く読み取り専用画面） -->
+    <div id="tosViewerOverlay" class="tutorial-fullscreen">
+        <div class="tutorial-header">
+            <button class="tutorial-close" onclick="closeTosViewer()">✕</button>
+            <div class="tutorial-page-indicator">利用規約</div>
+        </div>
+        <div class="tos-text-wrap" id="tosViewerBody"></div>
     </div>
 
     <!-- QR BINGO -->
@@ -2245,7 +2306,7 @@
         <div class="copyright-footer">©2026 Battle Curry All Rights Reserved.<br>QRコードは株式会社デンソーウェーブの登録商標です</div>
     </div>
 </div>
-<script src="game.js?v=139"></script>
+<script src="game.js?v=140"></script>
 <!-- 咖喱図書館（ストーリーモード）。図書館タブのボタン（openStoryLibrary()呼び出し）以外は
      game.html側を触る必要はない（詳細はstory.js冒頭コメント参照）。
      story-scripts.jsは各巻の本文データのみを持つファイル。本文の追加・修正はそちらの中身を
