@@ -1084,6 +1084,17 @@
         <button class="tos-gate-agree-btn" id="tosGateAgreeBtn" onclick="agreeTos()" disabled>同意して始める</button>
     </div>
 </div>
+<!-- 利用規約ビューアー（TOPページ・システム設定の両ボタンから開く読み取り専用画面）。
+     #gameUI(display:none)の中に置くと、GAME START前(TOPページ表示中)はそもそもDOM的に
+     レンダリングされず（position:fixedでもz-indexでも救えない）非表示のままになってしまうため、
+     #tosGateOverlayと同じく#gameUIの外（#gameWrapper直下）に置く。 -->
+<div id="tosViewerOverlay" class="tutorial-fullscreen">
+    <div class="tutorial-header">
+        <button class="tutorial-close" onclick="closeTosViewer()">✕</button>
+        <div class="tutorial-page-indicator">利用規約</div>
+    </div>
+    <div class="tos-text-wrap" id="tosViewerBody"></div>
+</div>
 <div id="statusFlashOverlay" class="status-flash-overlay"></div>
 <div id="bingoPreviewOverlay" class="bingo-preview-overlay">
     <div class="bingo-preview-box">
@@ -1481,15 +1492,6 @@
             <div class="tutorial-dots" id="tutorialDots"></div>
             <button class="tutorial-nav-btn" id="tutorialNextBtn" onclick="tutorialGoNext()">次へ ▶</button>
         </div>
-    </div>
-
-    <!-- 利用規約ビューアー（TOPページ・システム設定の両ボタンから開く読み取り専用画面） -->
-    <div id="tosViewerOverlay" class="tutorial-fullscreen">
-        <div class="tutorial-header">
-            <button class="tutorial-close" onclick="closeTosViewer()">✕</button>
-            <div class="tutorial-page-indicator">利用規約</div>
-        </div>
-        <div class="tos-text-wrap" id="tosViewerBody"></div>
     </div>
 
     <!-- QR BINGO -->
