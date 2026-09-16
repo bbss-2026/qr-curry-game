@@ -165,6 +165,12 @@
         .tos-text-wrap ol { margin: 0 0 12px; padding-left: 1.4em; }
         .tos-text-wrap ol ol { margin: 6px 0; }
 
+        /* 利用規約ビューアー(#tosViewerOverlay)は.tutorial-fullscreenのz-index:9000のままだと、
+           TOPページ表示中の#introOverlay(z-index:10000)の下に隠れてボタンを押しても見えなくなる。
+           TOPページ・システム設定タブのどちらから開いても常に最前面に出るよう、既存の最大値
+           （#postToastのz-index:100000）より大きい値で明示的に上書きする。 */
+        #tosViewerOverlay { z-index: 200000; }
+
         /* 利用規約 同意ゲート（未同意の全プレイヤーを完全にブロックする最優先オーバーレイ） */
         #tosGateOverlay {
             display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; height: 100dvh;
@@ -2306,7 +2312,7 @@
         <div class="copyright-footer">©2026 Battle Curry All Rights Reserved.<br>QRコードは株式会社デンソーウェーブの登録商標です</div>
     </div>
 </div>
-<script src="game.js?v=141"></script>
+<script src="game.js?v=142"></script>
 <!-- 咖喱図書館（ストーリーモード）。図書館タブのボタン（openStoryLibrary()呼び出し）以外は
      game.html側を触る必要はない（詳細はstory.js冒頭コメント参照）。
      story-scripts.jsは各巻の本文データのみを持つファイル。本文の追加・修正はそちらの中身を
