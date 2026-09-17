@@ -3682,7 +3682,7 @@ function bbResolvePizzaParty(actor) {
     bbAppendLog(`${actor.name} の「ピッツァパーティー」！`);
     const allies = bbGetPizzaPartyTargetAllies(actor);
     allies.forEach(bbApplyPizzaPartyBuff);
-    bbPlaySfx('ieeei.mp3');
+    bbPlaySfx('sound/ieeei.mp3');
     bbRenderBoard();
     allies.forEach(u => bbShowDamagePop(u.nodeId, 'ATK↑', 'bb-buff-pop'));
     setTimeout(bbScheduleNextTurn, 500);
