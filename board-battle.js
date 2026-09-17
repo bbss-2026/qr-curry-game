@@ -192,6 +192,8 @@ const BB_STYLE = `
    ❌が上へ消えていく演出（bb-heal-popと同じ仕組みを流用し、色だけ変える）。*/
 .bb-damage-pop-html.bb-heal-pop { color: #2ecc71; text-shadow: -2px 0 0 #0b3a1c, 2px 0 0 #0b3a1c, 0 -2px 0 #0b3a1c, 0 2px 0 #0b3a1c; }
 .bb-damage-pop-html.bb-skip-pop { color: #ff4136; font-size: 22px; }
+/* マルゲリータの「ピッツァパーティー」：ATK上昇POP（金色）。bb-heal-popと同じ仕組みで色だけ変える。 */
+.bb-damage-pop-html.bb-buff-pop { color: #f1c40f; text-shadow: -2px 0 0 #4a3000, 2px 0 0 #4a3000, 0 -2px 0 #4a3000, 0 2px 0 #4a3000; }
 /* 1回休み中の駒（盤上のコマ・行動順バーのアイコン）に常時重ねて表示する❌マーク。 */
 .bb-skip-badge { font-size: 20px; font-weight: 900; fill: #ff4136; text-anchor: middle; dominant-baseline: central; paint-order: stroke; stroke: #3a0a06; stroke-width: 3px; pointer-events: none; }
 .bb-turnIcon { position: relative; }
@@ -677,6 +679,23 @@ function bbHasFluffyBarrier(unit) { return !!(unit.raw && unit.raw.isFluffyOmele
 // ふわとろバリアで軽減が発動した際、軽減の効果音(taiyou.mp3)とその直後のヒット音が
 // 完全に同時に鳴らないよう、ヒット音側にわずかな間を空けるための遅延（ミリ秒）。
 const BB_FLUFFY_SFX_STAGGER_MS = 250;
+// マルゲリータカレー（isMargherita）：特技「ピッツァパーティー」＝隣接する仲間カレー全員の
+// ATKを+80する（重複不可＝既に効果がかかっている仲間には乗らない）。対象となった各カレーは、
+// 盤上でATK依存の攻撃（通常戦闘・種発射・ネバネバクダン）を使用した時点、または対戦終了時に
+// 効果が消える（bbApplyPizzaPartyBuff/bbClearPizzaPartyBuffを参照）。
+function bbHasPizzaParty(unit) { return !!(unit.raw && unit.raw.isMargherita); }
+// 隣接する仲間のうち、まだピッツァパーティーの効果を受けていない（＝新たに強化できる）駒だけを返す。
+// 既に全員強化済みの場合は空配列になり、コマンドボタンがグレーアウトする。
+function bbGetPizzaPartyTargetAllies(unit) {
+    const node = bbNodesById[unit.nodeId];
+    const allies = [];
+    if (!node) return allies;
+    node.neighbors.forEach(nid => {
+        const occ = bbState.units.find(u => u.nodeId === nid && u.hp > 0 && u.team === unit.team);
+        if (occ && !occ.bbPizzaPartyBuffed) allies.push(occ);
+    });
+    return allies;
+}
 // defenderが受ける盤上技のダメージ倍率を返す（ふわとろバリアの影響を受けるなら0.5、
 // それ以外は1）。defender自身がふわとろバリア持ちの場合に加えて、隣接する生存中の
 // 味方（同チーム）がふわとろバリアを持っている場合も軽減の対象になる。
@@ -714,7 +733,8 @@ const BB_SKILLS = [
     { key: 'banana', name: 'バナナトラップ', desc: 'バナナトラップを設置できる。', active: false, test: bbHasBananaTrap },
     { key: 'nebaneba', name: 'ネバネバクダン', desc: '1度だけダメージ+1回休みを付与できる。', active: true, test: bbHasNebaNebaKudan },
     { key: 'sunblessing', name: '太陽の恵み', desc: '毎ターンHPを少し回復。', active: false, test: bbHasSunBlessing },
-    { key: 'fluffybarrier', name: 'ふわとろバリア', desc: '自分と隣接する仲間のダメージを軽減', active: false, test: bbHasFluffyBarrier }
+    { key: 'fluffybarrier', name: 'ふわとろバリア', desc: '自分と隣接する仲間のダメージを軽減', active: false, test: bbHasFluffyBarrier },
+    { key: 'pizzaparty', name: 'ピッツァパーティー', desc: '隣接する仲間の攻撃力を次の行動までアップ', active: true, test: bbHasPizzaParty }
 ];
 // unit（{raw:カレー本体}の形）・カレー本体（raw）そのもの、どちらを渡しても判定できるようにする
 // （盤面の駒はunit形、カレー準備画面の登録カレーはbbGetEffectiveCurry()の戻り値＝raw形のため）。
@@ -797,6 +817,21 @@ function bbGenerateSpecialTiles() {
     const pool2 = safeCandidates.slice();
     bbShuffleArray(pool2);
     applyPicks(pool2);
+}
+
+// 「顧問 髭紫」のような固定マップの対戦相手用：ランダム配置(bbGenerateSpecialTiles)の代わりに、
+// あらかじめ用意した行ごとの文字列（0=通常/1=毒/2=水/3=岩、列0〜8の9文字）をそのまま盤面へ適用する。
+// 指定しなかった行（プレイヤー側の配置マス等）はbbBuildBoard()でリセットされたnull(通常)のまま残る。
+function bbApplyFixedTerrainRows(rows) {
+    bbNodes.forEach(n => { n.terrain = null; });
+    (rows || []).forEach(function (rowStr, r) {
+        for (let c = 0; c < BB_GRID_SIZE; c++) {
+            const node = bbFindNode(r, c);
+            if (!node) continue;
+            const code = rowStr[c];
+            node.terrain = code === '1' ? BB_TERRAIN_POISON : code === '2' ? BB_TERRAIN_WATER : code === '3' ? BB_TERRAIN_ROCK : null;
+        }
+    });
 }
 
 // ------------------------------------------------------------
@@ -982,9 +1017,10 @@ function bbGenerateEnemyTeamFiltered(test, force) {
 }
 
 // ------------------------------------------------------------
-// 4.3.5 対戦相手ボット（4体固定・画像付き）の定義
-//    行動パターン（mode）は、既存の3種類の敵AI挙動（bbPerformEnemyTurn参照）
+// 4.3.5 対戦相手ボット（画像付き・BB_OPPONENT_BOTSで一覧管理）の定義
+//    行動パターン（mode）は、既存の敵AI挙動（bbPerformEnemyTurn参照）
 //    straight=旗に近づく優先／combat=敵と戦う優先／random=毎ターンどちらかをランダム、
+//    stationary=移動せず、隣接した相手と戦うことに専念（駒を一切動かさない固定型ボス用）、
 //    をそのまま流用する。
 // ------------------------------------------------------------
 const BB_OPPONENT_BOTS = [
@@ -1035,6 +1071,46 @@ const BB_OPPONENT_BOTS = [
                 { test: function (c) { return !!c.isSeafood; }, force: function (c) { c.isSeafood = true; }, count: 2 },
                 { test: function (c) { return !!c.isSeed; }, force: function (c) { c.isSeed = true; }, count: 3 }
             ]);
+        }
+    },
+    {
+        key: 'higemurasaki',
+        name: '顧問 髭紫',
+        img: 'boardbattle/boardbot05.png',
+        desc: '使用カレー：食材固定（種カレー4体・種カレー2体・マルゲリータ2体・ネバネバ1体）／マップも固定／行動：駒を一切移動させず、隣接した相手と戦うことに専念',
+        // mode='stationary'：bbPerformEnemyTurn側で移動計算そのものをスキップし、常にその場から
+        // 行動選択フェーズへ進む（隣接する敵がいれば自動的に戦う。旗を取りに行くこともない）。
+        mode: 'stationary',
+        // fixedPlacementRow：bbOnStartBattleClick側で、下のbuildTeamが返す並び順のまま
+        // 列0〜8へ1体ずつそのまま配置する（他のボットのようなランダムシャッフルは行わない）。
+        fixedPlacementRow: 1,
+        // fixedTerrainRows：bbEnterPlacementPhase側で、ランダム生成(bbGenerateSpecialTiles)の
+        // 代わりにこの固定マップをそのまま適用する（行0・行1＝敵陣2行、行2〜6＝中間エリア。
+        // 行7・8＝プレイヤー陣地はここでは指定せず、プレイヤーがいつも通り配置する）。
+        // 0=通常 1=毒 2=水 3=岩
+        fixedTerrainRows: [
+            '000000000',
+            '000000000',
+            '122202221',
+            '100111001',
+            '220333022',
+            '001000100',
+            '022232220'
+        ],
+        buildTeam: function () {
+            if (typeof buildCurryFromMaterials !== 'function') return bbGenerateDebugEnemyTeam();
+            // A・B・C・Dの4種は、本編の実際の調理ロジック（buildCurryFromMaterials）に指定の
+            // 食材3つ＋スパイスをそのまま渡して作る（ステータス合計値による予算調整は一切行わない）。
+            // A：レンコン＋オクラ＋オマール海老＋チリパウダー（SEED_LISTに2つ該当＝種カレー）
+            // B：オクラ×2＋トンカツ＋ブラックペッパー（同じくSEED_LISTに2つ該当＝種カレー）
+            // C：フルーツトマト＋チーズ＋唐揚げ＋マンゴーチャツネ（トマト系＋チーズ＝マルゲリータ）
+            // D：オクラ＋チーズ＋ズワイガニ＋チリパウダー（オクラ＋チーズ＝ネバネバ）
+            const mkA = function () { return buildCurryFromMaterials(['レンコン', 'オクラ', 'オマール海老'], 'チリパウダー'); };
+            const mkB = function () { return buildCurryFromMaterials(['オクラ', 'オクラ', 'トンカツ'], 'ブラックペッパー'); };
+            const mkC = function () { return buildCurryFromMaterials(['フルーツトマト', 'チーズ', '唐揚げ'], 'マンゴーチャツネ'); };
+            const mkD = function () { return buildCurryFromMaterials(['オクラ', 'チーズ', 'ズワイガニ'], 'チリパウダー'); };
+            // 列0〜8の並び順そのまま＝A A B C D C B A A（固定マップ2行目「AABCDCBAA」と対応）。
+            return [mkA(), mkA(), mkB(), mkC(), mkD(), mkC(), mkB(), mkA(), mkA()];
         }
     }
 ];
@@ -1360,7 +1436,12 @@ function bbEnterPlacementPhase() {
     bbCleanupLeakedTempCurries();
     bbLoadPlacementPresets();
     bbBuildBoard();
-    bbGenerateSpecialTiles(); // 岩・水・毒マスをランダムに5マスずつ配置（自陣旗→敵旗の経路は必ず確保する）
+    if (bbSelectedOpponentBot && bbSelectedOpponentBot.fixedTerrainRows) {
+        // 顧問 髭紫のような「マップ固定」ボット：ランダム配置ではなく、あらかじめ決められたマップを使う。
+        bbApplyFixedTerrainRows(bbSelectedOpponentBot.fixedTerrainRows);
+    } else {
+        bbGenerateSpecialTiles(); // 岩・水・毒マスをランダムに5マスずつ配置（自陣旗→敵旗の経路は必ず確保する）
+    }
     bbState.phase = 'placement';
     bbState.playerPool = bbRegisteredRoster.map(bbGetEffectiveCurry);
     bbState.enemyPool = bbSelectedOpponentBot ? bbSelectedOpponentBot.buildTeam() : bbGenerateDebugEnemyTeam();
@@ -1413,7 +1494,7 @@ function bbCloseOpponentSelect() {
     const el = document.getElementById('bbOpponentSelectOverlay');
     if (el) el.style.display = 'none';
 }
-// 対戦相手選択：4体の固定ボットを画像と名前だけで一覧表示する
+// 対戦相手選択：固定ボット（BB_OPPONENT_BOTS）を画像と名前だけで一覧表示する
 // （使用カレーの内訳や行動パターンの説明文はここでは出さない）。
 function bbRenderOpponentSelectList() {
     const list = document.getElementById('bbOpponentSelectList');
@@ -2310,17 +2391,30 @@ function bbShowBattleStartSplash(onDone) {
 }
 
 function bbOnStartBattleClick() {
-    // 敵チームを自動配置（敵配置マスにランダムに割り当て。旗のあるマスは除外）
-    const enemyDeployNodes = bbNodes.filter(n => bbGetDeployRows('enemy').includes(n.row) && !bbIsFlagNode(n));
-    bbShuffleArray(enemyDeployNodes);
-    let idx = 0;
-    bbState.enemyPool.slice(0, BB_MAX_UNITS).forEach(curry => {
-        if (idx >= enemyDeployNodes.length) return;
-        const unit = bbMakeUnit(curry, 'enemy');
-        unit.nodeId = enemyDeployNodes[idx].id;
-        bbState.units.push(unit);
-        idx++;
-    });
+    if (bbSelectedOpponentBot && bbSelectedOpponentBot.fixedPlacementRow != null) {
+        // 顧問 髭紫のような「マップ固定」ボット：敵出撃予定カレー（buildTeamの戻り値）の並び順を
+        // そのまま、指定行の列0〜8へ1体ずつ配置する（ランダムシャッフルは行わない）。
+        const row = bbSelectedOpponentBot.fixedPlacementRow;
+        bbState.enemyPool.slice(0, BB_GRID_SIZE).forEach(function (curry, col) {
+            const node = bbFindNode(row, col);
+            if (!node) return;
+            const unit = bbMakeUnit(curry, 'enemy');
+            unit.nodeId = node.id;
+            bbState.units.push(unit);
+        });
+    } else {
+        // 敵チームを自動配置（敵配置マスにランダムに割り当て。旗のあるマスは除外）
+        const enemyDeployNodes = bbNodes.filter(n => bbGetDeployRows('enemy').includes(n.row) && !bbIsFlagNode(n));
+        bbShuffleArray(enemyDeployNodes);
+        let idx = 0;
+        bbState.enemyPool.slice(0, BB_MAX_UNITS).forEach(curry => {
+            if (idx >= enemyDeployNodes.length) return;
+            const unit = bbMakeUnit(curry, 'enemy');
+            unit.nodeId = enemyDeployNodes[idx].id;
+            bbState.units.push(unit);
+            idx++;
+        });
+    }
     bbNodes.forEach(n => { n.highlight = null; });
     // 自軍にそんなバナナカレー（バナナトラップ持ち）が1体でもいれば、配置フェーズと
     // 戦闘開始の間にトラップ設置フェーズを挟む。いなければ従来通りそのまま戦闘開始。
@@ -2984,6 +3078,17 @@ function bbPerformEnemyTurnCombat(unit, moves) {
     return bbPickMoveTowardNode(unit, moves, bbNodesById[targetNodeId]);
 }
 function bbPerformEnemyTurn(unit) {
+    // 対戦相手選択で選んだタイプに応じて行動パターンを切り替える：
+    // ・直進ちゃん(straight)：常に旗へ最短距離で進む。
+    // ・武闘派さん(combat)：一番近い敵を追う（隣接できれば行動選択フェーズで自動的に攻撃する）。
+    // ・ランダムくん(random)：行動のたびに上記2つのどちらかをランダムに選ぶ。
+    // ・顧問 髭紫(stationary)：駒を一切移動させず、旗も取りに行かない。その場から行動選択
+    // 　フェーズへ進み、隣接する敵がいれば戦う（bbEnterActionPhase側は移動の有無に関わらず
+    // 　隣接する敵・岩への行動を自動的に行うため、ここでは移動計算自体を省略するだけでよい）。
+    if (bbSelectedOpponentType === 'stationary') {
+        bbEnterActionPhase(unit);
+        return;
+    }
     const moves = bbGetMovableNeighbors(unit);
     if (moves.length === 0) {
         // 移動できる場所が無くても、隣接する敵や岩があれば行動できるかもしれないので、
@@ -2992,10 +3097,6 @@ function bbPerformEnemyTurn(unit) {
         bbEnterActionPhase(unit);
         return;
     }
-    // 対戦相手選択で選んだタイプに応じて行動パターンを切り替える：
-    // ・直進ちゃん(straight)：常に旗へ最短距離で進む。
-    // ・武闘派さん(combat)：一番近い敵を追う（隣接できれば行動選択フェーズで自動的に攻撃する）。
-    // ・ランダムくん(random)：行動のたびに上記2つのどちらかをランダムに選ぶ。
     let mode = bbSelectedOpponentType;
     if (mode === 'random') mode = (Math.random() < 0.5) ? 'straight' : 'combat';
     const chosen = (mode === 'combat') ? bbPerformEnemyTurnCombat(unit, moves) : bbPerformEnemyTurnStraight(unit, moves);
@@ -3105,6 +3206,15 @@ function bbEnterActionPhase(unit) {
             return;
         }
     }
+    // ピッツァパーティー：隣接する未強化の仲間が1体でもいれば、通常攻撃よりも優先して使う
+    // （まず味方を強化してから戦う、という支援型カレーの簡易的なAI判断基準）。
+    if (bbHasPizzaParty(unit)) {
+        const ppAllies = bbGetPizzaPartyTargetAllies(unit);
+        if (ppAllies.length > 0) {
+            bbTelegraphAiAction(unit, unit.nodeId, () => bbResolvePizzaParty(unit));
+            return;
+        }
+    }
     const targets = bbGetAdjacentActionTargets(unit);
     // 敵（AI）：攻撃できる相手がいれば最優先、いなければわんぱく系（岩砕き）なら隣接する岩を破壊する。
     let chosen = null;
@@ -3176,6 +3286,15 @@ function bbGetSkillTargetsFor(unit) {
         // 使用済み（unit.bbUsedNebaNeba）の場合はbbHasNebaNebaKudan自体がfalseを返すため、
         // ここには到達しない＝この関数を呼ぶ前の時点でコマンドがグレーアウトされる。
         return { key: 'nebaneba', name: 'ネバネバクダン', targets: bbGetMeleeAdjacentTargets(unit) };
+    }
+    if (bbHasPizzaParty(unit)) {
+        // ピッツァパーティーもヒリヒリクラッシュと同じく対象を選ぶ技ではない（隣接する仲間
+        // 全員がまとめて対象になる）ため、コマンドボタンの有効/無効判定にのみ使う
+        // （実行自体はbbOnCommandSkill側で即時に行う）。強化できる相手（未強化の隣接する
+        // 仲間）が1体もいない場合は対象なし（targets:[]）を返し、コマンドをグレーアウトさせる。
+        const node = bbNodesById[unit.nodeId];
+        const hasTarget = bbGetPizzaPartyTargetAllies(unit).length > 0;
+        return { key: 'pizzaparty', name: 'ピッツァパーティー', targets: (hasTarget && node) ? [node] : [] };
     }
     return { key: null, name: '特技', targets: [] };
 }
@@ -3317,6 +3436,16 @@ function bbOnCommandSkill() {
         bbResolveHiriHiri(actor);
         return;
     }
+    if (info.key === 'pizzaparty') {
+        // ピッツァパーティーもヒリヒリクラッシュと同様、対象を選ぶ技ではない（隣接する未強化の
+        // 仲間全員がまとめて対象になる）ため、対象選択タップを挟まず即時実行する。
+        if (info.targets.length === 0) return;
+        bbCloseCommandMenu();
+        bbNodes.forEach(n => { n.highlight = null; });
+        bbRenderBoard();
+        bbResolvePizzaParty(actor);
+        return;
+    }
     bbBeginTargetSelection(actor, info.targets, 'skill');
 }
 function bbOnCommandWait() {
@@ -3348,6 +3477,11 @@ function bbExecutePickedCommand(actor, nodeId, mode) {
     // 個別の対象を選ぶのではなく「自分のマスをタップして確定する」だけの自己対象コマンド）。
     if (mode === 'skill' && nodeId === actor.nodeId && bbHasHiriHiri(actor)) {
         bbResolveHiriHiri(actor);
+        return;
+    }
+    // ピッツァパーティー：ヒリヒリクラッシュと同じく対象は常に自分自身のマス。
+    if (mode === 'skill' && nodeId === actor.nodeId && bbHasPizzaParty(actor)) {
+        bbResolvePizzaParty(actor);
         return;
     }
     // ネバネバクダン：種発射と同じ「対象を選んでその場で解決」する能動技だが、通常戦闘
@@ -3410,6 +3544,7 @@ function bbResolveSeedShot(attacker, defender) {
     bbAppendLog(`${attacker.name} の「種発射」！`);
     bbRenderBoard();
     if (bbHasSeedGuard(defender)) {
+        bbClearPizzaPartyBuff(attacker); // ATK依存の攻撃（種発射）を使ったため、ピッツァパーティーの効果があれば解除（防がれた場合も「使用した」ことに変わりはない）
         bbAppendLog(`${defender.name} は盾で防いだ！ ダメージ0。`);
         bbPlaySeedHitEffect(defender.nodeId, 'Guard', 'sound/guard.mp3', function () {
             setTimeout(bbScheduleNextTurn, 200);
@@ -3417,6 +3552,7 @@ function bbResolveSeedShot(attacker, defender) {
         return;
     }
     if (bbIsHomerunCurry(defender)) {
+        bbClearPizzaPartyBuff(attacker);
         bbAppendLog(`${defender.name} が打ち返した！ ダメージ0。`);
         bbPlaySeedHitEffect(defender.nodeId, 'Guard', 'sound/homerun.mp3', function () {
             setTimeout(bbScheduleNextTurn, 200);
@@ -3425,7 +3561,10 @@ function bbResolveSeedShot(attacker, defender) {
     }
     // ふわとろオムカレー「ふわとろバリア」：自分・隣接する仲間が対象の場合、ダメージを50%にする。
     const fluffyMul = bbGetFluffyBarrierMultiplier(defender);
+    // ダメージ計算にはピッツァパーティーで強化された現在のATKを使い、計算し終えた直後に効果を解除する
+    // （このダメージ自体は強化された値のまま与えられ、以後の行動からは元のATKに戻る）。
     const dmg = Math.max(1, Math.round(bbCalcSeedShotDamage(attacker, defender) * fluffyMul));
+    bbClearPizzaPartyBuff(attacker);
     defender.hp = Math.max(0, defender.hp - dmg);
     bbAppendLog(`${defender.name} に${dmg}ダメージ！（残HP ${defender.hp}/${defender.maxHp}）`);
     if (fluffyMul < 1) bbPlaySfx('taiyou.mp3');
@@ -3517,6 +3656,39 @@ function bbResolveHiriHiri(actor) {
 }
 
 // ------------------------------------------------------------
+// 8.655 マルゲリータの「ピッツァパーティー」
+//    コマンドで選択すると、自分に隣接する仲間カレー全員（まだ効果を受けていない者に限る＝
+//    重複不可）のATKを+80する。unit.atk（盤上の簡易ダメージ計算：種発射・ネバネバクダンが参照）と
+//    unit.raw.atk（本編の戦闘カットインが参照するスナップショットの元データ）の両方を同時に
+//    上げておくことで、どちらの攻撃手段でも強化後の値が反映される。
+//    効果は対象カレーが実際にATK依存の攻撃（通常戦闘・種発射・ネバネバクダン）を使った時点で
+//    bbClearPizzaPartyBuffにより解除される（bbResolveBattle・bbResolveSeedShot・
+//    bbResolveNebaNebaKudan側から呼ぶ）。対戦終了時（bbEndBattle）にも念のため全員分を解除する。
+// ------------------------------------------------------------
+const BB_PIZZA_PARTY_ATK_BONUS = 80;
+function bbApplyPizzaPartyBuff(unit) {
+    if (!unit || unit.bbPizzaPartyBuffed) return; // 重複不可：既に効果がかかっている場合は何もしない
+    unit.bbPizzaPartyBuffed = true;
+    unit.atk = (unit.atk || 0) + BB_PIZZA_PARTY_ATK_BONUS;
+    if (unit.raw) unit.raw.atk = (unit.raw.atk || 0) + BB_PIZZA_PARTY_ATK_BONUS;
+}
+function bbClearPizzaPartyBuff(unit) {
+    if (!unit || !unit.bbPizzaPartyBuffed) return;
+    unit.bbPizzaPartyBuffed = false;
+    unit.atk = Math.max(0, (unit.atk || 0) - BB_PIZZA_PARTY_ATK_BONUS);
+    if (unit.raw) unit.raw.atk = Math.max(0, (unit.raw.atk || 0) - BB_PIZZA_PARTY_ATK_BONUS);
+}
+function bbResolvePizzaParty(actor) {
+    bbAppendLog(`${actor.name} の「ピッツァパーティー」！`);
+    const allies = bbGetPizzaPartyTargetAllies(actor);
+    allies.forEach(bbApplyPizzaPartyBuff);
+    bbPlaySfx('ieeei.mp3');
+    bbRenderBoard();
+    allies.forEach(u => bbShowDamagePop(u.nodeId, 'ATK↑', 'bb-buff-pop'));
+    setTimeout(bbScheduleNextTurn, 500);
+}
+
+// ------------------------------------------------------------
 // 8.66 ネバネバカレーの「ネバネバクダン」
 //    隣接する敵1体に通常攻撃1回分のダメージ（種発射と同じ簡易ATK-DEF式）を与え、
 //    さらに「1回休み」（unit.bbSkipNextTurn）を付与する。1体につき戦闘中1回のみ使用可能
@@ -3531,7 +3703,10 @@ function bbResolveNebaNebaKudan(actor, defender) {
     // ふわとろオムカレー「ふわとろバリア」：defender自身、またはdefenderに隣接する仲間が
     // 持っていればダメージを半減する。
     const fluffyMul = bbGetFluffyBarrierMultiplier(defender);
+    // ダメージ計算にはピッツァパーティーで強化された現在のATKを使い、計算し終えた直後に効果を解除する
+    // （このダメージ自体は強化された値のまま与えられ、以後の行動からは元のATKに戻る）。
     const dmg = Math.max(1, Math.round(bbCalcSeedShotDamage(actor, defender) * fluffyMul));
+    bbClearPizzaPartyBuff(actor); // ATK依存の攻撃（通常攻撃扱い）を使ったため、ピッツァパーティーの効果があれば解除
     defender.hp = Math.max(0, defender.hp - dmg);
     bbAppendLog(`${defender.name} に${dmg}ダメージ！（残HP ${defender.hp}/${defender.maxHp}）`);
     if (fluffyMul < 1) bbPlaySfx('taiyou.mp3');
@@ -3608,6 +3783,11 @@ function bbResolveBattle(mover, defender) {
         bbPlayBattleBgm('sound/boardfield.mp3');
         playerUnit.hp = remainingPlayerHp;
         enemyUnit.hp = remainingOppHp;
+        // 通常戦闘（本編の対戦カットイン）はATK依存の攻撃そのものなので、両者ともここで
+        // ピッツァパーティーの効果があれば解除する（カットイン自体はmyCurrySnapshot/
+        // oppCurrySnapshotとして戦闘開始時点の強化後ATKを渡し済みのため、既に反映されている）。
+        bbClearPizzaPartyBuff(playerUnit);
+        bbClearPizzaPartyBuff(enemyUnit);
         const moverIsPlayer = (mover.team === 'player');
         const moverWon = moverIsPlayer ? didPlayerWin : !didPlayerWin;
         const winner = moverWon ? mover : defender;
@@ -3890,6 +4070,10 @@ function bbOnClaimRankReward(rank) {
 function bbEndBattle(winner, reason) {
     bbState.phase = 'result';
     bbState.activeUnit = null;
+    // ピッツァパーティー：対戦終了時に、まだ効果が残っている駒があれば全て解除する
+    // （通常はATK依存の攻撃を使った時点で個別に解除されるが、一度も使わずに対戦が
+    // 終わった場合の後始末として、念のためここでもまとめて解除しておく）。
+    bbState.units.forEach(bbClearPizzaPartyBuff);
     bbStopBattleBgm();
     bbUpdateHeaderCloseBtnLabel();
     // アナリティクス「⚔️バトル」：勝敗にかかわらず、対戦が最後まで終わった回数として1回分カウントする
@@ -4564,7 +4748,8 @@ function bbInjectDom() {
                     ●「バナナトラップ」：バナナトラップを設置できる<br>
                     ●「ネバネバクダン」：1度だけダメージ+1回休みを付与できる<br>
                     ●「太陽の恵み」：毎ターンHPを少し回復<br>
-                    ●「ふわとろバリア」：自分と隣接する仲間のダメージを軽減
+                    ●「ふわとろバリア」：自分と隣接する仲間のダメージを軽減<br>
+                    ●「ピッツァパーティー」：隣接する仲間の攻撃力を次の行動までアップ
                 </div>
                 <button class="bb-actionBtn bb-secondary" onclick="window.__bbCloseHelp()">閉じる</button>
             </div>
