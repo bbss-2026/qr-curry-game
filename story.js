@@ -135,7 +135,7 @@ const STORY_LIBRARY_ENABLED = true; // 図書館タブから全プレイヤー�
     // デバッグ用：読書画面に小さく表示するビルド番号。デプロイのたびに更新し、実機で本当に
     // 最新のstory.jsが読み込まれているか（キャッシュが残っていないか）を目視確認できるようにする。
     // 一般公開（STORY_LIBRARY_ENABLED=true）前には削除すること。
-    const STORY_ENGINE_BUILD = 'b44';
+    const STORY_ENGINE_BUILD = 'b45';
     const STORY_UNLOCK_STORAGE_KEY = 'qr_story_library_unlocked';
     const STORY_BOOK_SPAWN_STAGGER_MS = 90;
     const STORY_BOOK_SPAWN_DURATION_MS = 550;
@@ -728,16 +728,6 @@ const STORY_LIBRARY_ENABLED = true; // 図書館タブから全プレイヤー�
 #storyReaderBg {
     position:absolute; inset:0; background-size:cover; background-position:center; background-color:#000;
 }
-/* 紙面全体を覆う「黒の乗算」風の暗さ演出（beat.dim＝0〜1の数値で不透明度を指定）。
-   #storyReaderContent（挿絵・テキストエリア、z-index:2）より下、#storyReaderBg（背景紙、z-index:auto）
-   より上に置くことで、挿絵が無いページでも背景紙だけを覆って不穏な雰囲気を出せるようにしつつ、
-   セリフ本文は常にこのレイヤーの前面（=通常の見た目のまま）で読めるようにしている。
-   黒（#000）を重ねるだけなので、mix-blend-mode:multiplyを使わなくても「黒の乗算」と
-   見た目上まったく同じ結果になる（黒はどんな色に乗算しても黒になるため）。 */
-#storyReaderDim {
-    position:absolute; inset:0; z-index:1; background:#000; opacity:0; pointer-events:none;
-    transition:opacity 0.4s ease;
-}
 /* 挿絵＋テキストエリアをまとめて縦に並べるコンテナ。flexで上から積む（絶対値のtopを別々に
    指定しないことで、挿絵の実際の高さに関わらずテキストが必ず挿絵の下に来るようにしている）。 */
 #storyReaderContent {
@@ -758,9 +748,12 @@ const STORY_LIBRARY_ENABLED = true; // 図書館タブから全プレイヤー�
     position:absolute; left:50%; top:50%; width:70%; height:auto;
     transform:translate(-50%,-50%); display:none; pointer-events:none;
 }
-/* 挿絵の上に重ねる黒いオーバーレイ（回想の演出等で使用）。beat.overlayで表示/非表示を切り替える。 */
+/* 挿絵の上に重ねる黒いオーバーレイ（回想の演出等で使用）。beat.overlayで表示/非表示を切り替える。
+   true/falseの従来指定は不透明度0.6固定、0〜1の数値を指定すると「画像の代わりに黒を入れる」
+   演出として、その不透明度で挿絵枠(imgWrap)全体を塗りつぶす（book-10の回想フラッシュ用）。
+   背景を単色の黒(#000)にしておき、不透明度はJS側でstyle.opacityを直接指定して制御する。 */
 #storyReaderImageOverlay {
-    position:absolute; inset:0; background:rgba(0,0,0,0.6); display:none; pointer-events:none;
+    position:absolute; inset:0; background:#000; display:none; opacity:0.6; pointer-events:none;
     transition:opacity 0.3s ease;
 }
 /* 画面全体の暗転（エンディング等の演出用）。挿絵の枠だけでなくstoryReaderOverlay全体を覆う。 */
@@ -923,7 +916,6 @@ const STORY_LIBRARY_ENABLED = true; // 図書館タブから全プレイヤー�
             + '</div>'
             + '<div id="storyReaderOverlay">'
             + '<div id="storyReaderBg"></div>'
-            + '<div id="storyReaderDim"></div>'
             + '<div id="storyReaderContent">'
             + '<div id="storyReaderImageWrap">'
             + '<img id="storyReaderImage" alt="">'
@@ -1462,11 +1454,13 @@ const STORY_LIBRARY_ENABLED = true; // 図書館タブから全プレイヤー�
             btn.classList.add('story-book-action-disabled');
         } else if (chapter.num === 10 && typeof isStoryLibraryAdminUser === 'function' && isStoryLibraryAdminUser()) {
             // book10：まだ一般公開前のため、管理者キャラクターだけが確認できるようにする
-            // （一般プレイヤーには従来通り「解放条件は後日公開予定」のまま、下のelseに落ちる）。
-            // 想いの欠片を消費させる意味はないので、unlockCostを0にして「解放」ボタンの
-            // 仕組み（onStoryBookUnlockClick）をそのまま流用するだけにしている。
-            chapter.unlockCost = 0;
-            btn.textContent = '解放（管理者プレビュー）';
+            // （一般プレイヤーには従来通り「解放条件は後日公開予定」のまま、下のelseに落ちる。
+            // STORY_CHAPTERSは各プレイヤーのブラウザ内でだけ組み立てられる配列のため、この
+            // unlockCostの数値化は管理者自身のセッション内に閉じており、一般プレイヤー側には
+            // 影響しない）。想いの欠片100個で解放（book9と同じく、条件を満たした時点で
+            // unlockCostを数値化し、以降は他の本と全く同じ「想いの欠片で解放」フローに乗せる）。
+            chapter.unlockCost = 100;
+            btn.textContent = '解放';
             btn.style.display = 'inline-block';
             btn.onclick = function(e) { e.stopPropagation(); onStoryBookUnlockClick(chapter); };
         } else {
@@ -2023,25 +2017,54 @@ const STORY_LIBRARY_ENABLED = true; // 図書館タブから全プレイヤー�
         if (Object.prototype.hasOwnProperty.call(src, 'image')) {
             const imgWrap = storyLibraryState.overlayEl.querySelector('#storyReaderImageWrap');
             const imgEl = storyLibraryState.overlayEl.querySelector('#storyReaderImage');
+            storyLibraryState.readerImageSet = !!src.image;
             if (imgWrap && imgEl) {
-                if (src.image) { imgEl.src = src.image; imgWrap.style.display = 'block'; }
-                else { imgWrap.style.display = 'none'; imgEl.removeAttribute('src'); }
+                if (src.image) {
+                    imgEl.src = src.image;
+                    imgEl.style.visibility = '';
+                    imgWrap.style.display = 'block';
+                } else {
+                    imgEl.removeAttribute('src');
+                    // 数値指定のoverlay（黒塗り演出）が有効中なら、imageが無くなっても
+                    // 挿絵枠自体は表示したまま（テキスト位置を維持する）にしておく。
+                    if (storyLibraryState.readerOverlayForcedWrap) {
+                        imgEl.style.visibility = 'hidden';
+                    } else {
+                        imgWrap.style.display = 'none';
+                    }
+                }
             }
         }
 
+        // 挿絵の上に重ねる黒いオーバーレイ。true/falseは従来通りの半透明オーバーレイ、
+        // 0〜1の数値を指定すると「挿絵が入るはずの正方形の枠に、画像の代わりに黒を入れる」
+        // 演出になる（book-10の回想フラッシュ用）。数値指定時はimageが無くても挿絵枠(imgWrap)を
+        // 強制的に表示し、通常の挿絵ありページと同じレイアウト・同じテキスト位置を保つ。
         if (Object.prototype.hasOwnProperty.call(src, 'overlay')) {
+            const imgWrap = storyLibraryState.overlayEl.querySelector('#storyReaderImageWrap');
+            const imgEl = storyLibraryState.overlayEl.querySelector('#storyReaderImage');
             const overlayEl = storyLibraryState.overlayEl.querySelector('#storyReaderImageOverlay');
-            if (overlayEl) overlayEl.style.display = src.overlay ? 'block' : 'none';
-        }
-
-        // 紙面全体を覆う「黒の乗算」演出（0〜1の数値）。beat.overlayとは別レイヤー・別用途で、
-        // 挿絵の有無に関わらず使え、通常のセリフ表示（テキストエリア）の見た目・進め方には
-        // 一切影響しない（暗転:blackoutのようにテキストの表示先を切り替えたりはしない）。
-        if (Object.prototype.hasOwnProperty.call(src, 'dim')) {
-            const dimEl = storyLibraryState.overlayEl.querySelector('#storyReaderDim');
-            if (dimEl) {
-                const v = (typeof src.dim === 'number') ? Math.max(0, Math.min(1, src.dim)) : 0;
-                dimEl.style.opacity = String(v);
+            const isNumeric = typeof src.overlay === 'number';
+            if (overlayEl) {
+                if (isNumeric) {
+                    const v = Math.max(0, Math.min(1, src.overlay));
+                    overlayEl.style.opacity = String(v);
+                    overlayEl.style.display = v > 0 ? 'block' : 'none';
+                } else {
+                    overlayEl.style.opacity = '0.6';
+                    overlayEl.style.display = src.overlay ? 'block' : 'none';
+                }
+            }
+            const forceWrap = isNumeric && src.overlay > 0;
+            storyLibraryState.readerOverlayForcedWrap = forceWrap;
+            if (imgWrap) {
+                if (forceWrap) {
+                    imgWrap.style.display = 'block';
+                    if (imgEl && !storyLibraryState.readerImageSet) imgEl.style.visibility = 'hidden';
+                } else if (!storyLibraryState.readerImageSet) {
+                    imgWrap.style.display = 'none';
+                    if (imgEl) imgEl.style.visibility = '';
+                }
             }
         }
 
@@ -2083,6 +2106,16 @@ const STORY_LIBRARY_ENABLED = true; // 図書館タブから全プレイヤー�
             if (!src.blackout) {
                 const centerTextEl = storyLibraryState.overlayEl.querySelector('#storyReaderCenterText');
                 if (centerTextEl) { centerTextEl.classList.remove('story-center-text-visible'); centerTextEl.textContent = ''; }
+            }
+        }
+
+        // 本選択画面の館長会話と同じ、画面下部の館長イラスト＋メッセージウインドウ層の表示切替。
+        // 既に表示中なら再フェードインはさせない（連続する館長セリフでのチラつき防止）。
+        if (Object.prototype.hasOwnProperty.call(src, 'libraryman')) {
+            if (src.libraryman) {
+                showReaderLibrarymanIdempotent();
+            } else {
+                hideReaderLibraryman();
             }
         }
 
@@ -2146,14 +2179,22 @@ const STORY_LIBRARY_ENABLED = true; // 図書館タブから全プレイヤー�
         if (!Object.prototype.hasOwnProperty.call(page, 'overlay')) {
             const overlayEl = storyLibraryState.overlayEl.querySelector('#storyReaderImageOverlay');
             if (overlayEl) overlayEl.style.display = 'none';
-        }
-        if (!Object.prototype.hasOwnProperty.call(page, 'dim')) {
-            const dimEl = storyLibraryState.overlayEl.querySelector('#storyReaderDim');
-            if (dimEl) dimEl.style.opacity = '0';
+            storyLibraryState.readerOverlayForcedWrap = false;
+            // 数値overlayによる「挿絵枠の強制表示」だったぶんだけリセットする（実際の挿絵(image)が
+            // 別途持続表示中の場合は、そちらはこれまで通り維持する）。
+            if (!storyLibraryState.readerImageSet) {
+                const imgWrap = storyLibraryState.overlayEl.querySelector('#storyReaderImageWrap');
+                const imgEl = storyLibraryState.overlayEl.querySelector('#storyReaderImage');
+                if (imgWrap) imgWrap.style.display = 'none';
+                if (imgEl) imgEl.style.visibility = '';
+            }
         }
         if (!Object.prototype.hasOwnProperty.call(page, 'blackout')) {
             const blackoutEl = storyLibraryState.overlayEl.querySelector('#storyReaderBlackout');
             if (blackoutEl) blackoutEl.classList.remove('story-reader-blackout-visible');
+        }
+        if (!Object.prototype.hasOwnProperty.call(page, 'libraryman')) {
+            hideReaderLibraryman();
         }
         const centerTextEl = storyLibraryState.overlayEl.querySelector('#storyReaderCenterText');
         if (centerTextEl) { centerTextEl.classList.remove('story-center-text-visible'); centerTextEl.textContent = ''; }
@@ -2283,8 +2324,8 @@ const STORY_LIBRARY_ENABLED = true; // 図書館タブから全プレイヤー�
             // 既存のメッセージウインドウ（タイプライター＋効果音）を流用
             if (textArea) textArea.style.display = 'none';
             if (blackoutTextEl) { blackoutTextEl.style.display = 'none'; blackoutTextEl.innerHTML = ''; }
-            showStoryDialogueLayerOnly(); // 館長の画像は出さず、ウインドウだけ表示
-            const speaker = beat.say ? beat.say : '';
+            showStoryDialogueLayerOnly(); // ウインドウを表示（館長イラスト自体はlibrarymanビートで別途制御）
+            const speaker = resolveStoryPlaceholders(beat.say ? beat.say : '');
             const text = resolveStoryPlaceholders(beat.say ? beat.text : beat.narration);
             startTypewriter(text, null, speaker);
         } else if (beat.text) {
@@ -2376,7 +2417,6 @@ const STORY_LIBRARY_ENABLED = true; // 図書館タブから全プレイヤー�
         const imgEl = storyLibraryState.overlayEl.querySelector('#storyReaderImage');
         const silEl = storyLibraryState.overlayEl.querySelector('#storyReaderSilhouette');
         const overlayEl = storyLibraryState.overlayEl.querySelector('#storyReaderImageOverlay');
-        const dimEl = storyLibraryState.overlayEl.querySelector('#storyReaderDim');
         const blackoutEl = storyLibraryState.overlayEl.querySelector('#storyReaderBlackout');
         const centerTextEl = storyLibraryState.overlayEl.querySelector('#storyReaderCenterText');
         const blackoutTextEl = storyLibraryState.overlayEl.querySelector('#storyReaderBlackoutText');
@@ -2392,12 +2432,14 @@ const STORY_LIBRARY_ENABLED = true; // 図書館タブから全プレイヤー�
         if (textArea) { textArea.style.display = 'none'; textArea.innerHTML = ''; }
         if (blackoutTextEl) { blackoutTextEl.style.display = 'none'; blackoutTextEl.innerHTML = ''; }
         if (imgWrap) imgWrap.style.display = 'none';
-        if (imgEl) imgEl.removeAttribute('src');
+        if (imgEl) { imgEl.removeAttribute('src'); imgEl.style.visibility = ''; }
         if (silEl) { silEl.style.display = 'none'; silEl.removeAttribute('src'); }
         if (overlayEl) overlayEl.style.display = 'none';
-        if (dimEl) dimEl.style.opacity = '0';
         if (blackoutEl) blackoutEl.classList.remove('story-reader-blackout-visible');
         if (centerTextEl) { centerTextEl.classList.remove('story-center-text-visible'); centerTextEl.textContent = ''; }
+        hideReaderLibraryman();
+        storyLibraryState.readerImageSet = false;
+        storyLibraryState.readerOverlayForcedWrap = false;
         if (readerOverlay) readerOverlay.style.display = 'none';
         if (readerCloseBtn) readerCloseBtn.style.display = 'none';
         if (prevBtn) prevBtn.style.display = 'none';
@@ -2462,6 +2504,31 @@ const STORY_LIBRARY_ENABLED = true; // 図書館タブから全プレイヤー�
         storyLibraryState.dialogueSession++;
         const layer = storyLibraryState.overlayEl.querySelector('#storyDialogueLayer');
         layer.style.display = 'block';
+    }
+
+    // 咖喱図書館・本文（reader）中に、本選択画面の館長会話と同じ館長イラストを表示する。
+    // showStoryLibraryman()と違い、既に表示中（フェードイン済み）なら再度フェードインさせない
+    // （book-10のように連続する館長セリフでチラつかせないため）。
+    function showReaderLibrarymanIdempotent() {
+        if (!storyLibraryState.overlayEl) return;
+        const layer = storyLibraryState.overlayEl.querySelector('#storyDialogueLayer');
+        const manImg = storyLibraryState.overlayEl.querySelector('#storyLibraryman');
+        if (!layer || !manImg) return;
+        layer.style.display = 'block';
+        if (!manImg.classList.contains('story-man-visible')) {
+            manImg.classList.remove('story-man-visible');
+            requestAnimationFrame(function() {
+                manImg.classList.add('story-man-visible');
+            });
+        }
+    }
+
+    // 上記の非表示側。会話レイヤー自体は（他のsayビートがまだ続く可能性があるため）閉じず、
+    // 館長イラストだけを引っ込める。
+    function hideReaderLibraryman() {
+        if (!storyLibraryState.overlayEl) return;
+        const manImg = storyLibraryState.overlayEl.querySelector('#storyLibraryman');
+        if (manImg) manImg.classList.remove('story-man-visible');
     }
 
     // 指定時間後に最初のセリフ表示を開始する。待っている間にタップされてもページが
