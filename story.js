@@ -135,7 +135,7 @@ const STORY_LIBRARY_ENABLED = true; // 図書館タブから全プレイヤー�
     // デバッグ用：読書画面に小さく表示するビルド番号。デプロイのたびに更新し、実機で本当に
     // 最新のstory.jsが読み込まれているか（キャッシュが残っていないか）を目視確認できるようにする。
     // 一般公開（STORY_LIBRARY_ENABLED=true）前には削除すること。
-    const STORY_ENGINE_BUILD = 'b45';
+    const STORY_ENGINE_BUILD = 'b46';
     const STORY_UNLOCK_STORAGE_KEY = 'qr_story_library_unlocked';
     const STORY_BOOK_SPAWN_STAGGER_MS = 90;
     const STORY_BOOK_SPAWN_DURATION_MS = 550;
@@ -654,6 +654,14 @@ const STORY_LIBRARY_ENABLED = true; // 図書館タブから全プレイヤー�
     box-shadow:0 8px 20px rgba(0,0,0,0.25); display:none;
 }
 #storyBookDetailRebattleBtn:active { background:rgba(170,50,35,0.9); }
+/* 再生ボタン：book-10のエンディング動画(story/10end.mp4)を撃破後いつでも見返せるようにする専用ボタン。
+   「再読」「再戦」と並べて表示する（book-10のみ、撃破済みの場合にのみ表示）。 */
+#storyBookDetailReplayBtn {
+    background:rgba(35,70,110,0.85); color:#fff; border:1px solid rgba(255,255,255,0.4);
+    border-radius:999px; padding:10px 28px; font-size:14px; font-weight:bold; cursor:pointer;
+    box-shadow:0 8px 20px rgba(0,0,0,0.25); display:none;
+}
+#storyBookDetailReplayBtn:active { background:rgba(45,90,140,0.9); }
 /* 本棚に戻る×。本の表紙表示中は、咖喱図書館から出る×（storyLibraryCloseBtn）と同じ左上の位置に表示し、
    紛らわしい2つの×が同時に出ないようにする（storyLibraryCloseBtn側はopenStoryBookDetail()内で非表示にする）。 */
 #storyBookDetailCloseBtn {
@@ -818,6 +826,20 @@ const STORY_LIBRARY_ENABLED = true; // 図書館タブから全プレイヤー�
     position:absolute; inset:0; z-index:35; background:#fff; opacity:0;
     pointer-events:none; transition:opacity 0.25s ease;
 }
+/* 咖喱図書館専用のムービー再生レイヤー（book-10撃破後の館長イベント／拡大画面の「再生」ボタン用）。
+   ゲーム本体側の#eventMovieVideo（特盛りイベント用）とは完全に独立した自前実装で、
+   図書館の中で完結させる（他機能と共有すると再生中の状態が干渉し合うおそれがあるため）。
+   #storyLibraryOverlay内の他レイヤーより常に前面（36。ホワイトアウトの35より上）に出す。 */
+#storyMovieOverlay {
+    position:absolute; inset:0; z-index:36; display:none;
+    background:#000; align-items:center; justify-content:center;
+}
+#storyMovieVideo { max-width:100%; max-height:100%; }
+#storyMovieSkipBtn {
+    position:absolute; right:16px; bottom:16px; z-index:37;
+    background:rgba(0,0,0,0.55); color:#fff; border:1px solid rgba(255,255,255,0.4);
+    border-radius:999px; padding:8px 20px; font-size:13px; font-weight:bold; cursor:pointer;
+}
 
 /* ===== 咖喱図書館：本のボス戦 ===== */
 /* 読了済みの本の表紙に重ねる薄暗いオーバーレイ＋eyes.gif（横幅いっぱい・縦センター）。
@@ -907,6 +929,7 @@ const STORY_LIBRARY_ENABLED = true; // 図書館タブから全プレイヤー�
             + '<div id="storyBookDetailActionRow">'
             + '<button id="storyBookDetailActionBtn"></button>'
             + '<button id="storyBookDetailRebattleBtn">再戦</button>'
+            + '<button id="storyBookDetailReplayBtn">再生</button>'
             + '</div>'
             + '</div>'
             + '</div>'
@@ -932,6 +955,10 @@ const STORY_LIBRARY_ENABLED = true; // 図書館タブから全プレイヤー�
             + '<button id="storyReaderPrevBtn">◀</button>'
             + '<div id="storyReaderDebugLine">' + STORY_ENGINE_BUILD + '</div>'
             + '<div id="storyTransitionWhiteout"></div>'
+            + '<div id="storyMovieOverlay">'
+            + '<video id="storyMovieVideo" playsinline></video>'
+            + '<button id="storyMovieSkipBtn">スキップ</button>'
+            + '</div>'
             + '</div>';
         document.body.appendChild(overlay);
         storyLibraryState.overlayEl = overlay;
@@ -1027,6 +1054,10 @@ const STORY_LIBRARY_ENABLED = true; // 図書館タブから全プレイヤー�
             e.stopPropagation();
             if (storyLibraryState.readerCloseDisabled) return;
             goToPrevReaderPage();
+        });
+        overlay.querySelector('#storyMovieSkipBtn').addEventListener('click', function(e) {
+            e.stopPropagation();
+            skipStoryMovie();
         });
 
         storyLibraryState.rotationY = 0;
@@ -1482,6 +1513,18 @@ const STORY_LIBRARY_ENABLED = true; // 図書館タブから全プレイヤー�
                 rebattleBtn.onclick = null;
             }
         }
+
+        // 再生ボタン：book-10のみ、撃破済みならエンディング動画をいつでも見返せるようにする。
+        const replayBtn = storyLibraryState.overlayEl.querySelector('#storyBookDetailReplayBtn');
+        if (replayBtn) {
+            if (chapter.num === 10 && !chapter.locked && hasStoryChapterBeenCleared(10)) {
+                replayBtn.style.display = 'inline-block';
+                replayBtn.onclick = function(e) { e.stopPropagation(); playStoryMovie('story/10end.mp4', function() {}); };
+            } else {
+                replayBtn.style.display = 'none';
+                replayBtn.onclick = null;
+            }
+        }
     }
 
     function onStoryBookUnlockClick(chapter) {
@@ -1704,6 +1747,8 @@ const STORY_LIBRARY_ENABLED = true; // 図書館タブから全プレイヤー�
         maybeStartLibraryCompleteEvent();
         // book9（現状は管理者のみ到達可能）を初めて討伐した時の館長イベント。
         maybeStartBook9CompleteEvent();
+        // book10を初めて討伐した時の館長イベント（エンディング動画＋新食材5種の解放）。
+        maybeStartBook10CompleteEvent();
     }
 
     // ===== book1〜8全ボス討伐イベント（1回だけ発生） =====
@@ -1723,7 +1768,7 @@ const STORY_LIBRARY_ENABLED = true; // 図書館タブから全プレイヤー�
     // 拡大画面の「×」「再読/戦う」「再戦」の3ボタンをまとめて無効化／有効化する。
     function setLibraryDetailButtonsDisabled(disabled) {
         if (!storyLibraryState.overlayEl) return;
-        const ids = ['storyBookDetailCloseBtn', 'storyBookDetailActionBtn', 'storyBookDetailRebattleBtn'];
+        const ids = ['storyBookDetailCloseBtn', 'storyBookDetailActionBtn', 'storyBookDetailRebattleBtn', 'storyBookDetailReplayBtn'];
         ids.forEach(function(id) {
             const btn = storyLibraryState.overlayEl.querySelector('#' + id);
             if (!btn) return;
@@ -1804,6 +1849,49 @@ const STORY_LIBRARY_ENABLED = true; // 図書館タブから全プレイヤー�
         };
         showStoryDialogueLayerOnly(); // 拡大画面では館長の画像は出さない（既存の他イベントと同じ方針）
         scheduleDialogueStart(300);
+    }
+
+    // ===== book10ボス討伐イベント（1回だけ発生） =====
+    const STORY_BOOK10_COMPLETE_SEEN_KEY = 'qr_story_book10_complete_seen';
+    function hasSeenBook10CompleteEvent() {
+        try { return localStorage.getItem(STORY_BOOK10_COMPLETE_SEEN_KEY) === '1'; } catch (e) { return false; }
+    }
+    function setBook10CompleteEventSeen(v) {
+        try { localStorage.setItem(STORY_BOOK10_COMPLETE_SEEN_KEY, v ? '1' : '0'); } catch (e) {}
+    }
+    // book10を初めて討伐した時、本の拡大画面に戻ったタイミングで一度だけ発生する館長イベント。
+    // book1〜8・book9のイベントと違い、エンディング動画(story/10end.mp4)を再生した後に、
+    // 館長の画像を表示した状態でセリフを進め（既存のshowStoryLibraryman()を使用）、最後に
+    // 新食材5種を解放する。
+    function maybeStartBook10CompleteEvent() {
+        if (hasSeenBook10CompleteEvent()) return;
+        if (!hasStoryChapterBeenCleared(10)) return;
+        if (storyLibraryState.mode === 'intro_dialogue') return; // 他の会話と衝突させない
+        setBook10CompleteEventSeen(true);
+        setLibraryDetailButtonsDisabled(true);
+
+        playStoryMovie('story/10end.mp4', function() {
+            storyLibraryState.mode = 'intro_dialogue';
+            storyLibraryState.dialogueQueue = [
+                { text: 'プレイヤー名...ありがとう' },
+                { text: 'これでいくつかの食材が解放された' },
+                { text: '全ての食材が自由に手に入るように戻るにはまだまだ時間はかかりそうだが' },
+                { text: 'これからも解放に協力してくれ' },
+            ];
+            storyLibraryState.dialogueIndex = 0;
+            storyLibraryState.onDialogueEnd = function() {
+                storyLibraryState.mode = 'carousel';
+                setLibraryDetailButtonsDisabled(false);
+                // 食材解放（サイレント）→保存→最後にポップで通知、の順（絵文字・解放食材名は出さない指定）
+                if (typeof unlockLibraryBook10Ingredients === 'function') unlockLibraryBook10Ingredients();
+                if (typeof saveGame === 'function') { try { saveGame(); } catch (e) {} }
+                if (typeof showCustomAlert === 'function') {
+                    showCustomAlert('食材解放', '5種類の食材が解放されました。');
+                }
+            };
+            showStoryLibraryman(); // book9と異なり、今回は館長の画像を表示する
+            scheduleDialogueStart(300);
+        });
     }
 
     // game.js側のdone()／abortMatchDeployment()を後からラップして、本のボス戦専用のフック・
@@ -1891,6 +1979,37 @@ const STORY_LIBRARY_ENABLED = true; // 図書館タブから全プレイヤー�
             try { a.pause(); a.currentTime = 0; } catch (e) {}
         });
         storyLibraryState.activeSeAudios = [];
+    }
+
+    // ===== 咖喱図書館専用のムービー再生（book-10撃破後の館長イベント／拡大画面の「再生」ボタン） =====
+    // ゲーム本体側の#eventMovieVideo（特盛りイベント用のplayEventMovie）とは独立した自前実装。
+    // 図書館の中で完結させることで、他機能の動画再生状態と干渉しないようにしている。
+    function playStoryMovie(src, onFinishCallback) {
+        const overlay = storyLibraryState.overlayEl && storyLibraryState.overlayEl.querySelector('#storyMovieOverlay');
+        const video = storyLibraryState.overlayEl && storyLibraryState.overlayEl.querySelector('#storyMovieVideo');
+        if (!overlay || !video) { if (typeof onFinishCallback === 'function') onFinishCallback(); return; }
+        let finished = false;
+        function finishOnce() {
+            if (finished) return;
+            finished = true;
+            overlay.style.display = 'none';
+            video.pause();
+            video.currentTime = 0;
+            video.onended = null;
+            video.removeAttribute('src');
+            storyLibraryState.__skipStoryMovie = null;
+            if (typeof onFinishCallback === 'function') onFinishCallback();
+        }
+        video.muted = (typeof isMuted !== 'undefined') && isMuted;
+        video.src = src;
+        video.currentTime = 0;
+        overlay.style.display = 'flex';
+        video.onended = finishOnce;
+        storyLibraryState.__skipStoryMovie = finishOnce;
+        video.play().catch(function() { finishOnce(); });
+    }
+    function skipStoryMovie() {
+        if (storyLibraryState.__skipStoryMovie) storyLibraryState.__skipStoryMovie();
     }
 
     // ===== 本編（各巻ストーリー）再生エンジン（絵本風ページ送り方式） =====
@@ -2264,6 +2383,13 @@ const STORY_LIBRARY_ENABLED = true; // 図書館タブから全プレイヤー�
                     renderReaderBeatText(beat);
                     storyLibraryState.readerBusy = false; // ここでタップ待ちの状態になる
                     updateReaderDebugLine();
+                } else if (beat.waitForTap) {
+                    // テキストを持たない制御用beatだが、自動進行せずタップ待ちにする
+                    // （book-10の回想フラッシュのように、演出の切り替わりをプレイヤー自身の
+                    // タップでコントロールさせたい場合に使う。▼は直前のセリフのものがそのまま
+                    // 表示され続けるため、ここで新たに出す必要はない）。
+                    storyLibraryState.readerBusy = false;
+                    updateReaderDebugLine();
                 } else {
                     // テキストを持たない制御用beat：効果だけ適用して自動的に次のbeatへ進む
                     const nextIndex = beatIndex + 1;
@@ -2572,11 +2698,11 @@ const STORY_LIBRARY_ENABLED = true; // 図書館タブから全プレイヤー�
             if (arrow) arrow.style.display = 'none';
             setTimeout(function() {
                 if (storyLibraryState.dialogueQueue[storyLibraryState.dialogueIndex] === page) {
-                    startTypewriter(page.text, page.choices || null);
+                    startTypewriter(resolveStoryPlaceholders(page.text), page.choices || null);
                 }
             }, delay);
         } else {
-            startTypewriter(page.text, page.choices || null);
+            startTypewriter(resolveStoryPlaceholders(page.text), page.choices || null);
         }
     }
 
@@ -2736,6 +2862,7 @@ const STORY_LIBRARY_ENABLED = true; // 図書館タブから全プレイヤー�
         if (typeof stopBattleBGM === 'function') {
             stopBattleBGM();
         }
+        skipStoryMovie(); // 再生中のムービー（「再生」ボタン等）があれば止めてから閉じる
         if (storyLibraryState.overlayEl) {
             storyLibraryState.overlayEl.remove();
         }
