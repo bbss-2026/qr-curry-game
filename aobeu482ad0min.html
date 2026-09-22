@@ -1050,6 +1050,8 @@ function actAnalytics() {
             + row('🧀 チーズまみれ', cook.cheese)
             + row('🍤 小えびスピード', cook.shrimp)
             + row('🍌 そんなバナナ', cook.banana)
+            + row('🟤 ハンバーグ', cook.hamburg)
+            + row('🍍 パイナップル論争', cook.pine)
 
             + section('⚔️ バトル')
             + row('PC戦（初級）', battle.bot)
@@ -1075,7 +1077,7 @@ function actPlayerProgress() {
         const easyCount  = {}; easyBots.forEach(function(n){ easyCount[n] = 0; });
         const hardCount  = {}; hardBots.forEach(function(n){ hardCount[n] = 0; });
         const tagCount   = {}; tagBots.forEach(function(n){ tagCount[n] = 0; });
-        // 咖喱図書館：本のボス討伐人数（09/10は未実装だが将来の実装に備えて先に集計対象へ含めておく）
+        // 咖喱図書館：本のボス討伐人数（09/10も一般プレイヤーに公開済みのため通常通り集計）
         const BOOK_TITLES = {
             1: 'ごちそうさま', 2: '50年', 3: '夏の思い出', 4: 'レシピのないカレー', 5: '辛い涙',
             6: 'たまねぎ', 7: '火を絶やすな', 8: '港のおっちゃん', 9: 'ぼくのヒーロー', 10: '？？？？？'
