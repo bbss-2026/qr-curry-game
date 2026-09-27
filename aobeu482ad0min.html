@@ -282,7 +282,7 @@ const masterIngredients = {
     "牛肉": { shop: 0 }, "牛タン": { shop: 1 }, "牛すじ": { shop: 0 }, "チキン": { shop: 0 },
     "唐揚げ": { shop: 0 }, "トンカツ": { shop: 0 }, "ウインナー": { shop: 0 }, "ナス": { shop: 0 },
     "トマト": { shop: 0 }, "レンコン": { shop: 0 }, "ジャガイモ": { shop: 0 }, "ピーマン": { shop: 0 },
-    "赤パプリカ": { shop: -1 }, "黄パプリカ": { shop: -1 }, "レーズン": { shop: 0 }, "玉ねぎ": { shop: 0 },
+    "レーズン": { shop: 0 }, "玉ねぎ": { shop: 0 },
     "にんじん": { shop: 0 }, "サバ": { shop: 0 }, "オクラ": { shop: 0 }, "大根": { shop: 0 },
     "マッシュルーム": { shop: 0 }, "ひよこ豆": { shop: 0 }, "金箔": { shop: -2 }, "チーズ": { shop: 0 },
     "イカ": { shop: 0 }, "小エビ": { shop: 0 }, "ホタテ": { shop: 1 }, "ツナ": { shop: 0 },
@@ -1442,12 +1442,6 @@ function populateTestQrItemSelect() {
         opt.value = name; opt.innerText = name;
         sel.appendChild(opt);
     });
-    // 特殊判定の赤・黄パプリカも選べるようにする
-    ["赤パプリカ（特殊）", "黄パプリカ（特殊）"].forEach(label => {
-        const opt = document.createElement('option');
-        opt.value = label; opt.innerText = label;
-        sel.appendChild(opt);
-    });
     // チェックボックス変更後も可能な限り選択中の項目を維持する
     if(prevValue && Array.from(sel.options).some(o => o.value === prevValue)) sel.value = prevValue;
 }
@@ -1473,20 +1467,13 @@ function actGenerateTestQr() {
     const selected = sel.value;
     if(!selected) return;
 
-    let qrText;
     let displayName = selected;
-    if(selected === "赤パプリカ（特殊）") {
-        qrText = 'TEST-pepper-red-' + Math.random().toString(36).slice(2, 8);
-        displayName = "赤パプリカ";
-    } else if(selected === "黄パプリカ（特殊）") {
-        qrText = 'TEST-pepper-yellow-' + Math.random().toString(36).slice(2, 8);
-        displayName = "黄パプリカ";
-    } else {
-        qrText = findQrTextForItem(selected);
-        if(!qrText) {
-            resultDiv.innerHTML = '<div style="color:#e74c3c;font-size:13px;">⚠️ QR文字列の生成に失敗しました。もう一度お試しください。</div>';
-            return;
-        }
+    // レア食材（赤パプリカ・黄パプリカ含む全種）は通常食材が当選した後に10%で変換される
+    // ランダム抽選のため、他のレア食材同様ここでは決定的に生成できない（テスト対象外）。
+    const qrText = findQrTextForItem(selected);
+    if(!qrText) {
+        resultDiv.innerHTML = '<div style="color:#e74c3c;font-size:13px;">⚠️ QR文字列の生成に失敗しました。もう一度お試しください。</div>';
+        return;
     }
 
     if(typeof QRCode === 'undefined') {
