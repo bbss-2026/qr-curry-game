@@ -4907,6 +4907,10 @@ window.__bbOnPrepEditorLoadClick = bbOnPrepEditorLoadClick;
 window.__bbOnTrapStartBattleClick = bbOnTrapStartBattleClick;
 window.openBoardBattle = bbOpen; // 将来、他の場所（正式な入り口ボタン等）から開けるように
 
+// 発見した特殊カレーレシピ／ストックカレーの詳細画面でボードカレーバトルの特技名を表示するための、
+// game.js側から呼び出せる公開フック（game.js側はこのIIFE内部のBB_SKILLS/bbGetSkillsForに直接アクセスできないため）。
+window.bbGetSkillsFor = bbGetSkillsFor;
+
 // board-battle.js自体は本編game.htmlの読み込み時に常に読み込まれるスクリプトなので、
 // ここで無条件に一度呼んでおくことで「異常終了（決闘中にページを閉じる／リロードする等）で
 // 一時カレー（__isBoardBattleTemp）がcurryStockに残ってしまう」問題を、
