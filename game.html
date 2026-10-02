@@ -1708,10 +1708,11 @@
             <button class="btn-cook-sub" style="flex:1;" onclick="applyRecommendedSet()">おすすめセット</button>
             <button class="btn-cook-sub" style="flex:0 0 70px;" onclick="showCookConditionModal()">条件選択</button>
         </div>
-        <div id="favRecipeArea" style="margin-bottom:8px; display:none;">
-            <select id="favRecipeSelect" class="fav-recipe-select" onchange="applyFavRecipe(this.value)">
+        <div id="favRecipeArea" style="display:none; gap:8px; margin-bottom:8px; align-items:stretch;">
+            <select id="favRecipeSelect" class="fav-recipe-select" style="flex:1; margin-bottom:0; width:auto;" onchange="applyFavRecipe(this.value)">
                 <option value="">⭐ お気に入りレシピから選択...</option>
             </select>
+            <button class="btn-cook-sub" style="flex:0 0 70px;" onclick="reapplyFavRecipe()">再選択</button>
         </div>
         <div style="display:flex; gap:8px; margin-bottom:12px; align-items:stretch;">
             <button class="btn btn-cook" onclick="checkCookStock()" style="margin-bottom:0; flex:1; padding:12px;">カレーを調理する</button>
@@ -2322,7 +2323,7 @@
         <div class="copyright-footer">©2026 Battle Curry All Rights Reserved.<br>QRコードは株式会社デンソーウェーブの登録商標です</div>
     </div>
 </div>
-<script src="game.js?v=150"></script>
+<script src="game.js?v=151"></script>
 <!-- 咖喱図書館（ストーリーモード）。図書館タブのボタン（openStoryLibrary()呼び出し）以外は
      game.html側を触る必要はない（詳細はstory.js冒頭コメント参照）。
      story-scripts.jsは各巻の本文データのみを持つファイル。本文の追加・修正はそちらの中身を
