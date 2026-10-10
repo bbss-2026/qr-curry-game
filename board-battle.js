@@ -651,7 +651,7 @@ function bbIsTerrainBlockedForNormalCurry(node) {
 // isWanpakuとは別の独立したフラグ）も同じく岩を砕ける。
 function bbCanBreakRock(unit) { return !!(unit.raw && (unit.raw.isWanpaku || unit.raw.isTonTonTon)); }
 function bbCanCrossWater(unit) { return !!(unit.raw && unit.raw.isSeafood); }
-function bbIsPoisonImmune(unit) { return !!(unit.raw && (unit.raw.isPoison || unit.raw.isPoisonApple)); }
+function bbIsPoisonImmune(unit) { return !!(unit.raw && (unit.raw.isPoison || unit.raw.isPoisonApple || unit.raw.spice === 'アジョワン')); } // アジョワン（スパイスマミー討伐限定）も毒マス無効
 // 種カレー（isSeed）：移動後、隣接に限らず直線3マス以内の敵駒1体を対象に「種発射」で
 // 攻撃できる（本編の対戦カットインは使わず、通常攻撃1回分のダメージだけをその場で与える）。
 function bbIsSeedShooter(unit) { return !!(unit.raw && unit.raw.isSeed); }
