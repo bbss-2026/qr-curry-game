@@ -77,6 +77,7 @@
         <button style="background:#e74c3c;" onclick="actCheckPassword()">🔒 パスワード確認</button>
         <button id="btnTimeSetting" style="background:#7f8c8d;" onclick="actSetTime()">⏰ 時間設定: OFF</button>
         <button id="btnDebugLog" style="background:#27ae60;" onclick="actToggleDebugLog()">📋 デバックログ: ON</button>
+        <button id="btnMammyIgnore" style="background:#7f8c8d;" onclick="actToggleMammyIgnore()">🍛 マミー討伐済み無効: OFF</button>
         <button id="btnQrIgnore" style="background:#27ae60;" onclick="actToggleQrIgnore()">🔓 QR使用済み無視: OFF</button>
         <button id="btnNewPlayerMode" style="background:#7f8c8d;" onclick="actToggleNewPlayerMode()">🆕 初期プレイヤー化: OFF</button>
         <button style="background:#2980b9;" onclick="actShowSyncErrors()">🔄 同期エラーログ</button>
@@ -929,6 +930,13 @@ function actSetTime() {
 
 // デバッグモード中に画面下部へ表示される同期ログ（JSエラー・クラウド同期状況等のdebugErrorPanel）
 // を非表示にできるようにするための設定。デフォルトはON（表示）。
+function actToggleMammyIgnore() {
+    const key = 'qr_debug_mammy_ignore_defeated';
+    const next = localStorage.getItem(key) !== '1';
+    localStorage.setItem(key, next ? '1' : '0');
+    updateButtonLabels();
+    showCustomAlert("✅ 設定完了", "スパイスマミー討伐済み無効を " + (next ? "ON（討伐済みでも再び挑戦できる）" : "OFF（通常どおり）") + " にしました。<br>※デバッグモードがONのときだけ有効です。ゲーム画面をリロードしてください。");
+}
 function actToggleDebugLog() {
     const key = 'qr_debug_log_hidden';
     const currentlyHidden = localStorage.getItem(key) === '1';
@@ -1384,6 +1392,12 @@ function updateButtonLabels() {
     btnTime.innerText = "⏰ 時間設定: " + (hasTimeOverride ? "ON" : "OFF");
     btnTime.style.background = hasTimeOverride ? "#e74c3c" : "#7f8c8d";
 
+    const btnMammy = document.getElementById('btnMammyIgnore');
+    if(btnMammy) {
+        const mi = localStorage.getItem('qr_debug_mammy_ignore_defeated') === '1';
+        btnMammy.innerText = "🍛 マミー討伐済み無効: " + (mi ? "ON" : "OFF");
+        btnMammy.style.background = mi ? "#e74c3c" : "#7f8c8d";
+    }
     const debugLogHidden = localStorage.getItem('qr_debug_log_hidden') === '1';
     const btnDebugLog = document.getElementById('btnDebugLog');
     if(btnDebugLog) {
