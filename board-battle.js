@@ -4839,8 +4839,10 @@ function bbInjectDom() {
 
     const launcherBtn = document.createElement('button');
     launcherBtn.id = 'bbLauncherBtn';
-    launcherBtn.textContent = '🎲 ボードバトル（開発中）';
-    launcherBtn.onclick = bbOpen;
+    // 開発中の入り口ボタン：当面は秋の味覚イベント「秋の味覚で満腹に！」の確認用に差し替え（ボードバトル自体はbbOpenのまま残してある。
+    // 元に戻すときは、下の2行を「ボードバトル（開発中）」／bbOpenに戻す）
+    launcherBtn.textContent = 'イベント（開発中）';
+    launcherBtn.onclick = function () { if (typeof window.openAutumnEvent === 'function') window.openAutumnEvent(); };
     document.body.appendChild(launcherBtn);
 
     // 本人のデバッグモードが有効な間だけ入り口ボタンを表示する（フェスデバッグパネルと同じ判定方法）。
