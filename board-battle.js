@@ -4836,21 +4836,6 @@ function bbInjectDom() {
             if (document.getElementById('bbRoot').style.display !== 'none' && bbState.phase !== 'prep') bbFitView();
         });
     }
-
-    const launcherBtn = document.createElement('button');
-    launcherBtn.id = 'bbLauncherBtn';
-    // 開発中の入り口ボタン：当面は秋の味覚イベント「秋の味覚で満腹に！」の確認用に差し替え（ボードバトル自体はbbOpenのまま残してある。
-    // 元に戻すときは、下の2行を「ボードバトル（開発中）」／bbOpenに戻す）
-    launcherBtn.textContent = 'イベント（開発中）';
-    launcherBtn.onclick = function () { if (typeof window.openAutumnEvent === 'function') window.openAutumnEvent(); };
-    document.body.appendChild(launcherBtn);
-
-    // 本人のデバッグモードが有効な間だけ入り口ボタンを表示する（フェスデバッグパネルと同じ判定方法）。
-    // isDebugModeはgame.js側の読み込み・Firebase同期タイミングに依存するため、ポーリングで反映する。
-    setInterval(function () {
-        const shouldShow = (typeof isDebugMode !== 'undefined' && !!isDebugMode);
-        launcherBtn.style.display = shouldShow ? 'flex' : 'none';
-    }, 1000);
 }
 
 // インラインonclick属性から呼べるよう、必要な関数だけを明示的にwindowへ公開する
