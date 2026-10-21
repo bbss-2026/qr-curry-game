@@ -71,6 +71,7 @@
         <button style="background:#1a6e3c;" onclick="actPlayerProgress()">🗺️ プレイヤー進行度</button>
         <button id="btnDebugMode" style="background:#7f8c8d;" onclick="actToggleDebugMode()">🐛 デバッグモード: OFF</button>
         <button id="btnAutumnToggle" style="background:#7f8c8d;" onclick="actAutumnToggle()">秋の味覚イベント: OFF</button>
+        <button style="background:#d35400;" onclick="actAutumnRecords()">秋の味覚 参加者の進行状況</button>
         <button id="btnEventToggle" style="background:#7f8c8d;" onclick="actEventToggle()">🦈 特盛りイベント: OFF</button>
         <button style="background:#8e44ad;" onclick="actEventDamage()">📊 イベント ダメージ集計</button>
         <button style="background:#16a085;" onclick="actEventSetHp()">🩹 モンスターHP変更</button>
@@ -890,6 +891,31 @@ function actExcludeKnownSuspiciousAccounts() {
     );
 }
 
+// 秋の味覚イベント：参加者ごとの記録一覧（総ダメージの多い順）
+function actAutumnRecords() {
+    if(!database) { showCustomAlert("❌ エラー", "通信に問題があります。"); return; }
+    database.ref('autumnRecords').once('value').then(function(snap) {
+        const data = snap.val() || {};
+        const list = Object.keys(data).map(function(pid) { const v = data[pid] || {}; v.pid = pid; return v; });
+        if(list.length === 0) { showCustomAlert('秋の味覚 参加者の進行状況', '記録はまだありません。'); return; }
+        list.sort(function(a, b) { return (b.td || 0) - (a.td || 0); });
+        const esc = function(t) { return String(t == null ? '' : t).replace(/[&<>"]/g, function(c) { return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); };
+        const BOSS_HP = 50000;
+        let rows = '';
+        list.forEach(function(v) {
+            const hpText = (v.hp > 0 ? Number(v.hp).toLocaleString('ja-JP') : BOSS_HP.toLocaleString('ja-JP')) + ' / ' + BOSS_HP.toLocaleString('ja-JP');
+            rows += '<div style="border:1px solid #d35400;border-radius:6px;padding:8px;margin-bottom:6px;background:#fff8f0;text-align:left;font-size:12px;color:#420000;line-height:1.6;">'
+                + '<div style="font-weight:bold;">' + esc(v.name || '(不明)') + ' <span style="font-weight:normal;color:#888;font-size:10px;">' + esc(v.pid) + '</span></div>'
+                + '総ダメージ: ' + Number(v.td || 0).toLocaleString('ja-JP') + '　最高1撃: ' + Number(v.mh || 0).toLocaleString('ja-JP') + '<br>'
+                + '討伐回数: ' + (v.cr || 0) + '回　QR入手の旬食材: ' + (v.qg || 0) + '個<br>'
+                + 'ボス残りHP: ' + hpText + '<br>'
+                + '強化段階　ダメージ倍率: ' + (v.dl || 0) + ' / 入手確率: ' + (v.pl || 0) + ' / 入手個数: ' + (v.cl || 0) + ' / SpicyHit率: ' + (v.sl || 0)
+                + '<div style="font-size:10px;color:#999;">更新: ' + (v.at ? new Date(v.at).toLocaleString('ja-JP') : '不明') + '</div>'
+                + '</div>';
+        });
+        showCustomAlert('秋の味覚 参加者の進行状況（' + list.length + '人・総ダメージ順）', '<div style="max-height:65vh;overflow-y:auto;">' + rows + '</div><div style="font-size:10px;color:#888;margin-top:6px;">※プレイヤー側の記録の写しです。バトル・強化・QR入手のたびに更新されます。</div>');
+    }).catch(function(e) { showCustomAlert("❌ エラー", "取得に失敗しました: " + e.message); });
+}
 function actAutumnToggle() {
     if(!database) { showCustomAlert("❌ エラー", "通信に問題があります。"); return; }
     autumnEnabled = !autumnEnabled;
