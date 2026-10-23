@@ -171,6 +171,16 @@
            （#postToastのz-index:100000）より大きい値で明示的に上書きする。 */
         #tosViewerOverlay { z-index: 200000; }
 
+        /* 起動時のお知らせ（パスワード使い回し注意）：確認ボタンを押すまで他の操作を一切不可にする */
+        #pwNoticeOverlay {
+            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; height: 100dvh;
+            background: rgba(0,0,0,0.75); z-index: 1000000; align-items: center; justify-content: center; padding: 16px; box-sizing: border-box;
+        }
+        #pwNoticeOverlay.active { display: flex; }
+        .pw-notice-box { background: #efdeb1; color: #420000; border: 3px solid #b88742; border-radius: 10px; width: 100%; max-width: 440px; max-height: 90vh; display: flex; flex-direction: column; box-sizing: border-box; }
+        .pw-notice-title { padding: 14px 14px 8px; font-size: 16px; font-weight: bold; text-align: center; }
+        .pw-notice-body { padding: 4px 16px 10px; font-size: 13px; line-height: 1.8; overflow-y: auto; text-align: left; }
+        .pw-notice-footer { padding: 10px 14px 14px; border-top: 1px solid rgba(66,0,0,0.2); }
         /* 利用規約 同意ゲート（未同意の全プレイヤーを完全にブロックする最優先オーバーレイ） */
         #tosGateOverlay {
             display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; height: 100dvh;
@@ -1072,6 +1082,25 @@
 <div id="gameWrapper">
 <div id="postToast" style="display:none; position:fixed; top:0; left:50%; transform:translateX(-50%); z-index:100000; background:#420000; color:#efdeb1; padding:10px 18px; border-radius:0 0 10px 10px; font-size:13px; font-weight:bold; box-shadow:0 4px 10px rgba(0,0,0,0.3); cursor:pointer; max-width:90vw; text-align:center; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" onclick="onPostToastClick()">
     <span id="postToastIcon" style="margin-right:6px;">📩</span><span id="postToastText"></span>
+</div>
+<!-- 起動時のお知らせ（パスワード使い回し注意）。「確認しました」を押すまで閉じられず、背面の操作はできない。 -->
+<div id="pwNoticeOverlay">
+    <div class="pw-notice-box">
+        <div class="pw-notice-title">【パスワードの使い回しにご注意ください】</div>
+        <div class="pw-notice-body">
+            昨今、世の中では不正アクセスや情報漏洩のニュースが増えております。<br><br>
+            バトルカレーでパスワードを設定されている方で、他のサービスと同じパスワードを使用している、または類似していて推測されやすいという心当たりがある場合は、お早めの変更をお願いいたします。<br><br>
+            プレイヤーIDやパスワードの管理は、利用規約に記載のとおり、ご自身でお願いしております。万が一の際も、運営は責任を負うことは出来かねます。あらかじめご了承ください。<br><br>
+            利用規約は、トップ画面とプレイヤータブの「システム・設定」からいつでも確認できます。
+        </div>
+        <div class="pw-notice-footer">
+            <label class="tos-gate-check-row" style="color:#420000;">
+                <input type="checkbox" id="pwNoticeHideToday">
+                今日は表示しない
+            </label>
+            <button class="tos-gate-agree-btn" onclick="closePasswordNotice()">確認しました</button>
+        </div>
+    </div>
 </div>
 <!-- 利用規約 初回同意ゲート：未同意の利用者（既存・新規問わず）に対し、同意するまでゲーム操作を一切不可にする最優先オーバーレイ。
      閉じるボタンは意図的に設置していない（agreeTos()でチェックボックスON時のみ閉じられる）。 -->
@@ -2344,7 +2373,7 @@
         <div class="copyright-footer">©2026 Battle Curry All Rights Reserved.<br>QRコードは株式会社デンソーウェーブの登録商標です</div>
     </div>
 </div>
-<script src="game.js?v=167"></script>
+<script src="game.js?v=168"></script>
 <!-- 咖喱図書館（ストーリーモード）。図書館タブのボタン（openStoryLibrary()呼び出し）以外は
      game.html側を触る必要はない（詳細はstory.js冒頭コメント参照）。
      story-scripts.jsは各巻の本文データのみを持つファイル。本文の追加・修正はそちらの中身を
