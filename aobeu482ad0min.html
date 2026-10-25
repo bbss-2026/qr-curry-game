@@ -83,6 +83,7 @@
         <button id="btnQrIgnore" style="background:#27ae60;" onclick="actToggleQrIgnore()">🔓 QR使用済み無視: OFF</button>
         <button id="btnNewPlayerMode" style="background:#7f8c8d;" onclick="actToggleNewPlayerMode()">🆕 初期プレイヤー化: OFF</button>
         <button style="background:#2980b9;" onclick="actShowSyncErrors()">🔄 同期エラーログ</button>
+        <button style="background:#c0392b;" onclick="actCleanupSyncErrors()">🧹 同期エラーログ整理（古いものを削除）</button>
         <button style="background:#922b21;" onclick="actShowFraudAlerts()">🚩 不正検知アラート</button>
         <button style="background:#7f8c8d;" onclick="actResetSyncSeal()">🔧 syncSeal/scanSealリセット（1人）</button>
         <button style="background:#c0392b;" onclick="actDebugModeReleaseAll()">🔓 デバッグモード全解除</button>
@@ -570,6 +571,41 @@ function classifySyncEntry(e, siblings) {
 // 他のプレイヤーの本当に確認すべきエラーが後ろに流れて見落とされる問題があったため、
 // 取得件数を増やしたうえでプレイヤーごとにグループ化し、1人あたりの表示件数に上限を設ける。
 // 表示順はグループ（プレイヤー）ごとに、そのプレイヤーの最新エラー時刻が新しい順。
+// 同期エラーログの整理：3日より古いログを、古い順に1000件ずつ分割して削除する（Firebaseの容量節約用）。
+// 一度に巨大なノードを消すとタイムアウトするため分割している。削除したログは元に戻せないため確認を挟む。
+function actCleanupSyncErrors() {
+    if (!database) { showCustomAlert("❌ エラー", "通信に問題があります。"); return; }
+    showCustomConfirm("🧹 同期エラーログ整理",
+        "3日より古い同期エラーログを削除します（直近3日分は残ります）。<br>件数が多いと数分かかります。実行中は画面を閉じないでください。<br><b>削除したログは元に戻せません。</b>",
+        function() {
+            const cutoff = Date.now() - 3 * 24 * 60 * 60 * 1000;
+            let removed = 0;
+            showCustomAlert("🧹 削除中...", "削除を開始しました。");
+            function step() {
+                database.ref('syncErrors').orderByKey().limitToFirst(1000).once('value').then(function(snap) {
+                    const data = snap.val() || {};
+                    const keys = Object.keys(data).filter(function(k) { const v = data[k] || {}; return !(v.timestamp > cutoff); });
+                    if (keys.length === 0) {
+                        showCustomAlert("✅ 完了", "同期エラーログを " + removed.toLocaleString('ja-JP') + " 件削除しました。<br>※Firebaseコンソールの使用量表示に反映されるまで少し時間がかかります。");
+                        return;
+                    }
+                    const upd = {}; keys.forEach(function(k) { upd[k] = null; });
+                    return database.ref('syncErrors').update(upd).then(function() {
+                        removed += keys.length;
+                        showCustomAlert("🧹 削除中...", removed.toLocaleString('ja-JP') + " 件削除しました。続行中...");
+                        if (keys.length < Object.keys(data).length) {
+                            showCustomAlert("✅ 完了", "同期エラーログを " + removed.toLocaleString('ja-JP') + " 件削除しました。");
+                            return;
+                        }
+                        setTimeout(step, 50);
+                    });
+                }).catch(function(e) {
+                    showCustomAlert("❌ エラー", "途中で失敗しました（" + removed.toLocaleString('ja-JP') + " 件削除済み）: " + e.message + "<br>もう一度ボタンを押すと続きから削除します。");
+                });
+            }
+            step();
+        }, null, '削除する');
+}
 function actShowSyncErrors() {
     if (!database) { showCustomAlert("❌ エラー", "通信に問題があります。"); return; }
     showCustomAlert("🔄 読み込み中...", "同期エラーログを取得しています。");
