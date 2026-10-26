@@ -945,6 +945,7 @@ function actAutumnRecords() {
                 + '総ダメージ: ' + Number(v.td || 0).toLocaleString('ja-JP') + '　最高1撃: ' + Number(v.mh || 0).toLocaleString('ja-JP') + '<br>'
                 + '討伐回数: ' + (v.cr || 0) + '回　QR入手の旬食材: ' + (v.qg || 0) + '個<br>'
                 + 'ボス残りHP: ' + hpText + '<br>'
+                + 'ミッション受取: ' + (function(m){var n=0;for(var i=0;i<5;i++){if((m>>i)&1)n++;}return n;})(v.ms||0) + ' / 5件<br>'
                 + '強化段階　ダメージ倍率: ' + (v.dl || 0) + ' / 入手確率: ' + (v.pl || 0) + ' / 入手個数: ' + (v.cl || 0) + ' / SpicyHit率: ' + (v.sl || 0)
                 + '<div style="font-size:10px;color:#999;">更新: ' + (v.at ? new Date(v.at).toLocaleString('ja-JP') : '不明') + '</div>'
                 + '</div>';
