@@ -758,7 +758,7 @@ function actShowFraudAlerts() {
         }
         // reasonは'economy'/'scanHistory'/'fest'/'cook'をカンマ区切りで組み合わせた文字列（例:'economy,fest'）。
         // 過去に書き込まれた古い形式（'both'）とも互換性を持たせて表示する。
-        const reasonLabel = { economy: '💰 経済値(syncSeal)', scanHistory: '📷 スキャン履歴(scanSeal)', fest: '🏆 フェス自己ベスト(festSeal)', cook: '🍛 調理回数(cookSeal)', cookTooFew: '🍛 食材不足で調理を試行', autumnTamper: '🍂 秋の味覚イベント記録の改ざん', qrIgnoreUsed: '🔓 QR使用済み無視で読み取り', badCurryStock: '⚠️ ストックにステータス0のカレー', overCurryStock: '⚠️ ストックに上限超えのカレー', badDeliverySet: '🚚 ありえない値のカレーを宅配設定', badDeliveryPublish: '🚚 ありえない値のカレーを宅配公開', badDeliveryFound: '🚚 他人の宅配にありえない値のカレー', both: '💰📷 経済値+スキャン履歴' };
+        const reasonLabel = { economy: '💰 経済値(syncSeal)', scanHistory: '📷 スキャン履歴(scanSeal)', fest: '🏆 フェス自己ベスト(festSeal)', cook: '🍛 調理回数(cookSeal)', cookTooFew: '🍛 食材不足で調理を試行', autumnTamper: '🍂 秋の味覚イベント記録の改ざん', qrIgnoreUsed: '🔓 QR使用済み無視で読み取り', qrDailyCapHit: '📷 QR読み取りの1日上限に到達', badCurryStock: '⚠️ ストックにステータス0のカレー', overCurryStock: '⚠️ ストックに上限超えのカレー', badDeliverySet: '🚚 ありえない値のカレーを宅配設定', badDeliveryPublish: '🚚 ありえない値のカレーを宅配公開', badDeliveryFound: '🚚 他人の宅配にありえない値のカレー', both: '💰📷 経済値+スキャン履歴' };
         let rows = '';
         entries.slice(0, 100).forEach(function(e) {
             const dateStr = e.detectedAt ? new Date(e.detectedAt).toLocaleString('ja-JP') : '不明';
@@ -767,6 +767,7 @@ function actShowFraudAlerts() {
                 + '<div style="font-size:12px;font-weight:bold;color:#922b21;">ID: ' + e.playerId + '</div>'
                 + '<div style="font-size:12px;color:#420000;margin-top:2px;">名前: ' + (e.name || '(不明)') + '</div>'
                 + '<div style="font-size:11px;color:#7d1f1f;margin-top:2px;">検知理由: ' + reasonText + '</div>'
+                + (e.detail ? '<div style="font-size:11px;color:#420000;margin-top:2px;word-break:break-all;">詳細: ' + String(e.detail).replace(/</g, '&lt;') + '</div>' : '')
                 + '<div style="font-size:10px;color:#999;margin-top:2px;">' + dateStr + '</div>'
                 + '</div>';
         });
