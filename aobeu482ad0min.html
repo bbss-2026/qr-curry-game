@@ -88,6 +88,7 @@
         <button style="background:#7f8c8d;" onclick="actResetSyncSeal()">🔧 syncSeal/scanSealリセット（1人）</button>
         <button style="background:#c0392b;" onclick="actDebugModeReleaseAll()">🔓 デバッグモード全解除</button>
         <button style="background:#16a085;" onclick="actResetPlayerUidClaim()">🔓 UID紐付けをリセット（1人）</button>
+        <button style="background:#d35400;" onclick="actResetQrDailyCount()">📷 QR読み取り回数をリセット（1人）</button>
         <button id="btnOmikujiCheck" style="background:#e74c3c;" onclick="actToggleOmikujiCheck()">🔮 おみくじ完了チェック: OFF</button>
         <button style="background:#e67e22;" onclick="actToggleAnalyticsExclusion()">🚫 アナリティクス除外設定</button>
         <button style="background:#c0392b;" onclick="actExcludeKnownSuspiciousAccounts()">🚫 不正疑い3キャラを除外</button>
@@ -819,6 +820,23 @@ function actResetSyncSeal() {
 // クラウド同期（savedataの書き込み）が失敗し続けているプレイヤーを救済する。
 // uidフィールドを削除し「未claim」状態に戻すことで、次回そのIDでアクセスした端末が
 // （新しいUIDのまま）改めて所有権を確定でき、以降は正常に同期できるようになる。
+// 指定プレイヤーの「本日のQR読み取り回数」を0に戻す依頼を出す。回数は各自の端末内に保存されているため、
+// players/<ID>/qrCountResetAt に時刻を書き込み、本人が次にゲームを開いた時（または上限メッセージ表示時）に端末側で0へ戻す。
+function actResetQrDailyCount() {
+    if (!database) { showCustomAlert("❌ エラー", "通信に問題があります。"); return; }
+    const targetId = prompt("📷 QR読み取り回数（本日分）を0に戻すプレイヤーのIDを入力してください（例: BC-XXXXXXXX）");
+    if (!targetId) return;
+    database.ref('players/' + targetId + '/name').once('value').then(function(snap) {
+        if (!snap.exists()) { showCustomAlert("❌ エラー", "そのIDのプレイヤーは見つかりません。"); return; }
+        showCustomConfirm('📷 QR読み取り回数をリセット',
+            'ID: ' + targetId + '（' + snap.val() + '）<br>本日のQR読み取り回数を0に戻します。<br>本人が最新のゲームを開き直した時に反映されます。',
+            function() {
+                database.ref('players/' + targetId + '/qrCountResetAt').set(Date.now()).then(function() {
+                    showCustomAlert('✅ 依頼完了', 'ID: ' + targetId + ' のリセットを依頼しました。<br>本人にゲーム画面を開き直してもらってください。');
+                }).catch(function(e) { showCustomAlert('❌ エラー', '失敗しました: ' + e.message); });
+            }, null, 'リセットする');
+    }).catch(function(e) { showCustomAlert("❌ エラー", "取得に失敗しました: " + e.message); });
+}
 function actResetPlayerUidClaim() {
     if (!database) { showCustomAlert("❌ エラー", "通信に問題があります。"); return; }
     const targetId = prompt("🔓 UID紐付けをリセットするプレイヤーのIDを入力してください（例: BC-XXXXXXXX）\n\n※本人が今使っている端末で該当ゲーム画面を開き直すと、そのタイミングで自動的に再紐付けされます。");
