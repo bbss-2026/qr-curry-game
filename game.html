@@ -683,6 +683,10 @@
         @keyframes pineGlow { 0%,100% { box-shadow: 0 0 5px #f0932b; } 50% { box-shadow: 0 0 20px #f9ca24, 0 0 30px #f0932b; } }
         .keemamush-box { animation: keemamushGlow 1.5s infinite; border: 3px solid #8e5a3c !important; }
         @keyframes keemamushGlow { 0%,100% { box-shadow: 0 0 5px #8e5a3c; } 50% { box-shadow: 0 0 20px #c9a27a, 0 0 30px #8e5a3c; } }
+        .oden-box { animation: odenGlow 1.5s infinite; border: 3px solid #d35400 !important; }
+        @keyframes odenGlow { 0%,100% { box-shadow: 0 0 5px #d35400; } 50% { box-shadow: 0 0 20px #f5b041, 0 0 30px #d35400; } }
+        .ninniku-box { animation: ninnikuGlow 1.5s infinite; border: 3px solid #b7950b !important; }
+        @keyframes ninnikuGlow { 0%,100% { box-shadow: 0 0 5px #b7950b; } 50% { box-shadow: 0 0 20px #f7dc6f, 0 0 30px #b7950b; } }
         @keyframes resultPop {
             0% { transform: scale(0.3); opacity: 0; }
             60% { transform: scale(1.2); opacity: 1; }
@@ -1794,6 +1798,8 @@
             <div id="hamburgFlashText" style="color:#a0522d; font-weight:bold; font-size:16px; display:none;">🟤 叫べ！ハンバーグ！肉汁ジュワッと弾ける！ 🟤</div>
             <div id="pineFlashText" style="color:#f0932b; font-weight:bold; font-size:16px; display:none;">🍍 パイナップル論争、再燃！ 🍍</div>
             <div id="keemamushFlashText" style="color:#8e5a3c; font-weight:bold; font-size:16px; display:none;">🍄‍🟫 キーマにキノコ！ぷにぷに胞子が舞う！ 🍄‍🟫</div>
+            <div id="odenFlashText" style="color:#d35400; font-weight:bold; font-size:16px; display:none;">🍢 熱々の伝統芸！湯気が立ちのぼる！ 🍢</div>
+            <div id="ninnikuFlashText" style="color:#b7950b; font-weight:bold; font-size:16px; display:none;">🧄 スタミナ口臭パワー！HPがみなぎる！ 🧄</div>
             <img id="curryVisualImg" src="" alt="" style="display:none; width:140px; height:140px; object-fit:contain; margin:0 auto 6px;">
             <div id="cookResultIcons" style="display:flex; flex-wrap:wrap; justify-content:center; gap:4px; margin-bottom:8px;"></div>
             <div style="font-size:18px; font-weight:bold; color:#c0392b; margin-bottom:10px;" id="curryName">未調理 of カレー</div>
@@ -1959,6 +1965,8 @@
                 <div id="festHamburgFlashText" style="color:#a0522d; font-weight:bold; font-size:16px; display:none;">🟤 叫べ！ハンバーグ！肉汁ジュワッと弾ける！ 🟤</div>
                 <div id="festPineFlashText" style="color:#f0932b; font-weight:bold; font-size:16px; display:none;">🍍 パイナップル論争、再燃！ 🍍</div>
                 <div id="festKeemamushFlashText" style="color:#8e5a3c; font-weight:bold; font-size:16px; display:none;">🍄‍🟫 キーマにキノコ！ぷにぷに胞子が舞う！ 🍄‍🟫</div>
+                <div id="festOdenFlashText" style="color:#d35400; font-weight:bold; font-size:16px; display:none;">🍢 熱々の伝統芸！湯気が立ちのぼる！ 🍢</div>
+                <div id="festNinnikuFlashText" style="color:#b7950b; font-weight:bold; font-size:16px; display:none;">🧄 スタミナ口臭パワー！HPがみなぎる！ 🧄</div>
                 <img id="festCurryVisualImg" src="" alt="" style="display:none; width:140px; height:140px; object-fit:contain; margin:0 auto 6px;">
                 <div id="festCookResultIcons" style="display:flex; flex-wrap:wrap; justify-content:center; gap:4px; margin-bottom:8px;"></div>
                 <div style="font-size:18px; font-weight:bold; color:#ff998b; margin-bottom:10px;" id="festCurryName">未調理 of カレー</div>
@@ -2377,7 +2385,7 @@
         <div class="copyright-footer">©2026 Battle Curry All Rights Reserved.<br>QRコードは株式会社デンソーウェーブの登録商標です</div>
     </div>
 </div>
-<script src="game.js?v=182"></script>
+<script src="game.js?v=183"></script>
 <!-- 咖喱図書館（ストーリーモード）。図書館タブのボタン（openStoryLibrary()呼び出し）以外は
      game.html側を触る必要はない（詳細はstory.js冒頭コメント参照）。
      story-scripts.jsは各巻の本文データのみを持つファイル。本文の追加・修正はそちらの中身を
